@@ -1,64 +1,71 @@
 // ============================================================================
 // ABDAxionikVS — DspEngineFacade.h
-// Fachada desacoplada del motor DSP (C++20 puro, ZERO dependencias de JUCE)
-// Compartida 1:1 entre el plugin nativo y WebAssembly
+// Fachada desacoplada del motor DSP de ABDAxionikVS (JUCE-free, C++20)
+// Integra SndDatStore, ParameterEngineBridge, NeuronBankAdapter y Translator
 // ============================================================================
 
 #pragma once
 
+#include <cstdint>
+#include <cstddef>
+#include <memory>
+#include <filesystem>
 #include "DspTypes.h"
-#include "../Generated/ParameterRegistry.gen.h"
-#include "../Generated/Conversion.gen.h"
-#include <array>
-#include <atomic>
+#include "State/SndDatStore.h"
+#include "ParameterEngineBridge.h"
+#include "NeuronBankAdapter.h"
 
 namespace abd::axionik {
 
 class DspEngineFacade {
 public:
-    DspEngineFacade() noexcept;
-    ~DspEngineFacade() noexcept = default;
+    DspEngineFacade();
+    ~DspEngineFacade();
 
-    // Prohibir copias
+    // No copiable ni asignable
     DspEngineFacade(const DspEngineFacade&) = delete;
     DspEngineFacade& operator=(const DspEngineFacade&) = delete;
 
-    void prepare(double sampleRate, size_t maxBlockSize) noexcept;
-    void reset() noexcept;
+    /// Inicialización y configuración de frecuencia de muestreo
+    void prepare(double sampleRate, size_t maxBlockSize);
 
-    // Procesamiento en tiempo real (seguridad estricta: cero allocs, cero locks)
-    void process(float* outL, float* outR, size_t numSamples) noexcept;
+    /// Reinicio del estado interno y silenciamiento de voces
+    void reset();
 
-    void noteOn(uint8_t note, float velocity) noexcept;
-    void noteOff(uint8_t note) noexcept;
-    void allNotesOff() noexcept;
+    /// Notificación de eventos MIDI
+    void noteOn(uint8_t note, float velocity);
+    void noteOff(uint8_t note);
+    void allNotesOff();
 
-    void setParam(uint32_t index, float rawValue) noexcept;
-    void setParamNormalized(uint32_t index, float normValue) noexcept;
-    float getParam(uint32_t index) const noexcept;
+    /// Actualización de parámetros de síntesis
+    void setParam(uint32_t index, float rawValue);
+    void setParamNormalized(uint32_t index, float normalizedValue);
 
-    void setRunMode(EngineRunMode mode) noexcept { runMode_ = mode; }
-    EngineRunMode getRunMode() const noexcept { return runMode_; }
+    /// Carga de modelos para R1 (slot 0) o R2 (slot 1)
+    bool loadModel(int slot, const std::filesystem::path& modelFolder);
 
-    void setClipMode(OutputClipMode mode) noexcept { clipMode_ = mode; }
-    OutputClipMode getClipMode() const noexcept { return clipMode_; }
+    /// Procesamiento de un bloque de audio estéreo
+    void process(float* leftChannel, float* rightChannel, size_t numSamples);
 
-    Telemetry getTelemetry() const noexcept;
+    /// Telemetría y diagnóstico para la WebUI / Host
+    [[nodiscard]] Telemetry getTelemetry() const noexcept;
+
+    /// Acceso al almacén de configuración de 445 parámetros
+    [[nodiscard]] SndDatStore& getStore() noexcept { return store_; }
+    [[nodiscard]] const SndDatStore& getStore() const noexcept { return store_; }
+
+    /// Acceso al adaptador de banco de modelos
+    [[nodiscard]] NeuronBankAdapter& getBankAdapter() noexcept { return bankAdapter_; }
 
 private:
     double sampleRate_{44100.0};
-    double srScale_{1.0};
     size_t maxBlockSize_{512};
-    EngineRunMode runMode_{EngineRunMode::EnhancedMode};
-    OutputClipMode clipMode_{OutputClipMode::CleanClamp};
+    uint32_t activeVoices_{0};
+    float cpuUsage_{0.0f};
 
-    // Almacen plano de los 445 parametros crudos (snddat)
-    std::array<float, kNumTotalParameters> rawParams_{};
-
-    // Telemetria atomica para UI
-    std::atomic<uint32_t> activeVoiceCount_{0};
-    std::atomic<float> peakL_{0.0f};
-    std::atomic<float> peakR_{0.0f};
+    SndDatStore store_;
+    std::unique_ptr<ParameterEngineBridge> bridge_;
+    NeuronBankAdapter bankAdapter_;
 };
 
 } // namespace abd::axionik
