@@ -104,6 +104,17 @@ public:
         return (slot == 0) ? r1Model_.get() : r2Model_.get();
     }
 
+    [[nodiscard]] const ModelZoneRecord& getZone(int slot, uint8_t key) const noexcept {
+        static const ModelZoneRecord kDefaultZone{
+            0, 127, 60, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 1.0f, 0.0f
+        };
+        const auto* m = getModel(slot);
+        if (m && key < 128) {
+            return m->getKeyZones()[key];
+        }
+        return kDefaultZone;
+    }
+
 private:
     std::unique_ptr<NeuronModel> r1Model_;
     std::unique_ptr<NeuronModel> r2Model_;

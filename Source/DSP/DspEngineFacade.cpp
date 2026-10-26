@@ -20,24 +20,30 @@ DspEngineFacade::~DspEngineFacade() = default;
 void DspEngineFacade::prepare(double sampleRate, size_t maxBlockSize) {
     sampleRate_ = sampleRate > 0.0 ? sampleRate : 44100.0;
     maxBlockSize_ = maxBlockSize > 0 ? maxBlockSize : 512;
+    voicePool_.setSampleRate(sampleRate_);
+    blockRenderer_.prepare(sampleRate_, maxBlockSize_);
 }
 
 void DspEngineFacade::reset() {
+    voicePool_.reset();
+    blockRenderer_.reset();
     activeVoices_ = 0;
 }
 
 void DspEngineFacade::noteOn(uint8_t note, float velocity) {
-    (void)note;
-    (void)velocity;
-    activeVoices_ = std::min(activeVoices_ + 1, 12u);
+    const auto& r1Zone = bankAdapter_.getZone(0, note);
+    const auto& r2Zone = bankAdapter_.getZone(1, note);
+    voicePool_.noteOn(note, velocity, r1Zone, r2Zone, 1.0f);
+    activeVoices_ = voicePool_.getActiveVoiceCount();
 }
 
 void DspEngineFacade::noteOff(uint8_t note) {
-    (void)note;
-    if (activeVoices_ > 0) --activeVoices_;
+    voicePool_.noteOff(note);
+    activeVoices_ = voicePool_.getActiveVoiceCount();
 }
 
 void DspEngineFacade::allNotesOff() {
+    voicePool_.allNotesOff();
     activeVoices_ = 0;
 }
 
@@ -55,15 +61,28 @@ bool DspEngineFacade::loadModel(int slot, const std::filesystem::path& modelFold
 }
 
 void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t numSamples) {
-    if (leftChannel == nullptr) return;
+    if (leftChannel == nullptr || numSamples == 0) return;
 
-    // Silencio mientras se integran las 87 funciones del render
-    std::fill_n(leftChannel, numSamples, 0.0f);
-    if (rightChannel != nullptr && rightChannel != leftChannel) {
-        std::fill_n(rightChannel, numSamples, 0.0f);
-    }
+    // 1. Obtener parámetros del store
+    // BlenderAmount (p[262]): rango -64..63 -> normalizado 0..1
+    float blenderRaw = store_.getRawValue(262);
+    float blenderNorm = std::clamp((blenderRaw + 64.0f) / 127.0f, 0.0f, 1.0f);
 
-    cpuUsage_ = 0.005f;
+    // FilterFreq (p[274]): rango 0..127 -> mapeo exponencial de corte (40 Hz .. 18 kHz)
+    float filterRaw = store_.getRawValue(274);
+    float cutoffHz = 40.0f * std::pow(450.0f, std::clamp(filterRaw / 127.0f, 0.0f, 1.0f));
+
+    // FilterReso (p[275]): rango 0..127 -> 0..0.95
+    float resoRaw = store_.getRawValue(275);
+    float resonance = std::clamp(resoRaw / 135.0f, 0.0f, 0.95f);
+
+    // 2. Renderizar a través del orquestador de bloques de 128 muestras (FUN_100382b0)
+    blockRenderer_.process(leftChannel, rightChannel, numSamples,
+                          voicePool_, blenderNorm, cutoffHz, resonance, 0.80f);
+
+    // 3. Telemetría
+    activeVoices_ = voicePool_.getActiveVoiceCount();
+    cpuUsage_ = activeVoices_ > 0 ? (0.015f * static_cast<float>(activeVoices_)) : 0.002f;
 }
 
 Telemetry DspEngineFacade::getTelemetry() const noexcept {

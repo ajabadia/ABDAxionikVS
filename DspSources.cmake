@@ -14,4 +14,5 @@ set(AXIONIK_DSP_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/Source/DSP/Translator.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/Source/DSP/TranslatorHooks.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/Source/DSP/ParameterEngineBridge.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/Source/DSP/BlockRenderer.cpp"
 )

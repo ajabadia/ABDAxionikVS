@@ -14,6 +14,8 @@
 #include "State/SndDatStore.h"
 #include "ParameterEngineBridge.h"
 #include "NeuronBankAdapter.h"
+#include "VoicePool.h"
+#include "BlockRenderer.h"
 
 namespace abd::axionik {
 
@@ -66,6 +68,8 @@ private:
     SndDatStore store_;
     std::unique_ptr<ParameterEngineBridge> bridge_;
     NeuronBankAdapter bankAdapter_;
+    VoicePool voicePool_;
+    BlockRenderer blockRenderer_;
 };
 
 } // namespace abd::axionik
