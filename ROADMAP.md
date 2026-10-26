@@ -276,26 +276,33 @@ Las 87 funciones alcanzables desde `FUN_100382b0` (sin ninguna llamada indirecta
        - En `ABDAxionikVS`, `SilverStage` y `MasterFxStage` serán **shims ligeros de producto** (idénticos en filosofía a `ABDMS2000/Source/DSP/Effects/Equalizer.h` y `ModFX.h`) que traducen las unidades del Neuron al motor compartido.
        - Esto garantiza que todos los efectos del Neuron puedan usarse en otros proyectos actuales y futuros de `ABDSynths`, y que en la versión expandida de `ABDAxionikVS` podamos montar cualquiera de los **+60 efectos** del catálogo `ABDShared::DspEffects`.
    - **`ABDShared::SynthCore` (`namespace abd::synth`) — Matriz Aséptica `ModMatrix.h`**:
-     - `AudioThreadSnapshot`, `VoiceAllocator` y **`ModMatrixT<kNumSlots, kZeroIdInert>`** (`ModRoute`, `ModDestinationDescriptor`).
-     - La matriz **`Free Controllers` (`[363..410]`, 6 fuentes × 4 destinos = 24 rutas) + Macros de Ejecución (`[413..424]`, 6 rutas)** se integrará sobre `ABDShared::SynthCore::ModMatrixT` y `ABDShared/Components/modMatrix.js` + `ABDShared/Contracts/abdaxionikvs_modulation_matrix.json`, manteniendo la regla de oro de `ABDShared`: **el motor y la vista son 100 % asépticos (índices opacos sin vocabulario de producto)** y la tabla declarativa aporta los nombres, rangos y categorías.
-   - **`ABDShared::HardwareDrivers` (`namespace abd::hw`)**: `SysExCodec` y `NRPNParser` para el motor MIDI/NRPN/SysEx.
-   - **`ABDShared::WebView2Bridge`**: `JuceWebView2Component` y `WebView2ResourceProvider` para servir `WebUI/dist/` embebido y la sonda al servidor Vite en Debug.
-   - **`ABDShared::AudioComparator`**: Motor de comparación acústica A/B para las pruebas de certificación contra los WAV áureos de `NeuronVS.dll`.
-   - **`ABDShared::BankManagerCore` (`ABDBankManager`)**: Gestión de librerías, bancos y presets integrada en el plugin.
+      - `AudioThreadSnapshot`, `VoiceAllocator` y **`ModMatrixT<kNumSlots, kZeroIdInert>`** (`ModRoute`, `ModDestinationDescriptor`).
+      - La matriz **`Free Controllers` (`[363..410]`, 6 fuentes × 4 destinos = 24 rutas) + Macros de Ejecución (`[413..424]`, 6 rutas)** se integrará sobre `ABDShared::SynthCore::ModMatrixT` y `ABDShared/Components/modMatrix.js` + `ABDShared/Contracts/abdaxionikvs_modulation_matrix.json`, manteniendo la regla de oro de `ABDShared`: **el motor y la vista son 100 % asépticos (índices opacos sin vocabulario de producto)** y la tabla declarativa aporta los nombres, rangos y categorías.
+    - **`ABDShared::HardwareDrivers` (`namespace abd::hw`)**: `SysExCodec` y `NRPNParser` para el motor MIDI/NRPN/SysEx.
+    - **`ABDShared::WebView2Bridge`**: `JuceWebView2Component` y `WebView2ResourceProvider` para servir `WebUI/dist/` embebido y la sonda al servidor Vite en Debug.
+    - **`ABDShared::AudioComparator`**: Motor de comparación acústica A/B para las pruebas de certificación contra los WAV áureos de `NeuronVS.dll`.
+    - **`ABDShared::BankManagerCore` (`ABDBankManager`)**: Gestión de librerías, bancos y presets integrada en el plugin.
+    - **`ABDShared::NeuronFormats` (`@abdsynths/shared/formats/neuron`)**: Codecs universales 1:1 para contenedores `.model` (`.scape`, `.sphere`, `map.script`, `MName`, `ModelNames`), `.sound` (`sound.script`, `sound.stickrec`, `SoundNames`), decodificador puro RIFF/WAVE y FORM/AIFF (`WavAiffDecoder.ts`) y empaquetador ZIP (`ZipArchive.ts`). Consumidos directamente en Fase A.1.
+    - **`ABDShared::DspCore::NeuronAnalysis` (`@abdsynths/shared/dsp/neuron-analysis`)**: Motor de análisis espectral de alta resolución (Radix-2 FFT 8192 pts con 4-term Blackman-Harris, HPS con escala de octavas, ajuste de rejilla armónica LS, clustering multicapa de 1..3 capas y generador paramétrico Scape/Sphere). Consumido en Fase B.
+    - **`ABDShared::Visualizers` (`@abdsynths/shared/visualizers/SpectralCanvasVisualizer.js`)**: Visualizador gráfico Canvas 2D multimodo de alta fidelidad: espectrograma con estela temporal, barras de 64 parciales armónicos superpuestas a curva FFT en tiempo real y comparador diferencial de formas de onda A/B.
+    - **`ABDShared::Scope` (`SpectrogramRenderer.js`)**: Renderizador cascada / waterfall enriquecido con superposición de trazas armónicas (`frame.partialTracks`), permitiendo monitorear las trayectorias de parciales simultáneamente con la densidad espectral global.
 2. **Desde `ABDShared/Code/MidiKeyboard` (`@abdsynths/midi-keyb`) y `ABDSharedAssets` (`@abdsynths/shared`)**:
-   - **Teclado Unificado (`D:\desarrollos\ABDSynths\ABDShared\Code\MidiKeyboard`)**: integrado directamente con los 6 controles de ejecución (`params+0x44`: `Aftertouch`, `ModWheel Up/Down`, `Breath CC2`, `CC3`, `Foot CC4`, `Expression CC11`), `PitchBend` (`engine+0xDA4`) y `FootSwitch` (`[411]`), alimentando en tiempo real la matriz `Free Controllers` (`[363..410]`).
-   - Tokens y cascada CSS (`@abdsynths/shared/styles/tokens.css`), `SynthNavBar`, `AboutDialog`, `Knob`, `SilverFilmstripKnob`, `Slider`, `FilmstripFader`, `Segmented`, `Select`, `Toggle`, `Switch`, `XYPad`, `EnvelopePad`, `ModMatrix`, `SevenSegmentDisplay`, `VuMeter`, `SpectrumPlotter`, `LiveSysExInspector`.
+   - **Teclado Unificado (`D:\desarrollos\ABDSynths\ABDShared\Code\MidiKeyboard`)**: integrado directamente con los 6 controles de ejecución (`params+0x44`: `Aftertouch`, `ModWheel Up/Down`, `Breath CC2`, `CC3`, `Foot CC4`, `Expression CC11`), `PitchBend` (`engine+0xDA4`) y `FootSwitch` (`[411]`), alimentando en tiempo real la matriz `Free Controllers` (`[363..410]`). Registrado con altura 98px para hosts multicapa.
+   - Tokens y cascada CSS (`@abdsynths/shared/styles/tokens.css`), fondo canónico neutral (`ABDShared/Assets/assets/backgrounds/bg_neutral.webp`), `SynthNavBar`, `AboutDialog`, `Knob`, `SilverFilmstripKnob`, `Slider`, `FilmstripFader`, `Segmented`, `Select`, `Toggle`, `Switch`, `XYPad`, `EnvelopePad`, `ModMatrix`, `SevenSegmentDisplay`, `VuMeter`, `SpectrumPlotter`, `LiveSysExInspector`.
 
-### 5.2 Componentes Nuevos Desacoplados que Aportaremos a `ABDShared`
+### 5.2 Componentes Nuevos Desacoplados Aportados a `ABDShared`
 Siguiendo la directriz de volcado transversal hacia `ABDShared`:
-1. **`TrajectoryStick2D` (`@abdsynths/shared/components/trajectoryStick2D.js` + CSS)**:
+1. **Iconografía Canónica Hartmann en `ABDShared/Assets/icons/`**:
+   - 10 iconos SVG de los `Parameter Sets` (`param0.svg` .. `param9.svg`): Neutral, Strings, Woodwinds, Brass, Keyboards, Percussive, Complex Acoustic, Synthetic, Scapes, Extravaganza.
+   - 4 iconos SVG de utilidad de edición y modelado: `undo.svg`, `redo.svg`, `repair.svg` y `palette.svg`.
+2. **`TrajectoryStick2D` (`@abdsynths/shared/components/trajectoryStick2D.js` + CSS)**:
    - Evolución o extensión limpia de `XYPad` que añade:
      - **Anillo multipolar de nombres de eje dinámicos (`mnAN`)**: muestra hasta 4/6 etiquetas dinámicas en el perímetro según el nivel activo (`Level 1, 2, 3`) e ilumina la distribución de pesos.
      - **Grabación y reproducción de trayectorias vectoriales (`Stick Recording`)**: visualización de la estela temporal en `<canvas>`/`<svg>`, estados `Idle / Armed / Recording / Playing / Loop`, y serialización agnóstica de puntos `(tick, axis, value)`. Reutilizable en sintes vectoriales futuros (Korg Wavestation, Prophet VS, Yamaha SY22/TG33).
-2. **`MultiStageShaperPad` (`@abdsynths/shared/components/multiStageShaperPad.js`)**:
+3. **`MultiStageShaperPad` (`@abdsynths/shared/components/multiStageShaperPad.js`)**:
    - Extensión de `EnvelopePad` para envolventes **4L4T (4 Levels / 4 Times)** con modos `Normal / Repeat / Longest` y pendiente `Free / Fixed`, reutilizable en sintetizadores digitales/FM/aditivos de la familia ABD (`ABDCZ101`, `ABDOmega`, etc.).
-3. **`NeuronCodec` / Adaptador de Bancos `.sound` y `.model` para `ABDBankManager`**:
-   - Adaptador en `ABDBankManager` capaz de inspeccionar, catalogar, importar y exportar tanto carpetas `NeuronDB` (`Models/000..511.model`, `Sounds/000..999.sound`) como archivos empaquetados `.model`, `.sound` y `.nmmodel`.
+4. **`NeuronCodec` / Adaptador de Bancos `.sound` y `.model` para `ABDBankManager`**:
+   - Adaptador en `ABDBankManager` apoyado en `@abdsynths/shared/formats/neuron` para inspeccionar, catalogar, importar y exportar carpetas `NeuronDB` (`Models/000..511.model`, `Sounds/000..999.sound`) y archivos empaquetados `.model`, `.sound` y `.nmmodel`.
 
 ---
 
@@ -321,8 +328,8 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 - **Objetivos**:
   1. Integrar en `Source/State/` y `Source/DSP/ClassicNeuron/` la tabla de 445 parámetros (`SndDatStore`), la regla `FUN_10001170` (con los 19 defaults ajustados a `1`), los 335 observadores de `params` y el cálculo de los 340 valores efectivos (`FUN_100134e0`).
   2. Integrar `Translator.cpp` (`FUN_10040550` + `FUN_100373a0` + implementación completa de `FUN_100343e4` de 501 líneas para `e[0xD95]`).
-  3. Implementar `NeuronBankAdapter` y `ZoneMapper` (`FUN_100440d0` + callback `0x10013620`): carga de `Models/000..511.model` (`MName`, `map.script`, `.scape`, `.sphere`), actualización dinámica de `mnAN`/`fdAN` y relleno de las `128 × 40 B` entradas por tecla en `engine+0xDB0` (`R1`) y `engine+0x2200` (`R2`).
-  4. Implementar el parser/serializador de `sound.script` y `sound.stickrec` (`TTTTFCVVV`).
+  3. Implementar `NeuronBankAdapter` y `ZoneMapper` (`FUN_100440d0` + callback `0x10013620`): apoyados directamente en `@abdsynths/shared/formats/neuron` (`ModelFormat`, `WavAiffDecoder`, `ZipArchive`), carga de `Models/000..511.model` (`MName`, `map.script`, `.scape`, `.sphere`), actualización dinámica de `mnAN`/`fdAN` y relleno de las `128 × 40 B` entradas por tecla en `engine+0xDB0` (`R1`) y `engine+0x2200` (`R2`).
+  4. Implementar el parser/serializador de `sound.script` y `sound.stickrec` (`TTTTFCVVV`) utilizando los esquemas y serializadores universales de `@abdsynths/shared/formats/neuron` (`SoundFormat.ts`).
 - **Verificación (DoD)**:
   - `Tests/SndDatAndTranslatorTest.cpp` valida los **351 presets de fábrica** de `NeuronDB/Sounds`: 351/351 producen un estado `engine[0x000..0x36A]` y tablas de teclado `R1`/`R2` bit-idénticos al oráculo de `NeuronVS.dll`.
 
@@ -351,7 +358,7 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 - **Objetivos**:
   1. Desarrollar y aportar a `ABDSharedAssets` los componentes genéricos **`TrajectoryStick2D`** (con anillo multipolar de etiquetas dinámicas `mnAN` de los 10 `Parameter Sets` y grabación/reproducción de trayectorias `sound.stickrec`) y **`MultiStageShaperPad`** (envolvente gráfica bipolar `4L4T`), con sus tests Vitest.
   2. Construir la `WebUI` de `ABDAxionikVS` empaquetada con Vite (`WebUI/dist/`):
-     - **Cabecera Global Siempre Visible**: `SynthNavBar`, selector de bancos/presets integrado con `ABDBankManager`, nombre editable de 16 caracteres (`SoundNameC00..C15`), polifonía (`SoundNumVoices` `1..32` + voces activas), `SoundPan` / `SoundPanKeyTrack`, `PitchBendRange`, 4 Macro Knobs (`Knob1..4R1Select`), conmutador `OracleClipToZeroMode` y VU meter / Scope.
+     - **Cabecera Global Siempre Visible**: `SynthNavBar`, selector de bancos/presets integrado con `ABDBankManager`, nombre editable de 16 caracteres (`SoundNameC00..C15`), polifonía (`SoundNumVoices` `1..32` + voces activas), `SoundPan` / `SoundPanKeyTrack`, `PitchBendRange`, 4 Macro Knobs (`Knob1..4R1Select`), conmutador `OracleClipToZeroMode`, VU meter y osciloscopio `ABDShared::Scope` con visualización waterfall y trazas armónicas (`frame.partialTracks`).
      - **Cubierta Principal de Síntesis (`Resynator 1` + `Blender & Slicer` + `Resynator 2`)**:
        - En cada Resynator: selector de modelo `000..511` con buscador, display `MName` (11 chars), badge del `Parameter Set` (`0..9`), visor del mapa de teclado de 128 notas (`LowSource`/`HiSource` + `ModelVelocitySwitch`), afinación (`Octave`, `Semi`, `Cents`, `PitchKeyTrack`, `PitchLfoDepth`, `FreeADSR1/2`, `4L4T`), tamaño (`ModelSizeOffset`, `ModelSizeKeyTrack`), `TrajectoryStick2D`, conmutadores rápidos `Sphere / Scape` y `Level 1 / 2 / 3`, y las dos columnas de modulación de eje (`Eje 1/3` y `Eje 2/4`: `KeyTrack`, `LfoDepth`, `VelocityDepth`, `ResEnvDepth`, `Contour` y `StickPlayback`) visibles simultáneamente sin el conmutador ciego `SelectStickPar`.
        - En el centro: **Blender** con los 10 algoritmos de fusión (`Mix`, `Chromophonic`, `Transsphere`, `Crossmorph`, `Intermorph`, `Dyn Transsphere`, `Dyn Crossmorph`, `Velo Crossmorph`, `Velo Chrome`, `Ring Blend`), fader bipolar `-64..+63` y sus 4 moduladores + **Slicer** (`Off`, `Vertical`, `3D`, `Rate`, `Depth`, 12 formas de onda).
@@ -377,7 +384,7 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 ### Fase B — Expansión "Neuron 2.0" Híbrida (`NEURONiK` + `.nmmodel v2.1` de `ABDNeuModMakr`) *(Sujeta a Gate de Diseño A → B)*
 - **Objetivos Preliminares (a refinar en el Gate A → B)**:
   1. **Soporte Nativo de `.nmmodel` (`v2.1`)**:
-     - Implementar `NmModelLoader` y `NmModelResinator` en `Source/DSP/HybridNeuronik/` para cargar directamente paquetes `.nmmodel` generados por `ABDNeuModMakr` (precisión `Float32`, 64 parciales inarmónicos con `frequencyOffsets` en semitonos, múltiples capas de velocidad/nota y muestras WAV embebidas).
+     - Implementar `NmModelLoader` y `NmModelResinator` en `Source/DSP/HybridNeuronik/` para cargar directamente paquetes `.nmmodel` generados por `ABDNeuModMakr` (precisión `Float32`, 64 parciales inarmónicos con `frequencyOffsets` en semitonos, múltiples capas de velocidad/nota y muestras WAV embebidas), integrando los módulos de análisis y modelado espectral `@abdsynths/shared/dsp/neuron-analysis` (`FftEngine`, `SpectralAnalyzer`, `LayerClustering`, `ScapeSphereGenerator`).
   2. **Moldeadores de Materia Sónica de `ABDNeural` (`SpectralShaper`)**:
      - Integrar en cada Resinator (o en el modo extendido `NEURONiK`) los operadores espectrales de `ABDNeural/Source/DSP/CoreModules/Resonator.cpp`:
        - *Inharmonicity Stretch*: $f_n = f_0 \cdot (n + \Delta_n) \cdot \sqrt{1 + B \cdot n^2}$
