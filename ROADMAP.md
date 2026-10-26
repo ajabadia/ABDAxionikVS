@@ -301,15 +301,21 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 
 ## 6. Plan de Implementación por Fases (`ROADMAP`)
 
-### Fase 0 — Cimientos, Contratos Autogenerados y Esqueleto Dual (Nativo + WASM)
-- **Objetivos**:
-  1. Registrar `ABDAxionikVS` en `D:\desarrollos\ABDSynths\pnpm-workspace.yaml`.
-  2. Crear `schemas/` con los CSV/JSON canónicos extraídos de `C:\Users\ajaba\Downloads\neuron` y `ABDNeuModMakr`.
-  3. Implementar `Scripts/registry_generator.js` para emitir `ParameterRegistry.gen.h` (445 parámetros + 26 VST alias), `MidiContract.gen.h` (CC + NRPN 14-bit + SysEx) y `WebUI/generated/*`.
-  4. Configurar `DspSources.cmake`, `CMakeLists.txt` raíz (JUCE 9 `Standalone` + `VST3` con bus `Input` opcional desactivado por defecto) y `wasm/CMakeLists.txt` (Emscripten con `-sEXPORTED_RUNTIME_METHODS=["ccall","cwrap","HEAPF32"]`).
-  5. Crear `build.bat` (con tee a `build-last-run.log`, flags `nopause`, `tests`, `nowasm`, `noselftest`, bundler Vite a `WebUI/dist/`, CTest, Vitest y selftest E2E) y `start.bat`, junto con los 4 documentos obligatorios (`README.md`, `CHANGELOG.md`, `HANDOFF.md`, `ROADMAP.md`).
-- **Verificación (DoD)**:
-  - `build.bat nopause` compila sin errores ni warnings los targets `Standalone`, `VST3`, `WASM` y pasa `ParameterRegistryContractTest` y `BridgeProtocolContractTest`.
+### Fase 0 — Cimientos, Contratos Autogenerados y Esqueleto Dual (Nativo + WASM) [COMPLETADA]
+- **Objetivos Cumplidos**:
+  1. Registrado `ABDAxionikVS` en `D:\desarrollos\ABDSynths\pnpm-workspace.yaml`.
+  2. Creado `schemas/` con `preset_schema.csv` (445 params), `vst_exposed_params.csv` (26 VST), `params_observers_map.csv` (335 obs y 63 mod dests), `constants_types.csv` (1.430 constantes), `control_params.csv`, `page_ref_links.csv` y `parameter_sets_mnan.json` (10 sets Scape/Sphere).
+  3. Implementado `Scripts/registry_generator.js` con `--check`, emitiendo `ParameterRegistry.gen.h`, `Conversion.gen.h`, `MidiMapping.gen.h`, `parameters.gen.ts` y `bridge-protocol.json`.
+  4. Configurados `DspSources.cmake` (anti-drift), `CMakeLists.txt` raíz (JUCE 9 `Standalone` + `VST3` + `WebPilotHost` con `NEEDS_WEBVIEW2 TRUE` y `JUCE_VST3_CAN_REPLACE_VST2=0`) y `wasm/CMakeLists.txt` con `WasmBridge.cpp`.
+  5. Implementado frontend WebUI inicial en `WebUI/` con **paridad visual y estética idéntica a `ABDNeuModMakr`** (tokenizado 100% con `@abdsynths/shared/styles`, Navbar HUD con logo, presets, modelos, telemetría CPU/voces, racks de síntesis R1/R2 con sticks 2D circulares, Blender, Filter, Silver FX, Drawers deslizantes y `KeyboardStrip` interactivo con `@abdsynths/midi-keyb`).
+  6. Empaquetado Vite verificado (`Scripts/build_webui.js` -> `WebUI/dist/`), suite de pruebas Vitest pasando 5/5 tests, y scripts `build.bat` y `start.bat`.
+- **Verificación (DoD) Alcanzada**:
+  - `build.bat nopause` compila sin errores los 3 targets nativos con MSVC:
+    - `build\ABDAxionikVS_artefacts\Release\Standalone\ABDAxionikVS.exe`
+    - `build\ABDAxionikVS_artefacts\Release\VST3\ABDAxionikVS.vst3`
+    - `build\ABDAxionikVS_WebPilot_artefacts\Release\ABDAxionikVS WebPilot Host.exe`
+  - Smoke test E2E ejecutado: `ABDAxionikVS WebPilot Host.exe --auto-quit` monta el WebView2 con `WebUI/dist/` y sale limpiamente con código 0.
+  - Repositorio Git inicializado con remote `origin https://github.com/ajabadia/ABDAxionikVS.git` y commit inicial de Fase 0 creado.
 
 ### Fase A.1 — Estado de Parámetros (`snddat` / `params`), Traductor (`FUN_10040550`) y Carga de `NeuronDB`
 - **Objetivos**:

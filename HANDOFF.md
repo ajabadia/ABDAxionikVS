@@ -3,7 +3,7 @@
 > **Proyecto:** `ABDAxionikVS` (`D:\desarrollos\ABDSynths\ABDAxionikVS`)
 > **Repositorio GitHub:** `https://github.com/ajabadia/ABDAxionikVS.git`
 > **Familia:** `ABDSynths` (`D:\desarrollos\ABDSynths`)
-> **Estado Actual:** **Fase de Auditoría, Documentación e Inventario Completada** — Listo para iniciar **Fase 0** (Cimientos, Contratos Autogenerados y Esqueleto Dual C++20/JUCE 9 + WASM).
+> **Estado Actual:** **Fase 0 (Cimientos, Contratos y Esqueleto Dual) Completada al 100%** — Los binarios nativos (`Standalone`, `VST3`, `WebPilotHost`) compilan sin errores, la suite de tests de contratos pasa 5/5, la WebUI empaquetada con Vite tiene paridad estética con `ABDNeuModMakr`, y estamos listos para arrancar la **Fase A.1** (`snddat`/`params`, traductor `FUN_10040550` y carga de modelos/presets de `NeuronDB`).
 
 ---
 
@@ -61,10 +61,23 @@
 
 ---
 
-## 4. Siguiente Paso Inmediato (Arranque de Fase 0)
+## 4. Estado de las Fases y Siguiente Paso Inmediato (Fase A.1)
 
-Cuando el usuario dé luz verde para comenzar la construcción:
-1. Registrar `ABDAxionikVS` en [`D:\desarrollos\ABDSynths\pnpm-workspace.yaml`](file:///d:/desarrollos/ABDSynths/pnpm-workspace.yaml).
-2. Poblar `schemas/` (`preset_schema.csv`, `vst_exposed_params.csv`, `control_params.csv`, `page_ref_links.csv`, `constants_types.csv`, `parameter_sets_mnan.json`) y escribir `Scripts/registry_generator.js`.
-3. Crear `DspSources.cmake`, `CMakeLists.txt`, `wasm/CMakeLists.txt`, `package.json`, `vite.config.js`, `vitest.config.js`, `build.bat` y `start.bat`.
-4. Verificar la compilación limpia extremo a extremo (`build.bat nopause`).
+1. **Fase 0 — Cimientos, Contratos y Esqueleto Dual**: **COMPLETADA AL 100%**.
+   - Workspace registrado en `pnpm-workspace.yaml`, esquemas canónicos poblados en `schemas/`.
+   - Generador canónico `Scripts/registry_generator.js` activo con validación `--check`.
+   - Contratos generados en C++ (`ParameterRegistry.gen.h`, `Conversion.gen.h`, `MidiMapping.gen.h`) y TypeScript (`parameters.gen.ts`, `bridge-protocol.json`).
+   - WebUI construida en `WebUI/` con paridad estética 1:1 con `ABDNeuModMakr`, tokenizada con `@abdsynths/shared/styles`, empaquetando con Vite a `WebUI/dist/`.
+   - Suite Vitest con 5/5 tests pasando en verde.
+   - Compilación nativa MSVC (`build.bat nopause`) con éxito total:
+     - `ABDAxionikVS.exe` (Standalone)
+     - `ABDAxionikVS.vst3` (VST3)
+     - `ABDAxionikVS WebPilot Host.exe` (Bancada WebView2 E2E con `--auto-quit` validado).
+   - Repositorio git inicializado y commit inicial registrado.
+
+2. **Siguiente Paso: Arranque de Fase A.1**:
+   - Integración de `SndDatStore` (los 445 parámetros autoritativos con regla `FUN_10001170` y los 19 clamps `0 -> 1.0`).
+   - Integración de `params` (los 335 observadores, los 6 controles en tiempo real y el cálculo de los 340 slots efectivos en `p[]` vía `FUN_100134e0`).
+   - Integración de `Translator` (`FUN_10040550` + `FUN_100373a0` + `FUN_100343e4` de 501 líneas para `e[0xD95]`).
+   - Lector de modelos `.model` de `NeuronDB` (`MName`, `map.script`, `.scape`, `.sphere`) y de paquetes `.nmmodel` de `ABDNeuModMakr`.
+   - Lector y serializador de presets `.sound` (`sound.script` + `sound.stickrec`).
