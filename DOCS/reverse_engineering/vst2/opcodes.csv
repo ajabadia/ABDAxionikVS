@@ -1,0 +1,78 @@
+opcode,hex,sdk_name,dispatched,dispatcher,target,slot,handler,handler_addr,args,returns,guard,notes
+0,0x00,effOpen,yes,0x100030b0,core,0x1c,C_OleRef_v03,0x10002d70,-,0,,abre; no-op
+1,0x01,effClose,yes,0x100030b0,core,0x20,C_OleRef_v03,0x10002d70,-,0,,cierra; no-op
+2,0x02,effSetProgram,yes,0x100030b0,core,0x28,C_AudioNode_v10,0x10003490,value,0,value < numPrograms,fija el programa solo si value < numPrograms (core+0x10)
+3,0x03,effGetProgram,yes,0x100030b0,core,0x24,C_AudioNode_v09,0x10003460,-,handler,,devuelve el indice de programa (core+0x18)
+4,0x04,effSetProgramName,yes,0x100030b0,core,0x2c,C_AudioNode_v11,0x100034a0,ptr,0,,ignora el nombre: escribe 0 en el buffer
+5,0x05,effGetProgramName,yes,0x100030b0,core,0x30,C_NeuronCore_v12,0x1001b810,ptr,0,,"copia ""No Program Name"""
+6,0x06,effGetParamLabel,yes,0x100030b0,core,0x34,C_NeuronCore_v13,0x1001bab0,"index, ptr",0,,"label de parametro: ""Unit"""
+7,0x07,effGetParamDisplay,yes,0x100030b0,core,0x38,C_NeuronCore_v14,0x1001ba90,"index, ptr",0,,"display de parametro: ""---"""
+8,0x08,effGetParamName,yes,0x100030b0,core,0x3c,C_NeuronCore_v15,0x1001ba60,"index, ptr",0,,"nombre: sprintf(""%24s"") sobre el buffer de 8 del host"
+9,0x09,effGetVu,yes,0x100030b0,core,0x40,C_AudioNode_v16,0x10003500,-,int(handler),,Vu = 0.0; el dispatcher lo pasa a entero
+10,0x0a,effSetSampleRate,yes,0x100030b0,core,0x4c,C_NeuronCore_v19,0x1001b840,opt,0,,guarda sample rate en core+0x04
+11,0x0b,effSetBlockSize,yes,0x100030b0,core,0x50,C_NeuronCore_v20,0x1001b850,value,0,,guarda block size en core+0x1c
+12,0x0c,effMainsChanged,yes,0x100030b0,core,0x54 / 0x58,C_OleRef_v03 (value=0) / C_NeuronCore_v22 (value!=0),0x10002d70 / 0x1001b860,-,0,value == 0 / value != 0,value=0 no-op; value!=0 reanuda y pide MIDI al host (audioMaster 6)
+13,0x0d,effEditGetRect,yes,0x100030b0,editor,0x04,C_RefObject_v01_getRect,0x10002ea0,ptr,handler,editor != 0,"devuelve &editor->rect {0,0,652,800} y 1"
+14,0x0e,effEditOpen,yes,0x100030b0,editor,0x08,C_Editor_v02_createChild,0x1001c0b0,ptr,handler,editor != 0,abre la ventana 800x652 del editor
+15,0x0f,effEditClose,yes,0x100030b0,editor,0x0c,C_Editor_v03,0x1001c2e0,-,0,editor != 0,cierra y libera la ventana
+16,0x10,effEditDraw,no,,,,,,,0,,no enrutado (deprecado)
+17,0x11,effEditMouse,no,,,,,,,0,,no enrutado (deprecado)
+18,0x12,effEditKey,no,,,,,,,0,,no enrutado (deprecado)
+19,0x13,effEditIdle,yes,0x100030b0,editor,0x10,C_RefObject_v04,0x10002cb0,-,0,editor != 0,idle del editor
+20,0x14,effEditTop,no,,,,,,,0,,no enrutado (deprecado)
+21,0x15,effEditSleep,no,,,,,,,0,,no enrutado (deprecado)
+22,0x16,effIdentify,yes,0x100030b0,const,,,,,0x4e764566 ('NvEf'),,devuelve 0x4e764566 = 'NvEf'
+23,0x17,effGetChunk,yes,0x100030b0,core,0x44,C_AudioNode_v17,0x10003520,"ptr, index!=0",handler,,chunks no soportados: 0
+24,0x18,effSetChunk,yes,0x100030b0,core,0x48,C_AudioNode_v18,0x10003590,"ptr, value, index!=0",handler,,chunks no soportados: 0
+25,0x19,effProcessEvents,yes,0x10003970,core,0xc8,C_AudioModule_v50,0x1000a070,ptr,handler,,procesa VstEvents; solo kVstMidiType; devuelve 1 siempre
+26,0x1a,effCanBeAutomated,yes,0x10003970,core,0xd4,C_NeuronCore_v53,0x1001b9f0,index,handler != 0,,todos los parametros son automatizables: 1
+27,0x1b,effString2Parameter,yes,0x10003970,core,0xd8,C_AudioComponent_v54,0x10003fe0,"index, ptr",handler != 0,,string2Parameter no soportado: 0
+28,0x1c,effGetNumProgramCategories,yes,0x10003970,core,0xe0,C_AudioComponent_v56,0x10004000,-,handler,,devuelve 1 categoria (aunque numPrograms sea 0)
+29,0x1d,effGetProgramNameIndexed,yes,0x10003970,core,0xe4,C_AudioComponent_v57,0x10004010,"value, index, ptr",handler != 0,,0 (sin nombres por indice)
+30,0x1e,effCopyProgram,yes,0x10003970,core,0xe8,C_OleRef_v10,0x10002e70,index,handler != 0,,0
+31,0x1f,effConnectInput,yes,0x10003970,core,0x110,C_AudioNode_v01_setParameter,0x100033d0,"index, value!=0",1,,no-op; devuelve 1
+32,0x20,effConnectOutput,yes,0x10003970,core,0x114,C_AudioNode_v01_setParameter,0x100033d0,"index, value!=0",1,,no-op; devuelve 1
+33,0x21,effGetInputProperties,yes,0x10003970,core,0x118,C_AudioComponent_v54,0x10003fe0,"index, ptr",handler != 0,,0 (el sintetizador no tiene entradas)
+34,0x22,effGetOutputProperties,yes,0x10003970,core,0x11c,C_NeuronCore_v71,0x1001b870,"index, ptr",handler != 0,,"VstPinProperties: ""Neuron N"", flags 3 (activo|estereo)"
+35,0x23,effGetPlugCategory,yes,0x10003970,core,0x120,C_AudioComponent_v72,0x10004020,-,handler,,"kPlugCategSynth (2), leido del bit isSynth de AEffect->flags"
+36,0x24,effGetCurrentPosition,yes,0x10003970,core,0x138,C_AudioComponent_v78,0x10004030,-,handler,,0
+37,0x25,effGetDestinationBuffer,yes,0x10003970,core,0x13c,C_AudioComponent_v78,0x10004030,-,handler,,0
+38,0x26,effOfflineNotify,yes,0x10003970,core,0x154,C_AudioComponent_v57,0x10004010,"ptr, value, index!=0",handler & 0xff,,0
+39,0x27,effOfflinePrepare,yes,0x10003970,core,0x158,C_AudioComponent_v54,0x10003fe0,"ptr, value",handler & 0xff,,0
+40,0x28,effOfflineRun,yes,0x10003970,core,0x15c,C_AudioComponent_v54,0x10003fe0,"ptr, value",handler & 0xff,,0
+41,0x29,effProcessVarIo,yes,0x10003970,core,0x1a4,C_OleRef_v10,0x10002e70,ptr,handler != 0,,0
+42,0x2a,effSetSpeakerArrangement,yes,0x10003970,core,0x1a8,C_AudioComponent_v54,0x10003fe0,"value, ptr",handler != 0,,0
+43,0x2b,effSetBlockSizeAndSampleRate,yes,0x10003970,core,0x1b0,C_AudioComponent_v108,0x100040e0,"value, opt",1,,fija block size (value) y sample rate (opt)
+44,0x2c,effSetBypass,yes,0x10003970,core,0x1b4,C_OleRef_v10,0x10002e70,value!=0,handler != 0,,0 (no hay bypass)
+45,0x2d,effGetEffectName,yes,0x10003970,core,0x1b8,C_NeuronCore_v110,0x1001b8a0,ptr,handler != 0,,"""NeuronVS"""
+46,0x2e,effGetErrorText,yes,0x10003970,core,0x1bc,C_OleRef_v10,0x10002e70,ptr,handler != 0,,0
+47,0x2f,effGetVendorString,yes,0x10003970,core,0x1c0,C_NeuronCore_v112,0x1001b8d0,ptr,handler != 0,,"""Hartmann Music GmbH"""
+48,0x30,effGetProductString,yes,0x10003970,core,0x1c4,C_NeuronCore_v113,0x1001b900,ptr,handler != 0,,"""Neuron VS VSt-Plugin"""
+49,0x31,effGetVendorVersion,yes,0x10003970,core,0x1c8,C_NeuronCore_v114,0x1001b930,-,handler,,900
+50,0x32,effVendorSpecific,yes,0x10003970,core,0x1cc,C_AudioComponent_v115,0x10004140,"index, value, ptr, opt",handler,,0 (sin extensiones de fabricante)
+51,0x33,effCanDo,yes,0x10003970,core,0x1d0,C_NeuronCore_v116,0x1001b940,ptr,handler,,"solo ""receiveVstEvents""/""receiveVstMidiEvent"": 1; resto -1"
+52,0x34,effGetTailSize,yes,0x10003970,core,0x1dc,C_AudioComponent_v78,0x10004030,-,handler,,0 (sin cola declarada)
+53,0x35,effIdle,yes,0x10003970,core,0x1e0,C_AudioComponent_v78,0x10004030,-,handler,,0
+54,0x36,effGetIcon,yes,0x10003970,core,0x1d4,C_AudioComponent_v78,0x10004030,-,handler,,0
+55,0x37,effSetViewPosition,yes,0x10003970,core,0x1d8,C_AudioComponent_v54,0x10003fe0,"index, value",handler != 0,,0
+56,0x38,effGetParameterProperties,yes,0x10003970,core,0x1e4,C_AudioComponent_v54,0x10003fe0,"index, ptr",handler != 0,,0 (sin VstParameterProperties)
+57,0x39,effKeysRequired,yes,0x10003970,core,0x1e8,C_AudioComponent_v122,0x100041e0,-,!handler,,1: el sintetizador requiere teclado
+58,0x3a,effGetVstVersion,yes,0x10003970,core,0x1ec,C_AudioComponent_v123,0x100041f0,-,handler,,2300 (VST 2.3)
+59,0x3b,effEditKeyDown,yes,0x10003970,editor,0x1c,C_RefObject_v07,0x10002c30,"&event{index,value,opt}",handler,editor != 0,keyDown al editor; -1 si no hay ventana
+60,0x3c,effEditKeyUp,yes,0x10003970,editor,0x20,C_RefObject_v08,0x10002c50,"&event{index,value,opt}",handler,editor != 0,keyUp al editor; -1 si no hay ventana
+61,0x3d,effSetEditKnobMode,yes,0x10003970,editor,0x24,C_RefObject_v09,0x10002cf0,value,handler,editor != 0,guarda el knob mode global; 1
+62,0x3e,effGetMidiProgramName,yes,0x10003970,core,0x1f0,C_AudioNode_v17,0x10003520,"index, ptr",handler,,0 (sin programas MIDI)
+63,0x3f,effGetCurrentMidiProgram,yes,0x10003970,core,0x1f4,C_AudioComponent_v125,0x10004240,"index, ptr",handler,,-1
+64,0x40,effGetMidiProgramCategory,yes,0x10003970,core,0x1f8,C_AudioNode_v17,0x10003520,"index, ptr",handler,,0
+65,0x41,effHasMidiProgramsChanged,yes,0x10003970,core,0x1fc,C_OleRef_v10,0x10002e70,index,handler != 0,,0
+66,0x42,effGetMidiKeyName,yes,0x10003970,core,0x200,C_AudioComponent_v54,0x10003fe0,"index, ptr",handler != 0,,0
+67,0x43,effBeginSetProgram,yes,0x10003970,core,0x204,C_AudioComponent_v122,0x100041e0,-,handler != 0,,0
+68,0x44,effEndSetProgram,yes,0x10003970,core,0x208,C_AudioComponent_v122,0x100041e0,-,handler != 0,,0
+69,0x45,effGetSpeakerArrangement,yes,0x10003970,core,0x1ac,C_AudioComponent_v107,0x100040c0,"value, ptr",handler != 0,,pone a 0 el tipo de las dos disposiciones; 0
+70,0x46,effShellGetNextPlugin,yes,0x10003970,core,0x21c,C_OleRef_v09,0x10002e60,ptr,handler,,0
+71,0x47,effStartProcess,yes,0x10003970,core,0x220,C_AudioComponent_v78,0x10004030,-,handler,,0
+72,0x48,effStopProcess,yes,0x10003970,core,0x224,C_AudioComponent_v78,0x10004030,-,handler,,0
+73,0x49,effSetTotalSampleToProcess,yes,0x10003970,core,0x218,C_AudioComponent_v134,0x10004280,value,handler,,devuelve el valor recibido
+74,0x4a,effSetPanLaw,yes,0x10003970,core,0x228,C_AudioComponent_v54,0x10003fe0,"value, opt",handler != 0,,0
+75,0x4b,effBeginLoadBank,yes,0x10003970,core,0x22c,C_OleRef_v09,0x10002e60,ptr,handler,,0
+76,0x4c,effBeginLoadProgram,yes,0x10003970,core,0x230,C_OleRef_v09,0x10002e60,ptr,handler,,0

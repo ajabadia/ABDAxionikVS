@@ -1,0 +1,420 @@
+﻿
+Copyright No part of this operating manual may be reproduced, published, or transmitted in any form or by any means, electronic, mechanical, photocopying, recording or otherwise without the express written permission of Hartmann GmbH. Contents are subject to change for technical reasons and due to amendments. The greatest care and diligence has been taken in compiling this manual. However, there is always the chance of an oversight. We apologize for any inconvenience should you come across an error. We are not liable for changes made to MODELmaker after this manual was published.
+� 2003 Hartmann GmbH, 88214 Ravensburg, Germany. All rights reserved.
+2
+
+"MAC", "Apple", "Java", "Belkin", "Transmit", "Fetch" and "SmartFTP" are trademarks or trade names of their respective holders. The websites "www.apple.com", "www.panic.com", "www.fetchsoftworks.com" and "www.smartftp.com" belong to their respective holders.
+Neither Hartmann GmbH nor its suppliers shall be liable for incidental, consequential, indirect, special, or punitive demages of any kind, loss of (sound-)data, or other financial loss (including loss of revenue or profits) arising out of or in connection with the use of MODELmaker or the use of any recommended service, product or website, whether based in contract, tort (including negligence) or any other theory, even if Hartmann GmbH has been advised of the possibility of such damages.
+
+
+Systemrequirements:
+
+� MAC OS9: Power Mac G3 or G4 Processor, 400 MHz or faster, 128 MB RAM, CD ROM drive, at least 30 MB free space on hard drive, 256 color monitor (or better), 800x600 or larger, "Macintosh Runtime for Java (MRJ 2.2.5). For data transfer FTP client software "Transmit" (www.panic.com) or "Fetch" (www.fetchsoftworks.com).
+
+� MAC OS X: Power Mac G3 or G4 Proceccor, 400 MHz or faster, 128 MB RAM, CD ROM drive, at least 30 MB free space on hard drive 256 color monitor (or better), 800x600 or larger. For data transfer FTP client software "Transmit" (www.panic.com) or "Fetch" (www.fetchsoftworks.com).
+
+� PC:
+
+Intel Pentium III 450 MHz or faster, 128 MB RAM, Windows 98 SE or later, CD ROM drive, 256 color monitor (or better), 800x600 or larger, Java 2 Runtime Environment JRE v1.4.1. or later (http://java.sun.com). For data transfer FTP client software "SmartFTP" (www.smartftp.com).
+
+For more detailed information regarding the hook up procedure form your computer to <Neuron>, please refer to Chapter 7 on page 11 of this document!
+
+3
+
+
+Welcome
+Hi and welcome to MODELmaker, the software that helps you create your own models for the <Neuron> synthesizer! We know you are burning to try out this fascinating new technology and you would like to start right away to convert your samples to find out how they work inside the synthesizer once they are "neuronalized".
+But - as we are dealing with some computer network set ups that you may not be familiar with from your day to day work, we highly recommend to carefully read this manual first. Please follow the Network Hook Up instructions (see Chapter 7 on page 11) to make sure that your data transfers will be succesfull!
+
+1 - Installation and Start
+Move the distribution file to an appropriate location and unpack it. This creates the folder "NeuronMM_xxx" that contains the executable file (MODELmaker_xxx) plus everything else the application needs including a `Models' and `Sessions' folder.
+Note: The `xxx' in the above names will be replaced by a MODELmaker version number.
+Double-click on the executable file to start MODELmaker.
+If you experience any problems starting the MODELmaker on MAC OS9, make sure the macintosh Runtime for Java MRJ 2.2.5 is installed on your Mac. This can be downloaded from www.apple.com.
+On a Windows PC, the Java Runtime Environment (JRE v1.4.1 or later) must be installed. This is available on http://java.sun.com.
+
+4
+
+
+This is how MODELmaker appears on your desktop.
+5
+
+
+2 - Structure
+Session: Contains key zones plus information about the <Neuron> model to be generated. A session can be saved and re-opened (see below). Please note that the sample files are referenced by location and name rather than contained in the session. If the samples are subsequently moved, you'll need to select the sample files again.
+Key zones: Each key zone contains: low key, root key, high key, low velocity sample, high velocity sample, detune, volume and pan. The application ensures that zones cannot overlap and all keys (midi notes 0 to 127) are always covered, ie there are no gaps.
+Model info: Model number as shown in <Neuron> (possible values from 0 to 511). Model name as shown in <Neuron> (max. 11 characters). Complexity of the model (1 to 10). Parameter set to determine the model parameters accessible via stick or menu within <Neuron>.
+
+3 - Sample Format
+Currently AIFF, mono, 44.1kHz, 16 bit.
+4 - File Menu
+Open Session: Open a previously saved session, ie load the zones, samples and model information for one model.
+Save Session: Save the current zones, samples and model information for one model.
+Import Samples: Import all samples in a folder collectively. Low key and root key information must be contained in each AIFF file. The zones will then be configured automatically. Optional information regarding velocity, detune and volume will also be extracted from each sample if available. Please note that you must select the folder rather than the samples contained within it. If there are two samples for the same zone, the sample with velocity < 64 will be designated as the low velocity sample and the sample with velocity >= 64 as the high velocity sample.
+
+6
+
+
+4 - File Menu (cont.)
+Import by Name: Import all samples in a folder collectively. Low key and root key information must be contained in the name of each AIFF file. The zones will then be configured automatically. Optionally, a sample can be designated as a low or high velocity sample. Please note that you must select the folder rather than the samples contained within it.
+The naming convention is as follows: name_rootkey_lowkey or name_rootkey_lowkey_v.
+Example without velocity: Flute_72_68.aif.
+To distinguish a low and high velocity sample, we might have Flute_72_68_v1.aif and Flute_72_68_v2.aif.
+The name part (e.g. Flute) must not contain any underscore ('_') characters.
+Any information within the AIFF files themselves is not used to configure the zones but will be used during the conversion process.
+
+Process: Brings up a dialog box to enter the model information and invoke the conversion process.
+Transfer Model: Brings up a dialog where you can choose a model folder to be transferred to the <Neuron> directly from MODELmaker. If you need to transfer more than one folder at a time you may prefer to use a 3rd party ftp client application (see chapter 7 on page 11 for more details) .
+Once transferred, the models must be loaded into the <Neuron> database via the `load models' command in the load/dump menu. For a more detailed description on network settings and how to load models, please refer to the <Neuron> manual and chapter 7 on page 10 in this document.
+Quit: Use this if you haven't eaten or slept for a while.
+
+7
+
+
+5 - Main Screen
+"Process" button: Brings up a dialog box to enter the model information and invoke the conversion process.
+Table of zones: Shows the details for all zones and allows the selection of one zone which is then displayed and edited below.
+New Zone button: Press this to add a new zone by selecting a sample. The system puts the new zone in the most appropriate place by reading the information inside the sample (but not the file name). If it cannot decide where to place the zone, the user is prompted to click on the piano to select the low key which will be used to split the zone that the selected low key is in.
+Remove Zone button: Press this to remove the currently selected zone (unless it's the only one).
+
+Piano (zones): Graphical representation of the zones and their root keys. Click on a zone to highlight it in the table above and edit it in the zone detail section below.
+Piano (keys): Use this to select a key when prompted to do so. The text below the piano indicates what the key is for (low, high, root or low key for a new zone) or is blank when the piano is "inactive".
+
+8
+
+
+Details for selected zone:
+Hit either of the "Browse" buttons to select a low or high velocity sample. Each zone has to have a low velocity sample. If there is no (optional) high velocity sample, the low velocity sample will cover all velocity values. If a separate high velocity sample is specified, this will be used on <Neuron> whenever the velocity value goes above the velocity threshold as defined in the Resynator Menu (default = 63).
+Hit the low, high or root key buttons (below or above the 3 note displays, not the displays themselves) to edit the corresponding value by hitting a key on the piano. Note that a root key can be outside its zone and thus any changes to it will not affect the zone boundaries. When moving the low or high key, the previous or next zone is adjusted accordingly, but will never be removed altogether (an appropriate error message is displayed if the user attempts to go too far).
+
+Adjust the detune (-99 to +99 cent), volume (-32dB to +12dB) and pan (-50 to +50) values by using the sliders or enter values directly into the fields next to the sliders followed by Enter. Note that pan can also be set per Sound on <Neuron>. The pan setting here is for the model in a resynator.
+
+9
+
+
+6 - Process Dialog
+Model number (No): Enter a number between 0 and 511 as used on <Neuron>. For example, model 310 will be stored in the folder NeuronMM_xxx/Models/310.model.
+Model name (Name): Maximum 11 characters. Shown on <Neuron> once transferred.
+Complexity: Choose a value between 1 and 10 (default = 8). The higher the complexity the more accurately the sample is modelled, but a lower complexity can be very effective, too, and helps keep the size of the model down.
+Parameter Set: Choose a value between 0 and 9. The description of the parameter sets starts on page 13 of this document.
+Progress text and bar: Shows which sample file out of how many is being converted and how far the conversion for this file has progressed.
+
+Go button: Hit this to start the process of converting your samples into a <Neuron> model. All generated models will be stored on your computer's hard disk in the folder NeuronMM_xxx/Models/xxx.model. For details on how to transfer models to <Neuron>, see chapter 7 on page 11 of this document.
+Cancel button: Hit this to cancel the conversion process. If you hit cancel while the conversion is in progress, it may take up to a few seconds to stop the process.
+
+10
+
+
+7 - Network Hook Up instructions
+� To transfer new models (and any other data, like OS updates*, sounds, setups, etc.) to your <Neuron>, you need to connect your Mac/PC to <Neuron> via a USBEthernet Adapter (we recommend Hartmann UTEA 01, which is available through your Neuron dealer) or Belkin F5D5050. See our website www.hartmannmusic.com for information on other compatible adapters).
+* OS updates may also be loaded into <Neuron> via MIDI.
+
+If you are connecting your MAC/PC directly to the <Neuron> (via the USB Ethernet adapter), make sure to use a "crosslink" network cable (included with the Hartmann UTEA 01 adapter). If you are connecting through a network hub, make sure to use a standard network cable.
+
+11
+
+
+� Make sure, that your TCP/IP connection is set to "Ethernet" (on MAC) and "Manual".
+� Your computer's IP address needs to be 192.168.1.x (x can be anything from 1 to 255 except 24, which is the <Neuron>). Set the subnet mask to 255.255.255.0.
+There are two ways to transfer your generated models into <Neuron>:
+A) Transfer single models using the "Transfer Model" function in the "File" menu of MODELmaker (see chapter 4 on page 7 of this document). This is the easiest way to load your own models into <Neuron>.
+
+B)Use a third party FTP client application. For MAC we recommend the software "Transmit�" (www.panic.com) or "Fetch�" (www.fetchsoftworks.com). For PC we recommend "SmartFTP" (www.smartftp.com). In your ftp client application enter 192.168.1.24 for the server address, "neuron" for the user name and "neuron" again for the password. Make sure to set the transfer mode to "binary". Copy the separate model folders to "ToNeuron /Models". This is the best way to transfer complete model sets to <Neuron> and also from <Neuron> (i.e. to backup your <Neuron> database).
+� After the transfer, run "Load Models" on the <Neuron> (Load/Dump menu, see <Neuron> User Manual for details). This may take a few minutes.
+Note: To transfer sounds or setups to <Neuron> via the USB connector, also use a third party FTP client application as described above in option B)and the <Neuron> User Manual.
+
+12
+
+
+Scape
+
+To optain straight sound manipulation, MODELmaker offers different parameter sets to process models from samples. All internal <Neuron> models have been created using such special parameter sets. See the following list to find out, which parameter set offers which sound manipulations.
+Set0 - Default Set
+This is a "neutral" set suitable for application to all kinds of sounds. Initially it is the tonal equivalent of the source material, which you can then process to your heart's content.
+Level 1: 1 Torsion 3 Neutral Bends the resonance and tension of the vibrating medium (for example, a string) to "metallize" the tone (adding a metallic edge) and generate crossmodulation.
+
+Level 1: 2 - HiTurbul 4 LoTurbul Excites the entire model to generate cross-talk with the body and loosens the links within the model's structure to generate sympathetic, inharmonic vibration.
+Level 2: 1 Warm 3 Cold Generates warmth by changing material properties. Vice versa, it makes fat tones sound sterile and cold.
+Level 2: 2 Planar 4 Tubular The model representing the body is composed of simple modules (a tubular system). Each of these tubes has parameters that can be shaped geometrically. It can have corners or be flat or spherical. This parameter distorts the tubes along a plane, meaning that it flattens the tubes and creates parallel walls. This changes the overtone structure.
+Level 3: 1 / 3 Influence (> Sphere L1!) Determines if the changes made at sphere level 1 affect solely the original model or also the simplified synthetic oscillation model. This means that changes are only audible if the sphere level 1 parameter Natural>Stringed is not equal to 0.
+
+13
+
+
+Sphere
+
+Level 3: 2 Hi Irreg 4 Lo Irreg (> Sphere L1!) Determines the amount of irregularities in the simplified oscillation model (Stringed). Like "Influence", this parameter is only audible when the sphere level 1 parameter Natural>Stringed is not equal to 0.
+Level 1: 1 SmallBdy 3 LrgeBdy: Determines the size of the model and body. In other words, it makes the sound bigger or smaller. Formants are also affected by transposition. See: Size Key Tracking und Offset!
+Level 1: 2 Natural 4 Stringed: This parameter cross-fades between the original model (Natural) and a simplified oscillation model (Stringed) that is generated synthetically on the basis of the given model parameters. This means an independent, second sound can be added to every model. The pitch of this oscillation model is edited at sphere level 2. (> Sphere L2)
+
+Level 2: 1 StrTuneL 3 StrTuneH: Determines the pitch of the simplified string model. In the default setting, pitch is equivalent to the pitch of the analyzed original sound, which can be changed via this parameter. It has no effect when parameter 2 of level 1 is off, (set to "Natural"). (< Sphere L1)
+Level 2: 2 SemiUp 4 SemiDwn: Determines the pitch of the connected string model's harmonic overtones. Variable in intervals (semitones) relative to the root, it simulates other frequencies in the vibrating string or even a second vibrating string. It has no effect when parameter 2 of level 1 is off (set to "Natural"). (< Sphere L1)
+Level 3: 1 Dissolve 3 Coherent With this parameters it is possible to "loosen"the tonal connectivity within the oscillation system. Oscillation starts inharmonic; the different system components are beeing driven to higher self oscillation. This leads to interesting effects, sounding like "instruments falling in pieces". Perfect for strummed or picked Instrumentmodels.
+
+14
+
+
+Sphere Scape
+
+Level 3: 2 HiFrictn 4 LoFrictn Determines the friction coefficiant of the simplified oscillating model. Metallizing overtone structures! (< Sphere L1)
+Set1 - Stringed/Bowed
+Similar to set 0, but with a different internal routing. It is used for stringed instruments, including pads, but it works particularly well with guitars and other plucked instruments.
+Level1: 1 Rough 3 Smooth Changes the roughness of the sound. The body vibrates sympathetically depending on hardness. This is influenced by the second parameter "RoughIndx," which also determines the oscillation rate.
+Level 1: 2 / 4 RoughIndx (Roughness Index) Determines the material properties for the roughness of the sound. Though this parameter affects the graininess of the tone, it can also slow down or speed up modulations.
+
+Level 2: 1 Chaotic 3 Ordered Determines the amount of stochastic (random) oscillations during sound generation. A high value forces the sound to break out into pure noise. A value of 0 yields the original unprocessed oscillation.
+Level 2: 2 Damped 4 Clear Influences the dampening coefficient (atmospheric absorption value) during sound generation. At high values, some of the signal is absorbed, particularly the higher frequencies.
+Level 3: 1 / 3 Harmonic Determines the frequency and decay of harmonic overtones.
+Level 3: 2 / 4 HarmnMix (Harmonics Mix) Determines the amount of added harmonic overtones.
+Level 1: 1 SmallBdy 3 LrgeBdy
+(Small Body / Large Body, see ParSet 0)
+
+Sphere
+
+15
+
+
+Sphere
+
+Level 1: 2 Simple 4 Complex Determines the relationship between the complex original model and the simplified oscillation model. Though similar to ParSet 0, this parameter influences the generated model differently (see next parameter).
+Level 2: 1 1stModeL 3 1stModeH
+(First Model Low / First Model High)
+Determines the pitch of the first mode (basic vibration of the string). The defined tuning applies not only to the simplified model, but also to the original model.
+Level 2: 2 2ndSemiL 4 2ndSemiH
+(Second Semitone Low / Second Semitone High)
+Determines the pitch of the string's first harmonic overtone. The defined tuning applies not only to the simplified model, but also to the original model. To enable musical results, this parameter is quantized to parameter 3 in semitone steps.
+
+Level 3: 1 / 3 CrpStrct (Corpus Structure) Determines the structure of the body used in synthesis. 0 denotes the original body, 127 the simplified oscillation model whose size is changed via parameter 6.
+Level 3: 2 / 4 CorpusL (Corpus Length) Determines the length of the body in the simplified oscillation model.
+Set2 - Plucked & Bells
+This set is great for hammered or plucked instruments, including chiming, bell-like, and electric pianos sounds. It lets you shape - among other things - the attack and sustain phases separately.
+Level 1: 1 Plucknoise 3 Clean Determines the amount of generated attack noise
+Level 1: 2 / 4 PlkSpect (Pluck Spectrum) Determines the spectral composition of the generated attack noise.
+
+Scape
+
+16
+
+
+Scape
+
+Level 2: 1 / 3 AttkTens (Attack Tension, >SphereL1 und L2!) Defines the maximum inertial tension of the material in the attack model and thus the spectral density of inharmonic frequencies. High values yield a harder spectrum. This parameter only works when the values for the given attack and sustain phases are not equal to 0 in sphere level 2.
+Level 2: 2 / 4 SustTens (Sustain Tension) Like AttkTens, except that it affects the sustain phase.
+Level 3: 1 Warm 3 Cold Generates warmth by changing material properties. Vice versa, it makes fat tones sound sterile and cold.
+Level 3: 2 Resonant 4 Natural Determines the shape of the sound box or housing. It can bend the entire sound-generating environment, adding resonance.
+
+Level 1: 1 SmallBdy 3 LrgeBdy
+(Small Body / Large Body, see ParSet 0)
+Level 1: 2 Percussn 4 Decaying Determines the length of the sound's attack phase. High values yield longer attack decay times, lower values a shorter attack phase. At a value of 0, the sound does not have an attack phase (and all "Attk" parameters have no effect!)
+Level 2: 1 AttkNatur 3 AttkInharm
+(Attack Natural / Attack Inharmonic, < Sphere L1)
+Determines the amount of inharmonic frequencies in the attack phase. (To do this, parameter 2 must have a value other than 0!)
+Level 2: 2 SusNatur 4 SusInharm
+(Sustain Natural / Sustain Inharmonic)
+Determines the amount of inharmonic frequencies in the sustain phase.
+
+Sphere
+
+17
+
+
+Sphere
+
+Level 3: 1 AttkTunHi 3 AttkTunLo
+(Attack Tuning High / Attack Tuning Low)
+Changes the pitch of inharmonic frequencies in the attack phase. It works on the basis of the settings in level 1 and 2 of the sphere!
+Level 3: 2 SusTunHi 4 SusTun/Lo
+(Sustain Tuning High / Sustain Tuning Low)
+Changes the pitch of inharmonic frequencies in the sustain phase. It works on the basis of the settings in level 1 and 2 of the sphere!
+
+Scape
+
+Set3 - Plucked&Picked
+This set is also well suited for hammered and plucked instruments, for example, chiming, bell-like, or electric piano sounds. Here too you can influence the attack and sustain phases separately. However, the options offered here are less invasive and subtler.
+Level 1: 1 PluckNois (Pluck Noise) 3 Clean Determines the amount of generated attack noise.
+
+Level 1: 2 / 4 PluckSpect (Pluck Spectrum) Determines the spectral composition of the generated attack noise.
+Level 2: 1 MatrSoft 3 MatrHard
+(Material Soft / Material Hard)
+Define the elasticity of the sound generator's component material. Higher values yield a softer sound, lower values a harder sound.
+Level 2: 2 Planar 4 Tubular In this set, the model of the body is computed on the basis of the effect of a simple modular structure (a tubular system). Each of these tubes has parameters that can be shaped geometrically. It can have corners or be flat or spherical. This parameter distorts the tubes along a plane, meaning that it flattens the tubes and creates parallel walls. This changes the overtone structure.
+Level 3: 1 Percussn (Percussion) 3 Smooth Determines the presence of the attack signal. Higher values yield a harder attack, lower values a slower attack.
+
+18
+
+
+Scape Sphere
+
+Level 3: 2 Sustaind 4 Plucked Determines the presence of the sustain signal. Higher values yield a slower attack, lower values a harder attack.
+Level 1: 1 SmallBdy 3 LrgeBdy
+(Small Body / Large Body, see ParSet 0)
+Level 1: 2 Percussn (Percussion) 4 Decaying Determines the length of the sound's attack phase. High values yield longer attack decay times, lower values a shorter attack phase. At a value of 0, the sound does not have an attack phase (all "Attk" parameters have no effect!)
+Level 2: 1 / 3 StrTensn (String Tension) Determines the tension of the vibrating medium. Though this influences the perceived pitch of the signal, it does not change the actual body. Because this is not necessarily the way a natural instrument responds, this set creates interesting effects via cancellations and resonance in the body. You can vary this effect by adjusting "Atk" and "Sus" Color to modify the hardness of the vibrating material.
+
+Level 2: 2 / 4 PlckType (Pluck Type) Determines the type of attack (the force and hardness of the exciter impulse), and thus the spectrum of the attack phase. This parameter only works when parameter 2 in level 1 is not equal to 0. Its effect will not become prominent until you enter a value other than 0 to AtkColor in level 3.The reason for this is that the string material intensifies the effect.
+Level 3: 1 AtkColor 3 AtkNatur
+(Attack Colour / Attack Nature, > Sphere L2)
+This parameter shapes the attack phase's timbre. You can influence the tonal color in various ways depending on the "StrTensn" setting. Here timbre is primarily shaped by the hardness of the vibrating material.
+Level 3: 2 SusColor 4 SusNatur
+(Sustain Colour / Sustain Nature, > Sphere L2)
+This parameter controls the sustain phase's timbre. You can influence the tonal color in various ways depending on the "PlkType" setting. Here timbre is primarily shaped by the hardness of the vibrating material.
+
+19
+
+
+Scape
+
+Set4 - Carpet Shop
+This parameter set serves to generate pads and orchestral, very dense soundscapes.
+Level 1: 1 Glass 3 Natural This parameter sweeps the fundamental sound with its overtone structure from natural to glassy, whereby "Natural" is equivalent to the original, unprocessed sound.
+Level 1: 2 LoStiffn 4 HiStiffn (Low Stiffness / High Stiffness) Determines the stiffness of the material, making the sound more or less massive.
+Level 2: 1 Warm 3 Cold (see ParSet 0)
+Level 2: 2 Tubular 4 Planar (see ParSet 0)
+Level 3: 1 / 3 PlkPostn (Pluck Position) Determines the position / direction of attack impulse relatively to the corpus.
+
+Level 3: 2 / 4 PlkMater (Pluck Material) Defines the material coefficient of the material that causes the oscillation.
+Level 1: 1 SmallBdy 3 LrgeBdy
+(Small Body / Large Body, see ParSet 0)
+Level 1: 2 Naturl 4 Stationry (Natural / Stationary) Determines the contours of the body; anything from its natural state to a stationary, smooth state is possible.
+Level 2: 1 Mode1Lo 3 Mode1Hi Defines the tuning of the first Mode (basic oscillation of the model)
+Level 2: 2 Mode2Lo 4 Mode2Hi Defines the tuning of the first overtone of the string. To allow for musical results, this parameter is quantized in halftone steps to the Level2 "3Mode1Hi" Parameter.
+Level 3: 1 / 3 CorpIntn (Corpus Intensity) Determines the amount of an imaginary resonating body in the sound.
+
+Sphere
+
+20
+
+
+Sphere Scape
+
+Level 3: 2 ComplxMd 4 SimpleMd
+(Complex Model / Simple Model
+Lets you define the degree or level of a model's complexity.
+Set5 - Piano etc.
+A lovely set for all piano sounds, it also works nicely with plucked and other stringed instruments. This parameter set provides access to the key components of a piano (including the body, size and material of the frame and strings / material / tension and condition / position and material of hammers, etc.).
+Level 1: 1 StrMetal 3 StrPlast "Metallicity"; i.e. the string's metal / plastic content
+Level 1: 2 HamMetal 4 HamrWood
+(Hammer Metal / Hammer Wood)
+"Metallicity;" i.e. the hammer's metal / wood content
+Level 2: 1 FramWood 3 FrmMetal (Frame Wood / Frame Metal) Woodiness of the frame / "metallicity" of the frame
+
+Level 2: 2 FrmLoose 4 FrmSolid (Frame Loose / Frame Solid) The frame is loose and vibrates / frame is solid
+Level 3: 1 FrNormal 3 FramTorn (Frame Normal / Frame Torn) Initial topology of the frame / topology is bent
+Level 3: 2 StrWobbl 4 StrTense
+(Strings Wobbly / Strings Tense)
+Highly elastic strings / brittle strings
+Determines body size (sound box) Level 1: 1 CrpSmall 3 CrpLarge (Corpus Small / Corpus Large) Sphere
+Level 1: 2 CrpJaggd 4 CrpRound
+(Corpus Jagged / Corpus Round)
+Body has a complex form / body has no corners (very subtle effect)
+Level 2: 1 CrpMetal 3 CrpGlass (Corpus Metal / Corpus Glass) Metal / glass content of the body
+Level 2: 2 CorpWood 4 CrpFibre (Corpus Wood / Corpus Fibre Amount of wood in the body / absorption coefficient of fiberglass or reflective carbon-fiber (very subtle)
+
+21
+
+
+Sphere Scape
+
+Level 3: 1 CrpSolid 3 CorpSof (Corpus Solid / Corpus Soft) Normal body / foam rubber body
+Level 3: 2 AtmDampd 4 AtmoOpen
+(Atmosphere Damped / Atmosphere Open)
+Air in the body has high absorption coefficient / breathable air :-)
+ParSet 6 - Woodwinds
+Parameter set 6 is very well suited for woodwind instruments. You can also achieve interesting results with organs, solo synth sounds, and other lead instruments.
+Level 1: 1 String 3 Air Determines if a vibrating column of air ("Air") or string vibration ("String") generates the sound. In the case of an air column, the sound is created by the resonance of a stochastic (turbulent) airflow. A deterministic string model is used for the string (in simplified terms, this means without a transversal link).
+
+Level 1: 2 Metallic 4 Natural Generates the kind of inharmonic frequencies produced by vibrating metal.
+Level 2: 1 Synthetc 3 Natural A simplified static model is used here; the generator's oscillation is also simplified. The result is a static, periodic sound that is best described as "smooth."
+Level 2: 2 Warm 4 Cold Determines the tolerance of the main oscillation modes. This adds warmth and variation to the signal, or subtracts these properties from it.
+Level 3: 1 ToneHigh 3 Tone Low Determines the weighting of body resonance. This parameter affects the formants in the sound.
+Level 3: 2 / 4 ToneIntn (Tone Intensity) Determines the amount of main resonance boost.
+
+22
+
+
+Sphere
+
+Level 1: 1 Overblow 3 Underblow Simulates over-blowing the flute's body. The pitch and harmonic structure skips an octave higher.
+Level 1: 2 Hollow 4 Rich Changes the shape of the body. For example, you could use a flute to simulate a panpipe or the typical response of a reed instrument.
+Level 2: 1 Light 3 Dark Changes the structure of the body. Determines the size of the aperture at the bottom and the radiation patterns and reflections of stationary waves in the body. For organ-like sounds and some woodwinds, this can serve to simulate the reflectivity and airflow properties of flue pipes. A rather subtle effect.
+Level 2: 2 Small 4 Large Determines the size of the resonating body. Because it can be adjusted independently of the actual oscillation, you can simulate the response of irregularly shaped bodies with uneven modes - for example, blown bottles and the like.
+
+Level 3: 1 SlowVibr 3 FastVibr (Slow Vibrato / Fast Vibrato) Slows down and speeds up the natural playing tempo, including vibrato, if at hand. The entire envelope of the rendered sound is slowed down, bar one exception: an adjustable attack phase whose speed is not varied.
+Level 3: 2 FastAttk 4 SlowAttk (Fast Attack / Slow Attack) Determines the length of the attack phase that is excluded from the effects of the variable tempo / vibrato speed (parameter 1). At the "FastAttk" extreme, there is no attack phase (all changes in speed affect the sound globally), at the "SlowAttk" extreme, the attack phase is initially identical to the original attack, after which the speed changes gradually.
+
+23
+
+
+Sphere Scape
+
+ParSet 7: Extreme Pads
+Parameter set 7 is excellent for pads and similarly unvarying sounds (choir, etc.).
+Level 1: 1 / 3 Character Modulates the sound, including its pitch and body structure. Its pitch skips to higher and lower octaves and its timbre changes drastically.
+Level 1: 2 / 4 Character Modulates the sound, including its pitch and body structure. Its pitch skips to higher and lower octaves and its timbre changes drastically.
+Level 2: 1 / 3 Lquified: "Liquefies" the sound. This model-based, complex filter algorithm modifies the material coefficients.
+Level 2: 2 / 4 Periodic Changes the sound generating patterns from static to chaotic. It can serve to make the sound more monotonous, meaning that it is rendered with less movement and dynamics than the original.
+
+Level 3: 1 / 3 Alienizd (Alienized) Modulates the body by introducing body frequencies with additional oscillation modes. Distorts the sound to the point of noise.
+Level 3: 2 / 4 Warm Creates complex beats by introducing random irregularities during sound generation.
+Level 1: 1 / 3 ColorHi (Colour High) Colors the timbre of the instrument; similar to an EQ, but with variable pitch.
+Level 1: 2 / 4 ColorSft (Colour Soft) Determines the intensity of the effect.
+Level 2: 1 / 3 Open Changes the reflectivity of the simulated body.
+Level 2: 2 / 4 Funny Modulates the sound structure by modifying the body without changing the underlying exciter oscillation. Creates effects similar to resonance - the sound appears to be diminutive or toy-like (funny) or massive and scary (haunting).
+
+Sphere
+
+24
+
+
+Sphere Scape
+
+Level 3: 1 / 3 TapSync Comparable to a sample&hold effect, this feature toggles Tap Sync to the internal playback parameters to change the sound's timbre. Rate is defined using the Tap Tempo button (Master Delay Time L).
+Level 3: 2 / 4 Alternat Toggles Tap Sync to the Liquified parameter. This lets you generate periodically varying tonal patterns that sweep from bright to dark. Rate is defined using the Tap Tempo button (Master Delay Time L).
+Set8 - Loop Factory
+Parameter set 8 works best with loops, phrases, and similarly complex patterns. This set enables time stretching and pitch shifting in real-time.
+Level 1: 1 / 3 SpdConst (Speed Constantity) Determines the speed of the rendered sound as a function of the keyboard, i.e. key tracking. At a value of 127, speed remains constant over the entire key range.
+
+Level 1: 2 / 4 PitchVar (Pitch Variability) Determines the pitch of the rendered sound as a function of the keyboard. At a value of 0, the pitch remains constant over the entire keyboard.
+Level 2: 1 / 3 Pitch Determines pitch without changing speed.
+Level 2: 2 / 4 Speed Changes speed without changing pitch.
+Level 3: 1 / 3 Coherent Simplifies the rendered model by imposing polymorphous restrictions. This transforms a complex mix of sounds into a few coherent signal sources.
+Level 3: 2 / 4 OrangeNs (Orange Noise) Processes the signal via a complex resonator that lets only frequencies within the note scale pass, dampening all others. The basic pitch of the note scale is derived from the device's Master Tuning setting. It allows all frequencies to pass when you select the "WhiteNs" option.
+
+25
+
+
+Sphere
+
+Level 1: 1 / 3 EQ Freq (Equalizer Frequency) Determines the EQ's center frequency.
+Level 1: 2 / 4 EQ Gain (Equalizer Gain) Determines the amount of boost or cut for the selected frequency band.
+Level 2: 1 / 3 StaticFq (Static Frequency) Replaces the sound generating source with a synthetic exciter (white noise), creating a noisy tone color (static).
+Level 2: 2 / 4 StatcAmt (Static Animation) Amount of added static.
+Level 3: 1 / 3 CombFreq (Combfilter Frequency) Frequency of the synthesized comb filter effect. The comb filter is created by adding a tube to the body at the end of the rendering process.
+Level 3: 2 / 4 CombGain (Combfilter Gain) Intensity of the comb filter effect.
+
+Set9 - Multipurpose
+Parameter set 9 is a generic set used for recording single-note instrument tracks. It is not suitable for complex phrases or loops. Though the model lets you shape the size and composition of the body precisely, you cannot alter the underlying sound generation process.
+
+Level 1: 1 CrpSmall 3 CrpLarge (Corpus Small / Corpus Large)
+Scales the size of the body and thus the pitch of its intrinsic resonance frequencies. You can create interesting effects by modulating this parameter on the fly, for example, via LFO or envelope.
+
+Scape
+
+Level 1: 2 / 4 CrpMatrl (Corpus Material) The body's intrinsic resonance also hinges upon its component material. This parameter determines the reflective properties of the sound box. High values yield pronounced resonance; low values a rather diffuse soundscape.
+
+26
+
+
+Scape Sphere
+
+Level 2: 1 HiMovmnt 3 LoMovmnt (Hi and Lo Movement) Determines the amount of random time-based variation in the structure of the body. Because a natural instrument does not respond like this, the set lets you create a range of interesting dynamic effects.
+Level 2: 2 HiSoftns 4 LoSoftns (Hi and Lo Softness) Determines the perceived softness of the sound. To do this, the device computes complex interdependent oscillation patterns. A higher reflection coefficient (Level 1 CrpMatrl) is required to achieve an audible effect with this parameter.
+Level 3: 1 / 3 2 / 4 Shape Parameter This parameter determines the shape of the body and thus its intrinsic resonance.
+Level 1: 1 / 3 BodyTone 2 / 4 Amount Shapes the amount and timbre of the sound box. This lets you determine the fundamental tone of the body.
+
+Level 2: 1 / 3 BdyColor (Body Color) 2 / 4 Amount Determines the amount and reflective properties of resonance frequencies that are contingent upon shape. High values yield a brighter sound, emphasizing the tonal attributes that are informed by body shape. You can influence the formant structure of vocal-like sounds using this parameter.
+Level 3: 1 / 3 CorpOpen (Corpus Opening) 2 / 4 Reflection Defines the body's reflectivity. High values yield an open sound; low values allow only a few high frequencies to pass out of the body.
+
+27
+
+

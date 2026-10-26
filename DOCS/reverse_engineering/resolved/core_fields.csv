@@ -1,0 +1,21 @@
+offset,width,kind,content,evidence
+0x03c,4,entero,0,1001b140_C_NeuronCore_ctor.c:204
+0x040,4,entero,2,1001b140_C_NeuronCore_ctor.c:205
+0x044,4,registro de voz,"0 (x8, stride 0x18)",1001b140_C_NeuronCore_ctor.c:188
+0x048,4,registro de voz,"1.0f (x8, stride 0x18)",1001b140_C_NeuronCore_ctor.c:188
+0x04c,4,registro de voz,"this (x8, stride 0x18)",1001b140_C_NeuronCore_ctor.c:188
+0x050,4,registro de voz,"índice de voz (x8, stride 0x18)",1001b140_C_NeuronCore_ctor.c:188
+0x054,4,registro de voz,"nodo de SoundData + tabla[i]*0x28 (x8, stride 0x18)",1001b140_C_NeuronCore_ctor.c:188
+0x058,4,registro de voz,"callback LAB_1001b7d0 (x8, stride 0x18)",1001b140_C_NeuronCore_ctor.c:188
+0x068,4,constante,0x4e415332,1001b140_C_NeuronCore_ctor.c:210
+0x3a4,4,entero,0,1001b140_C_NeuronCore_ctor.c:135
+0x3a8,4,constante,0x4479c000,1001b140_C_NeuronCore_ctor.c:136
+0x3c8,4,auto-referencia,this,1001b140_C_NeuronCore_ctor.c:137
+0x3cc,4,entero,0,1001b140_C_NeuronCore_ctor.c:138
+0x3d4,4,callback,&LAB_1001b780,1001b140_C_NeuronCore_ctor.c:139
+0x3d8,4,componente,Remote,1001b140_C_NeuronCore_ctor.c:74
+0x3dc,4,componente,SoundData,1001b140_C_NeuronCore_ctor.c:93
+0x3e0,4,componente,Engine,1001b140_C_NeuronCore_ctor.c:111
+0x3e4,4,componente,Noise,1001b140_C_NeuronCore_ctor.c:150
+0x3e8,4,componente,Params,1001b140_C_NeuronCore_ctor.c:125
+0x3ec,4,componente,C_Editor,1001b140_C_NeuronCore_ctor.c:211

@@ -1,0 +1,7 @@
+source,kind,controls,aux,ccs,params,note
+Neuron_CC_Map-1.amxd,max-for-live,32,32 bpatchers OneMap,,,route
+Neuron_CC_Map.amxd,max-for-live,26,26 bpatchers OneMap,,,route 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+SE-Neuron.amxd,max-for-live,0,0 bpatchers OneMap,,,
+Neuron VS.pd,pure-data,6,3 etiquetas,"16,17,35,36,52,53",Resynator 1;Resynator 2;Silver,
+neuroncontrol4.pd,pure-data,26,23 etiquetas,,**** JOYSTICK RANGES \;R1L1Scape2Value;R1L1Sphere2Value;R1L2Scape1Value;R1L2Scape2Value;R1L2Sphere1Value;R1L2Sphere2Value;R1L3Scape1Value;R1L3Scape2Value;R1L3Sphere1Value;R1L3Sphere2Value;R2L1Scape2Value;R2L1Sphere2Value;R2L2Scape1Value;R2L2Scape2Value;R2L2Sphere1Value;R2L2Sphere2Value;R2L3Scape1Value;R2L3Scape2Value;R2L3Sphere1Value;R2L3Sphere2Value;Res;SELECT DERVICE TO OPEN,
+MYELIN MIDI CC v3a.jzml,lemur,75,51 CC distintos,"14,15,16,17,18,19,20,21,22,23,24,25,26,27,33,34,35,36,37,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,85,86,87,88,89,90,91",,

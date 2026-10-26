@@ -1,0 +1,143 @@
+# NeuronVS — estudio de ingeniería inversa
+
+Estudio del sintetizador **Hartmann Neuron / NeuronVS** (VST2 de 32 bits) para saber
+qué habría que reescribir para tener un equivalente en C++ moderno, y cuánto es. No es
+un port: es la medida del terreno, con cada afirmación comprobable contra
+`NeuronVS.dll`.
+
+Todo se verifica con scripts; no hay conclusiones «de memoria». Cada directorio tiene
+su README y su `tools/verify_*.py`.
+
+## Mapa
+
+| Directorio | Qué contiene | Verificación |
+|---|---|---|
+| [`NeuronVS_decompiled/`](NeuronVS_decompiled/README.md) | 1.024 funciones descompiladas, una por fichero | — |
+| [`NeuronVS_classes/`](NeuronVS_classes/README.md) | 29 clases, vtables, constructores y destructores | `tools/verify_classes.py` |
+| [`NeuronVS_resolved/`](NeuronVS_resolved/README.md) | llamadas por vtable resueltas a función concreta | `tools/verify_resolved.py` |
+| [`NeuronVS_dsp/`](NeuronVS_dsp/README.md) | el camino de audio: 87 funciones, constantes, frontera con `params`, tablas de tecla | `tools/verify_dsp.py`, `tools/verify_zones.py` |
+| [`NeuronVS_preset_format/`](NeuronVS_preset_format/README.md) | `.sound`: 445 claves, el registro de 40 B y sus observadores | `tools/verify_preset.py` |
+| [`NeuronVS_layout/`](NeuronVS_layout/README.md) | el editor GDI: 33 páginas, sprites, enlace knob↔parámetro | `tools/verify_layout.py`, `verify_viewer.py` |
+| [`NeuronVS_bitmaps/`](NeuronVS_bitmaps/README.md) | recursos gráficos y su decodificación | — |
+| [`NeuronVS_filmstrip/`](NeuronVS_filmstrip/README.md) | filmstrips de los knobs (GIF) | `tools/verify_gif.py` |
+| [`NeuronVS_neurondb/`](NeuronVS_neurondb/README.md) | `.model`, slots, reordenado sin romper sonidos | `tools/verify_neurondb.py` |
+| [`NeuronVS_vst2/`](NeuronVS_vst2/README.md) | ABI del plugin, opcodes, MIDI | `tools/scan_midi_bridges.py` |
+| [`NeuronVS_compare_presets/`](NeuronVS_compare_presets/README.md) | comparación de presets del host contra el fichero | — |
+| [`NeuronVS_port/`](NeuronVS_port/README.md) | esqueleto C++ del port (sin JUCE todavía) y oráculo golden | `tools/verify_scaffold.py`, `verify_golden.py` |
+| [`Neuron80GB-OS15/`](Neuron80GB-OS15/README.md) | la base instalada de 80 GB: modelos, nombres, slots | `tools/verify_tib_models.py` |
+
+## Lo que está establecido
+
+### El motor son 87 funciones
+
+`FUN_100382b0` (3.648 B, 1.781 líneas) orquesta el bloque. Alcanza **87 funciones**,
+**81.159 B** de código, **12.665 líneas** de pseudocódigo, **27,8 %** de `.text`, con
+**0 llamadas indirectas** en el conjunto y 48 hojas. Todas viven entre `0x10021C90` y
+`0x100478D0`: es un módulo contiguo, no un grafo disperso.
+
+Detalle: [`NeuronVS_dsp/README.md`](NeuronVS_dsp/README.md) §1.
+
+### Tres estados, y sólo uno suena
+
+| Objeto | Tamaño | Papel |
+|---|---:|---|
+| `snddat` (`core+0x3dc`) | 445 × 40 B | lo que **configura** (espejo del `sound.script`) |
+| `params` (`core+0x3e8`) | 11.484 B | lo que **traduce** (6 controles, 335 observadores, `+0x278c`) |
+| `engine` (`core+0x3e0`) | 13.948 B | lo que **suena** |
+
+La frontera es `FUN_10040550` (15.226 B, 2.125 líneas), con tres llamadores y ninguno
+en el render. El registro de 40 B **no lo lee el motor**: publica su valor a los
+observadores; de sus diez dwords sólo tres cruzan (`+0x0c`, `+0x10`, `+0x1c`).
+
+Detalle: [`NeuronVS_dsp/STATE_SPLIT.md`](NeuronVS_dsp/STATE_SPLIT.md) y
+[`NeuronVS_preset_format/PARAM_RECORD.md`](NeuronVS_preset_format/PARAM_RECORD.md).
+
+### Las constantes, medidas
+
+De las **1.430** globales del camino de audio, **708** se pueden tipar por la
+instrucción que las carga: **402** confirman la propuesta del CSV de valores y
+**306** la corrigen (151 `f64` que son `f32`, 117 `u32` que son `f32`, 31 `u32` que
+son `f64`). Las otras 722 se pasan por dirección a un helper, así que su ancho no se
+puede leer en el sitio de la referencia.
+
+Detalle: [`NeuronVS_dsp/CONSTANT_TYPES.md`](NeuronVS_dsp/CONSTANT_TYPES.md).
+
+### El `.sound` es texto, y el registro es binario
+
+445 claves `clave<TAB>entero`, CRLF, en orden de esquema; 351 presets instalados;
+claves desconocidas ignoradas y la última repetida gana. En memoria, cada una se
+expande a un registro de **40 B** con `name`, `min`, `max`, `default`, `step`,
+`value` (float) y una matriz de **16** observadores.
+
+Detalle: [`NeuronVS_preset_format/README.md`](NeuronVS_preset_format/README.md).
+
+### Cambiar de modelo no es asignar un parámetro
+
+El callback `0x10013620` (el del `R1ModellIndex`/`R2ModellIndex`) no se limita a
+anotar un número: adquiere el modelo de la banca de `0x10055738`, reescribe los seis
+registros `Sphere`/`Scape` de esa capa (`name`, variante y default), registra las 128
+entradas del modelo en el motor y termina llamando al traductor con todo `params`. Es
+la operación más cara del plugin. Detalle en
+[`NeuronVS_preset_format/OBSERVER_CALLBACK.md`](NeuronVS_preset_format/OBSERVER_CALLBACK.md).
+
+### Las 128 entradas por tecla
+
+Un modelo no entrega buffers al motor: entrega **128 entradas de 40 B** (una por tecla
+y capa) que el render copia en `engine+0xDB0` (R1) y `+0x2200` (R2). La cadena es
+`map.script` (1.027 líneas) → registro de zona de 48 B → entrada de 40 B, y la
+escritura la hace `FUN_100440d0` con nueve argumentos. El motor lee `root`, dos pares
+`scape`/`sphere` (grave y agudo), `detune` y `volume`; los otros dos dwords van a cero.
+Las 128 entradas son **estado derivado**: se reescriben enteras en cada cambio de
+modelo, así que el port no necesita inventariarlas, sólo reproducir el banco
+zona→tecla. Detalle en [`NeuronVS_dsp/ZONES.md`](NeuronVS_dsp/ZONES.md).
+
+### MIDI
+
+Lo que el binario entiende: nota on/off, CC 1, 2, 3, 4 y 11 (los seis controles de
+ejecución), CC 32 (banco), program change, channel pressure y pitch bend. El host sólo
+expone **26 parámetros**, que son **13 pares**: 12 de `Sphere`/`Scape` por capa y
+`FilterFreq`/`FilterReso`.
+
+Detalle: [`NeuronVS_vst2/README.md`](NeuronVS_vst2/README.md#midi).
+
+## Abierto
+
+- **¿El render lee `params` en caliente?** Está descartado que llame a su código;
+  falta la prueba con centinela sobre `+0x278C`.
+- **El mapa `0x10049E00`**: 64 entradas válidas; `FUN_100134E0` lo indexa con
+  `param_2` libre en una rama.
+- **Quién llena el resto de `+0x278C`**: `FUN_100134E0` sólo escribe el slot que
+  cambia.
+- **722 constantes sin ancho medible** (se pasan por dirección).
+- **Las cuatro funciones grandes del render** (`FUN_100382b0`, `FUN_10040550`,
+  `FUN_10029e34`, `FUN_1002e7a0`) no están traducidas línea a línea.
+
+## Verificar todo
+
+```bash
+python NeuronVS_dsp/tools/verify_dsp.py             # 73 comprobaciones
+python NeuronVS_dsp/tools/verify_zones.py           # 101 comprobaciones
+python NeuronVS_preset_format/tools/verify_preset.py
+python NeuronVS_classes/tools/verify_classes.py
+python NeuronVS_resolved/tools/verify_resolved.py
+python NeuronVS_layout/tools/verify_layout.py
+python NeuronVS_port/tools/verify_scaffold.py
+python NeuronVS_neurondb/tools/verify_neurondb.py
+
+# sólo Win32: el traductor contra el DLL, primero tras cargar el preset y luego
+# con una nota sonando (18 de los 351 presets dan 1 ULP en la segunda pasada;
+# ver NeuronVS_port/docs/TRANSLATOR.md §8)
+NeuronVS_port/build32/Release/neuron_golden.exe --translate --preset 000,176,285,337
+python Neuron80GB-OS15/tools/verify_tib_models.py
+```
+
+Los ocho primeros pasan en este checkout. El último necesita la base de 80 GB
+instalada: si no está, encuentra 0 modelos y reporta 3.135 «problemas» que son
+ficheros ausentes, no inconsistencias del código.
+
+## Lo que no se hace
+
+- Portar el editor GDI: la UI se reescribe, no se emula.
+- Completar el VST2 como producto ni enlazar el SDK de Steinberg.
+- Emular el dongle o el dispositivo «Nuke».
+- Convertir nada a MIDI.

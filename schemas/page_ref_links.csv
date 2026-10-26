@@ -1,0 +1,45 @@
+view,page,class,length,ids,owner,kind,target,param,key,group,min,max,evidence
+0,0,C_ControlPanel,4,5 6 7 9,9,view,view 0,,,,,,C_ControlPanel case 9 (0x1001e600): **(undefined4 **)(param_1 + 0x38)
+0,0,C_ControlPanel,2,0 1,1,core,core+0x398,,,,,,C_ControlPanel case 1 (0x1001e600): *(int *)(param_1 + 0x28) + 0x398
+0,0,C_ControlPanel,2,15 16,16,group,editor+0x9c,,,,,,C_ControlPanel case 16 (0x1001e600): param_1 + 0x9c
+0,0,C_ControlPanel,4,17 18 19 20,20,param,snddat+0x528,33,R1Octave,R1,0,3,C_ControlPanel case 20 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x528
+0,0,C_ControlPanel,2,27 28,28,group,editor+0xb4,,,,,,C_ControlPanel case 28 (0x1001e600): param_1 + 0xb4
+0,0,C_ControlPanel,4,29 30 31 32,32,param,snddat+0x11a8,113,R2Octave,R2,0,3,C_ControlPanel case 32 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x11a8
+0,0,C_DisplayButton,6,0 1 2 3 4 5,5,display,display+0x40,,,,,,C_DisplayButton case 5 (0x100207a0): *(undefined4 *)(param_1 + 0x40)
+0,1,C_ControlPanel,4,5 6 7 9,9,view,view 0,,,,,,C_ControlPanel case 9 (0x1001e600): **(undefined4 **)(param_1 + 0x38)
+0,1,C_ControlPanel,2,0 1,1,core,core+0x398,,,,,,C_ControlPanel case 1 (0x1001e600): *(int *)(param_1 + 0x28) + 0x398
+0,1,C_ControlPanel,5,56 57 58 59 60,60,view,view 3,,,,,,C_ControlPanel case 60 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0xc)
+0,1,C_ControlPanel,5,93 94 95 96 97,97,view,view 6,,,,,,C_ControlPanel case 97 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x18)
+0,1,C_ControlPanel,12,37 38 39 40 41 42 43 44 45 46 47 48,48,param,snddat+0x28a0,260,LFOWaveForm,Synth,0,11,C_ControlPanel case 48 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x28a0
+0,1,C_ControlPanel,2,52 53,53,group,editor+0xcc,,,,,,C_ControlPanel case 53 (0x1001e600): param_1 + 0xcc
+0,1,C_ControlPanel,12,142 143 144 145 146 147 148 149 150 151 152 153,153,param,snddat+0x2a30,270,SlicerWaveForm,Synth,0,11,C_ControlPanel case 153 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x2a30
+0,2,C_ControlPanel,4,5 6 7 9,9,view,view 0,,,,,,C_ControlPanel case 9 (0x1001e600): **(undefined4 **)(param_1 + 0x38)
+0,2,C_ControlPanel,2,0 1,1,core,core+0x398,,,,,,C_ControlPanel case 1 (0x1001e600): *(int *)(param_1 + 0x28) + 0x398
+1,0,C_IconButton,4,12 13 14 15,15,group,editor+?,,,,,,C_IconButton case 15 (0x1001efa0): iVar1
+1,1,C_IconButton,4,12 13 14 15,15,group,editor+?,,,,,,C_IconButton case 15 (0x1001efa0): iVar1
+1,2,C_IconButton,4,12 13 14 15,15,group,editor+?,,,,,,C_IconButton case 15 (0x1001efa0): iVar1
+2,0,C_IconButton,4,28 29 30 31,31,group,editor+?,,,,,,C_IconButton case 31 (0x1001efa0): iVar1
+2,1,C_IconButton,4,28 29 30 31,31,group,editor+?,,,,,,C_IconButton case 31 (0x1001efa0): iVar1
+2,2,C_IconButton,4,28 29 30 31,31,group,editor+?,,,,,,C_IconButton case 31 (0x1001efa0): iVar1
+3,1,C_ControlPanel,6,72 73 74 75 76 77,77,param,snddat+0x3020,308,DS_ClipCurveType,Synth,0,5,C_ControlPanel case 77 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x3020
+4,0,C_ControlPanel,5,67 68 69 70 71,71,view,view 4,,,,,,C_ControlPanel case 71 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x10)
+4,1,C_ControlPanel,5,67 68 69 70 71,71,view,view 4,,,,,,C_ControlPanel case 71 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x10)
+4,2,C_ControlPanel,5,67 68 69 70 71,71,view,view 4,,,,,,C_ControlPanel case 71 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x10)
+4,3,C_ControlPanel,5,67 68 69 70 71,71,view,view 4,,,,,,C_ControlPanel case 71 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x10)
+4,4,C_ControlPanel,5,67 68 69 70 71,71,view,view 4,,,,,,C_ControlPanel case 71 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x10)
+5,0,C_ControlPanel,2,78 79,79,view,view 5,,,,,,C_ControlPanel case 79 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x14)
+5,0,C_ControlPanel,12,80 81 82 83 84 85 86 87 88 89 90 91,91,param,snddat+0x30e8,313,RM_WaveForm,Synth,0,11,C_ControlPanel case 91 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x30e8
+5,1,C_ControlPanel,2,78 79,79,view,view 5,,,,,,C_ControlPanel case 79 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x14)
+5,1,C_ControlPanel,12,80 81 82 83 84 85 86 87 88 89 90 91,91,param,snddat+0x30e8,313,RM_WaveForm,Synth,0,11,C_ControlPanel case 91 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x30e8
+7,0,C_ControlPanel,2,98 99,99,view,view 7,,,,,,C_ControlPanel case 99 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x1c)
+7,0,C_ControlPanel,12,100 101 102 103 104 105 106 107 108 109 110 111,111,param,snddat+0x34f8,339,FL_WaveForm,Synth,0,11,C_ControlPanel case 111 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x34f8
+7,1,C_ControlPanel,2,98 99,99,view,view 7,,,,,,C_ControlPanel case 99 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x1c)
+7,1,C_ControlPanel,12,100 101 102 103 104 105 106 107 108 109 110 111,111,param,snddat+0x34f8,339,FL_WaveForm,Synth,0,11,C_ControlPanel case 111 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x34f8
+8,0,C_ControlPanel,2,112 113,113,view,view 8,,,,,,C_ControlPanel case 113 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x20)
+8,0,C_ControlPanel,12,114 115 116 117 118 119 120 121 122 123 124 125,125,param,snddat+0x35e8,345,PH_WaveForm,Synth,0,11,C_ControlPanel case 125 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x35e8
+8,1,C_ControlPanel,2,112 113,113,view,view 8,,,,,,C_ControlPanel case 113 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x20)
+8,1,C_ControlPanel,12,114 115 116 117 118 119 120 121 122 123 124 125,125,param,snddat+0x35e8,345,PH_WaveForm,Synth,0,11,C_ControlPanel case 125 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x35e8
+9,0,C_ControlPanel,2,126 127,127,view,view 9,,,,,,C_ControlPanel case 127 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x24)
+9,0,C_ControlPanel,12,128 129 130 131 132 133 134 135 136 137 138 139,139,param,snddat+0x36d8,351,CH_WaveForm,Synth,0,11,C_ControlPanel case 139 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x36d8
+9,1,C_ControlPanel,2,126 127,127,view,view 9,,,,,,C_ControlPanel case 127 (0x1001e600): *(undefined4 *)(*(int *)(param_1 + 0x38) + 0x24)
+9,1,C_ControlPanel,12,128 129 130 131 132 133 134 135 136 137 138 139,139,param,snddat+0x36d8,351,CH_WaveForm,Synth,0,11,C_ControlPanel case 139 (0x1001e600): **(int **)(*(int *)(param_1 + 0x28) + 0x3dc) + 0x36d8

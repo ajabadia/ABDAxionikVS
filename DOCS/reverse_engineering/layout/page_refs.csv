@@ -1,0 +1,45 @@
+view,page,class,length,ids,record
+0,0,C_ControlPanel,4,5 6 7 9,0x1004f9c4
+0,0,C_ControlPanel,2,0 1,0x1004f9c4
+0,0,C_ControlPanel,2,15 16,0x1004f9c4
+0,0,C_ControlPanel,4,17 18 19 20,0x1004f9c4
+0,0,C_ControlPanel,2,27 28,0x1004f9c4
+0,0,C_ControlPanel,4,29 30 31 32,0x1004f9c4
+0,0,C_DisplayButton,6,0 1 2 3 4 5,0x1004f9c4
+0,1,C_ControlPanel,4,5 6 7 9,0x1004fc8c
+0,1,C_ControlPanel,2,0 1,0x1004fc8c
+0,1,C_ControlPanel,5,56 57 58 59 60,0x1004fc8c
+0,1,C_ControlPanel,5,93 94 95 96 97,0x1004fc8c
+0,1,C_ControlPanel,12,37 38 39 40 41 42 43 44 45 46 47 48,0x1004fc8c
+0,1,C_ControlPanel,2,52 53,0x1004fc8c
+0,1,C_ControlPanel,12,142 143 144 145 146 147 148 149 150 151 152 153,0x1004fc8c
+0,2,C_ControlPanel,4,5 6 7 9,0x100503e4
+0,2,C_ControlPanel,2,0 1,0x100503e4
+1,0,C_IconButton,4,12 13 14 15,0x1004fb9c
+1,1,C_IconButton,4,12 13 14 15,0x1004fbc4
+1,2,C_IconButton,4,12 13 14 15,0x1004fbec
+2,0,C_IconButton,4,28 29 30 31,0x1004fc14
+2,1,C_IconButton,4,28 29 30 31,0x1004fc3c
+2,2,C_IconButton,4,28 29 30 31,0x1004fc64
+3,1,C_ControlPanel,6,72 73 74 75 76 77,0x1004ff9c
+4,0,C_ControlPanel,5,67 68 69 70 71,0x1004fe34
+4,1,C_ControlPanel,5,67 68 69 70 71,0x1004fe7c
+4,2,C_ControlPanel,5,67 68 69 70 71,0x1004fec4
+4,3,C_ControlPanel,5,67 68 69 70 71,0x1004ff0c
+4,4,C_ControlPanel,5,67 68 69 70 71,0x1004ff54
+5,0,C_ControlPanel,2,78 79,0x1004fff0
+5,0,C_ControlPanel,12,80 81 82 83 84 85 86 87 88 89 90 91,0x1004fff0
+5,1,C_ControlPanel,2,78 79,0x1005005c
+5,1,C_ControlPanel,12,80 81 82 83 84 85 86 87 88 89 90 91,0x1005005c
+7,0,C_ControlPanel,2,98 99,0x1005015c
+7,0,C_ControlPanel,12,100 101 102 103 104 105 106 107 108 109 110 111,0x1005015c
+7,1,C_ControlPanel,2,98 99,0x100501c8
+7,1,C_ControlPanel,12,100 101 102 103 104 105 106 107 108 109 110 111,0x100501c8
+8,0,C_ControlPanel,2,112 113,0x10050238
+8,0,C_ControlPanel,12,114 115 116 117 118 119 120 121 122 123 124 125,0x10050238
+8,1,C_ControlPanel,2,112 113,0x100502a4
+8,1,C_ControlPanel,12,114 115 116 117 118 119 120 121 122 123 124 125,0x100502a4
+9,0,C_ControlPanel,2,126 127,0x10050314
+9,0,C_ControlPanel,12,128 129 130 131 132 133 134 135 136 137 138 139,0x10050314
+9,1,C_ControlPanel,2,126 127,0x10050380
+9,1,C_ControlPanel,12,128 129 130 131 132 133 134 135 136 137 138 139,0x10050380

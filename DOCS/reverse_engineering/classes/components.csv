@@ -1,0 +1,7 @@
+component,owner,role,ctor,bytes
+AudioMaster,C_NeuronCore,host callback,,
+Remote,C_NeuronCore,remote/MIDI control,0x10016790,4
+SoundData,C_NeuronCore,C_Param table (snddat),0x10013de0,12
+Engine,C_NeuronCore,DSP engine,0x10038220,4
+Params,C_NeuronCore,parameter tree,0x1000be10,11484
+Noise,C_NeuronCore,noise generator,0x1000b500,196

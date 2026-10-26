@@ -1,0 +1,52 @@
+file,line,slot,receiver,shape,owner_class,field,reason,evidence
+10006f50_C_Widget_ctor.c,52,0x5c,*param_2,param,C_Widget,param_2,contradiction,"15 llamada(s), 15 con el argumento visible: 0 clase(s), 4 handle(s), 0 sin tipo"
+10008250_C_Window_v01_paint.c,50,0x04,*(undefined4 *)(param_1 + 0x4c),field,C_Window,0x4c,dead-field,C_Window_ctor: 0 -- el puntero nunca recibe un objeto en toda la familia
+100082e0_C_Window_v02.c,43,0x0c,*(undefined4 *)(param_1 + 0x4c),field,C_Window,0x4c,dead-field,C_Window_ctor: 0 -- el puntero nunca recibe un objeto en toda la familia
+100082e0_C_Window_v02.c,45,0x04,*(undefined4 *)(param_1 + 0x4c),field,C_Window,0x4c,dead-field,C_Window_ctor: 0 -- el puntero nunca recibe un objeto en toda la familia
+10008470_C_Window_v04.c,24,0x2c,*(undefined4 *)(param_1 + 0x50),field,C_Window,0x50,dead-field,C_Window_ctor: 0; C_Window_v04: 0; C_Window_v34: 0 -- el puntero nunca recibe un objeto en toda la familia
+10008470_C_Window_v04.c,47,0x4c,*(undefined4 *)(param_1 + 0x4c),field,C_Window,0x4c,dead-field,C_Window_ctor: 0 -- el puntero nunca recibe un objeto en toda la familia
+10008470_C_Window_v04.c,49,0x10,*(undefined4 *)(param_1 + 0x4c),field,C_Window,0x4c,dead-field,C_Window_ctor: 0 -- el puntero nunca recibe un objeto en toda la familia
+10008520_C_Window_v07.c,21,0x1c,*(undefined4 *)(param_1 + 0x50),field,C_Window,0x50,dead-field,C_Window_ctor: 0; C_Window_v04: 0; C_Window_v34: 0 -- el puntero nunca recibe un objeto en toda la familia
+10008520_C_Window_v07.c,23,0x1c,*(undefined4 *)(param_1 + 0x4c),field,C_Window,0x4c,dead-field,C_Window_ctor: 0 -- el puntero nunca recibe un objeto en toda la familia
+10008570_C_Window_v08.c,21,0x20,*(undefined4 *)(param_1 + 0x50),field,C_Window,0x50,dead-field,C_Window_ctor: 0; C_Window_v04: 0; C_Window_v34: 0 -- el puntero nunca recibe un objeto en toda la familia
+10008570_C_Window_v08.c,23,0x20,*(undefined4 *)(param_1 + 0x4c),field,C_Window,0x4c,dead-field,C_Window_ctor: 0 -- el puntero nunca recibe un objeto en toda la familia
+10008760_C_Window_v05.c,21,0x14,*(undefined4 *)(param_1 + 0x4c),field,C_Window,0x4c,dead-field,C_Window_ctor: 0 -- el puntero nunca recibe un objeto en toda la familia
+10008a20_C_Window_v34.c,19,0x2c,*(undefined4 *)(param_1 + 0x50),field,C_Window,0x50,dead-field,C_Window_ctor: 0; C_Window_v04: 0; C_Window_v34: 0 -- el puntero nunca recibe un objeto en toda la familia
+10015660_C_GraphEditor_v04.c,38,0x18,*(undefined4 *)(param_1 + 0x1e0),field,C_GraphEditor,0x1e0,dead-field,C_GraphEditor_ctor: 0 -- el puntero nunca recibe un objeto en toda la familia
+10015660_C_GraphEditor_v04.c,39,0x10,*(undefined4 *)(param_1 + 0x1e0),field,C_GraphEditor,0x1e0,dead-field,C_GraphEditor_ctor: 0 -- el puntero nunca recibe un objeto en toda la familia
+10015730_C_GraphEditor_ifacede9c_v00.c,18,0x38,**(int **)(param_1 + 4),field,C_GraphEditor,0x04,field-never-written,ninguna tienda en la familia
+100085c0_C_Window_v09.c,34,0x24,*piVar1,local,C_Window,0x48,local-array,piVar1 sale de un elemento del array +0x48 -- campo: C_Window_ctor: 0; C_Window_v32: pvVar2; C_Window_v32: [i] param_2 (sin llamadas directas); C_Window_v34: 0
+10006b50_C_UiContainer_v12_releaseGdi.c,96,0x84,*piVar5,local,C_UiContainer,,local-call,"piVar5 = (int *)FUN_100067c0(pvVar6,&pvStack_40,& (función sin clase en el modelo)"
+10008660_C_Window_v10_releaseGdi.c,52,0x28,*piVar2,local,C_Window,,local-call,piVar2 = (int *)FUN_10008af0() (función sin clase en el modelo)
+10005920_C_UiPanel_v11_releaseGdi.c,161,0x18,*piVar8,local,C_UiPanel,0x2c,local-field,piVar8 = *(int **)(param_1 + 0x2c) -- campo: C_UiRect_v24: param_2 (sin llamadas directas)
+10018220_C_DisplayButton_v01_paint.c,59,0x38,*local_78,local,C_DisplayButton,0x44,local-field,local_78 = (int *)param_1[0x11] -- campo: C_DisplayButton_ctor: 0
+10009bf0_C_Bitmap_v06_createChild.c,89,0x08,*piStack_43c,local,C_Bitmap,,local-unknown,sin asignación previa en el cuerpo
+10005e70_C_UiContainer_v64.c,63,0x78,*param_2,param,C_UiContainer,param_2,no-callers,"0 llamada(s), 0 con el argumento visible: 0 clase(s), 0 handle(s), 0 sin tipo"
+100064d0_C_UiContainer_v70.c,32,0x74,**(int **)(*(int *)(param_1 + 0xa4) + iVar1 * 4),array,C_UiContainer,0xa4,no-callers,"el array solo se llena en C_ParameterPage_v64, C_UiContainer_v64, que no tiene llamadas directas: el elemento llega por vtable"
+10008250_C_Window_v01_paint.c,45,0x04,**(int **)(*(int *)(param_1 + 0x48) + iVar1 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+100082e0_C_Window_v02.c,35,0x0c,**(int **)(*(int *)(param_1 + 0x48) + iVar2 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+100082e0_C_Window_v02.c,37,0x08,**(int **)(*(int *)(param_1 + 0x48) + iVar2 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+10008470_C_Window_v04.c,34,0x40,**(int **)(*(int *)(param_1 + 0x48) + iVar3 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+10008470_C_Window_v04.c,36,0x4c,**(int **)(*(int *)(param_1 + 0x48) + iVar3 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+10008470_C_Window_v04.c,43,0x10,**(int **)(*(int *)(param_1 + 0x48) + iVar3 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+10008520_C_Window_v07.c,30,0x1c,**(int **)(*(int *)(param_1 + 0x48) + iVar1 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+10008570_C_Window_v08.c,30,0x20,**(int **)(*(int *)(param_1 + 0x48) + iVar1 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+100085c0_C_Window_v09.c,29,0x40,**(int **)(*(int *)(param_1 + 0x48) + iVar3 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+10008760_C_Window_v05.c,33,0x14,**(int **)(param_1[0x12] + iVar2 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+10008940_C_Window_v32.c,37,0x70,*param_2,param,C_Window,param_2,no-callers,"0 llamada(s), 0 con el argumento visible: 0 clase(s), 0 handle(s), 0 sin tipo"
+100089b0_C_Window_v33.c,30,0x6c,*param_2,param,C_Window,param_2,no-callers,"0 llamada(s), 0 con el argumento visible: 0 clase(s), 0 handle(s), 0 sin tipo"
+100089b0_C_Window_v33.c,32,0x74,*param_2,param,C_Window,param_2,no-callers,"0 llamada(s), 0 con el argumento visible: 0 clase(s), 0 handle(s), 0 sin tipo"
+10008a20_C_Window_v34.c,28,0x6c,**(int **)(*(int *)(param_1 + 0x48) + iVar1 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+10008a20_C_Window_v34.c,30,0x74,**(int **)(*(int *)(param_1 + 0x48) + iVar1 * 4),array,C_Window,0x48,no-callers,"el array solo se llena en C_Window_v32, que no tiene llamadas directas: el elemento llega por vtable"
+10009ac0_C_Bitmap_v03.c,36,0x14,*param_2,param,C_Bitmap,param_2,no-callers,"0 llamada(s), 0 con el argumento visible: 0 clase(s), 0 handle(s), 0 sin tipo"
+10009ac0_C_Bitmap_v03.c,47,0x14,*param_2,param,C_Bitmap,param_2,no-callers,"0 llamada(s), 0 con el argumento visible: 0 clase(s), 0 handle(s), 0 sin tipo"
+10009bf0_C_Bitmap_v06_createChild.c,64,0x0c,*param_2,param,C_Bitmap,param_2,no-callers,"0 llamada(s), 0 con el argumento visible: 0 clase(s), 0 handle(s), 0 sin tipo"
+10009bf0_C_Bitmap_v06_createChild.c,69,0x0c,*param_2,param,C_Bitmap,param_2,no-callers,"0 llamada(s), 0 con el argumento visible: 0 clase(s), 0 handle(s), 0 sin tipo"
+10015c50_C_ParameterPage_v64.c,59,0x78,*param_2,param,C_ParameterPage,param_2,no-callers,"0 llamada(s), 0 con el argumento visible: 0 clase(s), 0 handle(s), 0 sin tipo"
+100048c0_C_AudioComponent_v144.c,34,0x23c,*unaff_ESI,register,C_AudioComponent,,register-untyped,el receptor es un registro vivo (ESI) sin local que lo respalde
+10002de0_C_RefObject_v13.c,35,0x98,*(undefined4 *)(param_1 + 0x04),field,C_RefObject,0x04,untyped-setter,"C_RefObject_ctor: param_2 (1 llamada(s), argumento sin tipo)"
+10005920_C_UiPanel_v11_releaseGdi.c,126,0x5c,*(undefined4 *)(param_1 + 0x2c),field,C_UiPanel,0x2c,untyped-setter,C_UiRect_v24: param_2 (sin llamadas directas)
+10007e00_C_UiRect_v26.c,21,0x68,*(undefined4 *)(param_1 + 0x28),field,C_UiRect,0x28,untyped-setter,C_UiRect_v25: param_2 (sin llamadas directas)
+10009bf0_C_Bitmap_v06_createChild.c,82,0x24,*(undefined4 *)(param_1 + 0x0c),field,C_Bitmap,0x0c,untyped-setter,"C_Bitmap_create: 0; C_Bitmap_create: local_10; C_Bitmap_ctor: param_2 (1 llamada(s), argumento sin tipo)"
+10009bf0_C_Bitmap_v06_createChild.c,143,0x24,*(undefined4 *)(param_1 + 0x0c),field,C_Bitmap,0x0c,untyped-setter,"C_Bitmap_create: 0; C_Bitmap_create: local_10; C_Bitmap_ctor: param_2 (1 llamada(s), argumento sin tipo)"
+10015730_C_GraphEditor_ifacede9c_v00.c,17,0x18,*(undefined4 *)(param_1 + 0x2c),field,C_GraphEditor,0x2c,untyped-setter,C_UiRect_v24: param_2 (sin llamadas directas)

@@ -1,0 +1,18 @@
+field,value,evidence
+magic,0x56737450 'VstP',10002fb0: [core+0x20]=0x56737450
+dispatcher,0x10002ed0,10002fb0 instala el stub en AEffect+0x04
+process,0x10002f70 -> core+0x10 (1000a040),stub
+setParameter,0x10002f50 -> core+0x04 (1001ba00),stub
+getParameter,0x10002f30 -> core+0x08 (1001ba30),stub
+numPrograms,"1 con host 'FXpansion', 0 en el resto",1001b010 compara el vendor del host
+numParams,26,"10009f60(...,0x1a)"
+numInputs,0,1001b140: [core+0x3c]=0
+numOutputs,2,1001b140: [core+0x40]=2
+flags,0x111,0x1 editor + 0x10 canReplacing + 0x100 isSynth
+initialDelay,0,10002fb0
+ioRatio,1.0,10002fb0: 0x3f800000
+object,core (AEffect = core+0x20),10002fb0: [core+0x60]=core
+uniqueID,0x4e415332 'NAS2',1001b140 sobreescribe el 'NoEf' del ctor base
+version,1,10002fb0
+processReplacing,0x10002f90 -> core+0x14 (1000a040),stub
+processDoubleReplacing,0,10002fb0 deja 0

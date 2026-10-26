@@ -1,0 +1,28 @@
+class,vtable,slots_to_next,parent,ctor,ctor_new,object_size,bitmaps,views,evidence
+C_OleRef,0x10049294,11,,,,,,0x10049294,"base of C_RefObject: its 11 slots are the first 11 indices of 0x1004925c (14 slots) and 3/5/6 hold the same function pointers; no ctor installs it, only the base dtor body 0x10002ce0, which the exception-unwind of C_RefObject's ctor calls"
+C_RefObject,0x1004925c,14,C_OleRef,FUN_10002b70,C_RefObject_ctor,,,0x1004925c,"ctor 10002b70 installs its own table and registers unwind handler 0x100479b8, which destroys the C_OleRef base through 0x10002ce0 (installs 0x10049294); dtor body 10002c10 ends by leaving 0x10049294 installed; slots 3/5/6 are inherited unchanged, 0/1/2/4/7/8/9/10 overridden and 11/12/13 new"
+C_AudioNode,0x100492c0,46,,FUN_10002fb0,C_AudioNode_ctor,,,0x100492c0,base of the audio object chain
+C_AudioComponent,0x100493c0,145,C_AudioNode,FUN_10003910,C_AudioComponent_ctor,,,0x100493c0,ctor 10003910 calls 10002fb0 before installing its vtable
+C_AudioModule,0x10049b60,147,C_AudioComponent,FUN_10009f60,C_AudioModule_ctor,,,0x10049b60,ctor 10009f60 calls 10003910 before installing its vtable
+C_NeuronCore,0x1004f550,147,C_AudioModule,FUN_1001b140,C_NeuronCore_ctor,1008,,0x1004f550,"ctor 1001b140 calls 10009f60; 1008-byte object built by main, owns 6 components + Editor"
+C_UiRect,0x10049604,51,,FUN_10004950,C_UiRect_ctor,,,0x10049604,rectangle-aware base of the UI widgets
+C_UiControl,0x100496d8,63,C_UiRect,FUN_10004ba0,C_UiControl_ctor,,,0x100496d8,ctor 10004ba0 calls 10004950
+C_UiPanel,0x100497d4,67,C_UiControl,FUN_10005410,C_UiPanel_ctor,,,0x100497d4,ctor 10005410 calls 10004ba0; GDI DeleteObject in methods
+C_UiContainer,0x100498e0,80,C_UiControl,FUN_10005b80,C_UiContainer_ctor,,,0x100498e0,ctor 10005b80 calls 10004ba0; adds child-list methods
+C_GraphEditor,0x1004dea0,67,C_UiPanel,FUN_10014dd0,C_GraphEditor_ctor,,,0x1004dea0 0x1004de9c 0x1004dfac,ctor 10014dd0 calls 10005410; two secondary purecall views at object offsets 0x1b4/0x1d0
+C_ParameterPage,0x1004e030,80,C_UiContainer,FUN_10015950,C_ParameterPage_ctor,304,,0x1004e030,ctor 10015950 allocates child components from a page table; 304 bytes
+C_Editor,0x1004f7a0,14,C_RefObject,FUN_1001bad0,C_Editor_ctor,2820,,0x1004f7a0 0x1004f79c,ctor 1001bad0 calls 10002b70; secondary view at offset 0x24; owns 7 UI children; 2820 bytes
+C_Rect,0x10049a28,32,,FUN_10007c80,C_Rect_ctor,,,0x10049a28,ctor 10007c80 stores left/top/right/bottom and flags
+C_Widget,0x10049a20,1,,FUN_10006f50,C_Widget_ctor,,,0x10049a20,single-slot view installed by the generic widget ctor 10006f50
+C_OwnerWidget,0x10049a24,1,,FUN_10007940,C_OwnerWidget_ctor,,,0x10049a24,single-slot view for a widget that owns an HBITMAP (10007940)
+C_Window,0x10049aa8,38,,FUN_10007e10,C_Window_ctor,,,0x10049aa8,methods call DestroyWindow and window painting APIs
+C_Bitmap,0x10049b40,8,,FUN_100099d0,C_Bitmap_ctor,,,0x10049b40,C_Bitmap_create (10008d60) wraps LoadBitmapA + GetObjectA; ctor 100099d0 adopts an HBITMAP
+C_HitRegion,0x1004cfd0,32,,FUN_10014030,C_HitRegion_ctor,,,0x1004cfd0,embeds C_Rect at +8 and clamps bounds from a region table
+C_BitmapBox,0x1004d188,32,,FUN_100141a0,C_BitmapBox_ctor,,,0x1004d188,embeds C_Rect at +8 and loads a bitmap id from DAT_1004d050
+C_Knob,0x1004d21c,32,,FUN_100145b0,C_Knob_ctor,,11600 11601,0x1004d21c,"embeds C_Rect; loads bitmaps 11600/11601 (50x50 filmstrip, 90 frames)"
+C_Led,0x1004e20c,32,,FUN_10016000,C_Led_ctor,,11300,0x1004e20c,embeds C_Rect; loads bitmap 11300 (15x7 LED)
+C_IconButton,0x1004e888,32,,FUN_10016a00,C_IconButton_ctor,,,0x1004e888,indexes a 0x7c-entry bitmap table DAT_1004e2bc
+C_DisplayButton,0x1004e940,32,,FUN_10017470,C_DisplayButton_ctor,,11500 11501,0x1004e940 0x1004e9c0,loads bitmaps 11500/11501 (66x22 display + 7x7 icon)
+C_PadGrid,0x1004ea8c,32,,FUN_10018bb0,C_PadGrid_ctor,,11400 11401 11410,0x1004ea8c,loads bitmaps 11400/11401/11410 (knob frames and 960x240 pad matrix)
+C_ControlPanel,0x1004f468,32,,FUN_10019f20,C_ControlPanel_ctor,,,0x1004f468,ctor creates six child controls via FUN_10007490
+C_EditorChild,0x1004f7d8,32,,FUN_1001d200,C_EditorChild_ctor,,,0x1004f7d8,child view built on C_Rect at +8; ctor 1001d200

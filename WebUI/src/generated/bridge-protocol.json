@@ -1,0 +1,190 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ABDAxionikVSBridgeProtocol",
+  "version": "1.0.0",
+  "description": "Protocolo versionado bidireccional Host C++/WASM <-> WebView2 WebUI",
+  "messages": {
+    "toHost": [
+      {
+        "type": "PARAM_SET",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 444
+          },
+          "value": {
+            "type": "number"
+          }
+        }
+      },
+      {
+        "type": "PARAM_BATCH_SET",
+        "properties": {
+          "params": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer"
+                },
+                "value": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "NOTE_ON",
+        "properties": {
+          "note": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "velocity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      {
+        "type": "NOTE_OFF",
+        "properties": {
+          "note": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          }
+        }
+      },
+      {
+        "type": "STICK_MOVE",
+        "properties": {
+          "layer": {
+            "type": "string",
+            "enum": [
+              "R1",
+              "R2",
+              "Silver"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "Scape",
+              "Sphere"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        }
+      },
+      {
+        "type": "LOAD_PRESET",
+        "properties": {
+          "presetIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999
+          }
+        }
+      },
+      {
+        "type": "LOAD_MODEL",
+        "properties": {
+          "resynator": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "modelIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 511
+          }
+        }
+      },
+      {
+        "type": "REQUEST_SYNC",
+        "properties": {}
+      }
+    ],
+    "fromHost": [
+      {
+        "type": "PARAM_UPDATE",
+        "properties": {
+          "index": {
+            "type": "integer"
+          },
+          "value": {
+            "type": "number"
+          }
+        }
+      },
+      {
+        "type": "PARAM_BATCH_UPDATE",
+        "properties": {
+          "params": {
+            "type": "array"
+          }
+        }
+      },
+      {
+        "type": "TELEMETRY",
+        "properties": {
+          "cpuUsage": {
+            "type": "number"
+          },
+          "activeVoices": {
+            "type": "integer"
+          },
+          "peakL": {
+            "type": "number"
+          },
+          "peakR": {
+            "type": "number"
+          }
+        }
+      },
+      {
+        "type": "MODEL_LOADED",
+        "properties": {
+          "resynator": {
+            "type": "integer"
+          },
+          "modelIndex": {
+            "type": "integer"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "scapeNames": {
+            "type": "array"
+          },
+          "sphereNames": {
+            "type": "array"
+          }
+        }
+      },
+      {
+        "type": "HEARTBEAT",
+        "properties": {
+          "timestamp": {
+            "type": "number"
+          }
+        }
+      }
+    ]
+  }
+}

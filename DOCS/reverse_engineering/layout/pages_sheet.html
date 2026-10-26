@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeuronVS · 33 páginas del editor</title>
+<style>
+:root{--bg:#101014;--panel:#17171d;--line:#26262f;--ink:#ebebf0;--dim:#a0a0aa;
+      --accent:#5fb3a1;--amber:#e8a33d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+     font:14px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif}
+header{max-width:1500px;margin:0 auto;padding:30px 24px 6px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+h1{margin:0;font-size:22px;font-weight:600;letter-spacing:.1px}
+.lede{max-width:112ch;margin:10px 0 0;color:var(--dim)}
+.lede a,footer a{color:var(--accent)}
+.views{display:flex;flex-wrap:wrap;gap:6px;margin:20px 0 0}
+.views button{border:1px solid var(--line);background:var(--panel);color:var(--ink);
+              border-radius:999px;padding:5px 11px;font:inherit;font-size:12px;
+              cursor:pointer}
+.views button b{color:var(--dim);font-weight:600;margin-left:4px}
+.views button:hover{border-color:var(--accent)}
+.views button.on{background:var(--accent);border-color:var(--accent);color:#0d1210}
+.views button.on b{color:#0d1210}
+.meta{max-width:1500px;margin:0 auto;padding:14px 24px 0;color:var(--dim);font-size:12px}
+.meta a{color:var(--accent)}
+main{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+     gap:16px;max-width:1500px;margin:0 auto;padding:18px 24px 44px}
+.tile{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);
+      border-radius:10px;overflow:hidden;color:inherit;text-decoration:none;
+      transition:border-color .12s ease,box-shadow .12s ease}
+.tile:hover,.tile:focus-visible{border-color:var(--accent);outline:none;
+                                box-shadow:0 0 0 1px var(--accent)}
+.tile:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+.tile[hidden]{display:none}
+.crop{display:block;aspect-ratio:400/326;background-color:#000;
+      background-image:url(pages_sheet.png);background-repeat:no-repeat;
+      background-size:calc(100% * 1708 / 400) auto;
+      pointer-events:none}
+.cap{display:grid;gap:2px;padding:10px 12px 12px;font-size:12px;pointer-events:none}
+.cap b{font-size:13px;font-weight:600}
+.cap span{color:var(--dim)}
+.cap em{font-style:normal;color:var(--dim)}
+.cap em.warn{color:var(--amber)}
+.cap em.ok{color:#6f6f7a}
+footer{max-width:1500px;margin:0 auto;padding:0 24px 40px;color:#787882;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="dot"></span><h1>NeuronVS · 33 páginas del editor</h1></div>
+  <p class="lede">Hoja de contactos navegable: cada recorte abre esa página en el
+  <a href="viewer.html">visor interactivo</a>. Las 33 páginas se componen sobre el
+  lienzo de 800x652 con la piel 10000, el bitmap de su slot y los controles que monta su
+  registro, al 50 %; el orden de dibujo es el del stream.</p>
+  <nav class="views" id="views" aria-label="filtrar por vista"><button type="button" data-view="all" class="on" aria-pressed="true">todas <b>33</b></button><button type="button" data-view="0" aria-pressed="false">vista 0 <b>4</b></button><button type="button" data-view="1" aria-pressed="false">vista 1 <b>3</b></button><button type="button" data-view="2" aria-pressed="false">vista 2 <b>3</b></button><button type="button" data-view="3" aria-pressed="false">vista 3 <b>5</b></button><button type="button" data-view="4" aria-pressed="false">vista 4 <b>5</b></button><button type="button" data-view="5" aria-pressed="false">vista 5 <b>2</b></button><button type="button" data-view="6" aria-pressed="false">vista 6 <b>5</b></button><button type="button" data-view="7" aria-pressed="false">vista 7 <b>2</b></button><button type="button" data-view="8" aria-pressed="false">vista 8 <b>2</b></button><button type="button" data-view="9" aria-pressed="false">vista 9 <b>2</b></button></nav>
+</header>
+<p class="meta">10 vistas · <a href="pages_sheet.png">hoja completa (PNG)</a> ·
+<a href="viewer.html">abrir el visor</a> · <a href="pages_sheet.csv">sidecar (CSV)</a></p>
+<main id="grid">
+<a class="tile" data-view="0" href="viewer.html#view=0&page=0" aria-label="Abrir la vista 0, página 0, en el visor"><span class="crop" style="background-position:calc(100% * 24 / 1308) calc(100% * 78 / 3218)"></span><span class="cap"><b>vista 0 · pág 0</b><span>fondo 10000 · slot 0</span><span>90 controles · 84 colocados</span><em class="warn">10 fuera del lienzo · 6 sin posición</em></span></a>
+<a class="tile" data-view="0" href="viewer.html#view=0&page=1" aria-label="Abrir la vista 0, página 1, en el visor"><span class="crop" style="background-position:calc(100% * 444 / 1308) calc(100% * 78 / 3218)"></span><span class="cap"><b>vista 0 · pág 1</b><span>fondo 10001 · slot 7</span><span>76 controles · 72 colocados</span><em class="warn">15 fuera del lienzo · 4 sin posición</em></span></a>
+<a class="tile" data-view="0" href="viewer.html#view=0&page=2" aria-label="Abrir la vista 0, página 2, en el visor"><span class="crop" style="background-position:calc(100% * 864 / 1308) calc(100% * 78 / 3218)"></span><span class="cap"><b>vista 0 · pág 2</b><span>fondo 10002 · slot 24</span><span>29 controles · 16 colocados</span><em class="warn">1 fuera del lienzo · 13 sin posición</em></span></a>
+<a class="tile" data-view="0" href="viewer.html#view=0&page=3" aria-label="Abrir la vista 0, página 3, en el visor"><span class="crop" style="background-position:calc(100% * 1284 / 1308) calc(100% * 78 / 3218)"></span><span class="cap"><b>vista 0 · pág 3</b><span>fondo 10003 · slot 25</span><span>2 controles · 2 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="1" href="viewer.html#view=1&page=0" aria-label="Abrir la vista 1, página 0, en el visor"><span class="crop" style="background-position:calc(100% * 24 / 1308) calc(100% * 458 / 3218)"></span><span class="cap"><b>vista 1 · pág 0</b><span>fondo 10300 · slot 1</span><span>4 controles · 4 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="1" href="viewer.html#view=1&page=1" aria-label="Abrir la vista 1, página 1, en el visor"><span class="crop" style="background-position:calc(100% * 444 / 1308) calc(100% * 458 / 3218)"></span><span class="cap"><b>vista 1 · pág 1</b><span>fondo 10301 · slot 2</span><span>4 controles · 4 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="1" href="viewer.html#view=1&page=2" aria-label="Abrir la vista 1, página 2, en el visor"><span class="crop" style="background-position:calc(100% * 864 / 1308) calc(100% * 458 / 3218)"></span><span class="cap"><b>vista 1 · pág 2</b><span>fondo 10302 · slot 3</span><span>4 controles · 4 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="2" href="viewer.html#view=2&page=0" aria-label="Abrir la vista 2, página 0, en el visor"><span class="crop" style="background-position:calc(100% * 1284 / 1308) calc(100% * 458 / 3218)"></span><span class="cap"><b>vista 2 · pág 0</b><span>fondo 10300 · slot 4</span><span>4 controles · 4 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="2" href="viewer.html#view=2&page=1" aria-label="Abrir la vista 2, página 1, en el visor"><span class="crop" style="background-position:calc(100% * 24 / 1308) calc(100% * 838 / 3218)"></span><span class="cap"><b>vista 2 · pág 1</b><span>fondo 10301 · slot 5</span><span>4 controles · 4 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="2" href="viewer.html#view=2&page=2" aria-label="Abrir la vista 2, página 2, en el visor"><span class="crop" style="background-position:calc(100% * 444 / 1308) calc(100% * 838 / 3218)"></span><span class="cap"><b>vista 2 · pág 2</b><span>fondo 10302 · slot 6</span><span>4 controles · 4 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="3" href="viewer.html#view=3&page=0" aria-label="Abrir la vista 3, página 0, en el visor"><span class="crop" style="background-position:calc(100% * 864 / 1308) calc(100% * 838 / 3218)"></span><span class="cap"><b>vista 3 · pág 0</b><span>sin fondo · monta vista 4</span><span>0 controles · 0 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="3" href="viewer.html#view=3&page=1" aria-label="Abrir la vista 3, página 1, en el visor"><span class="crop" style="background-position:calc(100% * 1284 / 1308) calc(100% * 838 / 3218)"></span><span class="cap"><b>vista 3 · pág 1</b><span>fondo 10110 · slot 11</span><span>9 controles · 9 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="3" href="viewer.html#view=3&page=2" aria-label="Abrir la vista 3, página 2, en el visor"><span class="crop" style="background-position:calc(100% * 24 / 1308) calc(100% * 1218 / 3218)"></span><span class="cap"><b>vista 3 · pág 2</b><span>sin fondo · monta vista 5</span><span>0 controles · 0 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="3" href="viewer.html#view=3&page=3" aria-label="Abrir la vista 3, página 3, en el visor"><span class="crop" style="background-position:calc(100% * 444 / 1308) calc(100% * 1218 / 3218)"></span><span class="cap"><b>vista 3 · pág 3</b><span>fondo 10130 · slot 14</span><span>3 controles · 3 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="3" href="viewer.html#view=3&page=4" aria-label="Abrir la vista 3, página 4, en el visor"><span class="crop" style="background-position:calc(100% * 864 / 1308) calc(100% * 1218 / 3218)"></span><span class="cap"><b>vista 3 · pág 4</b><span>fondo 10140 · slot 15</span><span>6 controles · 6 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="4" href="viewer.html#view=4&page=0" aria-label="Abrir la vista 4, página 0, en el visor"><span class="crop" style="background-position:calc(100% * 1284 / 1308) calc(100% * 1218 / 3218)"></span><span class="cap"><b>vista 4 · pág 0</b><span>fondo 10100 · slot 8</span><span>10 controles · 10 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="4" href="viewer.html#view=4&page=1" aria-label="Abrir la vista 4, página 1, en el visor"><span class="crop" style="background-position:calc(100% * 24 / 1308) calc(100% * 1598 / 3218)"></span><span class="cap"><b>vista 4 · pág 1</b><span>fondo 10101 · slot 9</span><span>10 controles · 10 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="4" href="viewer.html#view=4&page=2" aria-label="Abrir la vista 4, página 2, en el visor"><span class="crop" style="background-position:calc(100% * 444 / 1308) calc(100% * 1598 / 3218)"></span><span class="cap"><b>vista 4 · pág 2</b><span>fondo 10101 · slot 9</span><span>10 controles · 10 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="4" href="viewer.html#view=4&page=3" aria-label="Abrir la vista 4, página 3, en el visor"><span class="crop" style="background-position:calc(100% * 864 / 1308) calc(100% * 1598 / 3218)"></span><span class="cap"><b>vista 4 · pág 3</b><span>fondo 10100 · slot 8</span><span>10 controles · 10 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="4" href="viewer.html#view=4&page=4" aria-label="Abrir la vista 4, página 4, en el visor"><span class="crop" style="background-position:calc(100% * 1284 / 1308) calc(100% * 1598 / 3218)"></span><span class="cap"><b>vista 4 · pág 4</b><span>fondo 10102 · slot 10</span><span>10 controles · 10 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="5" href="viewer.html#view=5&page=0" aria-label="Abrir la vista 5, página 0, en el visor"><span class="crop" style="background-position:calc(100% * 24 / 1308) calc(100% * 1978 / 3218)"></span><span class="cap"><b>vista 5 · pág 0</b><span>fondo 10120 · slot 12</span><span>18 controles · 18 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="5" href="viewer.html#view=5&page=1" aria-label="Abrir la vista 5, página 1, en el visor"><span class="crop" style="background-position:calc(100% * 444 / 1308) calc(100% * 1978 / 3218)"></span><span class="cap"><b>vista 5 · pág 1</b><span>fondo 10121 · slot 13</span><span>17 controles · 17 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="6" href="viewer.html#view=6&page=0" aria-label="Abrir la vista 6, página 0, en el visor"><span class="crop" style="background-position:calc(100% * 864 / 1308) calc(100% * 1978 / 3218)"></span><span class="cap"><b>vista 6 · pág 0</b><span>fondo 10200 · slot 16</span><span>2 controles · 2 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="6" href="viewer.html#view=6&page=1" aria-label="Abrir la vista 6, página 1, en el visor"><span class="crop" style="background-position:calc(100% * 1284 / 1308) calc(100% * 1978 / 3218)"></span><span class="cap"><b>vista 6 · pág 1</b><span>fondo 10210 · slot 17</span><span>3 controles · 3 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="6" href="viewer.html#view=6&page=2" aria-label="Abrir la vista 6, página 2, en el visor"><span class="crop" style="background-position:calc(100% * 24 / 1308) calc(100% * 2358 / 3218)"></span><span class="cap"><b>vista 6 · pág 2</b><span>sin fondo · monta vista 7</span><span>0 controles · 0 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="6" href="viewer.html#view=6&page=3" aria-label="Abrir la vista 6, página 3, en el visor"><span class="crop" style="background-position:calc(100% * 444 / 1308) calc(100% * 2358 / 3218)"></span><span class="cap"><b>vista 6 · pág 3</b><span>sin fondo · monta vista 8</span><span>0 controles · 0 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="6" href="viewer.html#view=6&page=4" aria-label="Abrir la vista 6, página 4, en el visor"><span class="crop" style="background-position:calc(100% * 864 / 1308) calc(100% * 2358 / 3218)"></span><span class="cap"><b>vista 6 · pág 4</b><span>sin fondo · monta vista 9</span><span>0 controles · 0 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="7" href="viewer.html#view=7&page=0" aria-label="Abrir la vista 7, página 0, en el visor"><span class="crop" style="background-position:calc(100% * 1284 / 1308) calc(100% * 2358 / 3218)"></span><span class="cap"><b>vista 7 · pág 0</b><span>fondo 10220 · slot 18</span><span>18 controles · 18 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="7" href="viewer.html#view=7&page=1" aria-label="Abrir la vista 7, página 1, en el visor"><span class="crop" style="background-position:calc(100% * 24 / 1308) calc(100% * 2738 / 3218)"></span><span class="cap"><b>vista 7 · pág 1</b><span>fondo 10221 · slot 19</span><span>15 controles · 15 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="8" href="viewer.html#view=8&page=0" aria-label="Abrir la vista 8, página 0, en el visor"><span class="crop" style="background-position:calc(100% * 444 / 1308) calc(100% * 2738 / 3218)"></span><span class="cap"><b>vista 8 · pág 0</b><span>fondo 10230 · slot 20</span><span>18 controles · 18 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="8" href="viewer.html#view=8&page=1" aria-label="Abrir la vista 8, página 1, en el visor"><span class="crop" style="background-position:calc(100% * 864 / 1308) calc(100% * 2738 / 3218)"></span><span class="cap"><b>vista 8 · pág 1</b><span>fondo 10231 · slot 21</span><span>15 controles · 15 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="9" href="viewer.html#view=9&page=0" aria-label="Abrir la vista 9, página 0, en el visor"><span class="crop" style="background-position:calc(100% * 1284 / 1308) calc(100% * 2738 / 3218)"></span><span class="cap"><b>vista 9 · pág 0</b><span>fondo 10240 · slot 22</span><span>18 controles · 18 colocados</span><em class="ok">sin incidencias</em></span></a>
+<a class="tile" data-view="9" href="viewer.html#view=9&page=1" aria-label="Abrir la vista 9, página 1, en el visor"><span class="crop" style="background-position:calc(100% * 24 / 1308) calc(100% * 3118 / 3218)"></span><span class="cap"><b>vista 9 · pág 1</b><span>fondo 10241 · slot 23</span><span>16 controles · 16 colocados</span><em class="ok">sin incidencias</em></span></a>
+</main>
+<footer>Generado por <code>_tools/build_pages_sheet.py</code> desde page_summary.csv,
+page_controls.csv y sprites.csv · cada recorte enlaza
+<code>viewer.html#view=V&amp;page=P</code>.</footer>
+<script>
+const buttons = [...document.querySelectorAll('#views button')];
+const tiles = [...document.querySelectorAll('.tile')];
+for (const button of buttons) {
+  button.addEventListener('click', () => {
+    for (const other of buttons) {
+      const on = other === button;
+      other.classList.toggle('on', on);
+      other.setAttribute('aria-pressed', String(on));
+    }
+    const view = button.dataset.view;
+    for (const tile of tiles) tile.hidden = view !== 'all' && tile.dataset.view !== view;
+  });
+}
+</script>
+</body>
+</html>

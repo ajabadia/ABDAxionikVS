@@ -1,0 +1,21 @@
+source,target,kind,evidence
+C_RefObject,C_OleRef,derives,"ctor 10002b70 installs its own table and registers unwind handler 0x100479b8, which destroys the C_OleRef base through 0x10002ce0 (installs 0x10049294); dtor body 10002c10 ends by leaving 0x10049294 installed; slots 3/5/6 are inherited unchanged, 0/1/2/4/7/8/9/10 overridden and 11/12/13 new"
+C_AudioComponent,C_AudioNode,derives,ctor 10003910 calls 10002fb0 before installing its vtable
+C_AudioModule,C_AudioComponent,derives,ctor 10009f60 calls 10003910 before installing its vtable
+C_NeuronCore,C_AudioModule,derives,"ctor 1001b140 calls 10009f60; 1008-byte object built by main, owns 6 components + Editor"
+C_UiControl,C_UiRect,derives,ctor 10004ba0 calls 10004950
+C_UiPanel,C_UiControl,derives,ctor 10005410 calls 10004ba0; GDI DeleteObject in methods
+C_UiContainer,C_UiControl,derives,ctor 10005b80 calls 10004ba0; adds child-list methods
+C_GraphEditor,C_UiPanel,derives,ctor 10014dd0 calls 10005410; two secondary purecall views at object offsets 0x1b4/0x1d0
+C_ParameterPage,C_UiContainer,derives,ctor 10015950 allocates child components from a page table; 304 bytes
+C_Editor,C_RefObject,derives,ctor 1001bad0 calls 10002b70; secondary view at offset 0x24; owns 7 UI children; 2820 bytes
+C_HitRegion,C_Rect,composes,C_Rect member constructed at +8 (FUN_10007c80)
+C_BitmapBox,C_Rect,composes,C_Rect member constructed at +8 (FUN_10007c80)
+C_Knob,C_Rect,composes,C_Rect member constructed at +8 (FUN_10007c80)
+C_Led,C_Rect,composes,C_Rect member constructed at +8 (FUN_10007c80)
+C_IconButton,C_Rect,composes,C_Rect member constructed at +8 (FUN_10007c80)
+C_DisplayButton,C_Rect,composes,C_Rect member constructed at +8 (FUN_10007c80)
+C_PadGrid,C_Rect,composes,C_Rect member constructed at +8 (FUN_10007c80)
+C_ControlPanel,C_Rect,composes,C_Rect member constructed at +8 (FUN_10007c80)
+C_EditorChild,C_Rect,composes,C_Rect member constructed at +8 (FUN_10007c80)
+C_NeuronCore,C_Editor,composes,"Editor component at Core+0x3ec, 2820 bytes, ctor 0x1001bad0"

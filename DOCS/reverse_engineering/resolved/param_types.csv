@@ -1,0 +1,19 @@
+function,address,owner_class,param,slots,verdict,class,sites,known,null,evidence
+C_Widget_ctor,0x10006f50,C_Widget,2,0x5c,contradiction,,15,0,10,10005920_FUN_10005920: pHStack_224 (HDC); 10006b50_FUN_10006b50: pHVar3 (HDC); 10008660_FUN_10008660: pHStack_1c (HDC); 10008810_FUN_10008810: hDC (HDC); 10008380_FUN_10008380: param_2
+FUN_1001ab30,0x1001ab30,,3,0x38,no-callers,,0,0,0,
+C_Bitmap_v03,0x10009ac0,C_Bitmap,2,0x14,no-callers,,0,0,0,
+C_Bitmap_v06_createChild,0x10009bf0,C_Bitmap,2,0x0c,no-callers,,0,0,0,
+C_ParameterPage_v64,0x10015c50,C_ParameterPage,2,0x78,no-callers,,0,0,0,
+C_UiContainer_v64,0x10005e70,C_UiContainer,2,0x78,no-callers,,0,0,0,
+C_Window_v32,0x10008940,C_Window,2,0x70,no-callers,,0,0,0,
+C_Window_v33,0x100089b0,C_Window,2,0x6c 0x74,no-callers,,0,0,0,
+FUN_1000a100,0x1000a100,,2,0x244 0x248,unknown,,1,0,0,
+FUN_100140e0,0x100140e0,,2,0x80,unknown,,1,0,0,
+FUN_100144f0,0x100144f0,,2,0x80,unknown,,2,0,0,
+FUN_100148b0,0x100148b0,,2,0x80,unknown,,1,0,0,10014d40_FUN_10014d40: param_3
+FUN_10015810,0x10015810,,2,0x80,unknown,,9,0,0,100148b0_FUN_100148b0: iVar3; 10015b90_FUN_10015b90: uVar2
+FUN_100162b0,0x100162b0,,2,0x80,unknown,,1,0,0,
+FUN_10016c90,0x10016c90,,2,0x80,unknown,,1,0,0,10017400_FUN_10017400: param_3
+FUN_100185b0,0x100185b0,,2,0x80,unknown,,1,0,0,10018a00_FUN_10018a00: param_3
+FUN_10019680,0x10019680,,2,0x80,unknown,,2,0,0,10019df0_FUN_10019df0: param_3
+FUN_1001aaa0,0x1001aaa0,,2,0x80,unknown,,2,0,0,1001af20_FUN_1001af20: param_3

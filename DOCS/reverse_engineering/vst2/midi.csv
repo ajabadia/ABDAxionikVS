@@ -1,0 +1,14 @@
+status,event,data,action,evidence
+0x8n,Note Off,"nota, velocidad",libera todas las voces de esa nota (velocidad se ignora),"case 0x80 -> FUN_1000ba70(..., nota, 0)"
+0x9n,Note On,"nota, velocidad","velocidad 0 = Note Off; si no, asigna/roba voz","case 0x90 -> FUN_1000ba70(..., nota, velocidad)"
+0xBn,Control Change 1,valor,control 1 = valor/127,case 0xb0 / case 1
+0xBn,Control Change 2,valor,control 2 = valor/127,case 0xb0 / case 2
+0xBn,Control Change 3,valor,control 3 = valor/127,case 0xb0 / case 3
+0xBn,Control Change 4,valor,control 4 = valor/127,case 0xb0 / case 4
+0xBn,Control Change 11,valor,control 5 (expression) = valor/127,case 0xb0 / case 0xb
+0xBn,Control Change 32,valor,banco MIDI (usado por Program Change),case 0xb0 / case 0x20
+0xCn,Program Change,programa,pasa banco*100+programa al callback del motor,case 0xc0
+0xDn,Channel Pressure,presion,control 0 = presion/127,case 0xd0
+0xEn,Pitch Bend,"LSB, MSB","(MSB*128+LSB)/16384, rango 0..1",case 0xe0
+0xAn,Poly Aftertouch,-,ignorado,sin case 0xa0
+0xF0,SysEx,-,ignorado (tampoco se acepta kVstSysExType),sin case 0xf0
