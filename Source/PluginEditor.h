@@ -23,6 +23,7 @@ public:
 
 private:
     void timerCallback() override;
+    void handleJsEvent(const juce::var& msg);
 
     AxionikProcessor& processor_;
     std::unique_ptr<abd::webview2::JuceWebView2Component> webComponent_;

@@ -15,21 +15,40 @@ class WebBridgeImpl {
   private isNative: boolean = false;
 
   constructor() {
-    this.isNative = typeof (window as any).chrome?.webview?.postMessage === 'function';
+    this.checkNative();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('load', () => this.checkNative());
+    }
+  }
 
-    if (this.isNative) {
+  private checkNative() {
+    if (this.isNative) return;
+    const juce = (window as any).__JUCE__;
+    if (juce?.backend) {
+      this.isNative = true;
+      juce.backend.addEventListener('event', (data: any) => {
+        this.notify(data);
+      });
+      console.log('[WebBridge] Conectado a JUCE WebView2 backend (__JUCE__.backend).');
+      return;
+    }
+
+    if (typeof (window as any).chrome?.webview?.postMessage === 'function') {
+      this.isNative = true;
       (window as any).chrome.webview.addEventListener('message', (event: any) => {
         const data = event.data;
         this.notify(data);
       });
-      console.log('[WebBridge] Conectado a WebView2 nativo.');
-    } else {
-      console.log('[WebBridge] Ejecutando en navegador (modo mock / standalone web).');
+      console.log('[WebBridge] Conectado a chrome.webview nativo.');
     }
   }
 
   public send(msg: BridgeMessage) {
-    if (this.isNative) {
+    this.checkNative();
+    const juce = (window as any).__JUCE__;
+    if (juce?.backend?.emitEvent) {
+      juce.backend.emitEvent('nativeEvent', msg);
+    } else if (typeof (window as any).chrome?.webview?.postMessage === 'function') {
       (window as any).chrome.webview.postMessage(msg);
     } else {
       // Mock echo / dev telemetry
@@ -54,7 +73,7 @@ class WebBridgeImpl {
     return () => this.handlers.delete(handler);
   }
 
-  private notify(msg: BridgeMessage) {
+  public notify(msg: BridgeMessage) {
     for (const h of this.handlers) {
       try {
         h(msg);
@@ -66,3 +85,6 @@ class WebBridgeImpl {
 }
 
 export const WebBridge = new WebBridgeImpl();
+if (typeof window !== 'undefined') {
+  (window as any).WebBridge = WebBridge;
+}

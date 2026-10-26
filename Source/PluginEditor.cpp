@@ -4,11 +4,41 @@
 // ============================================================================
 
 #include "PluginEditor.h"
+#include "Generated/BuildVersion.gen.h"
 #include <WebView2Bridge/WebView2ResourceProvider.h>
 
 namespace abd::axionik {
 
-static std::optional<juce::WebBrowserComponent::Resource> axionikResourceProvider(const juce::String& url) {
+namespace {
+
+juce::File getAndPrepareWebView2UserDataFolder() {
+    juce::File exeFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    juce::File baseDir = exeFile.getFileName().startsWithIgnoreCase("ABDAxionikVS")
+                             ? exeFile.getParentDirectory().getChildFile(exeFile.getFileName() + ".WebView2")
+                             : juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                                   .getChildFile("ABDSynths")
+                                   .getChildFile("ABDAxionikVS")
+                                   .getChildFile("WebView2");
+
+    const juce::String buildFolderName =
+        juce::String(abd::axionik::kBuildNumber).replaceCharacters("\\/:*?\"<>| ", "__________");
+    juce::File currentFolder = baseDir.getChildFile(buildFolderName);
+
+    if (baseDir.isDirectory()) {
+        for (const auto& entry :
+             juce::RangedDirectoryIterator(baseDir, false, "*", juce::File::findFilesAndDirectories)) {
+            const juce::File child = entry.getFile();
+            if (child != currentFolder) {
+                child.deleteRecursively();
+            }
+        }
+    }
+
+    currentFolder.createDirectory();
+    return currentFolder;
+}
+
+std::optional<juce::WebBrowserComponent::Resource> axionikResourceProvider(const juce::String& url) {
     juce::File thisFile(__FILE__);
     juce::File projectDir = thisFile.getParentDirectory().getParentDirectory();
     juce::File webUiDir = projectDir.getChildFile("WebUI");
@@ -47,16 +77,23 @@ static std::optional<juce::WebBrowserComponent::Resource> axionikResourceProvide
     return std::nullopt;
 }
 
+} // namespace
+
 AxionikEditor::AxionikEditor(AxionikProcessor& p)
     : AudioProcessorEditor(&p), processor_(p)
 {
+    const juce::File userDataFolder = getAndPrepareWebView2UserDataFolder();
+
     auto options = juce::WebBrowserComponent::Options{}
         .withBackend(juce::WebBrowserComponent::Options::Backend::webview2)
         .withNativeIntegrationEnabled(true)
         .withWinWebView2Options(juce::WebBrowserComponent::Options::WinWebView2()
-            .withUserDataFolder(juce::File::getSpecialLocation(juce::File::tempDirectory)
-                .getChildFile("ABDAxionikVS_WebView2")))
-        .withResourceProvider(axionikResourceProvider);
+            .withUserDataFolder(userDataFolder)
+            .withBackgroundColour(juce::Colour(0xff12141a)))
+        .withResourceProvider(axionikResourceProvider)
+        .withEventListener("nativeEvent", [this](const juce::var& msg) {
+            handleJsEvent(msg);
+        });
 
     auto initialUrl = juce::WebBrowserComponent::getResourceProviderRoot();
 
@@ -75,8 +112,28 @@ AxionikEditor::~AxionikEditor() {
     stopTimer();
 }
 
+void AxionikEditor::handleJsEvent(const juce::var& msg) {
+    if (!msg.isObject()) return;
+    auto* obj = msg.getDynamicObject();
+    if (!obj) return;
+
+    juce::String type = obj->getProperty("type").toString();
+    if (type == "PARAM_SET") {
+        int index = static_cast<int>(obj->getProperty("index"));
+        float value = static_cast<float>(obj->getProperty("value"));
+        processor_.getDspEngine().setParam(static_cast<uint32_t>(index), value);
+    } else if (type == "NOTE_ON") {
+        int note = static_cast<int>(obj->getProperty("note"));
+        float vel = static_cast<float>(obj->getProperty("velocity"));
+        processor_.getDspEngine().noteOn(static_cast<uint8_t>(note), vel > 0.0f ? vel : 0.8f);
+    } else if (type == "NOTE_OFF") {
+        int note = static_cast<int>(obj->getProperty("note"));
+        processor_.getDspEngine().noteOff(static_cast<uint8_t>(note));
+    }
+}
+
 void AxionikEditor::paint(juce::Graphics& g) {
-    g.fillAll(juce::Colours::black);
+    g.fillAll(juce::Colour(0xff12141a));
 }
 
 void AxionikEditor::resized() {
