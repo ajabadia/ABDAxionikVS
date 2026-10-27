@@ -5,6 +5,10 @@ echo =======================================================
 echo          ABDAxionikVS - Pipeline de Compilacion
 echo =======================================================
 
+REM Cerrar instancias en ejecucion para liberar el lock de enlace en disco
+taskkill /F /IM ABDAxionikVS.exe /T 2>nul
+taskkill /F /IM "ABDAxionikVS WebPilot Host.exe" /T 2>nul
+
 echo [1/5] Generando registros y contratos canonicos...
 node Scripts/registry_generator.js
 if %ERRORLEVEL% neq 0 (
