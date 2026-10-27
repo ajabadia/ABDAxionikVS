@@ -50,7 +50,7 @@ export class DrawerManager {
           <span class="panel-badge">${drawerId.toUpperCase()}</span>
           <span>${title}</span>
         </div>
-        <button type="button" class="btn-secondary" id="btn-drawer-close" title="Cerrar panel">
+        <button type="button" class="btn btn-close-drawer ndb-close-btn" id="btn-drawer-close" title="Close">
           ${ICONS.close}
         </button>
       </div>

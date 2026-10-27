@@ -111,3 +111,11 @@
    - Compilación nativa de verificación con `build.bat` (a ejecutar por el usuario).
    - Verificación de audio en tiempo real y carga de presets `.sound` / modelos `.model`.
    - Implementación visual de los pads de envolventes multinivel (`MultiStageShaperPad`) y generador de trayectorias automáticas (LFO / Record de stick).
+
+4. **Backlog a Largo Plazo Registrado (Post-Fase B)**:
+   - **Pantalla LCD Superior Fija y Monitor de Telemetría (Fase C)**:
+     - Pantalla panorámica horizontal fija en la cabecera (patrón `Sticky Top Hero Bar` de `ABDMS2000`).
+     - Visor emulador de las 33 sub-páginas/pantallas del hardware original y menús del sistema.
+     - Monitor en vivo de interacción del usuario: nombre legible del parámetro activo, valores en dominio físico (Hz, dB, ms, etc.), código CC asignado, número NRPN de 14 bits (`0..444`) y trama SysEx.
+     - Visualizador continuo de automatizaciones vectoriales grabadas con `REC` y reproducción dinámica de trayectorias en `PLAY`.
+     - Construido sobre los componentes `LcdDisplay` / `LcdScreen` / `LcdPanel` / `lcd.css` de `ABDShared`.

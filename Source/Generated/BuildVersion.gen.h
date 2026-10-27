@@ -3,8 +3,8 @@
 
 namespace abd::axionik {
     inline constexpr const char* kVersionString = "1.0.0";
-    inline constexpr const char* kBuildNumber = "2026.10.27.1111";
-    inline constexpr const char* kBuildTimestamp = "2026-10-27T10:11:51.496Z";
+    inline constexpr const char* kBuildNumber = "2026.10.27.1117";
+    inline constexpr const char* kBuildTimestamp = "2026-10-27T10:17:42.487Z";
     inline constexpr const char* kProductName = "ABDAxionikVS";
     inline constexpr const char* kManufacturer = "ABDSynths";
 }

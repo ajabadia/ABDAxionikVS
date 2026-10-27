@@ -4,6 +4,12 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ## [Unreleased]
 
+### Changed
+- **Unificación y Limpieza de Estilos de Botones con `@abdsynths/shared`**:
+  - Estandarizado el uso de clases canónicas tokenizadas `.btn` y `.btn-xs` (`.btn-outline`, `.btn-primary`, `.btn-danger-solid`) en los componentes transversales de `ABDShared` ([`trajectoryStick2D.js`](file:///D:/desarrollos/ABDSynths/ABDShared/Components/trajectoryStick2D.js) y [`multiStageShaperPad.js`](file:///D:/desarrollos/ABDSynths/ABDShared/Components/multiStageShaperPad.js)).
+  - Eliminados estilos inline y reglas CSS redundantes en [`WebUI/src/style.css`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/style.css) y [`widgets.css`](file:///D:/desarrollos/ABDSynths/ABDShared/Assets/styles/components/widgets.css) (`.btn-layer`, `.btn-expand-stick`, `.btn-accent`, `.btn-secondary`), evitando divergencias visuales y proliferación de estilos duplicados.
+  - Estandarizado el botón de cierre en [`Drawers.ts`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/Drawers.ts) a `.btn.btn-close-drawer.ndb-close-btn`.
+
 ### Added
 - **Capa de Abstracción de Parámetros Unificada sobre el Motor DSP**:
   - Centralizado en [`AxionikProcessor::setParameterByIndex`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginProcessor.cpp) y [`AxionikProcessor::setParameterNormalizedByIndex`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginProcessor.cpp) el punto único de entrada para todas las fuentes de control (WebUI, MIDI CCs, desempacador NRPN de 14 bits y host DAW).

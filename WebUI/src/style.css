@@ -203,42 +203,7 @@ input[type="range"] {
   gap: var(--space-2);
 }
 
-/* ── Buttons & Controls ────────────────────────────────── */
-.btn-accent,
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-md);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  border: 1px solid transparent;
-}
-
-.btn-accent {
-  background: var(--color-accent);
-  color: var(--color-bg-base);
-  border-color: var(--color-accent);
-}
-
-.btn-accent:hover {
-  filter: brightness(1.1);
-}
-
-.btn-secondary {
-  background: var(--color-panel-surface);
-  color: var(--color-text-main);
-  border-color: var(--color-panel-border);
-}
-
-.btn-secondary:hover {
-  background: var(--color-panel-surface-elevated);
-  border-color: var(--color-accent);
-}
+/* ── Buttons & Controls inherited from @abdsynths/shared/styles/components/buttons.css ── */
 
 /* ── Universal Side Drawer (Slide from Right, 50% available screen) ── */
 .drawer-backdrop {
@@ -444,27 +409,6 @@ input[type="range"] {
   border: 1px solid var(--color-panel-border, rgba(255, 255, 255, 0.06));
 }
 
-.btn-layer {
-  background: transparent;
-  border: none;
-  color: var(--color-text-dim, #7e8b9b);
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-layer:hover {
-  color: var(--color-text-main, #e2e8f0);
-}
-
-.btn-layer.active {
-  background: var(--color-accent, #00d4ff);
-  color: #0b0f15;
-}
-
 .stick-outer-ring {
   position: relative;
   width: 150px;
@@ -557,20 +501,6 @@ input[type="range"] {
 .stick-readout {
   font-size: 10px;
   padding: 1px 6px;
-}
-
-.btn-expand-stick {
-  background: var(--color-panel-surface-elevated, #1a2230);
-  border: 1px solid var(--color-panel-border, rgba(255, 255, 255, 0.1));
-  color: var(--color-text-main, #e2e8f0);
-  border-radius: 2px;
-  cursor: pointer;
-  padding: 1px 6px;
-  font-size: 10px;
-}
-
-.btn-expand-stick:hover {
-  border-color: var(--color-accent, #00d4ff);
 }
 
 
