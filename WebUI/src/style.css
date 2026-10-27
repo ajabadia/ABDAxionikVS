@@ -205,6 +205,56 @@ input[type="range"] {
 
 /* ── Buttons & Controls inherited from @abdsynths/shared/styles/components/buttons.css ── */
 
+/* ── Drag & Drop Overlay and Target Highlights ───────────── */
+.drag-hover-zone {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 16px rgba(var(--color-accent-rgb), 0.45) !important;
+  outline: 2px dashed var(--color-accent) !important;
+  outline-offset: -4px !important;
+  position: relative;
+}
+
+.drag-hover-zone::after {
+  content: 'DROP MODEL HERE';
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 15, 24, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  font-weight: 800;
+  font-size: var(--text-lg, 14px);
+  letter-spacing: 1px;
+  border-radius: var(--radius-chassis, 6px);
+  pointer-events: none;
+  z-index: 100;
+}
+
+.hud-toast {
+  position: fixed;
+  bottom: 170px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-panel-surface-elevated, #161f2e);
+  border: 1px solid var(--color-accent, #00d4ff);
+  color: var(--color-text-main, #fff);
+  padding: 8px 16px;
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--text-sm, 11px);
+  font-weight: 700;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7), 0 0 10px rgba(var(--color-accent-rgb), 0.3);
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.hud-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-6px);
+}
+
 /* ── Universal Side Drawer (Slide from Right, 50% available screen) ── */
 .drawer-backdrop {
   position: fixed;

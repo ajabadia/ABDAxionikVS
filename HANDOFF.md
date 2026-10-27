@@ -3,7 +3,7 @@
 > **Proyecto:** `ABDAxionikVS` (`D:\desarrollos\ABDSynths\ABDAxionikVS`)
 > **Repositorio GitHub:** `https://github.com/ajabadia/ABDAxionikVS.git`
 > **Familia:** `ABDSynths` (`D:\desarrollos\ABDSynths`)
-> **Estado Actual:** **Fase 0 (Cimientos, Contratos y Esqueleto Dual) Completada al 100%** — Los binarios nativos (`Standalone`, `VST3`, `WebPilotHost`) compilan sin errores, la suite de tests de contratos pasa 5/5, la WebUI empaquetada con Vite tiene paridad estética con `ABDNeuModMakr`, y estamos listos para arrancar la **Fase A.1** (`snddat`/`params`, traductor `FUN_10040550` y carga de modelos/presets de `NeuronDB`).
+> **Estado Actual:** **Fase A (Neuron Clásico 1:1) Completada y Congelada** — Motores DSP desacoplados y probados en harness diferencial (351/351 idénticos en reposo, 333/351 a mitad de nota con 18 variantes de 1 ULP por x87 vs SSE), 10 algoritmos de Blender, Slicer 2D/3D con 12 formas de onda, 4 sticks 2D con grabación y polos mnAN dinámicos, 5 Drawers (Resynator, Silver, Blender, Matrix, MasterFx), BankDrawer NeuronDB, soporte ergonómico Drag & Drop para modelos/presets, y tests TypeScript pasando 5/5. **Fase B en estricta pausa hasta verificación en audio real del baseline clásico.**
 
 ---
 

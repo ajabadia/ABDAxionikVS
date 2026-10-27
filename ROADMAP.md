@@ -382,11 +382,14 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 
 ### Hito de Diseño Intermedio (Gate A → B) — Sesión de Definición de la Fase B
 > [!IMPORTANT]
-> **Compromiso de Hoja de Ruta:**
-> La **Fase B (`NEURONiK` / "Neuron 2.0") NO se iniciará automáticamente** al terminar la Fase A. Una vez certificado el sintetizador clásico 1:1, abriremos una **sesión de diseño dedicada con el usuario** para discutir, prototipar y acordar en detalle:
-> 1. Cómo conviven o se conmutan los modelos clásicos `.model` (`NeuronDB`) y los modelos extendidos `.nmmodel v2.1` (`ABDNeuModMakr`) en cada Resynator.
-> 2. Qué moldeadores espectrales de `ABDNeural` (*Inharmonicity Stretch*, *Parity*, *Entropy/Roughness*, *Shift*, *RollOff*) se incorporan, con qué rangos y cómo se mapean a los Sticks o a nuevos controles en la interfaz.
-> 3. Si añadimos un tercer Resynator / morphing de 4 esquinas (`A/B/C/D`) o si ampliamos la arquitectura dual `R1 + R2 + Blender`.
+> **Compromiso Estricto de Hoja de Ruta:**
+> La **Fase B (`NEURONiK` / "Neuron 2.0") queda congelada y NO se diseñará ni implementará** hasta comprobar exhaustivamente y certificar en audio real que la versión clásica (Fase A) funciona de forma 100% correcta y estable.
+> 
+> Todas las ideas preliminares quedan registradas como sugerencias de análisis futuro:
+> 1. Cómo conviven o se conmutan los modelos clásicos `.model` (`NeuronDB`) y los modelos extendidos `.nmmodel v2.1` (`ABDNeuModMakr`) en cada Resynator (conmutación por Resynator o global).
+> 2. Qué moldeadores espectrales de `ABDNeural` (*Inharmonicity Stretch*, *Parity*, *Entropy/Roughness*, *Shift*, *RollOff*) se incorporan, con qué rangos y cómo se mapean (pestaña dedicada o asignables a los Sticks 2D).
+> 3. Si se mantiene la topología dual `R1 + R2 + Blender` o se amplía a morphing de 4 esquinas (`A/B/C/D`) con un tercer Resynator.
+> 4. Soporte de Drag & Drop directo de archivos `.model`, `.sound` y `.nmmodel` sobre la interfaz (adelantado a la UI clásica por ser una mejora de ergonomía general).
 
 ### Fase B — Expansión "Neuron 2.0" Híbrida (`NEURONiK` + `.nmmodel v2.1` de `ABDNeuModMakr`) *(Sujeta a Gate de Diseño A → B)*
 - **Objetivos Preliminares (a refinar en el Gate A → B)**:

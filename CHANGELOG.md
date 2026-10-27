@@ -11,6 +11,10 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
   - Estandarizado el botón de cierre en [`Drawers.ts`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/Drawers.ts) a `.btn.btn-close-drawer.ndb-close-btn`.
 
 ### Added
+- **Soporte Drag & Drop Ergonómico Universal de Modelos, Presets y Paquetes**:
+  - Implementado [`DragDropHandler.ts`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/DragDropHandler.ts) con soporte para arrastrar y soltar modelos (`.model`, `.nmmodel`), presets (`.sound`, `.fxp`) y paquetes de modelos (`.zip`, `.modelzip`).
+  - Detección de zonas diana contextuales: arrastrar sobre el panel de Resynator 1 carga en R1; sobre el panel de Resynator 2 carga en R2; sobre el canvas global carga en R1 o actualiza el preset completo.
+  - Indicadores visuales de hover (`.drag-hover-zone`) con badges de confirmación y sistema HUD Toast flotante (`.hud-toast`) para feedback en pantalla en tiempo real sin bloquear la interfaz.
 - **Integración de los 10 Algoritmos de Fusión de Blender y Modulación Rítmica Slicer 2D/3D**:
   - Implementados en [`NeuronVoice.h`](file:///D:/desarrollos/ABDSynths/ABDShared/Code/DspCore/NeuronVS/NeuronVoice.h), [`NeuronVoicePool.h`](file:///D:/desarrollos/ABDSynths/ABDShared/Code/DspCore/NeuronVS/NeuronVoicePool.h), [`NeuronBlockPump.h`](file:///D:/desarrollos/ABDSynths/ABDShared/Code/DspCore/NeuronVS/NeuronBlockPump.h) y [`DspEngineFacade.cpp`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/DspEngineFacade.cpp) los 10 algoritmos de Blender (`BlenderType [261]`): `Mix`, `Chromophonic`, `Transsphere`, `Crossmorph`, `Intermorph`, `Dyn Transsphere`, `Dyn Crossmorph`, `Velo Crossmorph`, `Velo Chrome` y `Ring Blend`.
   - Implementado el motor del **Slicer** (`SlicerSwitchType [267]`, `SlicerDepth [268]`, `SlicerRate [269]`, `SlicerWaveForm [270]`) con oscilador de 12 formas de onda canónicas y modos `2D Vertical` (chop de amplitud) y `3D Spatial` (chop y paneo estéreo cruzado).

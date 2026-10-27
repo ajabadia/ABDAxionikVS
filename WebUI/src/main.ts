@@ -18,6 +18,7 @@ import { SilverDrawer } from './ui/SilverDrawer.js';
 import { BlenderDrawer, BLENDER_ALGORITHMS } from './ui/BlenderDrawer.js';
 import { MatrixDrawer } from './ui/MatrixDrawer.js';
 import { MasterFxDrawer } from './ui/MasterFxDrawer.js';
+import { DragDropHandler } from './ui/DragDropHandler.js';
 import { WebBridge } from './bridge/WebBridge.js';
 import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
 import { getParameterSetStickLabels } from './ui/ParameterSets.js';
@@ -490,7 +491,53 @@ document.addEventListener('DOMContentLoaded', () => {
     },
   });
 
-  // 7. Atajos globales de teclado
+  // 7. Gestor Drag & Drop para modelos, presets y paquetes zip
+  new DragDropHandler({
+    onDropModel: (file, targetR) => {
+      const match = file.name.match(/^(\d{1,4})/);
+      const slot = match ? parseInt(match[1], 10) : (targetR === 1 ? 42 : 511);
+      const cleanName = file.name.replace(/\.[^/.]+$/, '');
+      navbar.setModelName(targetR, `#${String(slot).padStart(3, '0')} ${cleanName}`);
+
+      const labelEl = document.getElementById(targetR === 1 ? 'r1-model-label' : 'r2-model-label');
+      if (labelEl) labelEl.textContent = `${slot} ${cleanName}`;
+
+      const parSet = (slot % 10);
+      if (targetR === 1) {
+        r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+        WebBridge.setParam(22, slot);
+      } else {
+        r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+        WebBridge.setParam(102, slot);
+      }
+      console.log(`[ABDAxionikVS] DragDrop: Loaded model "${file.name}" to R${targetR} (Slot ${slot}, ParSet ${parSet})`);
+    },
+    onDropPreset: async (file) => {
+      let presetName = file.name.replace(/\.[^/.]+$/, '');
+      try {
+        const text = await file.text();
+        const lines = text.split('\n');
+        for (const line of lines.slice(0, 30)) {
+          const m = line.match(/(?:soundname|name|preset)\s*[:=]?\s*["']?([^"'\r\n]+)["']?/i);
+          if (m && m[1].trim()) {
+            presetName = m[1].trim();
+            break;
+          }
+        }
+      } catch (_err) {
+        // En caso de preset binario / fxp, mantener nombre de fichero
+      }
+      navbar.setPresetName(presetName);
+      console.log(`[ABDAxionikVS] DragDrop: Loaded preset "${presetName}"`);
+    },
+    onDropZip: (file) => {
+      console.log(`[ABDAxionikVS] DragDrop: Model package dropped "${file.name}"`);
+    },
+  });
+
+  // 8. Atajos globales de teclado
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     const isCtrl = e.ctrlKey || e.metaKey;
