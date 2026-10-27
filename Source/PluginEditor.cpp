@@ -4,6 +4,7 @@
 // ============================================================================
 
 #include "PluginEditor.h"
+#include "AppLogger.h"
 #include "Generated/BuildVersion.gen.h"
 #include <WebView2Bridge/WebView2ResourceProvider.h>
 
@@ -25,12 +26,16 @@ juce::File getAndPrepareWebView2UserDataFolder() {
     juce::File currentFolder = baseDir.getChildFile(buildFolderName);
 
     if (baseDir.isDirectory()) {
-        for (const auto& entry :
-             juce::RangedDirectoryIterator(baseDir, false, "*", juce::File::findFilesAndDirectories)) {
-            const juce::File child = entry.getFile();
-            if (child != currentFolder) {
-                child.deleteRecursively();
+        try {
+            for (const auto& entry :
+                 juce::RangedDirectoryIterator(baseDir, false, "*", juce::File::findFilesAndDirectories)) {
+                const juce::File child = entry.getFile();
+                if (child != currentFolder) {
+                    child.deleteRecursively();
+                }
             }
+        } catch (...) {
+            AX_LOG("[EDITOR] Warning: failed cleaning old WebView2 folders");
         }
     }
 
@@ -82,7 +87,9 @@ std::optional<juce::WebBrowserComponent::Resource> axionikResourceProvider(const
 AxionikEditor::AxionikEditor(AxionikProcessor& p)
     : AudioProcessorEditor(&p), processor_(p)
 {
+    AX_LOG("[EDITOR] AxionikEditor constructor start.");
     const juce::File userDataFolder = getAndPrepareWebView2UserDataFolder();
+    AX_LOG(juce::String("[EDITOR] Using WebView2 userDataFolder: ") + userDataFolder.getFullPathName());
 
     auto options = juce::WebBrowserComponent::Options{}
         .withBackend(juce::WebBrowserComponent::Options::Backend::webview2)
@@ -96,6 +103,7 @@ AxionikEditor::AxionikEditor(AxionikProcessor& p)
         });
 
     auto initialUrl = juce::WebBrowserComponent::getResourceProviderRoot();
+    AX_LOG(juce::String("[EDITOR] Creating JuceWebView2Component with initial URL: ") + initialUrl);
 
     webComponent_ = std::make_unique<abd::webview2::JuceWebView2Component>(options, "dark", initialUrl);
     addAndMakeVisible(*webComponent_);
@@ -106,6 +114,7 @@ AxionikEditor::AxionikEditor(AxionikProcessor& p)
 
     // Arrancar timer de telemetría a 30 Hz
     startTimerHz(30);
+    AX_LOG("[EDITOR] AxionikEditor constructor finished successfully.");
 }
 
 AxionikEditor::~AxionikEditor() {

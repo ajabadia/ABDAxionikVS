@@ -1521,7 +1521,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         e[0x2dd] = f32_raw((fVar1 / (float)(int)uVar14));
       }
       pcVar10 = (char *)(uintptr_t)e[0xd94];
-      if (*pcVar10 != '\0') {
+      if (pcVar10 != nullptr && *pcVar10 != '\0') {
         *(uint *)(pcVar10 + 4) = p[0xe2];
         dVar19 = (double)f32_bits(p[0xe5]);
         uVar14 = trunc_i32(dVar19);

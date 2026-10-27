@@ -5,6 +5,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "AppLogger.h"
 
 namespace abd::axionik {
 
@@ -31,19 +32,23 @@ AxionikProcessor::AxionikProcessor()
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts_(*this, nullptr, "Parameters", createParameterLayout())
 {
+    AX_LOG("[PROCESSOR] AxionikProcessor constructor starting...");
     // Escuchar cambios de parámetros para reflejarlos en dspEngine_
     for (const auto& desc : kParameterDescriptors) {
         apvts_.addParameterListener(juce::String(desc.key.data(), desc.key.size()), this);
     }
+    AX_LOG("[PROCESSOR] AxionikProcessor constructor finished successfully.");
 }
 
 AxionikProcessor::~AxionikProcessor() {
+    AX_LOG("[PROCESSOR] AxionikProcessor destructor called.");
     for (const auto& desc : kParameterDescriptors) {
         apvts_.removeParameterListener(juce::String(desc.key.data(), desc.key.size()), this);
     }
 }
 
 void AxionikProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
+    AX_LOG(juce::String("[PROCESSOR] prepareToPlay() called: sr=") + juce::String(sampleRate) + " block=" + juce::String(samplesPerBlock));
     dspEngine_.prepare(sampleRate, static_cast<size_t>(samplesPerBlock));
 }
 
@@ -121,6 +126,7 @@ void AxionikProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 }
 
 juce::AudioProcessorEditor* AxionikProcessor::createEditor() {
+    AX_LOG("[PROCESSOR] createEditor() called, creating AxionikEditor...");
     return new AxionikEditor(*this);
 }
 
@@ -151,7 +157,26 @@ void AxionikProcessor::setStateInformation(const void* data, int sizeInBytes) {
 
 } // namespace abd::axionik
 
+#ifdef _WIN32
+#include <windows.h>
+static LONG WINAPI AxionikCrashFilter(EXCEPTION_POINTERS* ep) {
+    if (ep && ep->ExceptionRecord) {
+        char buf[256];
+        std::snprintf(buf, sizeof(buf), "[CRASH] Unhandled Exception 0x%08X at address 0x%p",
+                      ep->ExceptionRecord->ExceptionCode, ep->ExceptionRecord->ExceptionAddress);
+        AX_LOG(buf);
+    } else {
+        AX_LOG("[CRASH] Unknown unhandled exception occurred.");
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 // Factoria JUCE
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {
+#ifdef _WIN32
+    SetUnhandledExceptionFilter(AxionikCrashFilter);
+#endif
+    AX_LOG("[FACTORY] createPluginFilter() called.");
     return new abd::axionik::AxionikProcessor();
 }
