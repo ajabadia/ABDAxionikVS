@@ -154,10 +154,10 @@ D:\desarrollos\ABDSynths\ABDAxionikVS\
 │       │   ├── ModulationStage.h/.cpp# LFO global, 4L4T Shaper Envelopes (R1, R2, Blender, Silver), Slicer
 │       │   └── BlockOrchestrator.h/.cpp # FUN_100382b0 + adaptador de bloques de 128 muestras
 │       │
-│       └── HybridNeuronik/          # Fase B: Expansión "Neuron 2.0" (capacidades ABDNeural)
+│       └── Extended/                # Fase B: Versión Extendida / Extended (capacidades ABDNeural)
 │           ├── SpectralShaper.h/.cpp# Inharmonicity Stretch, Parity, Entropy/Roughness, Shift, RollOff
 │           ├── NmModelResinator.h/.cpp # Resinator extendido Float32 multicapa para .nmmodel v2.1
-│           └── ExtendedBlender.h/.cpp  # Cruce híbrido Resinator Clásico (.sphere) <-> NEURONiK (.nmmodel)
+│           └── ExtendedBlender.h/.cpp  # Cruce híbrido Resinator Clásico (.sphere) <-> Extended (.nmmodel)
 │
 ├── wasm/
 │   ├── CMakeLists.txt               # Build Emscripten que incluye ../DspSources.cmake (EXPORT HEAPF32)
@@ -383,7 +383,7 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 ### Hito de Diseño Intermedio (Gate A → B) — Sesión de Definición de la Fase B
 > [!IMPORTANT]
 > **Compromiso Estricto de Hoja de Ruta:**
-> La **Fase B (`NEURONiK` / "Neuron 2.0") queda congelada y NO se diseñará ni implementará** hasta comprobar exhaustivamente y certificar en audio real que la versión clásica (Fase A) funciona de forma 100% correcta y estable.
+> La **Fase B (Versión Extendida / Extended) queda congelada y NO se diseñará ni implementará** hasta comprobar exhaustivamente y certificar en audio real que la versión clásica (Fase A) funciona de forma 100% correcta y estable.
 > 
 > Todas las ideas preliminares quedan registradas como sugerencias de análisis futuro:
 > 1. Cómo conviven o se conmutan los modelos clásicos `.model` (`NeuronDB`) y los modelos extendidos `.nmmodel v2.1` (`ABDNeuModMakr`) en cada Resynator (conmutación por Resynator o global).
@@ -391,12 +391,12 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 > 3. Si se mantiene la topología dual `R1 + R2 + Blender` o se amplía a morphing de 4 esquinas (`A/B/C/D`) con un tercer Resynator.
 > 4. Soporte de Drag & Drop directo de archivos `.model`, `.sound` y `.nmmodel` sobre la interfaz (adelantado a la UI clásica por ser una mejora de ergonomía general).
 
-### Fase B — Expansión "Neuron 2.0" Híbrida (`NEURONiK` + `.nmmodel v2.1` de `ABDNeuModMakr`) *(Sujeta a Gate de Diseño A → B)*
+### Fase B — Versión Extendida / Extended (Soporte Híbrido `.nmmodel v2.1` de `ABDNeuModMakr`) *(Sujeta a Gate de Diseño A → B)*
 - **Objetivos Preliminares (a refinar en el Gate A → B)**:
   1. **Soporte Nativo de `.nmmodel` (`v2.1`)**:
-     - Implementar `NmModelLoader` y `NmModelResinator` en `Source/DSP/HybridNeuronik/` para cargar directamente paquetes `.nmmodel` generados por `ABDNeuModMakr` (precisión `Float32`, 64 parciales inarmónicos con `frequencyOffsets` en semitonos, múltiples capas de velocidad/nota y muestras WAV embebidas), integrando los módulos de análisis y modelado espectral `@abdsynths/shared/dsp/neuron-analysis` (`FftEngine`, `SpectralAnalyzer`, `LayerClustering`, `ScapeSphereGenerator`).
+     - Implementar `NmModelLoader` y `NmModelResinator` en `Source/DSP/Extended/` para cargar directamente paquetes `.nmmodel` generados por `ABDNeuModMakr` (precisión `Float32`, 64 parciales inarmónicos con `frequencyOffsets` en semitonos, múltiples capas de velocidad/nota y muestras WAV embebidas), integrando los módulos de análisis y modelado espectral `@abdsynths/shared/dsp/neuron-analysis` (`FftEngine`, `SpectralAnalyzer`, `LayerClustering`, `ScapeSphereGenerator`).
   2. **Moldeadores de Materia Sónica de `ABDNeural` (`SpectralShaper`)**:
-     - Integrar en cada Resinator (o en el modo extendido `NEURONiK`) los operadores espectrales de `ABDNeural/Source/DSP/CoreModules/Resonator.cpp`:
+     - Integrar en cada Resinator (o en el modo extendido) los operadores espectrales de `ABDNeural/Source/DSP/CoreModules/Resonator.cpp`:
        - *Inharmonicity Stretch*: $f_n = f_0 \cdot (n + \Delta_n) \cdot \sqrt{1 + B \cdot n^2}$
        - *Parity (Par/Impar)* y *Spectral Shift*
        - *Entropy / Roughness* (micro-modulación determinista por parcial) y *HF RollOff*
@@ -405,7 +405,7 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
   4. **Puente Directo `ABDNeuModMakr` ↔ `ABDAxionikVS`**:
      - Carga en caliente (Drag & Drop o vigilancia de directorio) de archivos `.model` y `.nmmodel` recién sintetizados desde `ABDNeuModMakr`.
 - **Verificación (DoD)**:
-  - Suite de pruebas de `HybridNeuronik` verificando paridad matemática con `ABDNeural::DSP::CoreModules::Resonator`, carga sin artefactos de `.nmmodel v2.1` multicapa y paridad bit-exacta entre el build nativo (`VST3`/`Standalone`) y el `AudioWorklet` WASM.
+  - Suite de pruebas del motor extendido verificando paridad matemática con `ABDNeural::DSP::CoreModules::Resonator`, carga sin artefactos de `.nmmodel v2.1` multicapa y paridad bit-exacta entre el build nativo (`VST3`/`Standalone`) y el `AudioWorklet` WASM.
 
 
 ---

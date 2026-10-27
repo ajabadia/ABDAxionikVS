@@ -23,7 +23,7 @@
      - [`vst2/`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/reverse_engineering/vst2/README.md): Los 26 parámetros VST expuestos al host y la implementación MIDI.
      - [`port/`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/reverse_engineering/port/README.md), [`classes/`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/reverse_engineering/classes/README.md), [`resolved/`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/reverse_engineering/resolved/README.md).
 3. **Hoja de Ruta Actualizada en [`ROADMAP.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/ROADMAP.md)**:
-   - Define las Fases `0`, `A.1`, `A.2`, `A.3`, `A.4` (con adaptación y mejora moderna del UI), el **Gate de Diseño A → B** (discusión obligatoria con el usuario antes de abordar la Fase B) y la **Fase B (`NEURONiK`)**.
+   - Define las Fases `0`, `A.1`, `A.2`, `A.3`, `A.4` (con adaptación y mejora moderna del UI), el **Gate de Diseño A → B** (discusión obligatoria con el usuario antes de abordar la Fase B) y la **Fase B (Versión Extendida / Extended)**.
 
 ---
 
@@ -46,7 +46,7 @@
 5. **Estrategia de Interfaz (`WebUI`)**:
    - No replicar el skin ni el laberinto de 33 sub-páginas de 2004; implementar la interfaz adaptada y mejorada especificada en [`DOCS/UI_INVENTORY_AND_ADAPTATION.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/UI_INVENTORY_AND_ADAPTATION.md) que expone el 100 % de los 445 parámetros sin páginas ocultas.
 6. **Gate de Diseño antes de la Fase B**:
-   - Al concluir la Fase A (`Neuron Clásico 1:1`), **detenerse y acordar con el usuario** el diseño detallado de la Fase B (`NEURONiK` + `.nmmodel v2.1`).
+   - Al concluir la Fase A (`Neuron Clásico 1:1`), **detenerse y acordar con el usuario** el diseño detallado de la Fase B (Versión Extendida + `.nmmodel v2.1`).
 
 ---
 

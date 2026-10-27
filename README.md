@@ -11,7 +11,7 @@
 
 - **Compatibilidad 100 % con `NeuronDB`**: Carga directa de los 512 modelos originales (`Models/<NNN>.model`: `MName`, `map.script` de 1.027 líneas, excitación `.scape` y banco espectral/formántico `.sphere`) y de los presets originales (`Sounds/<NNN>.sound`: `sound.script` de **445 parámetros** + trayectorias `sound.stickrec`).
 - **Interfaz Adaptada y Mejorada**: Expone por primera vez de forma clara y simultánea **los 445 parámetros completos del motor** (incluyendo el bloque `Master FX` de Delay/Reverb, la matriz de 24 rutas `Free Controllers`, las 24 profundidades de envolvente `ResEnv` y el mapa de zonas de teclado de 128 notas), eliminando el laberinto de 33 sub-páginas de 2004.
-- **Integración con [`ABDNeuModMakr`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr)** y evolución hacia **Fase B (`NEURONiK`)** con soporte para modelos `.nmmodel v2.1`.
+- **Integración con [`ABDNeuModMakr`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr)** y evolución hacia **Fase B (Versión Extendida / Extended)** con soporte para modelos `.nmmodel v2.1`.
 
 ---
 
