@@ -403,3 +403,24 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
      - Carga en caliente (Drag & Drop o vigilancia de directorio) de archivos `.model` y `.nmmodel` recién sintetizados desde `ABDNeuModMakr`.
 - **Verificación (DoD)**:
   - Suite de pruebas de `HybridNeuronik` verificando paridad matemática con `ABDNeural::DSP::CoreModules::Resonator`, carga sin artefactos de `.nmmodel v2.1` multicapa y paridad bit-exacta entre el build nativo (`VST3`/`Standalone`) y el `AudioWorklet` WASM.
+
+
+---
+
+### Fase C / Expansión Futura — Pantalla LCD Superior Fija y Monitor de Telemetría (Post-Fase B)
+> [!NOTE]
+> **Planificación a largo plazo:** Este hito se abordará al concluir la Fase B. Implementará una pantalla LCD panorámica fija superior, inspirada en la arquitectura de `ABDMS2000` (`Sticky Top Hero Bar`), estrecha pero larga, reutilizando los componentes LCD de `ABDShared` (`ABDShared/Components/LcdDisplay`, `lcdMachine.js`, `lcdPanel.js`, `lcdScreen.js` y `lcd.css`).
+
+- **Objetivos de la Pantalla LCD Superior**:
+  1. **Emulación y Visor de Pantallas del Hardware Original**:
+     - Visualizar la información de contexto de todas las pantallas y sub-páginas clásicas del `NeuronVS` original (las 33 vistas de 2004) y los menús del sintetizador hardware Hartmann Neuron (`Setup`, `Bank`, `Model`, `Resynator`, `Blender`, `Silver`, `Modulation`, `Zones`).
+  2. **Telemetría y Monitorización de Parámetros en Tiempo Real**:
+     - Al interactuar el usuario con cualquier potenciómetro, fader, selector o stick, el LCD mostrará instantáneamente en cabecera:
+       - Nombre formal y legible del parámetro activo.
+       - Valor actual normalizado y valor en su dominio físico real (Hz, dB, %, ms, semitonos).
+       - Identificador de mapeo MIDI: Código CC correspondiente (si está asignado), código NRPN de 14 bits (`CC 99/98/6/38`, `0..444`) y trama de comando SysEx asociada.
+  3. **Monitor Visual de Automatizaciones y Reproducción de Trayectorias**:
+     - Mostrar en vivo el estado del grabador vectorial de trayectorias (`REC / PLAY / IDLE`).
+     - Renderizar la evolución temporal de las automatizaciones grabadas en los Sticks cuando se pulse `PLAY`, mostrando coordenadas $X, Y$, estela en miniatura y barra de progreso temporal en tiempo real sobre el display LCD.
+  4. **Alineación con el Ecosistema `ABDShared`**:
+     - Consumir el subsistema LCD de `ABDShared` (`LcdMachine`, `LcdPanel`, `LcdScreen`) con tipografía retro segmentada/matriz de puntos, contraste adaptable según el tema activo y formateador de menús similar a `LCDMenuFormatter.h` de `ABDMS2000`.

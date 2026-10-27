@@ -15,6 +15,9 @@ import { DrawerManager } from './ui/Drawers.js';
 import { TrajectoryStick2D } from './ui/TrajectoryStick2D.js';
 import { ResynatorDrawer } from './ui/ResynatorDrawer.js';
 import { SilverDrawer } from './ui/SilverDrawer.js';
+import { BlenderDrawer, BLENDER_ALGORITHMS } from './ui/BlenderDrawer.js';
+import { MatrixDrawer } from './ui/MatrixDrawer.js';
+import { MasterFxDrawer } from './ui/MasterFxDrawer.js';
 import { WebBridge } from './bridge/WebBridge.js';
 import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
 import { getParameterSetStickLabels } from './ui/ParameterSets.js';
@@ -81,38 +84,60 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </section>
 
-      <!-- Zona Central: Blender, Filter, Silver FX -->
-      <section class="synth-panel-card" style="grid-column: 1 / -1; padding: var(--space-3); display: flex; justify-content: space-between; align-items: center; gap: var(--space-4);">
+      <!-- Zona Central: Blender, Slicer, Filter, Silver FX -->
+      <section class="synth-panel-card" style="grid-column: 1 / -1; padding: var(--space-2) var(--space-3); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
         <!-- Blender -->
-        <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
           <span class="panel-badge">BLENDER</span>
-          <div class="hud-pill" style="display: flex; align-items: center; gap: 6px;">
-            <span class="hud-label">AMOUNT:</span>
-            <input type="range" id="blender-slider" class="abd-slider" min="-64" max="63" value="0" step="1" style="width: 100px;" />
-            <span class="hud-value stat-num" id="blender-amount-val">0.50</span>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-blender-algo" title="Cycle Blender Fusion Algorithm [261]">
+            ALGO: <strong id="cur-blender-algo-val">Mix</strong>
+          </button>
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
+            <span class="hud-label">AMT:</span>
+            <input type="range" id="blender-slider" class="abd-slider" min="-64" max="63" value="0" step="1" style="width: 75px;" />
+            <span class="hud-value stat-num" id="blender-amount-val">0</span>
+          </div>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-edit-blender" title="Expanded Blender & Slicer [261..270]">Edit</button>
+        </div>
+
+        <!-- Slicer -->
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <span class="panel-badge">SLICER</span>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-slicer-type" title="Slicer Mode (0: Off, 1: 2D, 2: 3D) [267]">
+            MODE: <strong id="cur-slicer-type-val">Off</strong>
+          </button>
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
+            <span class="hud-label">RATE:</span>
+            <input type="range" id="slicer-rate-slider" class="abd-slider" min="0" max="200" value="66" step="1" style="width: 60px;" />
+            <span class="hud-value stat-num" id="slicer-rate-val">66</span>
+          </div>
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
+            <span class="hud-label">DEP:</span>
+            <input type="range" id="slicer-depth-slider" class="abd-slider" min="0" max="127" value="0" step="1" style="width: 60px;" />
+            <span class="hud-value stat-num" id="slicer-depth-val">0</span>
           </div>
         </div>
 
         <!-- Filter -->
-        <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
           <span class="panel-badge">FILTER</span>
-          <div class="hud-pill" style="display: flex; align-items: center; gap: 6px;">
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
             <span class="hud-label">CUT:</span>
-            <input type="range" id="filter-freq-slider" class="abd-slider" min="0" max="127" value="100" step="1" style="width: 80px;" />
+            <input type="range" id="filter-freq-slider" class="abd-slider" min="0" max="127" value="100" step="1" style="width: 65px;" />
             <span class="hud-value stat-num" id="filter-freq-val">100</span>
           </div>
-          <div class="hud-pill" style="display: flex; align-items: center; gap: 6px;">
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
             <span class="hud-label">RESO:</span>
-            <input type="range" id="filter-reso-slider" class="abd-slider" min="0" max="127" value="25" step="1" style="width: 70px;" />
+            <input type="range" id="filter-reso-slider" class="abd-slider" min="0" max="127" value="25" step="1" style="width: 55px;" />
             <span class="hud-value stat-num" id="filter-reso-val">0.20</span>
           </div>
         </div>
 
         <!-- Silver FX -->
-        <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
           <span class="panel-badge">SILVER FX</span>
-          <button type="button" class="btn btn-xs" id="btn-cycle-freqfx" title="Change Frequency Effect">FREQ: <strong id="cur-freq-fx-val">RingMod</strong></button>
-          <button type="button" class="btn btn-xs" id="btn-cycle-timefx" title="Change Time Effect">TIME: <strong id="cur-time-fx-val">Chorus</strong></button>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-freqfx" title="Change Frequency Effect">FREQ: <strong id="cur-freq-fx-val">RingMod</strong></button>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-timefx" title="Change Time Effect">TIME: <strong id="cur-time-fx-val">Chorus</strong></button>
           <button type="button" class="btn btn-xs btn-primary" id="btn-edit-silver" title="Expanded Silver & Master FX Rack">Edit Rack</button>
         </div>
       </section>
@@ -175,6 +200,27 @@ document.addEventListener('DOMContentLoaded', () => {
       onClose: () => drawerManager.close(),
     });
     drawerManager.openCustom('silver-expanded', content);
+  };
+
+  const openBlenderDrawer = () => {
+    const content = BlenderDrawer.createContent({
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('blender-expanded', content);
+  };
+
+  const openMatrixDrawer = () => {
+    const content = MatrixDrawer.createContent({
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('matrix-expanded', content);
+  };
+
+  const openMasterFxDrawer = () => {
+    const content = MasterFxDrawer.createContent({
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('mfx-expanded', content);
   };
 
   // 5. Instanciar los 4 controladores vectoriales 2D (Trajectory Sticks)
@@ -252,19 +298,54 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Conectar botones Edit R1, Edit R2 y Edit Silver Rack
+  // Conectar botones Edit R1, Edit R2, Edit Blender y Edit Silver Rack
   document.getElementById('btn-edit-r1')?.addEventListener('click', openR1Drawer);
   document.getElementById('btn-edit-r2')?.addEventListener('click', openR2Drawer);
   document.getElementById('btn-edit-silver')?.addEventListener('click', openSilverDrawer);
+  document.getElementById('btn-edit-blender')?.addEventListener('click', openBlenderDrawer);
 
-  // 6. Controles centrales (Blender, Filtro y Silver FX)
+  // 6. Controles centrales (Blender, Slicer, Filtro y Silver FX)
+  let curBlenderAlgoIdx = 0;
+  const btnCycleBlender = document.getElementById('btn-cycle-blender-algo');
+  const curBlenderVal = document.getElementById('cur-blender-algo-val');
+  btnCycleBlender?.addEventListener('click', () => {
+    curBlenderAlgoIdx = (curBlenderAlgoIdx + 1) % BLENDER_ALGORITHMS.length;
+    if (curBlenderVal) curBlenderVal.textContent = BLENDER_ALGORITHMS[curBlenderAlgoIdx].name;
+    WebBridge.setParam(261, curBlenderAlgoIdx);
+  });
+
   const blenderSlider = document.getElementById('blender-slider') as HTMLInputElement | null;
   const blenderVal = document.getElementById('blender-amount-val');
   blenderSlider?.addEventListener('input', () => {
     const val = parseFloat(blenderSlider.value);
-    const norm = ((val + 64) / 127).toFixed(2);
-    if (blenderVal) blenderVal.textContent = norm;
+    if (blenderVal) blenderVal.textContent = String(val);
     WebBridge.setParam(262, val);
+  });
+
+  const slicerTypes = ['Off', '2D', '3D'];
+  let curSlicerTypeIdx = 0;
+  const btnCycleSlicer = document.getElementById('btn-cycle-slicer-type');
+  const curSlicerTypeVal = document.getElementById('cur-slicer-type-val');
+  btnCycleSlicer?.addEventListener('click', () => {
+    curSlicerTypeIdx = (curSlicerTypeIdx + 1) % slicerTypes.length;
+    if (curSlicerTypeVal) curSlicerTypeVal.textContent = slicerTypes[curSlicerTypeIdx];
+    WebBridge.setParam(267, curSlicerTypeIdx);
+  });
+
+  const slicerRateSlider = document.getElementById('slicer-rate-slider') as HTMLInputElement | null;
+  const slicerRateVal = document.getElementById('slicer-rate-val');
+  slicerRateSlider?.addEventListener('input', () => {
+    const val = parseFloat(slicerRateSlider.value);
+    if (slicerRateVal) slicerRateVal.textContent = String(val);
+    WebBridge.setParam(269, val);
+  });
+
+  const slicerDepthSlider = document.getElementById('slicer-depth-slider') as HTMLInputElement | null;
+  const slicerDepthVal = document.getElementById('slicer-depth-val');
+  slicerDepthSlider?.addEventListener('input', () => {
+    const val = parseFloat(slicerDepthSlider.value);
+    if (slicerDepthVal) slicerDepthVal.textContent = String(val);
+    WebBridge.setParam(268, val);
   });
 
   const filterCutSlider = document.getElementById('filter-freq-slider') as HTMLInputElement | null;
@@ -381,36 +462,10 @@ document.addEventListener('DOMContentLoaded', () => {
       bankDrawer.toggle();
     },
     onToggleMatrix: () => {
-      drawerManager.toggle(
-        'matrix',
-        'Free Controllers Modulation Matrix (6 × 5)',
-        `
-        <div class="panel-caption">Unifica los 6 controles de ejecución ([413..424] + Free Controllers [363..410]) hacia los 63 destinos de modulación.</div>
-        <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface);">
-          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">1. Aftertouch (Channel Pressure)</p>
-          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">2. Modulation Wheel (CC 1)</p>
-          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">3. Breath Controller (CC 2)</p>
-          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">4. Continuous Controller 03 (CC 3)</p>
-          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">5. Foot Pedal (CC 4)</p>
-          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">6. Expression Pedal (CC 11)</p>
-        </div>
-        `
-      );
+      openMatrixDrawer();
     },
     onToggleMfx: () => {
-      drawerManager.toggle(
-        'mfx',
-        'Master FX Rack [430..444]',
-        `
-        <div class="panel-caption">Procesamiento de dinámica y masterización final.</div>
-        <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-2);">
-          <span class="hud-label">EQ 3-Bandas ([430..433])</span>
-          <span class="hud-label">Compresor Estéreo ([434..438])</span>
-          <span class="hud-label">Stereo Spread ([439])</span>
-          <span class="hud-label">Master Reverb Room ([440..444])</span>
-        </div>
-        `
-      );
+      openMasterFxDrawer();
     },
     onSelectPreset: () => {
       bankDrawer.open();

@@ -112,9 +112,17 @@ void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t nu
     float rMs = 10.0f + store_.getNormalizedValue(203) * 6000.0f;
     voicePool_.updateVoiceEnvelopes(aMs, dMs, sLvl, rMs);
 
-    // 5. Blender (Crossfade lineal canónico R1/R2)
+    // 5. Blender & Slicer (Los 10 algoritmos de fusión y modulación rítmica 2D/3D)
     float blenderRaw = store_.getRawValue(262);
     float blenderNorm = std::clamp((blenderRaw + 64.0f) / 127.0f, 0.0f, 1.0f);
+    int blenderType = static_cast<int>(store_.getRawValue(261));
+
+    int slicerType = static_cast<int>(store_.getRawValue(267));
+    float slicerDepthRaw = store_.getRawValue(268);
+    float slicerDepth = std::clamp(slicerDepthRaw / 127.0f, 0.0f, 1.0f);
+    float slicerRateRaw = store_.getRawValue(269);
+    float slicerRateHz = 0.2f + (std::clamp(slicerRateRaw, 0.0f, 200.0f) / 200.0f) * 20.0f;
+    int slicerWave = static_cast<int>(store_.getRawValue(270));
 
     // 6. Configuración del Silver Rack (Filtro, Freq FX, Time FX)
     float filterRaw = store_.getRawValue(274);
@@ -138,7 +146,9 @@ void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t nu
 
     // 8. Renderizar bloques de 128 muestras (FUN_100382b0)
     blockRenderer_.process(leftChannel, rightChannel, numSamples,
-                          voicePool_, blenderNorm, cutoffHz, resonance, masterVol);
+                          voicePool_, blenderNorm, blenderType, slicerType,
+                          slicerDepth, slicerRateHz, slicerWave,
+                          cutoffHz, resonance, masterVol);
 
     // 9. Telemetría y picos
     activeVoices_ = voicePool_.getActiveVoiceCount();

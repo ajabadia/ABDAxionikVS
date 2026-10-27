@@ -100,7 +100,7 @@
    - **Frontend WebUI & Ecosistema UI**:
      - Drawer deslizante universal (`DrawerManager`): panel lateral desde la derecha ocupando el 50% de la pantalla (`50vw`, `min-width: 460px`), unificado para Banco (`BankDrawer`), Resynator 1/2 expandidos (`ResynatorDrawer`), Silver & Master FX Rack (`SilverDrawer`), Matriz de Modulación 6x5 y Master FX.
      - Controladores vectoriales 2D (`TrajectoryStick2D`): emulación de alta precisión de los sticks físicos del Neuron/Nuke con restricción circular física, selección de capas `L1`, `L2`, `L3`, polos cardinales, lectura de coordenadas y cableado bidireccional a los 24 parámetros de capa.
-     - Controles centrales: Blender lineal R1/R2, Cutoff y Resonancia del filtro de Silver Rack, y conmutación cíclica rápida de algoritmos FreqFX y TimeFX.
+      - Controles centrales expandidos: Blender con selector de los 10 algoritmos de fusión, fader de Amount [-64..+63], Slicer con modos 2D/3D, Rate y Depth, Cutoff y Resonancia del filtro de Silver Rack, y conmutación cíclica rápida de algoritmos FreqFX y TimeFX.
      - Gestor de Bancos (`BankDrawer`): estilos canónicos (`catalog-browser.css`), iconos `param0`..`param9`, selector de carpeta de librería con persistencia en `localStorage` y escaneo recursivo.
      - Teclado de interpretación (`KeyboardStrip`): integrado con `@abdsynths/midi-keyb`, ruedas activas de Pitch Bend y Modulación (`bender.png`), botones de octava con LEDs, Panic, Hold, Retrig y Sustain.
      - Barra de navegación (`AxionikNavbar`): integrado con `createSynthNavBar`, cambio de temas (`ms2000`, `audiolab`, `cz101`, etc.), zoom y lectura en vivo de telemetría.
