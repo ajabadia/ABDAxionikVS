@@ -300,6 +300,7 @@ function generateParametersTs() {
   lines.push('export interface ParamDefinition {');
   lines.push('  index: number;');
   lines.push('  key: string;');
+  lines.push('  safeId: string;');
   lines.push('  group: string;');
   lines.push('  min: number;');
   lines.push('  max: number;');
@@ -307,6 +308,7 @@ function generateParametersTs() {
   lines.push('  defaultValue: number;');
   lines.push('  step: number;');
   lines.push('  vstIndex: number;');
+  lines.push('  vstDisplay: string;');
   lines.push('  slotInP: number;');
   lines.push('  modDestIdx: number;');
   lines.push('  isModDest: boolean;');

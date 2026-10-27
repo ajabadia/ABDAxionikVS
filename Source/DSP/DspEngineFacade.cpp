@@ -63,24 +63,84 @@ bool DspEngineFacade::loadModel(int slot, const std::filesystem::path& modelFold
 void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t numSamples) {
     if (leftChannel == nullptr || numSamples == 0) return;
 
-    // 1. Obtener parámetros del store
-    // BlenderAmount (p[262]): rango -64..63 -> normalizado 0..1
+    // 1. Resynator 1 & 2: Capas L1, L2, L3 (Scape y Sphere coordinates)
+    // R1:
+    voicePool_.updateVoiceLayerParams(0, 0,
+        store_.getNormalizedValue(52), store_.getNormalizedValue(53),
+        store_.getNormalizedValue(42), store_.getNormalizedValue(43), 1.0f);
+    voicePool_.updateVoiceLayerParams(0, 1,
+        store_.getNormalizedValue(72), store_.getNormalizedValue(73),
+        store_.getNormalizedValue(62), store_.getNormalizedValue(63), 0.85f);
+    voicePool_.updateVoiceLayerParams(0, 2,
+        store_.getNormalizedValue(92), store_.getNormalizedValue(93),
+        store_.getNormalizedValue(82), store_.getNormalizedValue(83), 0.70f);
+
+    // R2:
+    voicePool_.updateVoiceLayerParams(1, 0,
+        store_.getNormalizedValue(132), store_.getNormalizedValue(133),
+        store_.getNormalizedValue(122), store_.getNormalizedValue(123), 1.0f);
+    voicePool_.updateVoiceLayerParams(1, 1,
+        store_.getNormalizedValue(152), store_.getNormalizedValue(153),
+        store_.getNormalizedValue(142), store_.getNormalizedValue(143), 0.85f);
+    voicePool_.updateVoiceLayerParams(1, 2,
+        store_.getNormalizedValue(172), store_.getNormalizedValue(173),
+        store_.getNormalizedValue(162), store_.getNormalizedValue(163), 0.70f);
+
+    // 2. Algoritmos Parset (FUN_10031d30)
+    int r1Parset = static_cast<int>(store_.getRawValue(24));
+    int r2Parset = static_cast<int>(store_.getRawValue(104));
+    voicePool_.updateVoiceParset(0, r1Parset);
+    voicePool_.updateVoiceParset(1, r2Parset);
+
+    // 3. Afinación y volumen de resonadores
+    int r1Oct = static_cast<int>(store_.getRawValue(33));
+    int r1Semi = static_cast<int>(store_.getRawValue(34));
+    float r1Cents = store_.getRawValue(35);
+    voicePool_.updateVoiceTuning(0, r1Oct, r1Semi, r1Cents);
+    voicePool_.updateVoiceVolume(0, store_.getNormalizedValue(27) * 1.2f);
+
+    int r2Oct = static_cast<int>(store_.getRawValue(113));
+    int r2Semi = static_cast<int>(store_.getRawValue(114));
+    float r2Cents = store_.getRawValue(115);
+    voicePool_.updateVoiceTuning(1, r2Oct, r2Semi, r2Cents);
+    voicePool_.updateVoiceVolume(1, store_.getNormalizedValue(107) * 1.2f);
+
+    // 4. Envolventes de amplitud y filtro
+    float aMs = 5.0f + store_.getNormalizedValue(200) * 4000.0f;
+    float dMs = 10.0f + store_.getNormalizedValue(201) * 8000.0f;
+    float sLvl = store_.getNormalizedValue(202);
+    float rMs = 10.0f + store_.getNormalizedValue(203) * 6000.0f;
+    voicePool_.updateVoiceEnvelopes(aMs, dMs, sLvl, rMs);
+
+    // 5. Blender (Crossfade lineal canónico R1/R2)
     float blenderRaw = store_.getRawValue(262);
     float blenderNorm = std::clamp((blenderRaw + 64.0f) / 127.0f, 0.0f, 1.0f);
 
-    // FilterFreq (p[274]): rango 0..127 -> mapeo exponencial de corte (40 Hz .. 18 kHz)
+    // 6. Configuración del Silver Rack (Filtro, Freq FX, Time FX)
     float filterRaw = store_.getRawValue(274);
     float cutoffHz = 40.0f * std::pow(450.0f, std::clamp(filterRaw / 127.0f, 0.0f, 1.0f));
-
-    // FilterReso (p[275]): rango 0..127 -> 0..0.95
     float resoRaw = store_.getRawValue(275);
     float resonance = std::clamp(resoRaw / 135.0f, 0.0f, 0.95f);
+    int filterType = static_cast<int>(store_.getRawValue(273));
 
-    // 2. Renderizar a través del orquestador de bloques de 128 muestras (FUN_100382b0)
+    auto& silver = blockRenderer_.getSilverRack();
+    silver.setFilter(static_cast<abd::dsp::neuron::SilverFilter::Mode>(std::clamp(filterType, 0, 4)),
+                     cutoffHz, resonance, 0.2f);
+
+    int freqFxAlgo = (store_.getRawValue(281) > 0.5f) ? static_cast<int>(store_.getRawValue(282)) : 0;
+    silver.setFreqFX(freqFxAlgo, 0.5f, 0.5f, 0.45f);
+
+    int timeFxAlgo = (store_.getRawValue(327) > 0.5f) ? static_cast<int>(store_.getRawValue(328)) : 0;
+    silver.setTimeFX(timeFxAlgo, 0.35f, 0.30f, 0.40f);
+
+    // 7. Master volume
+    float masterVol = 0.85f;
+
+    // 8. Renderizar bloques de 128 muestras (FUN_100382b0)
     blockRenderer_.process(leftChannel, rightChannel, numSamples,
-                          voicePool_, blenderNorm, cutoffHz, resonance, 0.80f);
+                          voicePool_, blenderNorm, cutoffHz, resonance, masterVol);
 
-    // 3. Telemetría
+    // 9. Telemetría y picos
     activeVoices_ = voicePool_.getActiveVoiceCount();
     cpuUsage_ = activeVoices_ > 0 ? (0.015f * static_cast<float>(activeVoices_)) : 0.002f;
 }

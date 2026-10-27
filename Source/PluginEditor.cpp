@@ -13,42 +13,26 @@ namespace abd::axionik {
 namespace {
 
 juce::File getAndPrepareWebView2UserDataFolder() {
-    juce::File exeFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-    juce::File baseDir = exeFile.getFileName().startsWithIgnoreCase("ABDAxionikVS")
-                             ? exeFile.getParentDirectory().getChildFile(exeFile.getFileName() + ".WebView2")
-                             : juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-                                   .getChildFile("ABDSynths")
-                                   .getChildFile("ABDAxionikVS")
-                                   .getChildFile("WebView2");
-
-    const juce::String buildFolderName =
-        juce::String(abd::axionik::kBuildNumber).replaceCharacters("\\/:*?\"<>| ", "__________");
-    juce::File currentFolder = baseDir.getChildFile(buildFolderName);
-
-    if (baseDir.isDirectory()) {
-        try {
-            for (const auto& entry :
-                 juce::RangedDirectoryIterator(baseDir, false, "*", juce::File::findFilesAndDirectories)) {
-                const juce::File child = entry.getFile();
-                if (child != currentFolder) {
-                    child.deleteRecursively();
-                }
-            }
-        } catch (...) {
-            AX_LOG("[EDITOR] Warning: failed cleaning old WebView2 folders");
-        }
-    }
-
-    currentFolder.createDirectory();
-    return currentFolder;
+    juce::File tempFolder = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                .getChildFile("ABD_AxionikVS_WebView2");
+    tempFolder.createDirectory();
+    return tempFolder;
 }
 
 std::optional<juce::WebBrowserComponent::Resource> axionikResourceProvider(const juce::String& url) {
+    AX_LOG(juce::String("[RESOURCE] Requested: ") + url);
+
     juce::File thisFile(__FILE__);
     juce::File projectDir = thisFile.getParentDirectory().getParentDirectory();
     juce::File webUiDir = projectDir.getChildFile("WebUI");
 
+    if (!webUiDir.exists()) {
+        juce::File exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+        webUiDir = exeDir.getChildFile("WebUI");
+    }
+
     juce::String decodedPath = abd::webview2::normalizeResourcePath(url);
+    AX_LOG(juce::String("[RESOURCE] Normalized path: ") + decodedPath);
 
     // 1. Bundle de Vite (WebUI/dist): prioridad máxima si existe
     juce::File distDir = webUiDir.getChildFile("dist");
@@ -59,9 +43,11 @@ std::optional<juce::WebBrowserComponent::Resource> axionikResourceProvider(const
             distFile.loadFileAsData(mb);
             std::vector<std::byte> data(mb.getSize());
             std::memcpy(data.data(), mb.getData(), mb.getSize());
+            auto mime = abd::webview2::getMimeTypeForFilename(distFile.getFileName()).toStdString();
+            AX_LOG(juce::String("[RESOURCE] Served from dist: ") + distFile.getFullPathName() + " (" + juce::String(mb.getSize()) + " bytes, " + mime + ")");
             return juce::WebBrowserComponent::Resource{
                 std::move(data),
-                abd::webview2::getMimeTypeForFilename(distFile.getFileName()).toStdString()
+                std::move(mime)
             };
         }
     }
@@ -73,12 +59,15 @@ std::optional<juce::WebBrowserComponent::Resource> axionikResourceProvider(const
         rawFile.loadFileAsData(mb);
         std::vector<std::byte> data(mb.getSize());
         std::memcpy(data.data(), mb.getData(), mb.getSize());
+        auto mime = abd::webview2::getMimeTypeForFilename(rawFile.getFileName()).toStdString();
+        AX_LOG(juce::String("[RESOURCE] Served from raw WebUI: ") + rawFile.getFullPathName() + " (" + juce::String(mb.getSize()) + " bytes, " + mime + ")");
         return juce::WebBrowserComponent::Resource{
             std::move(data),
-            abd::webview2::getMimeTypeForFilename(rawFile.getFileName()).toStdString()
+            std::move(mime)
         };
     }
 
+    AX_LOG(juce::String("[RESOURCE] Not found for url: ") + url);
     return std::nullopt;
 }
 

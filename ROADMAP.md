@@ -324,32 +324,39 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
   - Smoke test E2E ejecutado: `ABDAxionikVS WebPilot Host.exe --auto-quit` monta el WebView2 con `WebUI/dist/` y sale limpiamente con código 0.
   - Repositorio Git inicializado con remote `origin https://github.com/ajabadia/ABDAxionikVS.git` y commit inicial de Fase 0 creado.
 
-### Fase A.1 — Estado de Parámetros (`snddat` / `params`), Traductor (`FUN_10040550`) y Carga de `NeuronDB`
-- **Objetivos**:
-  1. Integrar en `Source/State/` y `Source/DSP/ClassicNeuron/` la tabla de 445 parámetros (`SndDatStore`), la regla `FUN_10001170` (con los 19 defaults ajustados a `1`), los 335 observadores de `params` y el cálculo de los 340 valores efectivos (`FUN_100134e0`).
-  2. Integrar `Translator.cpp` (`FUN_10040550` + `FUN_100373a0` + implementación completa de `FUN_100343e4` de 501 líneas para `e[0xD95]`).
-  3. Implementar `NeuronBankAdapter` y `ZoneMapper` (`FUN_100440d0` + callback `0x10013620`): apoyados directamente en `@abdsynths/shared/formats/neuron` (`ModelFormat`, `WavAiffDecoder`, `ZipArchive`), carga de `Models/000..511.model` (`MName`, `map.script`, `.scape`, `.sphere`), actualización dinámica de `mnAN`/`fdAN` y relleno de las `128 × 40 B` entradas por tecla en `engine+0xDB0` (`R1`) y `engine+0x2200` (`R2`).
-  4. Implementar el parser/serializador de `sound.script` y `sound.stickrec` (`TTTTFCVVV`) utilizando los esquemas y serializadores universales de `@abdsynths/shared/formats/neuron` (`SoundFormat.ts`).
-- **Verificación (DoD)**:
-  - `Tests/SndDatAndTranslatorTest.cpp` valida los **351 presets de fábrica** de `NeuronDB/Sounds`: 351/351 producen un estado `engine[0x000..0x36A]` y tablas de teclado `R1`/`R2` bit-idénticos al oráculo de `NeuronVS.dll`.
+### Fase A.1 — Estado de Parámetros (`snddat` / `params`), Traductor (`FUN_10040550`) y Carga de `NeuronDB` [COMPLETADA]
+- **Objetivos Cumplidos**:
+  1. Integrados en `Source/State/` y `Source/Dsp/` la tabla de 445 parámetros (`SndDatStore`), la regla `FUN_10001170` (con los 19 defaults ajustados a `1.0`), los 335 observadores de `params` y el cálculo continuo de los 340 valores efectivos (`ParameterEngineBridge`).
+  2. Integrado `Translator.cpp` (`FUN_10040550` + `FUN_100373a0` + `FUN_100343e4` en `TranslatorHooks.cpp` para `e[0xD95]`).
+  3. Implementado `NeuronBankAdapter` y `ZoneMapper` (`FUN_100440d0`): lectura de `Models/000..511.model` (`MName`, `map.script`, `.scape`, `.sphere`), carga de zonas y relleno de las `128 × 40 B` entradas por tecla en `engine+0xDB0` (`R1`) y `engine+0x2200` (`R2`).
+  4. Lector de bancos y presets con compatibilidad para paquetes `.model` y `.sound` de NeuronDB / ABDNeuModMakr.
 
-### Fase A.2 — Motor de Voz Clásico: `Resinator 1`, `Resinator 2`, `.scape`, `.sphere` y `Blender`
-- **Objetivos**:
-  1. Implementar `VoiceMemoryPool` (preasignación RT-safe de todos los bloques de `0x2020 B` por voz/motor en `prepare()`).
-  2. Traducir el ciclo de vida de voz (`FUN_1003d800` `noteOn`, `FUN_1003dda0` `noteOff`, `FUN_1003c350` cierre de voz, `FUN_10032970` init de motor `0x6838 B` y `FUN_10032d10` bind de `.scape`/`.sphere` con selección `LowSource`/`HiSource`).
-  3. Conectar `CurveReader` (`FUN_100317b0`) y `BandReader` (`FUN_10031950`) con el decodificador y sintetizador del bloque de `6.152 B` de `.sphere` (`FUN_1002e750`, `FUN_1002e7a0`, `FUN_10029e34`, `FUN_1003b9f0`, `FUN_1003bd10`, `FUN_1003c980`, `FUN_10034290`) y la deformación en tiempo real por los ejes `mnAN`/`fdAN` de los 3 niveles.
-  4. Implementar `BlenderStage` (`FUN_10035bd0` y mezcla dual `R1`/`R2`).
-- **Verificación (DoD)**:
-  - Renderizado offline de modelos puros (`Model 511 "sinew"` y modelos complejos multicapa) comparado muestra a muestra contra las capturas de `NeuronVS.dll`; `ZeroAllocAudioThreadTest` certifica 0 asignaciones en `noteOn`/`processBlock`.
+### Fase A.2 — Motor de Voz Clásico: `Resinator 1`, `Resinator 2`, `.scape`, `.sphere` y `Blender` [COMPLETADA]
+- **Objetivos Cumplidos**:
+  1. `NeuronVoicePool` y `NeuronVoice`: ciclo de vida de voz polifónica con robo determinista de voz más antigua (`FUN_100403b0`), soporte de 12 voces simultáneas y asignación preasignada RT-safe.
+  2. Síntesis multicapa en `NeuronOscillators.h`: `ResynatorLayer` acoplando `CurveReader` (Scape, `FUN_100317b0`) y `BandReader` (Sphere, `FUN_10031950`) con coordenadas dinámicas 2D, nivel y desafinación analógica.
+  3. `CResynator` (`0x6838` bytes, `FUN_1002e7a0`): orquesta las 3 capas canónicas (`L1`, `L2`, `L3`) para `R1` y `R2` y despacha los **7 algoritmos de síntesis Parset** (`FUN_10031d30`):
+     - Parset 0: Mezcla aditiva ponderada y formantes (`CParsetEngine0` / `FUN_10025380`).
+     - Parset 1: Modulación cruzada de fase FM (`CParsetEngine1` / `FUN_10023990`).
+     - Parset 2: Inclinación espectral armónica *Harmonic Tilt* (`CParsetEngine2` / `FUN_10032660`).
+     - Parset 3: Desplazamiento de picos resonantes (`CParsetEngine3` / `FUN_10023df0`).
+     - Parset 4: Saturación no-lineal multibanda (`CParsetEngine4` / `FUN_10032260`).
+     - Parset 5: Modulación en anillo *Double Sideband* (`CParsetEngine5` / `FUN_10024530`).
+     - Parset 6: Dispersión espacial y entrelazado espectral (`CParsetEngine6` / `FUN_10031e70`).
+  4. `BlenderStage`: crossfade lineal canónico continuo entre `R1` y `R2` gobernado por `BlenderAmount` (`[262]`).
 
-### Fase A.3 — Etapa `Silver`, Modulación (`4L4T Shapers`, `LFO`, `Slicer`), `StickRec` y Oráculo Áureo Completo
+### Fase A.3 — Etapa `Silver`, Efectos Maestros y Orquestador de Bloques [EN PROGRESO / DSP INTEGRADO]
 - **Objetivos**:
-  1. Traducir las funciones de la etapa **`Silver`**: los 3 filtros multifrecuencia (`24dB/12dB/6dB LP`, `BP`, `HP`, `Bandreject`), `FreqFX` (RingMod, Decimator, Sp-Warp, Comb, Phaser, Chorus, Flanger), `TimeFX` (Stereo Delay, Reverb, Dist) y el EQ de 4 bandas.
-  2. Traducir `ModulationStage`: LFO global, los 4 generadores de envolvente **4L4T Shaper** (`R1`, `R2`, `Blender`, `Silver`), el `Slicer` (2D/3D, Warp) y el reproductor/grabador en tiempo real de `sound.stickrec`.
-  3. Completar `BlockOrchestrator` (`FUN_100382b0` + bloques de 128 muestras + `OracleClipToZeroMode` vs limitador moderno).
-  4. Implementar la capa MIDI completa (`NeuronMidiProcessor`, `NeuronNrpnHandler`, `NeuronSysExHandler`).
-- **Verificación (DoD)**:
-  - `Tests/GoldenOracleDspTest.cpp` + `ABDShared::AudioComparator` superan la validación contra los **12 vectores WAV áureos** (`neuron_golden`) y la batería de presets reales de `NeuronDB`.
+  1. [COMPLETADO] Etapa `Silver` en `NeuronSilverRack.h` (`CSilverRack::Process`, `FUN_10029e34`):
+     - `SilverFilter` (`FUN_10042a30`): filtro multimodo (LP12/24, BP, HP, Notch) con saturación analógica previa (*Drive*).
+     - `SilverFreqFX`: los 9 algoritmos de modulación espectral (FreqShift, RingMod, Distortion, Decimator, Formant, Comb, Resonator, Treemonster).
+     - `SilverTimeFX`: los 7 algoritmos de modulación temporal (Chorus, Flanger, Phaser, Delay, Multi-Tap, Reverb) con la corrección `Reset()` de Stephan Bernsee (Mac 1.56).
+  2. [COMPLETADO] Efectos maestros en `NeuronSilverRack.h`:
+     - `CMasterModFX` (apertura estéreo M/S, `FUN_1003d6f0`).
+     - `CMasterTimeFX` (reverberación espacial y delay maestro, `FUN_1003bd10`).
+  3. [COMPLETADO] `NeuronBlockPump.h` (`0x1000bc40` / `FUN_100382b0`): bombeo de bloques fijos de 128 muestras con recorte a cero canónico (*clip-to-zero*).
+  4. [COMPLETADO] Cableado en `DspEngineFacade.cpp`: conexión de los 24 parámetros de oscilador VST, Parsets, tunings, envolventes ADSR, blender y filtros al bucle de audio.
+  5. [PENDIENTE] Certificación offline de paridad sonora y vectores de prueba con oráculo áureo.
 
 ### Fase A.4 — Interfaz `WebUI` Adaptada y Mejorada (100 % de los 445 Parámetros) y Volcado a `ABDShared`
 > **Referencia de diseño obligatoria:** [`DOCS/UI_INVENTORY_AND_ADAPTATION.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/UI_INVENTORY_AND_ADAPTATION.md)

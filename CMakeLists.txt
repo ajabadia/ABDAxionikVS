@@ -20,6 +20,10 @@ endif()
 if(WIN32)
     set(JUCE_USE_WIN_WEBVIEW2 ON CACHE BOOL "Use WebView2 on Windows" FORCE)
     set(JUCE_WEBVIEW2_PACKAGE_LOCATION "$ENV{USERPROFILE}/AppData/Local/PackageManagement/NuGet/Packages" CACHE PATH "WebView2 package location" FORCE)
+    add_compile_definitions(
+        JUCE_USE_WIN_WEBVIEW2=1
+        JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
+    )
 endif()
 
 if(NOT DEFINED JUCE_PATH)
@@ -88,51 +92,45 @@ juce_add_plugin(ABDAxionikVS
     NEEDS_WEBVIEW2 TRUE
 )
 
+target_sources(ABDAxionikVS PRIVATE ${AXIONIK_PLUGIN_SOURCES})
+target_include_directories(ABDAxionikVS PUBLIC
+    Source
+    Source/DSP
+    Source/Generated
+)
+target_compile_definitions(ABDAxionikVS PUBLIC
+    JUCE_WEB_BROWSER=1
+    JUCE_USE_WIN_WEBVIEW2=1
+    JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
+    JUCE_VST3_CAN_REPLACE_VST2=0
+)
+target_link_libraries(ABDAxionikVS PUBLIC
+    juce::juce_audio_utils
+    juce::juce_audio_processors
+    juce::juce_gui_extra
+    ABDShared::DspCore
+    ABDShared::SynthCore
+    ABDShared::DspEffects
+    ABDShared::WebView2Bridge
+)
+
 # Configurar Standalone
 if(TARGET ABDAxionikVS_Standalone)
-    target_sources(ABDAxionikVS_Standalone PRIVATE ${AXIONIK_PLUGIN_SOURCES})
-    target_include_directories(ABDAxionikVS_Standalone PRIVATE
-        Source
-        Source/DSP
-        Source/Generated
-    )
     target_compile_definitions(ABDAxionikVS_Standalone PRIVATE
         JUCE_WEB_BROWSER=1
         JUCE_USE_WIN_WEBVIEW2=1
+        JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
         JUCE_VST3_CAN_REPLACE_VST2=0
-    )
-    target_link_libraries(ABDAxionikVS_Standalone PRIVATE
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_gui_extra
-        ABDShared::DspCore
-        ABDShared::SynthCore
-        ABDShared::DspEffects
-        ABDShared::WebView2Bridge
     )
 endif()
 
 # Configurar VST3
 if(TARGET ABDAxionikVS_VST3)
-    target_sources(ABDAxionikVS_VST3 PRIVATE ${AXIONIK_PLUGIN_SOURCES})
-    target_include_directories(ABDAxionikVS_VST3 PRIVATE
-        Source
-        Source/DSP
-        Source/Generated
-    )
     target_compile_definitions(ABDAxionikVS_VST3 PRIVATE
         JUCE_WEB_BROWSER=1
         JUCE_USE_WIN_WEBVIEW2=1
+        JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
         JUCE_VST3_CAN_REPLACE_VST2=0
-    )
-    target_link_libraries(ABDAxionikVS_VST3 PRIVATE
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_gui_extra
-        ABDShared::DspCore
-        ABDShared::SynthCore
-        ABDShared::DspEffects
-        ABDShared::WebView2Bridge
     )
 endif()
 
@@ -161,6 +159,7 @@ target_include_directories(ABDAxionikVS_WebPilot PRIVATE
 target_compile_definitions(ABDAxionikVS_WebPilot PRIVATE
     JUCE_WEB_BROWSER=1
     JUCE_USE_WIN_WEBVIEW2=1
+    JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
 )
 
 target_link_libraries(ABDAxionikVS_WebPilot PRIVATE

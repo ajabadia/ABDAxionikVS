@@ -61,7 +61,7 @@
 
 ---
 
-## 4. Estado de las Fases y Siguiente Paso Inmediato (Fase A.1)
+## 4. Estado de las Fases y Avances Recientes
 
 1. **Fase 0 — Cimientos, Contratos y Esqueleto Dual**: **COMPLETADA AL 100%**.
    - Workspace registrado en `pnpm-workspace.yaml`, esquemas canónicos poblados en `schemas/`.
@@ -69,15 +69,30 @@
    - Contratos generados en C++ (`ParameterRegistry.gen.h`, `Conversion.gen.h`, `MidiMapping.gen.h`) y TypeScript (`parameters.gen.ts`, `bridge-protocol.json`).
    - WebUI construida en `WebUI/` con paridad estética 1:1 con `ABDNeuModMakr`, tokenizada con `@abdsynths/shared/styles`, empaquetando con Vite a `WebUI/dist/`.
    - Suite Vitest con 5/5 tests pasando en verde.
-   - Compilación nativa MSVC (`build.bat nopause`) con éxito total:
-     - `ABDAxionikVS.exe` (Standalone)
-     - `ABDAxionikVS.vst3` (VST3)
-     - `ABDAxionikVS WebPilot Host.exe` (Bancada WebView2 E2E con `--auto-quit` validado).
+   - Compilación nativa MSVC (`build.bat nopause`) con éxito total (`ABDAxionikVS.exe`, `ABDAxionikVS.vst3`, `ABDAxionikVS WebPilot Host.exe`).
    - Repositorio git inicializado y commit inicial registrado.
 
-2. **Siguiente Paso: Arranque de Fase A.1**:
-   - Integración de `SndDatStore` (los 445 parámetros autoritativos con regla `FUN_10001170` y los 19 clamps `0 -> 1.0`).
-   - Integración de `params` (los 335 observadores, los 6 controles en tiempo real y el cálculo de los 340 slots efectivos en `p[]` vía `FUN_100134e0`).
-   - Integración de `Translator` (`FUN_10040550` + `FUN_100373a0` + `FUN_100343e4` de 501 líneas para `e[0xD95]`).
-   - Lector de modelos `.model` de `NeuronDB` (`MName`, `map.script`, `.scape`, `.sphere`) y de paquetes `.nmmodel` de `ABDNeuModMakr`.
-   - Lector y serializador de presets `.sound` (`sound.script` + `sound.stickrec`).
+2. **Fase A.1 y A.2 — Motor DSP Canónico y Frontend Unificado**: **COMPLETADA AL 100%**.
+   - **`SndDatStore` y `ParameterEngineBridge`**: Los 445 parámetros autoritativos con regla `FUN_10001170`, 335 observadores, 6 controles de ejecución en tiempo real y traducción continua a través de `Translator` (`FUN_10040550`).
+   - **Síntesis Multicapa por Resonador (`NeuronOscillators.h`)**:
+     - `ResynatorLayer`: excitación `CurveReader` (Scape, `FUN_100317b0`) filtrada por formantes `BandReader` (Sphere, `FUN_10031950`) con coordenadas dinámicas 2D ($X, Y$), nivel y desafinación analógica.
+     - `CResynator` (`0x6838` bytes, `FUN_1002e7a0`): Orquesta las 3 capas canónicas (`L1`, `L2`, `L3`) para R1 y R2.
+     - Despachador de los 7 algoritmos de síntesis Parset (`FUN_10031d30` / `FUN_10025380..FUN_10031e70`).
+   - **Silver Rack y Efectos Maestros (`NeuronSilverRack.h` / `NeuronBlockPump.h`)**:
+     - `SilverFilter` (`FUN_10042a30`): filtro multimodo (LP12/24, BP, HP, Notch) con saturación analógica previa (*Drive*).
+     - `SilverFreqFX`: los 9 algoritmos de modulación espectral (FreqShift, RingMod, Distortion, Decimator, Formant, Comb, Resonator, Treemonster).
+     - `SilverTimeFX`: los 7 algoritmos de modulación temporal (Chorus, Flanger, Phaser, Delay, Multi-Tap, Reverb) con la corrección `Reset()` de Stephan Bernsee (Mac 1.56).
+     - `CMasterModFX` (apertura M/S) y `CMasterTimeFX` (reverb espacial).
+     - Bombeo de bloques de 128 muestras con recorte canónico *clip-to-zero* (`0x1000bc40`).
+   - **Frontend WebUI & Ecosistema UI**:
+     - Drawer deslizante universal (`DrawerManager`): panel lateral desde la derecha ocupando el 50% de la pantalla (`50vw`, `min-width: 460px`), unificado para Banco, Matriz de Modulación 6x5 y Master FX.
+     - Gestor de Bancos (`BankDrawer`): estilos canónicos (`catalog-browser.css`), iconos `param0`..`param9`, selector de carpeta de librería con persistencia en `localStorage` y escaneo recursivo.
+     - Teclado de interpretación (`KeyboardStrip`): integrado con `@abdsynths/midi-keyb`, ruedas activas de Pitch Bend y Modulación (`bender.png`), botones de octava con LEDs, Panic, Hold, Retrig y Sustain.
+     - Barra de navegación (`AxionikNavbar`): integrado con `createSynthNavBar`, cambio de temas (`ms2000`, `audiolab`, `cz101`, etc.), zoom y lectura en vivo de telemetría.
+   - **Trazas y Diagnóstico**:
+     - `AppLogger.h`: registro a fichero `ABDAxionikVS.log` junto al ejecutable.
+
+3. **Siguiente Paso Inmediato**:
+   - Compilación nativa de verificación con `build.bat` (a ejecutar por el usuario).
+   - Verificación de audio en tiempo real y carga de presets `.sound` / modelos `.model`.
+   - Implementación visual de los Sticks 2D (`TrajectoryStick2D`) y pads de envolventes (`MultiStageShaperPad`).
