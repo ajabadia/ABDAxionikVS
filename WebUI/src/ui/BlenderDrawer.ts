@@ -36,7 +36,6 @@ export class BlenderDrawer {
     root.style.cssText = 'display: flex; flex-direction: column; gap: var(--space-4); height: 100%;';
 
     const curBlenderType = 0;
-    const curSlicerType = 0;
     const curSlicerWave = 0;
 
     let algoButtonsHtml = '';

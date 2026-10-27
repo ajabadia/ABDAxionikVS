@@ -25,6 +25,7 @@ export interface TrajectoryStickOptions {
   numLayers?: number;
   initialLayer?: 0 | 1 | 2;
   labels?: StickLabels;
+  labelsPerLayer?: StickLabels[];
   onPositionChange?: (layerIdx: number, coord: StickCoordinate) => void;
   onChange?: (layerIdx: number, coord: StickCoordinate) => void;
   onOpenExpanded?: () => void;
