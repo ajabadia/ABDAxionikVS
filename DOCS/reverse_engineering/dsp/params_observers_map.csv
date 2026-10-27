@@ -1,9 +1,9 @@
 call_order,call_va,obs_offset_hex,slot_in_p,slot_hex,snddat_index,snddat_key,min_val,max_val,callback,mod_dest_idx,table_10049e00_slot
-0,0x1001075b,0x0280,-1,-1,22,R1ModellIndex,,,0x100139d0,-1,-1
-1,0x10010779,0x0280,-1,-1,102,R2ModellIndex,,,0x100139d0,-1,-1
-2,0x1001078f,0x0298,-1,-1,102,R2ModellIndex,,,0x100139d0,-1,-1
-3,0x100107dd,loop,-1,-1,-1,INTERNAL_OR_LOOP,,,0x100139d0,-1,-1
-4,0x10010835,loop,-1,-1,-1,INTERNAL_OR_LOOP,,,0x100139d0,-1,-1
+0,0x1001075b,0x0280,-1,-1,22,R1ModellIndex,,,0x10013620,-1,-1
+1,0x10010779,0x0280,-1,-1,102,R2ModellIndex,,,0x10013620,-1,-1
+2,0x1001078f,0x0298,-1,-1,102,R2ModellIndex,,,0x100139b0,-1,-1
+3,0x100107dd,loop,-1,-1,-1,INTERNAL_OR_LOOP,,,0x100135d0,-1,-1
+4,0x10010835,loop,-1,-1,-1,INTERNAL_OR_LOOP,,,0x10013600,-1,-1
 5,0x1001085d,0x02b0,0,0x000,3,SoundPan,-1.0,1.0,0x100139d0,-1,-1
 6,0x1001087b,0x02c8,1,0x001,4,SoundPanKeyTrack,-1.0,1.0,0x100139d0,-1,-1
 7,0x10010899,0x02e0,2,0x002,412,PitchBendRange,0.0,12.0,0x100139d0,-1,-1
