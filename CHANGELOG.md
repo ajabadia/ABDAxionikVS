@@ -5,6 +5,12 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 ## [Unreleased]
 
 ### Added
+- **Controladores Vectoriales 2D y Paneles Deslizantes Expandidos en WebUI**:
+  - Implementado `TrajectoryStick2D` ([TrajectoryStick2D.ts](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/TrajectoryStick2D.ts)): joystick circular 2D de alta precisión con restricción de radio físico, selector interactivo de capas `L1 | L2 | L3`, polos cardinales dinámicos, captura de puntero, doble-clic para centrar y lectura numérica $X, Y$.
+  - Montados los 4 controladores vectoriales principales (`Scape 1`, `Sphere 1`, `Scape 2`, `Sphere 2`) en el canvas del sintetizador con enlace directo a los 24 parámetros VST correspondientes vía `WebBridge.setParam`.
+  - Implementado `ResynatorDrawer` ([ResynatorDrawer.ts](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/ResynatorDrawer.ts)): panel deslizante 50vw para edición en profundidad de Resynator 1 y 2 (selector de los 7 algoritmos Parset `FUN_10031d30`, afinación de octava/semitonos/cents, capas de excitación L1..L3 y envolvente ADSR).
+  - Implementado `SilverDrawer` ([SilverDrawer.ts](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/SilverDrawer.ts)): panel deslizante 50vw para la edición completa del Silver Rack (filtro multimodo LP24/LP12/BP/HP/Notch con Drive analógico, 9 algoritmos de FreqFX y 7 de TimeFX con conmutadores individuales de activación).
+  - Cableados en la interfaz central los controles del Blender, Cutoff y Resonancia del filtro, botones cíclicos de FreqFX/TimeFX y sincronización bidireccional de parámetros por telemetría `PARAM_UPDATE`.
 - **Síntesis Multicapa por Resonador (3 Capas: L1, L2, L3) y Parsets en DSP Core**:
   - Implementado `ResynatorLayer` en `NeuronOscillators.h` combinando `CurveReader` (Scape, `FUN_100317b0`) y `BandReader` (Sphere, `FUN_10031950`) con coordenadas dinámicas 2D, nivel y desafinación analógica.
   - Implementado `CResynator` (`0x6838` bytes, `FUN_1002e7a0`) orquestando las 3 capas canónicas (`L1`, `L2`, `L3`) para R1 y R2.

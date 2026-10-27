@@ -406,3 +406,171 @@ input[type="range"] {
   box-shadow: 0 0 8px var(--color-accent);
 }
 
+/* ── TrajectoryStick2D Component Styles ───────────────── */
+.trajectory-stick-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--color-panel-surface, #141a24);
+  border: 1px solid var(--color-panel-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 6px);
+  padding: 8px 10px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.stick-card-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.stick-label {
+  font-size: var(--text-xs, 11px);
+  font-weight: 700;
+  color: var(--color-accent, #00d4ff);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stick-layer-selector {
+  display: flex;
+  gap: 3px;
+  background: var(--color-panel-bg, #0b0f15);
+  border-radius: var(--radius-xs, 3px);
+  padding: 2px;
+  border: 1px solid var(--color-panel-border, rgba(255, 255, 255, 0.06));
+}
+
+.btn-layer {
+  background: transparent;
+  border: none;
+  color: var(--color-text-dim, #7e8b9b);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-layer:hover {
+  color: var(--color-text-main, #e2e8f0);
+}
+
+.btn-layer.active {
+  background: var(--color-accent, #00d4ff);
+  color: #0b0f15;
+}
+
+.stick-outer-ring {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 6px 0;
+}
+
+.stick-pole {
+  position: absolute;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-text-dim, #667585);
+  text-transform: uppercase;
+  pointer-events: none;
+  font-family: var(--font-mono, monospace);
+}
+
+.pole-n { top: 2px; left: 50%; transform: translateX(-50%); }
+.pole-s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.pole-w { left: 2px; top: 50%; transform: translateY(-50%); }
+.pole-e { right: 2px; top: 50%; transform: translateY(-50%); }
+
+.stick-pad-circle {
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(0, 212, 255, 0.08) 0%, rgba(10, 14, 22, 0.95) 75%, #05080c 100%);
+  border: 2px solid var(--color-panel-border-strong, rgba(0, 212, 255, 0.4));
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.85), 0 0 10px rgba(0, 212, 255, 0.15);
+  position: relative;
+  cursor: crosshair;
+  touch-action: none;
+  overflow: hidden;
+}
+
+.stick-crosshair-h {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.stick-crosshair-v {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.stick-target-ring {
+  position: absolute;
+  top: 25%;
+  left: 25%;
+  width: 50%;
+  height: 50%;
+  border-radius: 50%;
+  border: 1px dashed rgba(0, 212, 255, 0.2);
+  pointer-events: none;
+}
+
+.stick-puck {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent, #00d4ff);
+  box-shadow: 0 0 10px var(--color-accent, #00d4ff), inset 0 0 3px rgba(255, 255, 255, 0.9);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: transform 0.05s linear;
+}
+
+.stick-card-footer {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.stick-readout {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
+.btn-expand-stick {
+  background: var(--color-panel-surface-elevated, #1a2230);
+  border: 1px solid var(--color-panel-border, rgba(255, 255, 255, 0.1));
+  color: var(--color-text-main, #e2e8f0);
+  border-radius: 2px;
+  cursor: pointer;
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+.btn-expand-stick:hover {
+  border-color: var(--color-accent, #00d4ff);
+}
+
+

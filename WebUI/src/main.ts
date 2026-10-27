@@ -12,6 +12,9 @@ import { AxionikNavbar } from './ui/Navbar.js';
 import { BankDrawer } from './ui/BankDrawer.js';
 import { KeyboardStrip } from './ui/KeyboardStrip.js';
 import { DrawerManager } from './ui/Drawers.js';
+import { TrajectoryStick2D } from './ui/TrajectoryStick2D.js';
+import { ResynatorDrawer } from './ui/ResynatorDrawer.js';
+import { SilverDrawer } from './ui/SilverDrawer.js';
 import { WebBridge } from './bridge/WebBridge.js';
 import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
 
@@ -46,29 +49,15 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="panel-badge">RESYNATOR 1</span>
             <span class="panel-caption">Sphere & Scape Synthesis</span>
           </div>
-          <div class="panel-actions">
+          <div class="panel-actions" style="display: flex; align-items: center; gap: var(--space-2);">
             <span class="hud-pill stat-num">Model: <strong id="r1-model-label">511 sinew</strong></span>
+            <button type="button" class="btn btn-xs" id="btn-edit-r1" title="Expanded Controls">Edit R1</button>
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); flex: 1;">
-          <!-- Stick 2D Scape R1 -->
-          <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--color-panel-surface);">
-            <span class="panel-caption" style="margin-bottom: var(--space-2);">SCAPE 1/2</span>
-            <div id="r1-scape-stick" style="width: 140px; height: 140px; border-radius: 50%; border: 2px solid var(--color-accent); position: relative; background: radial-gradient(circle, var(--color-panel-bg) 0%, rgba(0,0,0,0.5) 100%); cursor: crosshair;">
-              <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--color-accent); position: absolute; top: calc(50% - 6px); left: calc(50% - 6px); box-shadow: 0 0 8px var(--color-accent);"></div>
-            </div>
-            <span class="hud-pill stat-num" style="margin-top: var(--space-2); font-size: var(--text-xs);">X: 0.50 | Y: 0.50</span>
-          </div>
-
-          <!-- Stick 2D Sphere R1 -->
-          <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--color-panel-surface);">
-            <span class="panel-caption" style="margin-bottom: var(--space-2);">SPHERE 1/2</span>
-            <div id="r1-sphere-stick" style="width: 140px; height: 140px; border-radius: 50%; border: 2px solid var(--color-accent); position: relative; background: radial-gradient(circle, var(--color-panel-bg) 0%, rgba(0,0,0,0.5) 100%); cursor: crosshair;">
-              <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--color-accent); position: absolute; top: calc(50% - 6px); left: calc(50% - 6px); box-shadow: 0 0 8px var(--color-accent);"></div>
-            </div>
-            <span class="hud-pill stat-num" style="margin-top: var(--space-2); font-size: var(--text-xs);">X: 0.50 | Y: 0.50</span>
-          </div>
+          <div id="r1-scape-mount"></div>
+          <div id="r1-sphere-mount"></div>
         </div>
       </section>
 
@@ -79,68 +68,51 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="panel-badge">RESYNATOR 2</span>
             <span class="panel-caption">Sphere & Scape Synthesis</span>
           </div>
-          <div class="panel-actions">
+          <div class="panel-actions" style="display: flex; align-items: center; gap: var(--space-2);">
             <span class="hud-pill stat-num">Model: <strong id="r2-model-label">511 sinew</strong></span>
+            <button type="button" class="btn btn-xs" id="btn-edit-r2" title="Expanded Controls">Edit R2</button>
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); flex: 1;">
-          <!-- Stick 2D Scape R2 -->
-          <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--color-panel-surface);">
-            <span class="panel-caption" style="margin-bottom: var(--space-2);">SCAPE 1/2</span>
-            <div id="r2-scape-stick" style="width: 140px; height: 140px; border-radius: 50%; border: 2px solid var(--color-accent); position: relative; background: radial-gradient(circle, var(--color-panel-bg) 0%, rgba(0,0,0,0.5) 100%); cursor: crosshair;">
-              <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--color-accent); position: absolute; top: calc(50% - 6px); left: calc(50% - 6px); box-shadow: 0 0 8px var(--color-accent);"></div>
-            </div>
-            <span class="hud-pill stat-num" style="margin-top: var(--space-2); font-size: var(--text-xs);">X: 0.50 | Y: 0.50</span>
-          </div>
-
-          <!-- Stick 2D Sphere R2 -->
-          <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--color-panel-surface);">
-            <span class="panel-caption" style="margin-bottom: var(--space-2);">SPHERE 1/2</span>
-            <div id="r2-sphere-stick" style="width: 140px; height: 140px; border-radius: 50%; border: 2px solid var(--color-accent); position: relative; background: radial-gradient(circle, var(--color-panel-bg) 0%, rgba(0,0,0,0.5) 100%); cursor: crosshair;">
-              <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--color-accent); position: absolute; top: calc(50% - 6px); left: calc(50% - 6px); box-shadow: 0 0 8px var(--color-accent);"></div>
-            </div>
-            <span class="hud-pill stat-num" style="margin-top: var(--space-2); font-size: var(--text-xs);">X: 0.50 | Y: 0.50</span>
-          </div>
+          <div id="r2-scape-mount"></div>
+          <div id="r2-sphere-mount"></div>
         </div>
       </section>
 
       <!-- Zona Central: Blender, Filter, Silver FX -->
       <section class="synth-panel-card" style="grid-column: 1 / -1; padding: var(--space-3); display: flex; justify-content: space-between; align-items: center; gap: var(--space-4);">
+        <!-- Blender -->
         <div style="display: flex; align-items: center; gap: var(--space-3);">
           <span class="panel-badge">BLENDER</span>
-          <div class="hud-pill">
-            <span class="hud-label">MODE:</span>
-            <span class="hud-value" id="blender-mode-val">Crossfade</span>
-          </div>
-          <div class="hud-pill">
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 6px;">
             <span class="hud-label">AMOUNT:</span>
-            <span class="hud-value" id="blender-amount-val">0.50</span>
+            <input type="range" id="blender-slider" min="-64" max="63" value="0" step="1" style="width: 100px;" />
+            <span class="hud-value stat-num" id="blender-amount-val">0.50</span>
           </div>
         </div>
 
+        <!-- Filter -->
         <div style="display: flex; align-items: center; gap: var(--space-3);">
           <span class="panel-badge">FILTER</span>
-          <div class="hud-pill">
-            <span class="hud-label">CUTOFF:</span>
-            <span class="hud-value" id="filter-freq-val">1000 Hz</span>
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 6px;">
+            <span class="hud-label">CUT:</span>
+            <input type="range" id="filter-freq-slider" min="0" max="127" value="100" step="1" style="width: 80px;" />
+            <span class="hud-value stat-num" id="filter-freq-val">100</span>
           </div>
-          <div class="hud-pill">
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 6px;">
             <span class="hud-label">RESO:</span>
-            <span class="hud-value" id="filter-reso-val">0.20</span>
+            <input type="range" id="filter-reso-slider" min="0" max="127" value="25" step="1" style="width: 70px;" />
+            <span class="hud-value stat-num" id="filter-reso-val">0.20</span>
           </div>
         </div>
 
+        <!-- Silver FX -->
         <div style="display: flex; align-items: center; gap: var(--space-3);">
           <span class="panel-badge">SILVER FX</span>
-          <div class="hud-pill">
-            <span class="hud-label">FREQ FX:</span>
-            <span class="hud-value" id="cur-freq-fx-val">RingMod</span>
-          </div>
-          <div class="hud-pill">
-            <span class="hud-label">TIME FX:</span>
-            <span class="hud-value" id="cur-time-fx-val">Chorus</span>
-          </div>
+          <button type="button" class="btn btn-xs" id="btn-cycle-freqfx" title="Change Frequency Effect">FREQ: <strong id="cur-freq-fx-val">RingMod</strong></button>
+          <button type="button" class="btn btn-xs" id="btn-cycle-timefx" title="Change Time Effect">TIME: <strong id="cur-time-fx-val">Chorus</strong></button>
+          <button type="button" class="btn btn-xs btn-primary" id="btn-edit-silver" title="Expanded Silver & Master FX Rack">Edit Rack</button>
         </div>
       </section>
     </div>
@@ -176,7 +148,163 @@ document.addEventListener('DOMContentLoaded', () => {
   // 4. Gestor universal de paneles deslizantes (Drawers - 50vw desde la derecha)
   const drawerManager = new DrawerManager(app);
 
-  // 5. Gestor de Banco y Modelos NeuronDB (BankDrawer montado en el Drawer universal)
+  // Funciones para abrir paneles expandidos (Resynator 1/2 y Silver Rack)
+  const openR1Drawer = () => {
+    const modelText = document.getElementById('r1-model-label')?.textContent || '511 sinew';
+    const content = ResynatorDrawer.createContent({
+      resynator: 1,
+      modelName: modelText,
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('r1-expanded', content);
+  };
+
+  const openR2Drawer = () => {
+    const modelText = document.getElementById('r2-model-label')?.textContent || '511 sinew';
+    const content = ResynatorDrawer.createContent({
+      resynator: 2,
+      modelName: modelText,
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('r2-expanded', content);
+  };
+
+  const openSilverDrawer = () => {
+    const content = SilverDrawer.createContent({
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('silver-expanded', content);
+  };
+
+  // 5. Instanciar los 4 controladores vectoriales 2D (Trajectory Sticks)
+  const r1ScapeMount = document.getElementById('r1-scape-mount');
+  const r1SphereMount = document.getElementById('r1-sphere-mount');
+  const r2ScapeMount = document.getElementById('r2-scape-mount');
+  const r2SphereMount = document.getElementById('r2-sphere-mount');
+
+  let r1ScapeStick: TrajectoryStick2D | null = null;
+  let r1SphereStick: TrajectoryStick2D | null = null;
+  let r2ScapeStick: TrajectoryStick2D | null = null;
+  let r2SphereStick: TrajectoryStick2D | null = null;
+
+  if (r1ScapeMount) {
+    r1ScapeStick = new TrajectoryStick2D(r1ScapeMount, {
+      label: 'SCAPE 1',
+      resynator: 1,
+      domain: 'scape',
+      labels: { north: 'N', south: 'S', west: 'W', east: 'E' },
+      onPositionChange: (layerIdx, coord) => {
+        const paramX = layerIdx === 0 ? 52 : (layerIdx === 1 ? 72 : 92);
+        const paramY = layerIdx === 0 ? 53 : (layerIdx === 1 ? 73 : 93);
+        WebBridge.setParam(paramX, coord.x);
+        WebBridge.setParam(paramY, coord.y);
+      },
+      onOpenExpanded: openR1Drawer,
+    });
+  }
+
+  if (r1SphereMount) {
+    r1SphereStick = new TrajectoryStick2D(r1SphereMount, {
+      label: 'SPHERE 1',
+      resynator: 1,
+      domain: 'sphere',
+      labels: { north: 'N', south: 'S', west: 'W', east: 'E' },
+      onPositionChange: (layerIdx, coord) => {
+        const paramX = layerIdx === 0 ? 42 : (layerIdx === 1 ? 62 : 82);
+        const paramY = layerIdx === 0 ? 43 : (layerIdx === 1 ? 63 : 83);
+        WebBridge.setParam(paramX, coord.x);
+        WebBridge.setParam(paramY, coord.y);
+      },
+      onOpenExpanded: openR1Drawer,
+    });
+  }
+
+  if (r2ScapeMount) {
+    r2ScapeStick = new TrajectoryStick2D(r2ScapeMount, {
+      label: 'SCAPE 2',
+      resynator: 2,
+      domain: 'scape',
+      labels: { north: 'N', south: 'S', west: 'W', east: 'E' },
+      onPositionChange: (layerIdx, coord) => {
+        const paramX = layerIdx === 0 ? 132 : (layerIdx === 1 ? 152 : 172);
+        const paramY = layerIdx === 0 ? 133 : (layerIdx === 1 ? 153 : 173);
+        WebBridge.setParam(paramX, coord.x);
+        WebBridge.setParam(paramY, coord.y);
+      },
+      onOpenExpanded: openR2Drawer,
+    });
+  }
+
+  if (r2SphereMount) {
+    r2SphereStick = new TrajectoryStick2D(r2SphereMount, {
+      label: 'SPHERE 2',
+      resynator: 2,
+      domain: 'sphere',
+      labels: { north: 'N', south: 'S', west: 'W', east: 'E' },
+      onPositionChange: (layerIdx, coord) => {
+        const paramX = layerIdx === 0 ? 122 : (layerIdx === 1 ? 142 : 162);
+        const paramY = layerIdx === 0 ? 123 : (layerIdx === 1 ? 143 : 163);
+        WebBridge.setParam(paramX, coord.x);
+        WebBridge.setParam(paramY, coord.y);
+      },
+      onOpenExpanded: openR2Drawer,
+    });
+  }
+
+  // Conectar botones Edit R1, Edit R2 y Edit Silver Rack
+  document.getElementById('btn-edit-r1')?.addEventListener('click', openR1Drawer);
+  document.getElementById('btn-edit-r2')?.addEventListener('click', openR2Drawer);
+  document.getElementById('btn-edit-silver')?.addEventListener('click', openSilverDrawer);
+
+  // 6. Controles centrales (Blender, Filtro y Silver FX)
+  const blenderSlider = document.getElementById('blender-slider') as HTMLInputElement | null;
+  const blenderVal = document.getElementById('blender-amount-val');
+  blenderSlider?.addEventListener('input', () => {
+    const val = parseFloat(blenderSlider.value);
+    const norm = ((val + 64) / 127).toFixed(2);
+    if (blenderVal) blenderVal.textContent = norm;
+    WebBridge.setParam(262, val);
+  });
+
+  const filterCutSlider = document.getElementById('filter-freq-slider') as HTMLInputElement | null;
+  const filterCutVal = document.getElementById('filter-freq-val');
+  filterCutSlider?.addEventListener('input', () => {
+    const val = parseFloat(filterCutSlider.value);
+    if (filterCutVal) filterCutVal.textContent = String(val);
+    WebBridge.setParam(274, val);
+  });
+
+  const filterResoSlider = document.getElementById('filter-reso-slider') as HTMLInputElement | null;
+  const filterResoVal = document.getElementById('filter-reso-val');
+  filterResoSlider?.addEventListener('input', () => {
+    const val = parseFloat(filterResoSlider.value);
+    if (filterResoVal) filterResoVal.textContent = (val / 127).toFixed(2);
+    WebBridge.setParam(275, val);
+  });
+
+  const freqAlgoNames = ['Off', 'FreqShift', 'RingMod', 'Distortion', 'Decimator', 'Formant', 'Comb', 'Resonator', 'Treemonster'];
+  let curFreqAlgoIdx = 2; // RingMod
+  const btnCycleFreq = document.getElementById('btn-cycle-freqfx');
+  const curFreqVal = document.getElementById('cur-freq-fx-val');
+  btnCycleFreq?.addEventListener('click', () => {
+    curFreqAlgoIdx = (curFreqAlgoIdx + 1) % freqAlgoNames.length;
+    if (curFreqVal) curFreqVal.textContent = freqAlgoNames[curFreqAlgoIdx];
+    WebBridge.setParam(281, curFreqAlgoIdx > 0 ? 1 : 0);
+    WebBridge.setParam(282, curFreqAlgoIdx);
+  });
+
+  const timeAlgoNames = ['Off', 'Chorus', 'Flanger', 'Phaser', 'Delay', 'MultiTap', 'Reverb'];
+  let curTimeAlgoIdx = 1; // Chorus
+  const btnCycleTime = document.getElementById('btn-cycle-timefx');
+  const curTimeVal = document.getElementById('cur-time-fx-val');
+  btnCycleTime?.addEventListener('click', () => {
+    curTimeAlgoIdx = (curTimeAlgoIdx + 1) % timeAlgoNames.length;
+    if (curTimeVal) curTimeVal.textContent = timeAlgoNames[curTimeAlgoIdx];
+    WebBridge.setParam(327, curTimeAlgoIdx > 0 ? 1 : 0);
+    WebBridge.setParam(328, curTimeAlgoIdx);
+  });
+
+  // 7. Gestor de Banco y Modelos NeuronDB (BankDrawer montado en el Drawer universal)
   let targetResynatorForModelPick: 1 | 2 = 1;
 
   const bankDrawer = new BankDrawer(drawerManager, {
@@ -312,13 +440,52 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 8. Suscribir telemetría del bridge nativo
+  // 8. Suscribir telemetría y actualización de parámetros del bridge nativo
   WebBridge.onMessage((msg) => {
     if (msg.type === 'TELEMETRY') {
       if (typeof msg.activeVoices === 'number') navbar.setVoices(msg.activeVoices);
       if (typeof msg.cpuUsage === 'number') navbar.setCpuLoad(msg.cpuUsage);
+    } else if (msg.type === 'PARAM_UPDATE') {
+      const idx = msg.index;
+      const val = msg.value;
+      if (idx === 262 && blenderSlider) {
+        blenderSlider.value = String(val);
+        if (blenderVal) blenderVal.textContent = ((val + 64) / 127).toFixed(2);
+      } else if (idx === 274 && filterCutSlider) {
+        filterCutSlider.value = String(val);
+        if (filterCutVal) filterCutVal.textContent = String(val);
+      } else if (idx === 275 && filterResoSlider) {
+        filterResoSlider.value = String(val);
+        if (filterResoVal) filterResoVal.textContent = (val / 127).toFixed(2);
+      } else if (r1ScapeStick && (idx === 52 || idx === 72 || idx === 92)) {
+        const layer = idx === 52 ? 0 : (idx === 72 ? 1 : 2);
+        r1ScapeStick.setPosition(layer, val, r1ScapeStick.getCoordinates(layer).y, false);
+      } else if (r1ScapeStick && (idx === 53 || idx === 73 || idx === 93)) {
+        const layer = idx === 53 ? 0 : (idx === 73 ? 1 : 2);
+        r1ScapeStick.setPosition(layer, r1ScapeStick.getCoordinates(layer).x, val, false);
+      } else if (r1SphereStick && (idx === 42 || idx === 62 || idx === 82)) {
+        const layer = idx === 42 ? 0 : (idx === 62 ? 1 : 2);
+        r1SphereStick.setPosition(layer, val, r1SphereStick.getCoordinates(layer).y, false);
+      } else if (r1SphereStick && (idx === 43 || idx === 63 || idx === 83)) {
+        const layer = idx === 43 ? 0 : (idx === 63 ? 1 : 2);
+        r1SphereStick.setPosition(layer, r1SphereStick.getCoordinates(layer).x, val, false);
+      } else if (r2ScapeStick && (idx === 132 || idx === 152 || idx === 172)) {
+        const layer = idx === 132 ? 0 : (idx === 152 ? 1 : 2);
+        r2ScapeStick.setPosition(layer, val, r2ScapeStick.getCoordinates(layer).y, false);
+      } else if (r2ScapeStick && (idx === 133 || idx === 153 || idx === 173)) {
+        const layer = idx === 133 ? 0 : (idx === 153 ? 1 : 2);
+        r2ScapeStick.setPosition(layer, r2ScapeStick.getCoordinates(layer).x, val, false);
+      } else if (r2SphereStick && (idx === 122 || idx === 142 || idx === 162)) {
+        const layer = idx === 122 ? 0 : (idx === 142 ? 1 : 2);
+        r2SphereStick.setPosition(layer, val, r2SphereStick.getCoordinates(layer).y, false);
+      } else if (r2SphereStick && (idx === 123 || idx === 143 || idx === 163)) {
+        const layer = idx === 123 ? 0 : (idx === 143 ? 1 : 2);
+        r2SphereStick.setPosition(layer, r2SphereStick.getCoordinates(layer).x, val, false);
+      }
     }
   });
+
+  (window as any).__axionikSticks = { r1ScapeStick, r1SphereStick, r2ScapeStick, r2SphereStick };
 
   console.log(`[ABDAxionikVS] Frontend inicializado (${PARAM_DEFINITIONS.length} parámetros, SynthNavBar montado).`);
 });
