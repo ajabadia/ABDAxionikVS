@@ -50,5 +50,25 @@ export class TrajectoryStick2D extends SharedStick {
   public setLabels(labels: StickLabels): void {
     super.setLabels(labels);
   }
+
+  public setLayerLabels(layerIndex: number, labels: StickLabels): void {
+    super.setLayerLabels(layerIndex, labels);
+  }
+
+  public setAllLayerLabels(layersArray: StickLabels[]): void {
+    super.setAllLayerLabels(layersArray);
+  }
+
+  public toggleRecording(): void {
+    super.toggleRecording();
+  }
+
+  public togglePlayback(): void {
+    super.togglePlayback();
+  }
+
+  public clearTrajectory(): void {
+    super.clearTrajectory();
+  }
 }
 

@@ -17,6 +17,7 @@ import { ResynatorDrawer } from './ui/ResynatorDrawer.js';
 import { SilverDrawer } from './ui/SilverDrawer.js';
 import { WebBridge } from './bridge/WebBridge.js';
 import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
+import { getParameterSetStickLabels } from './ui/ParameterSets.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const app = document.getElementById('app');
@@ -192,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
       label: 'SCAPE 1',
       resynator: 1,
       domain: 'scape',
-      labels: { north: 'N', south: 'S', west: 'W', east: 'E' },
+      labelsPerLayer: getParameterSetStickLabels(0, 'scape'),
       onPositionChange: (layerIdx, coord) => {
         const paramX = layerIdx === 0 ? 52 : (layerIdx === 1 ? 72 : 92);
         const paramY = layerIdx === 0 ? 53 : (layerIdx === 1 ? 73 : 93);
@@ -208,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
       label: 'SPHERE 1',
       resynator: 1,
       domain: 'sphere',
-      labels: { north: 'N', south: 'S', west: 'W', east: 'E' },
+      labelsPerLayer: getParameterSetStickLabels(0, 'sphere'),
       onPositionChange: (layerIdx, coord) => {
         const paramX = layerIdx === 0 ? 42 : (layerIdx === 1 ? 62 : 82);
         const paramY = layerIdx === 0 ? 43 : (layerIdx === 1 ? 63 : 83);
@@ -224,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
       label: 'SCAPE 2',
       resynator: 2,
       domain: 'scape',
-      labels: { north: 'N', south: 'S', west: 'W', east: 'E' },
+      labelsPerLayer: getParameterSetStickLabels(0, 'scape'),
       onPositionChange: (layerIdx, coord) => {
         const paramX = layerIdx === 0 ? 132 : (layerIdx === 1 ? 152 : 172);
         const paramY = layerIdx === 0 ? 133 : (layerIdx === 1 ? 153 : 173);
@@ -240,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
       label: 'SPHERE 2',
       resynator: 2,
       domain: 'sphere',
-      labels: { north: 'N', south: 'S', west: 'W', east: 'E' },
+      labelsPerLayer: getParameterSetStickLabels(0, 'sphere'),
       onPositionChange: (layerIdx, coord) => {
         const paramX = layerIdx === 0 ? 122 : (layerIdx === 1 ? 142 : 162);
         const paramY = layerIdx === 0 ? 123 : (layerIdx === 1 ? 143 : 163);
@@ -317,7 +318,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const labelEl = document.getElementById(targetR === 1 ? 'r1-model-label' : 'r2-model-label');
       if (labelEl) labelEl.textContent = `${slot} ${modelName}`;
 
-      console.log(`[ABDAxionikVS] Assigned Model #${slot} (${modelName}) to Resynator ${targetR}`);
+      // Actualizar dinámicamente las etiquetas mnAN de los 4 polos según el Parameter Set del modelo
+      const parSet = (slot % 10);
+      if (targetR === 1) {
+        r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+      } else {
+        r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+      }
+
+      console.log(`[ABDAxionikVS] Assigned Model #${slot} (${modelName}, ParSet ${parSet}) to Resynator ${targetR}`);
     },
     onSelectPreset: (slot, name) => {
       navbar.setPresetName(`${String(slot).padStart(3, '0')} ${name}`);

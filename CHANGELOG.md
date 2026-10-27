@@ -5,6 +5,14 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 ## [Unreleased]
 
 ### Added
+- **Capa de Abstracción de Parámetros Unificada sobre el Motor DSP**:
+  - Centralizado en [`AxionikProcessor::setParameterByIndex`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginProcessor.cpp) y [`AxionikProcessor::setParameterNormalizedByIndex`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginProcessor.cpp) el punto único de entrada para todas las fuentes de control (WebUI, MIDI CCs, desempacador NRPN de 14 bits y host DAW).
+  - Las modificaciones de parámetros notifican formalmente al Host (`p->setValueNotifyingHost`) para soporte completo de grabación y automatización en DAWs VST3.
+  - El motor DSP ([`DspEngineFacade`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Source/Dsp/DspEngineFacade.h)) permanece estrictamente desacoplado como receptor inferior de tiempo real, sincronizado mediante los listeners de APVTS y sin acoplamiento a WebView2 o controladores externos.
+- **Grabador de Trayectorias Vectoriales y Etiquetas Dinámicas mnAN de los 10 Parameter Sets**:
+  - Incorporado en `TrajectoryStick2D` el grabador de movimiento vectorial (`REC`, `PLAY`, `CLEAR`) con estela visual SVG interactiva y bucle de reproducción a tiempo real hacia el motor DSP.
+  - Implementado [`ParameterSets.ts`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/ParameterSets.ts) mapeando los 10 Parameter Sets oficiales del Hartmann Neuron (`0: Neutral` .. `9: Extravaganza`) a los 4 polos cardinales (North, East, South, West) para las 3 capas L1, L2, L3 en Scape y Sphere.
+  - Conectada la asignación y selección de modelos en `BankDrawer` y `main.ts` para refrescar instantáneamente las etiquetas físicas del joystick al conmutar de modelo o de capa.
 - **Extracción de Controles Transversales a `ABDShared` y Nuevo `MultiStageShaperPad` (4L4T)**:
   - Migrado el controlador joystick circular 2D `TrajectoryStick2D` a [`ABDShared/Components/trajectoryStick2D.js`](file:///D:/desarrollos/ABDSynths/ABDShared/Components/trajectoryStick2D.js) y exportado en `@abdsynths/shared/components` para su uso transversal en toda la suite (sintetizadores vectoriales, wavestation, Prophet VS).
   - Implementado en `ABDShared` el componente [`MultiStageShaperPad`](file:///D:/desarrollos/ABDSynths/ABDShared/Components/multiStageShaperPad.js): modelador interactivo de envolventes multinivel 4L4T (4 Niveles / 4 Tiempos, modos Normal/Repeat, soporte bipolar $-1.0..+1.0$) exportado en `@abdsynths/shared/components`.

@@ -46,6 +46,10 @@ public:
 
     void parameterChanged(const juce::String& parameterID, float newValue) override;
 
+    /// Capa de abstracción de parámetros: punto de entrada unificado para UI, MIDI CC/NRPN/SysEx y Host
+    void setParameterByIndex(uint32_t index, float rawValue);
+    void setParameterNormalizedByIndex(uint32_t index, float normalizedValue);
+
     DspEngineFacade& getDspEngine() noexcept { return dspEngine_; }
     juce::AudioProcessorValueTreeState& getAPVTS() noexcept { return apvts_; }
 

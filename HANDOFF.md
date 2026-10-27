@@ -84,9 +84,15 @@
      - `SilverTimeFX`: los 7 algoritmos de modulación temporal (Chorus, Flanger, Phaser, Delay, Multi-Tap, Reverb) con la corrección `Reset()` de Stephan Bernsee (Mac 1.56).
      - `CMasterModFX` (apertura M/S) y `CMasterTimeFX` (reverb espacial).
      - Bombeo de bloques de 128 muestras con recorte canónico *clip-to-zero* (`0x1000bc40`).
+   - **Capa de Abstracción de Parámetros Unificada sobre el Motor DSP**:
+     - Las entradas de control (WebUI PARAM_SET, MIDI CCs, desempacador NRPN de 14 bits y automatización VST3) entran exclusivamente por la capa de abstracción AxionikProcessor::setParameterByIndex / setParameterNormalizedByIndex (APVTS), notificando formalmente al Host DAW (setValueNotifyingHost).
+     - El motor DSP (DspEngineFacade) opera estrictamente por debajo, aislado del transporte, la UI y el protocolo de control externo, recibiendo actualizaciones mediante listeners de estado y estructuras planas.
    - **Enrutamiento MIDI Canónico y NRPN de 14 bits**:
      - PluginProcessor::handleMidiEvent: Enrutador de CCs de hardware para Sticks XY (CC 16..19, 35..37), Blender (CC 70), Filter Reso (CC 71), Filter Cutoff (CC 74) y los 6 controles en tiempo real del Neuron (CC 1, 2, 3, 4, 11 y Channel Pressure).
      - Desempacador NRPN de 14 bits (CC 99/98/6/38) direccionando 1:1 los 445 parámetros autoritativos de snddat a través de la capa de abstracción DspEngineFacade::setParamNormalized.
+   - **Grabador de Trayectorias Vectoriales y Etiquetas mnAN (10 Parameter Sets)**:
+     - Dotado a TrajectoryStick2D de grabador y reproductor de bucle de trayectorias vectoriales (REC / PLAY / CLEAR) con estela SVG reactiva.
+     - Conectadas las etiquetas dinámicas de los polos cardinales a partir de los 10 Parameter Sets canónicos (schemas/parameter_sets_mnan.json vía ParameterSets.ts).
    - **Controles Universales en ABDShared y Envolvente 4L4T**:
      - Migrado TrajectoryStick2D a ABDShared/Components/trajectoryStick2D.js y exportado en @abdsynths/shared/components.
      - Creado MultiStageShaperPad en ABDShared/Components/multiStageShaperPad.js (4L4T con modos Normal/Repeat y niveles bipolares) e integrado en ResynatorDrawer.ts para los shapers [242..253].

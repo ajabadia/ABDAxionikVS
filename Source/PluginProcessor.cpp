@@ -74,6 +74,26 @@ void AxionikProcessor::parameterChanged(const juce::String& parameterID, float n
     }
 }
 
+void AxionikProcessor::setParameterByIndex(uint32_t index, float rawValue) {
+    if (index >= kNumTotalParameters) return;
+    float normVal = rawToNormalized(index, rawValue);
+    setParameterNormalizedByIndex(index, normVal);
+}
+
+void AxionikProcessor::setParameterNormalizedByIndex(uint32_t index, float normalizedValue) {
+    if (index >= kNumTotalParameters) return;
+    float clampedNorm = std::clamp(normalizedValue, 0.0f, 1.0f);
+    const auto& desc = kParameterDescriptors[index];
+    auto paramId = juce::String(desc.key.data(), desc.key.size());
+
+    // La capa de abstracción APVTS centraliza el estado y notifica al Host / DAW
+    if (auto* p = apvts_.getParameter(paramId)) {
+        p->setValueNotifyingHost(clampedNorm);
+    } else {
+        dspEngine_.setParamNormalized(index, clampedNorm);
+    }
+}
+
 void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
     if (msg.isNoteOn()) {
         dspEngine_.noteOn(static_cast<uint8_t>(msg.getNoteNumber()), msg.getFloatVelocity());
@@ -86,7 +106,7 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
         int rawVal = msg.getControllerValue();
         float ccVal = static_cast<float>(rawVal) / 127.0f;
 
-        // 1. Desempacador de 14 bits NRPN (CC 99, 98, 6, 38)
+        // 1. Desempacador de 14 bits NRPN (CC 99, 98, 6, 38) -> Capa de Abstracción de Parámetros
         if (ccNum == 99) {
             nrpnMsb_ = static_cast<uint8_t>(rawVal & 0x7F);
         } else if (ccNum == 98) {
@@ -95,52 +115,52 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
             dataEntryMsb_ = static_cast<uint8_t>(rawVal & 0x7F);
             uint16_t paramIdx = (static_cast<uint16_t>(nrpnMsb_) << 7) | nrpnLsb_;
             if (isNrpnParameterAddress(paramIdx)) {
-                dspEngine_.setParamNormalized(paramIdx, static_cast<float>(dataEntryMsb_) / 127.0f);
+                setParameterNormalizedByIndex(paramIdx, static_cast<float>(dataEntryMsb_) / 127.0f);
             }
         } else if (ccNum == 38) {
             uint16_t paramIdx = (static_cast<uint16_t>(nrpnMsb_) << 7) | nrpnLsb_;
             if (isNrpnParameterAddress(paramIdx)) {
                 uint16_t val14 = (static_cast<uint16_t>(dataEntryMsb_) << 7) | static_cast<uint8_t>(rawVal & 0x7F);
-                dspEngine_.setParamNormalized(paramIdx, static_cast<float>(val14) / 16383.0f);
+                setParameterNormalizedByIndex(paramIdx, static_cast<float>(val14) / 16383.0f);
             }
         }
-        // 2. Los 6 controles en tiempo real del Hartmann Neuron (params+0x44)
+        // 2. Los 6 controles en tiempo real del Hartmann Neuron (params+0x44) -> Capa de Abstracción
         else if (ccNum == kMidiCCModulation) {
-            dspEngine_.setParamNormalized(static_cast<uint32_t>(ParamID::ModulationDepth), ccVal);
+            setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::ModulationDepth), ccVal);
         } else if (ccNum == kMidiCCBreath) {
-            dspEngine_.setParamNormalized(static_cast<uint32_t>(ParamID::BreathDepth), ccVal);
+            setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::BreathDepth), ccVal);
         } else if (ccNum == kMidiCCCO3) {
-            dspEngine_.setParamNormalized(static_cast<uint32_t>(ParamID::CC03Depth), ccVal);
+            setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::CC03Depth), ccVal);
         } else if (ccNum == kMidiCCFoot) {
-            dspEngine_.setParamNormalized(static_cast<uint32_t>(ParamID::FootDepth), ccVal);
+            setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::FootDepth), ccVal);
         } else if (ccNum == kMidiCCExpression) {
-            dspEngine_.setParamNormalized(static_cast<uint32_t>(ParamID::ExpressionDepth), ccVal);
+            setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::ExpressionDepth), ccVal);
         }
         // 3. Controladores Vectoriales Stick XY canónicos y parámetros primarios
         else if (ccNum == kMidiCCR1ScapeX) {
-            dspEngine_.setParamNormalized(52, ccVal);
+            setParameterNormalizedByIndex(52, ccVal);
         } else if (ccNum == kMidiCCR1ScapeY) {
-            dspEngine_.setParamNormalized(53, ccVal);
+            setParameterNormalizedByIndex(53, ccVal);
         } else if (ccNum == kMidiCCR1SphereX) {
-            dspEngine_.setParamNormalized(42, ccVal);
+            setParameterNormalizedByIndex(42, ccVal);
         } else if (ccNum == kMidiCCR1SphereY) {
-            dspEngine_.setParamNormalized(43, ccVal);
+            setParameterNormalizedByIndex(43, ccVal);
         } else if (ccNum == kMidiCCR2ScapeX) {
-            dspEngine_.setParamNormalized(132, ccVal);
+            setParameterNormalizedByIndex(132, ccVal);
         } else if (ccNum == kMidiCCR2ScapeY) {
-            dspEngine_.setParamNormalized(133, ccVal);
+            setParameterNormalizedByIndex(133, ccVal);
         } else if (ccNum == kMidiCCR2SphereX) {
-            dspEngine_.setParamNormalized(122, ccVal);
+            setParameterNormalizedByIndex(122, ccVal);
         } else if (ccNum == kMidiCCBlender) {
-            dspEngine_.setParamNormalized(262, ccVal);
+            setParameterNormalizedByIndex(262, ccVal);
         } else if (ccNum == kMidiCCFilterReso) {
-            dspEngine_.setParamNormalized(275, ccVal);
+            setParameterNormalizedByIndex(275, ccVal);
         } else if (ccNum == kMidiCCFilterCutoff) {
-            dspEngine_.setParamNormalized(274, ccVal);
+            setParameterNormalizedByIndex(274, ccVal);
         }
     } else if (msg.isChannelPressure()) {
         float atVal = static_cast<float>(msg.getChannelPressureValue()) / 127.0f;
-        dspEngine_.setParamNormalized(static_cast<uint32_t>(ParamID::AftertouchDepth), atVal);
+        setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::AftertouchDepth), atVal);
     }
 }
 

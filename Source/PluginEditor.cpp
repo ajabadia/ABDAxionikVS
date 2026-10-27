@@ -119,7 +119,8 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
     if (type == "PARAM_SET") {
         int index = static_cast<int>(obj->getProperty("index"));
         float value = static_cast<float>(obj->getProperty("value"));
-        processor_.getDspEngine().setParam(static_cast<uint32_t>(index), value);
+        // Pasa a través de la capa de abstracción de parámetros de AxionikProcessor (APVTS + Host automation)
+        processor_.setParameterByIndex(static_cast<uint32_t>(index), value);
     } else if (type == "NOTE_ON") {
         int note = static_cast<int>(obj->getProperty("note"));
         float vel = static_cast<float>(obj->getProperty("velocity"));
