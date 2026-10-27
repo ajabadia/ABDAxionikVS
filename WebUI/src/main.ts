@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <span class="panel-badge">BLENDER</span>
           <div class="hud-pill" style="display: flex; align-items: center; gap: 6px;">
             <span class="hud-label">AMOUNT:</span>
-            <input type="range" id="blender-slider" min="-64" max="63" value="0" step="1" style="width: 100px;" />
+            <input type="range" id="blender-slider" class="abd-slider" min="-64" max="63" value="0" step="1" style="width: 100px;" />
             <span class="hud-value stat-num" id="blender-amount-val">0.50</span>
           </div>
         </div>
@@ -97,12 +97,12 @@ document.addEventListener('DOMContentLoaded', () => {
           <span class="panel-badge">FILTER</span>
           <div class="hud-pill" style="display: flex; align-items: center; gap: 6px;">
             <span class="hud-label">CUT:</span>
-            <input type="range" id="filter-freq-slider" min="0" max="127" value="100" step="1" style="width: 80px;" />
+            <input type="range" id="filter-freq-slider" class="abd-slider" min="0" max="127" value="100" step="1" style="width: 80px;" />
             <span class="hud-value stat-num" id="filter-freq-val">100</span>
           </div>
           <div class="hud-pill" style="display: flex; align-items: center; gap: 6px;">
             <span class="hud-label">RESO:</span>
-            <input type="range" id="filter-reso-slider" min="0" max="127" value="25" step="1" style="width: 70px;" />
+            <input type="range" id="filter-reso-slider" class="abd-slider" min="0" max="127" value="25" step="1" style="width: 70px;" />
             <span class="hud-value stat-num" id="filter-reso-val">0.20</span>
           </div>
         </div>

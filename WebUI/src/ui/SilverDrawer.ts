@@ -41,15 +41,15 @@ export class SilverDrawer {
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3);">
             <div>
               <span class="hud-label">CUTOFF (Hz): <strong id="silver-cut-val">2500</strong></span>
-              <input type="range" id="silver-cut-slider" min="0" max="127" value="85" style="width: 100%;" />
+              <input type="range" class="abd-slider" id="silver-cut-slider" min="0" max="127" value="85" style="width: 100%;" />
             </div>
             <div>
               <span class="hud-label">RESONANCE: <strong id="silver-res-val">0.25</strong></span>
-              <input type="range" id="silver-res-slider" min="0" max="127" value="30" style="width: 100%;" />
+              <input type="range" class="abd-slider" id="silver-res-slider" min="0" max="127" value="30" style="width: 100%;" />
             </div>
             <div>
               <span class="hud-label">ANALOG DRIVE: <strong id="silver-drv-val">0.20</strong></span>
-              <input type="range" id="silver-drv-slider" min="0" max="100" value="20" style="width: 100%;" />
+              <input type="range" class="abd-slider" id="silver-drv-slider" min="0" max="100" value="20" style="width: 100%;" />
             </div>
           </div>
         </div>

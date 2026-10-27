@@ -5,6 +5,11 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 ## [Unreleased]
 
 ### Added
+- **Extracción de Controles Transversales a `ABDShared` y Nuevo `MultiStageShaperPad` (4L4T)**:
+  - Migrado el controlador joystick circular 2D `TrajectoryStick2D` a [`ABDShared/Components/trajectoryStick2D.js`](file:///D:/desarrollos/ABDSynths/ABDShared/Components/trajectoryStick2D.js) y exportado en `@abdsynths/shared/components` para su uso transversal en toda la suite (sintetizadores vectoriales, wavestation, Prophet VS).
+  - Implementado en `ABDShared` el componente [`MultiStageShaperPad`](file:///D:/desarrollos/ABDSynths/ABDShared/Components/multiStageShaperPad.js): modelador interactivo de envolventes multinivel 4L4T (4 Niveles / 4 Tiempos, modos Normal/Repeat, soporte bipolar $-1.0..+1.0$) exportado en `@abdsynths/shared/components`.
+  - Integrado `MultiStageShaperPad` en [`ResynatorDrawer.ts`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/ResynatorDrawer.ts) para el control en tiempo real de los shapers 4L4T del Hartmann Neuron (`FreeEnvLevel1..4 [242..245]`, `FreeEnvTime1..4 [246..249]` y `Shaper12Status [253]`).
+  - Unificados los sliders con la clase `.abd-slider` y tokens de `@abdsynths/shared/styles/tokens.css`.
 - **Enrutamiento MIDI Canónico: Sticks CCs y Desempacador NRPN de 14 bits**:
   - Ampliado [`MidiMapping.gen.h`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Source/Generated/MidiMapping.gen.h) en [`Scripts/registry_generator.js`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Scripts/registry_generator.js) con las constantes canónicas de hardware de Sticks (`CC 16..19, 35..37`), Blender (`CC 70`), Filter Reso (`CC 71`) y Filter Cutoff (`CC 74`).
   - Implementado en [`PluginProcessor::handleMidiEvent`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginProcessor.cpp) el enrutador de CCs de Sticks hacia los 24 parámetros de capa del DSP.

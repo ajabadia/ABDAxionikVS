@@ -6,6 +6,7 @@
 
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
+import { MultiStageShaperPad } from './MultiStageShaperPad.js';
 
 export interface ResynatorDrawerProps {
   resynator: 1 | 2;
@@ -116,29 +117,87 @@ export class ResynatorDrawer {
           <div class="panel-caption" style="margin-bottom: var(--space-2); color: var(--color-accent); font-weight: 700;">AMPLITUDE SHAPER ADSR</div>
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2);">
             <div>
-              <span class="hud-label">ATTACK</span>
-              <input type="range" min="0" max="127" value="10" style="width: 100%;" />
+              <span class="hud-label">ATTACK: <strong id="${rPrefix}-adsr-a-val">10</strong></span>
+              <input type="range" class="abd-slider" id="${rPrefix}-adsr-a" min="0" max="127" value="10" style="width: 100%;" />
             </div>
             <div>
-              <span class="hud-label">DECAY</span>
-              <input type="range" min="0" max="127" value="45" style="width: 100%;" />
+              <span class="hud-label">DECAY: <strong id="${rPrefix}-adsr-d-val">45</strong></span>
+              <input type="range" class="abd-slider" id="${rPrefix}-adsr-d" min="0" max="127" value="45" style="width: 100%;" />
             </div>
             <div>
-              <span class="hud-label">SUSTAIN</span>
-              <input type="range" min="0" max="127" value="95" style="width: 100%;" />
+              <span class="hud-label">SUSTAIN: <strong id="${rPrefix}-adsr-s-val">95</strong></span>
+              <input type="range" class="abd-slider" id="${rPrefix}-adsr-s" min="0" max="127" value="95" style="width: 100%;" />
             </div>
             <div>
-              <span class="hud-label">RELEASE</span>
-              <input type="range" min="0" max="127" value="35" style="width: 100%;" />
+              <span class="hud-label">RELEASE: <strong id="${rPrefix}-adsr-r-val">35</strong></span>
+              <input type="range" class="abd-slider" id="${rPrefix}-adsr-r" min="0" max="127" value="35" style="width: 100%;" />
             </div>
           </div>
         </div>
+
+        <!-- 5. Pad de Envolvente Multinivel 4L4T (@abdsynths/shared) -->
+        <div id="${rPrefix}-shaper-mount"></div>
       </div>
     `;
 
     // Cerrar drawer
     el.querySelector('#btn-close-resy-drawer')?.addEventListener('click', () => {
       props.onClose();
+    });
+
+    // Montar MultiStageShaperPad canónico de ABDShared
+    const shaperMount = el.querySelector(`#${rPrefix}-shaper-mount`) as HTMLElement | null;
+    if (shaperMount) {
+      new MultiStageShaperPad(shaperMount, {
+        label: `${rPrefix} 4L4T SHAPER CONTOUR`,
+        bipolar: true,
+        editable: true,
+        times: [0.2, 0.4, 0.3, 0.5],
+        levels: [0.8, -0.4, 0.5, 0.0],
+        mode: 1,
+        onChange: (val) => {
+          // Parámetros FreeEnvLevel1..4 (242..245): escala -64..63
+          val.levels.forEach((lvl, idx) => {
+            WebBridge.setParam(242 + idx, Math.round(lvl * 63));
+          });
+          // Parámetros FreeEnvTime1..4 (246..249): escala 0..127
+          val.times.forEach((t, idx) => {
+            WebBridge.setParam(246 + idx, Math.round(t * 127));
+          });
+          // Shaper Status/Mode (253)
+          WebBridge.setParam(253, val.mode);
+        },
+      });
+    }
+
+    // ADSR Handlers
+    const baseAdsrParam = isR1 ? 200 : 215;
+    const aSlider = el.querySelector(`#${rPrefix}-adsr-a`) as HTMLInputElement | null;
+    const aVal = el.querySelector(`#${rPrefix}-adsr-a-val`);
+    aSlider?.addEventListener('input', () => {
+      if (aVal) aVal.textContent = aSlider.value;
+      WebBridge.setParam(baseAdsrParam, parseFloat(aSlider.value));
+    });
+
+    const dSlider = el.querySelector(`#${rPrefix}-adsr-d`) as HTMLInputElement | null;
+    const dVal = el.querySelector(`#${rPrefix}-adsr-d-val`);
+    dSlider?.addEventListener('input', () => {
+      if (dVal) dVal.textContent = dSlider.value;
+      WebBridge.setParam(baseAdsrParam + 1, parseFloat(dSlider.value));
+    });
+
+    const sSlider = el.querySelector(`#${rPrefix}-adsr-s`) as HTMLInputElement | null;
+    const sVal = el.querySelector(`#${rPrefix}-adsr-s-val`);
+    sSlider?.addEventListener('input', () => {
+      if (sVal) sVal.textContent = sSlider.value;
+      WebBridge.setParam(baseAdsrParam + 2, parseFloat(sSlider.value));
+    });
+
+    const rSlider = el.querySelector(`#${rPrefix}-adsr-r`) as HTMLInputElement | null;
+    const rVal = el.querySelector(`#${rPrefix}-adsr-r-val`);
+    rSlider?.addEventListener('input', () => {
+      if (rVal) rVal.textContent = rSlider.value;
+      WebBridge.setParam(baseAdsrParam + 3, parseFloat(rSlider.value));
     });
 
     // Parset chips
