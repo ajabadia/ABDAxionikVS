@@ -327,13 +327,15 @@ Cada preset se compara **dos veces**:
 2. **mitad de nota** — el motor con una nota sonando. Se manda `note on 60`,
    se deja sonar 8 bloques de 512, se mueve un mando del host
    (`setParameter(0, 0.5)`), se mandan CC 1 = 64, CC 2 = 90, presión 64 y un
-   bend de +0,5 semitonos, y se dejan pasar 32 bloques más (372 ms). Para
-   entonces hay voces vivas, envolventes y LFO a medio camino y el morph del
-   scape ya recorrido; `FUN_10013490` ha dejado los seis controles de
-   instrumento en `params+0x44` y `FUN_100134e0` ha recalculado `p` (base más
-   las seis filas de morph de `params+0x2C`, recortado a `params+0x2B0`) y ha
-   vuelto a llamar al traductor. Es el estado en el que el host llama al
-   traductor cuando el usuario gira un mando con la nota sonando.
+   bend de 0x2840 (LSB 0x40, MSB 0x50): 10304/16384 = 0,62890625, que con la
+   ley `2^((2b−1)·rango/12)` y rango 2 da **+0,515625 semitonos**. Se dejan
+   pasar 32 bloques más (372 ms). Para entonces hay voces vivas, envolventes y
+   LFO a medio camino y el morph del scape ya recorrido; `FUN_10013490` ha
+   dejado los seis controles de instrumento en `params+0x44` y `FUN_100134e0`
+   ha recalculado `p` (base más las seis filas de morph de `params+0x2C`,
+   recortado a `params+0x2B0`) y ha vuelto a llamar al traductor. Es el estado
+   en el que el host llama al traductor cuando el usuario gira un mando con la
+   nota sonando.
 
 La segunda pasada sólo cuenta si el motor se ha movido: el arnés toma como
 línea base la foto que deja la primera pasada (ya con la puerta y el validador
@@ -342,10 +344,17 @@ los 351 sonidos instalados cambian entre **10 y 17 dwords del motor y 0..2 de
 `p`**, casi siempre los mismos: `e[0x0A0..0x0A2]`, `e[0x1F0..0x1F3]`,
 `e[0x204]`, los pares de capa `e[0x353]/0x355` y `e[0x369]/0x36A` (salidas del
 traductor para la `p` nueva) y los bytes de estado `e[0xD97]` en adelante. Los
-índices se imprimen en una línea `e: 0x013 0x0E4 | p: ...` para que la foto sea
+índices se imprimen en una línea `e: 0x0A0 0x0A2 0x1F0 … | p: 0x013 0x0E4`
+(los ocho primeros de cada lista, con `...` si hay más) para que la foto sea
 auditable.
 
-Barrido completo (`0..350`, los 351 sonidos instalados):
+Barrido completo (`0..350`, los 351 sonidos instalados); sale 1 por los 18 de
+§9.5, cada uno con su ULP:
+
+```bash
+LIST=$(seq -f "%03g" 0 350 | paste -sd,)
+NeuronVS_port/build32/Release/neuron_golden.exe --translate --preset "$LIST"
+```
 
 ```text
 preset 176 tras cargar (program_change): 0 / 3487 dwords del motor y 0 / 335 de p difieren
@@ -359,7 +368,7 @@ preset 176 mitad de nota: 0 / 3487 dwords del motor y 0 / 335 de p difieren
   encendido en ambos;
 - **a mitad de nota: 333/351 idénticos**. Los 18 restantes difieren en **1 ULP**
   y sólo ahí: 17 en un dword y el preset 140 en dos, siempre `e[0x204]` (byte
-  `0x810`, 23 apariciones) o `e[0x0A2]` (byte `0x288`, 14), p. ej.
+  `0x810`, en 11 presets) o `e[0x0A2]` (byte `0x288`, en 7), p. ej.
   `dll=3E9404C8 port=3E9404C7` en el preset 003. Las dos escrituras son el mismo
   producto `e[0x36B] * e[0x36A] * (float)dVar19`; la diferencia es el redondeo
   de x87 frente al de SSE (§9.5). Es reproducible: dos pasadas seguidas dan los
