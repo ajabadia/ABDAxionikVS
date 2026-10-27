@@ -489,3 +489,60 @@ zones OK
 `--zones` comprueba: `engine+0x69C == p[0x12]`, flag 0, root 69 en las dos
 tablas, cuatro buffers no nulos, `csAN`/`psAN` en el par grave, reservados a 0,
 detune 0 y volumen 0 dB = 1.0.
+
+---
+
+## 10. Cadena Completa de Renderizado de Voz y Suma R1 + R2 (`FUN_10039D70` / `FUN_1002E7A0`)
+
+Evidencia extraída del volcado de Ghidra (`_voice_dump/`) sobre la topología de mezcla por voz:
+
+### 10.1 Estructura del Registro de Voz (`0x70 B`)
+1. **Poseedor de los motores**: `engine+0xD94` apunta a un array de 129 registros de `0x70 B` (asignados en `FUN_10044884`, `0x10044960`: `operator_new(0x3874) = 4 + 129 × 0x70`, cabecera `0x81`, ctor `FUN_10023074` por registro). La cuenta de voces activas reside en `engine+0xDA0`.
+2. **Filtro de voz en el render**: `rec = [engine+0xD94] + [ebp-0xEC]` con `[ebp-0xEC] += 0x70` por voz. Filtra por `rec+0x34 != 0`, `rec+0x44 >= 1`, `rec+0x40 == 1` y la firma de cuatro bytes `'nSAN'`.
+3. **Instancias de Resonador**:
+   - `rec+0x68`: Instancia de motor Resynator 1 (`[ebp-0x130]`).
+   - `rec+0x6C`: Instancia de motor Resynator 2 (`[ebp-0x134]`).
+   - Ambos motores pertenecen al *mismo registro de voz* (`rec`).
+4. **Pesos de mezcla del Blender**:
+   - `rec+0x60`: Ganancia/peso de Resynator 1 (`p6` / `gainA`).
+   - `rec+0x64`: Ganancia/peso de Resynator 2 (`p7` / `gainB`).
+   - Getters canónicos: `FUN_1003d6c0` (`fld [ecx+0x60]`) y `FUN_1003d6d0` (`fld [ecx+0x64]`), invocados con `ECX = rec`.
+
+### 10.2 Fusión y Suma Ponderada (`FUN_1002E7A0`)
+No existe una función «suma R1+R2» externa o independiente. La suma ponderada ocurre **muestra a muestra** dentro de `FUN_1002E7A0`, llamada desde `FUN_10039D70` en `0x1003B49B`:
+
+```c
+FUN_1002e7a0(engine, rec, rec+0x68, rec+0x6C, modo /* rec+0x18 */,
+             rec->[0x60], rec->[0x64],
+             &tmpA /* [ebp-0x1d4] */, &tmpB /* [ebp-0x1d0] */);
+```
+
+Dentro de `FUN_1002E7A0`, las muestras individuales $v_A$ y $v_B$ se obtienen mediante:
+`*(float*)(*(int*)(rec+0x68|0x6C + 0x150) + 0x20)` (publicados por `FUN_1003b920`, leídos previamente con `FUN_1003b900` en `+0x14`).
+
+La combinación según el modo de Blender (`rec+0x18`):
+- **Modo 0 (`Mix`, 0x1002EFF5)**:
+  `*p8 = v_B · p7 + v_A · p6` (salida `*p9` idéntica).
+- **Modo 1 (`Chromophonic` / Split)**:
+  `*p8 = v_A · p7; *p9 = v_B · p6` — cada motor se enruta a su propio canal estéreo/salida sin sumarse.
+- **Modo 2 (`Transsphere`)**:
+  `f = v_B · p6 + v_A · p7` — fusión a un único bus monoaural.
+- **Modo 3 (`Crossmorph`, 0x1002FDAF)**:
+  `*p8 = *p9 = v_B · gainA · p7 + v_A · gainB · p6`.
+- **Motores desactivados**: Si un motor está apagado (`+0x6836` o `+0x6834 == 0`), los pesos se fuerzan a `(1.0, 1e-9)` o `(1e-9, 1.0)` (`_DAT_1030bb2c/30/34/38`).
+
+### 10.3 Acumulación y Reparto en Buses de 128 Muestras (`0x1003B4A0`–`0x1003B53A`)
+1. **Cálculo de ponderación de morphing complementaria**:
+   $$w = \operatorname{clamp}(\text{engine}[0x44] \cdot \text{rec}[0x10 + idx] + \text{engine}[0x40]) \cdot 0.5 + 0.5$$
+   y su par complementario $(1 - w)$ (`_DAT_1030ced0 = 1.0`).
+2. **Acumulación en buffers**:
+   ```c
+   buf1[0x200 + 4*i] += tmp  * (1 - w);  // Objeto en [ebp-0x13C]
+   buf2[0x200 + 4*i] += tmp' * w;        // Objeto en [ebp-0xF4]
+   ```
+   Ambos buffers de 128 floats (512 bytes) en el offset `+0x200` se reciben como argumentos implícitos del render (a través de la tabla `.data:0x10058D70`).
+3. **Cierre de bloque**: Al completar las 128 muestras, se recombinan mediante `FUN_100295d0` / `FUN_10029e34(..., 0x80)`, se limitan rígidamente a $[-1.0, +1.0]$ (`0x3F7FBE77 / 0xBF800000`) y se avanza el contador de muestras `_DAT_10062298`.
+
+### 10.4 Conclusiones para la Arquitectura de `ABDAxionikVS`
+- Los pesos de mezcla (`rec+0x60`, `rec+0x64`) residen en el array dinámico de voces del heap (`engine+0xD94`), **no en los 13.948 bytes de la tabla de estado estático**. Por ello, el arnés de verificación diferencial del traductor (`FUN_10040550`) no los compara; lo que sí reside en el estado son las coordenadas de morphing (`engine+0x40`, `engine+0x44`) y `rec+0x10`.
+- En nuestro motor C++20 (`NeuronVoice.h`), los 10 modos de Blender implementan exactamente esta misma evaluación por muestra y bloque, pero sustituyendo los `operator_new` dinámicos por el `VoiceMemoryPool` preasignado en tiempo real.
