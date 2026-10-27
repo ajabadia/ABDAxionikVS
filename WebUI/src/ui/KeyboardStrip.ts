@@ -1,26 +1,25 @@
 /**
  * ABDAxionikVS — KeyboardStrip.ts
- * Franja de teclado interactivo inferior con paridad visual ABDNeuModMakr
+ * Franja de teclado de alto rendimiento impulsada por @abdsynths/midi-keyb
+ * Ruedas de Pitch y Modulación, botones de octava con LEDs, Panic, Sustain, Hold, Retrig,
+ * texturas de marfil realistas y respuesta táctil / QWERTY.
  */
 
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
-export function midiToNoteName(midi: number): string {
-  const octave = Math.floor(midi / 12) - 1;
-  const name = NOTE_NAMES[midi % 12];
-  return `${name}${octave}`;
-}
+import { createKeyboard } from '@abdsynths/midi-keyb';
 
 export interface KeyboardStripHandlers {
-  onNotePress: (midiNote: number) => void;
+  onNotePress: (midiNote: number, velocity?: number) => void;
   onNoteRelease: (midiNote: number) => void;
+  onPitchBend?: (value: number) => void;
+  onModWheel?: (value: number) => void;
+  onPanic?: () => void;
+  onSustainChange?: (active: boolean) => void;
 }
 
 export class KeyboardStrip {
   private container: HTMLElement;
   private handlers: KeyboardStripHandlers;
-  private baseOctave: number = 2; // C2 (36) a C7 (96) por defecto
-  private pressedNotes: Set<number> = new Set();
+  private kbdInstance: any = null;
 
   constructor(container: HTMLElement, handlers: KeyboardStripHandlers) {
     this.container = container;
@@ -28,100 +27,102 @@ export class KeyboardStrip {
     this.render();
   }
 
-  public setBaseOctave(oct: number): void {
-    this.baseOctave = Math.max(0, Math.min(6, oct));
-    this.render();
-  }
-
   private render(): void {
-    const startNote = this.baseOctave * 12;
-    const keyCount = 61; // 5 octavas + C superior
-
     this.container.innerHTML = `
-      <div class="keyboard-strip-container">
-        <div class="panel-header" style="margin-bottom: var(--space-2); padding-bottom: var(--space-1);">
-          <div class="panel-caption">
-            <span class="hud-label">KEYBED RANGE:</span>
-            <span class="hud-value">${midiToNoteName(startNote)} (${startNote}) — ${midiToNoteName(startNote + keyCount - 1)} (${startNote + keyCount - 1})</span>
-          </div>
-          <div class="panel-actions">
-            <button type="button" class="btn-secondary" id="btn-oct-down" ${this.baseOctave <= 0 ? 'disabled' : ''}>OCT −</button>
-            <span class="hud-pill stat-num">OCT ${this.baseOctave}</span>
-            <button type="button" class="btn-secondary" id="btn-oct-up" ${this.baseOctave >= 6 ? 'disabled' : ''}>OCT +</button>
-          </div>
+      <div class="keyboard-lower-section">
+        <!-- Pitch Bend & Mod Wheels -->
+        <div class="wheels-block">
+          <div id="pitch-wheel-container"></div>
+          <div id="mod-wheel-container"></div>
         </div>
 
-        <div class="piano-keys-bed" id="piano-keys-bed">
-          ${this.renderKeys(startNote, keyCount)}
+        <!-- Vertical Octave Controls -->
+        <div class="kbd-octave-controls">
+          <button id="oct-up" class="kbd-octave-btn" title="Octave Up">
+            <span>OCT +</span>
+            <div class="kbd-octave-led" id="led-up"></div>
+          </button>
+          <button id="oct-down" class="kbd-octave-btn" title="Octave Down">
+            <span>OCT -</span>
+            <div class="kbd-octave-led" id="led-down"></div>
+          </button>
         </div>
+
+        <!-- 4-Octave Performance Keybed -->
+        <div id="piano-keyboard"></div>
+
+        <!-- Panic / All Notes Off -->
+        <div class="kbd-panic-zone" id="kbd-panic-zone"></div>
       </div>
     `;
 
-    this.bindEvents();
+    this.initMidiKeyboard();
   }
 
-  private renderKeys(startNote: number, count: number): string {
-    const keysHtml: string[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const midi = startNote + i;
-      const isBlack = [1, 3, 6, 8, 10].includes(midi % 12);
-      const noteName = midiToNoteName(midi);
-
-      keysHtml.push(`
-        <div 
-          class="piano-key ${isBlack ? 'black-key' : 'white-key'}" 
-          data-midi="${midi}"
-          data-note="${noteName}"
-          title="${noteName} (MIDI ${midi})"
-        >
-          <span class="key-label">${(midi % 12 === 0) ? noteName : ''}</span>
-        </div>
-      `);
+  private initMidiKeyboard(): void {
+    if (this.kbdInstance?.destroy) {
+      this.kbdInstance.destroy();
     }
 
-    return keysHtml.join('');
+    this.kbdInstance = createKeyboard({
+      containerId: 'piano-keyboard',
+      wheelPitchId: 'pitch-wheel-container',
+      wheelModId: 'mod-wheel-container',
+      octUpId: 'oct-up',
+      octDownId: 'oct-down',
+      ledUpId: 'led-up',
+      ledDownId: 'led-down',
+      panicBtnId: null,
+      onNoteOn: (note: number, velocity: number) => {
+        this.handlers.onNotePress(note, velocity);
+      },
+      onNoteOff: (note: number) => {
+        this.handlers.onNoteRelease(note);
+      },
+      onPitchBend: (val: number) => {
+        this.handlers.onPitchBend?.(val);
+      },
+      onModWheel: (val: number) => {
+        this.handlers.onModWheel?.(val);
+      },
+      onPanic: () => {
+        this.handlers.onPanic?.();
+      },
+      onSustainChange: (active: boolean) => {
+        this.handlers.onSustainChange?.(active);
+      },
+      config: {
+        numOctaves: 4,
+        startNote: 36, // C2
+        maxOctaveShift: 3,
+        velocitySource: 'yPosition',
+        velocityCurve: 'normal',
+        enablePanic: true,
+        enableWheels: true,
+        enableIvoryTexture: true,
+        enableQwerty: true,
+        showQwertyLabels: true,
+        enableHold: true,
+        enableRetrig: true,
+        enableSustain: true,
+        enableTouch: true,
+        enableResizeObserver: true,
+      }
+    });
+
+    (window as any).__kbd = this.kbdInstance;
   }
 
-  private bindEvents(): void {
-    this.container.querySelector('#btn-oct-down')?.addEventListener('click', () => {
-      this.setBaseOctave(this.baseOctave - 1);
-    });
+  public panic(): void {
+    this.kbdInstance?.panic?.();
+  }
 
-    this.container.querySelector('#btn-oct-up')?.addEventListener('click', () => {
-      this.setBaseOctave(this.baseOctave + 1);
-    });
+  public getInstance(): any {
+    return this.kbdInstance;
+  }
 
-    const keys = this.container.querySelectorAll<HTMLElement>('.piano-key');
-    keys.forEach((el) => {
-      const midi = parseInt(el.getAttribute('data-midi') || '-1', 10);
-      if (midi < 0) return;
-
-      const press = () => {
-        el.classList.add('is-pressed');
-        this.pressedNotes.add(midi);
-        this.handlers.onNotePress(midi);
-      };
-
-      const release = () => {
-        el.classList.remove('is-pressed');
-        this.pressedNotes.delete(midi);
-        this.handlers.onNoteRelease(midi);
-      };
-
-      el.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        press();
-      });
-
-      el.addEventListener('mouseenter', (e: MouseEvent) => {
-        if (e.buttons === 1) {
-          press();
-        }
-      });
-
-      el.addEventListener('mouseup', release);
-      el.addEventListener('mouseleave', release);
-    });
+  public destroy(): void {
+    this.kbdInstance?.destroy?.();
+    this.kbdInstance = null;
   }
 }

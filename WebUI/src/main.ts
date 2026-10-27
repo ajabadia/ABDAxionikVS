@@ -1,19 +1,34 @@
 /**
- * ABDAxionikVS — main.ts
- * Punto de entrada del frontend WebUI
- * Paridad estética y de diseño 1:1 con ABDNeuModMakr y el ecosistema ABDSynths
- */
+// ─────────────────────────────────────────────────────────
+// ABDAxionikVS — main.ts
+// Frontend WebUI entry point
+// Desktop HUD with SynthNavBar, BankDrawer & DrawerManager
+// Exact parity with ABDNeuModMakr and ABDSynths Ecosystem
+// ─────────────────────────────────────────────────────────
+*/
 
 import './style.css';
-import { createNavbar } from './ui/Navbar.js';
+import { AxionikNavbar } from './ui/Navbar.js';
+import { BankDrawer } from './ui/BankDrawer.js';
 import { KeyboardStrip } from './ui/KeyboardStrip.js';
 import { DrawerManager } from './ui/Drawers.js';
 import { WebBridge } from './bridge/WebBridge.js';
-import { PARAM_DEFINITIONS, PARAM_BY_KEY } from './generated/parameters.gen.js';
+import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const app = document.getElementById('app');
   if (!app) return;
+
+  // Themes
+  const themes = ['ms2000', 'audiolab', 'audiolab-light', 'advanced', 'cz101'];
+  let currentThemeIndex = 0;
+
+  const applyTheme = (theme: string) => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-theme', theme);
+    document.body.className = `theme-${theme} skin-${theme}`;
+  };
+  applyTheme('ms2000');
 
   // 1. Contenedor de Navbar
   const navContainer = document.createElement('header');
@@ -132,93 +147,178 @@ document.addEventListener('DOMContentLoaded', () => {
   `;
   app.appendChild(workspace);
 
-  // 3. Franja inferior de teclado interactivo
+  // 3. Franja inferior de teclado interactivo (@abdsynths/midi-keyb)
   const keyboardSection = document.createElement('footer');
-  keyboardSection.className = 'keyboard-section';
+  keyboardSection.className = 'keyboard-container keyboard-section';
   app.appendChild(keyboardSection);
 
   new KeyboardStrip(keyboardSection, {
-    onNotePress: (midiNote) => {
-      WebBridge.noteOn(midiNote, 0.85);
+    onNotePress: (midiNote, velocity) => {
+      WebBridge.noteOn(midiNote, velocity ?? 0.85);
     },
     onNoteRelease: (midiNote) => {
       WebBridge.noteOff(midiNote);
     },
+    onPitchBend: (val) => {
+      WebBridge.pitchBend(val);
+    },
+    onModWheel: (val) => {
+      WebBridge.modWheel(val);
+    },
+    onPanic: () => {
+      WebBridge.allNotesOff();
+    },
+    onSustainChange: (active) => {
+      WebBridge.sendMidiCC(64, active ? 127 : 0);
+    },
   });
 
-  // 4. Gestor de paneles deslizantes (Drawers)
+  // 4. Gestor universal de paneles deslizantes (Drawers - 50vw desde la derecha)
   const drawerManager = new DrawerManager(app);
 
-  // 5. Inicializar Navbar
-  createNavbar(navContainer, {
-    onToggleDrawer: (drawerId) => {
-      if (drawerId === 'matrix') {
-        drawerManager.toggle(
-          'matrix',
-          'Free Controllers Modulation Matrix (6 × 5)',
-          `
-          <div class="panel-caption">Unifica los 6 controles de ejecución ([413..424] + Free Controllers [363..410]) hacia los 63 destinos de modulación.</div>
-          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface);">
-            <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">1. Aftertouch (Channel Pressure)</p>
-            <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">2. Modulation Wheel (CC 1)</p>
-            <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">3. Breath Controller (CC 2)</p>
-            <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">4. Continuous Controller 03 (CC 3)</p>
-            <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">5. Foot Pedal (CC 4)</p>
-            <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">6. Expression Pedal (CC 11)</p>
-          </div>
-          `
-        );
-      } else if (drawerId === 'mfx') {
-        drawerManager.toggle(
-          'mfx',
-          'Master FX Rack [430..444]',
-          `
-          <div class="panel-caption">Procesamiento de dinámica y masterización final.</div>
-          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-2);">
-            <span class="hud-label">EQ 3-Bandas ([430..433])</span>
-            <span class="hud-label">Compresor Estéreo ([434..438])</span>
-            <span class="hud-label">Stereo Spread ([439])</span>
-            <span class="hud-label">Master Reverb Room ([440..444])</span>
-          </div>
-          `
-        );
-      } else if (drawerId === 'db') {
-        drawerManager.toggle(
-          'db',
-          'NeuronDB Sound & Model Browser',
-          `
-          <div class="panel-caption">Explorador de modelos .model / .nmmodel y presets .sound</div>
-          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface);">
-            <div class="hud-pill" style="width: 100%; box-sizing: border-box; justify-content: space-between;">
-              <span>000..511 NeuronDB Models</span>
-              <span class="stat-num">512 Models</span>
-            </div>
-            <div class="hud-pill" style="width: 100%; box-sizing: border-box; justify-content: space-between; margin-top: var(--space-2);">
-              <span>Neuron Factory Sounds</span>
-              <span class="stat-num">351 Sounds</span>
-            </div>
-          </div>
-          `
-        );
-      }
+  // 5. Gestor de Banco y Modelos NeuronDB (BankDrawer montado en el Drawer universal)
+  let targetResynatorForModelPick: 1 | 2 = 1;
+
+  const bankDrawer = new BankDrawer(drawerManager, {
+    onSelectModel: (slot, resynator) => {
+      const targetR = resynator || targetResynatorForModelPick;
+      const model = bankDrawer.getBank().models.find((m) => m.slot === slot);
+      const modelName = model ? model.name : `Model #${String(slot).padStart(3, '0')}`;
+      navbar.setModelName(targetR, `#${String(slot).padStart(3, '0')} ${modelName}`);
+
+      const labelEl = document.getElementById(targetR === 1 ? 'r1-model-label' : 'r2-model-label');
+      if (labelEl) labelEl.textContent = `${slot} ${modelName}`;
+
+      console.log(`[ABDAxionikVS] Assigned Model #${slot} (${modelName}) to Resynator ${targetR}`);
     },
-    onSelectPreset: () => {
-      console.log('Open preset selector');
+    onSelectPreset: (slot, name) => {
+      navbar.setPresetName(`${String(slot).padStart(3, '0')} ${name}`);
+      console.log(`[ABDAxionikVS] Loaded Sound Preset #${slot} "${name}"`);
     },
-    onSelectModel: (resynator) => {
-      console.log(`Open model selector for R${resynator}`);
+    onConfigureNeuronDbFolder: () => {
+      bankDrawer.promptConfigureFolder();
     },
   });
 
-  // 6. Suscribir mensajes del bridge
-  WebBridge.onMessage((msg) => {
-    if (msg.type === 'TELEMETRY') {
-      const vEl = document.getElementById('hud-active-voices');
-      const cEl = document.getElementById('hud-cpu-load');
-      if (vEl && typeof msg.activeVoices === 'number') vEl.textContent = `${msg.activeVoices} / 12`;
-      if (cEl && typeof msg.cpuUsage === 'number') cEl.textContent = `${msg.cpuUsage.toFixed(1)} %`;
+  // 6. Inicializar Navbar Universal (SynthNavBar)
+  const navbar = new AxionikNavbar(navContainer, {
+    onConfigureFolder: () => {
+      bankDrawer.promptConfigureFolder();
+    },
+    onImportModelFolder: () => {
+      bankDrawer.promptConfigureFolder();
+    },
+    onImportModelZip: () => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.zip,.modelzip';
+      fileInput.style.display = 'none';
+      document.body.appendChild(fileInput);
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files?.[0]) {
+          console.log(`[ABDAxionikVS] Model package selected: ${fileInput.files[0].name}`);
+        }
+        fileInput.remove();
+      });
+      fileInput.click();
+    },
+    onLoadPreset: () => {
+      bankDrawer.open();
+    },
+    onSavePreset: () => {
+      alert('Save Preset: Not implemented in preview.');
+    },
+    onInitPreset: () => {
+      navbar.setPresetName('000 InitSound');
+      navbar.setModelName(1, '511 sinew');
+      navbar.setModelName(2, '511 sinew');
+      const r1Lbl = document.getElementById('r1-model-label');
+      const r2Lbl = document.getElementById('r2-model-label');
+      if (r1Lbl) r1Lbl.textContent = '511 sinew';
+      if (r2Lbl) r2Lbl.textContent = '511 sinew';
+      console.log('[ABDAxionikVS] Sound initialized to factory default.');
+    },
+    onToggleBank: () => {
+      bankDrawer.toggle();
+    },
+    onToggleMatrix: () => {
+      drawerManager.toggle(
+        'matrix',
+        'Free Controllers Modulation Matrix (6 × 5)',
+        `
+        <div class="panel-caption">Unifica los 6 controles de ejecución ([413..424] + Free Controllers [363..410]) hacia los 63 destinos de modulación.</div>
+        <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface);">
+          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">1. Aftertouch (Channel Pressure)</p>
+          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">2. Modulation Wheel (CC 1)</p>
+          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">3. Breath Controller (CC 2)</p>
+          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">4. Continuous Controller 03 (CC 3)</p>
+          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">5. Foot Pedal (CC 4)</p>
+          <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">6. Expression Pedal (CC 11)</p>
+        </div>
+        `
+      );
+    },
+    onToggleMfx: () => {
+      drawerManager.toggle(
+        'mfx',
+        'Master FX Rack [430..444]',
+        `
+        <div class="panel-caption">Procesamiento de dinámica y masterización final.</div>
+        <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-2);">
+          <span class="hud-label">EQ 3-Bandas ([430..433])</span>
+          <span class="hud-label">Compresor Estéreo ([434..438])</span>
+          <span class="hud-label">Stereo Spread ([439])</span>
+          <span class="hud-label">Master Reverb Room ([440..444])</span>
+        </div>
+        `
+      );
+    },
+    onSelectPreset: () => {
+      bankDrawer.open();
+    },
+    onSelectModel: (resynator) => {
+      targetResynatorForModelPick = resynator;
+      bankDrawer.open();
+    },
+    onSelectTheme: (theme) => {
+      const idx = themes.indexOf(theme);
+      if (idx >= 0) {
+        currentThemeIndex = idx;
+        applyTheme(theme);
+      }
+    },
+    onToggleTheme: () => {
+      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+      applyTheme(themes[currentThemeIndex]);
+    },
+    onZoom: (zoomLevel) => {
+      document.body.style.zoom = String(zoomLevel);
+    },
+  });
+
+  // 7. Atajos globales de teclado
+  window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    const isCtrl = e.ctrlKey || e.metaKey;
+    if (isCtrl && (e.key === 'b' || e.key === 'B')) {
+      e.preventDefault();
+      bankDrawer.toggle();
+    } else if (isCtrl && (e.key === 'm' || e.key === 'M')) {
+      e.preventDefault();
+      navbar['callbacks'].onToggleMatrix();
+    } else if (isCtrl && (e.key === 'f' || e.key === 'F')) {
+      e.preventDefault();
+      navbar['callbacks'].onToggleMfx();
     }
   });
 
-  console.log(`[ABDAxionikVS] Frontend inicializado (${PARAM_DEFINITIONS.length} parámetros cargados).`);
+  // 8. Suscribir telemetría del bridge nativo
+  WebBridge.onMessage((msg) => {
+    if (msg.type === 'TELEMETRY') {
+      if (typeof msg.activeVoices === 'number') navbar.setVoices(msg.activeVoices);
+      if (typeof msg.cpuUsage === 'number') navbar.setCpuLoad(msg.cpuUsage);
+    }
+  });
+
+  console.log(`[ABDAxionikVS] Frontend inicializado (${PARAM_DEFINITIONS.length} parámetros, SynthNavBar montado).`);
 });

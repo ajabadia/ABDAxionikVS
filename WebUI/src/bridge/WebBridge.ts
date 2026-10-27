@@ -68,6 +68,22 @@ class WebBridgeImpl {
     this.send({ type: 'NOTE_OFF', note });
   }
 
+  public pitchBend(value: number) {
+    this.send({ type: 'PITCH_BEND', value });
+  }
+
+  public modWheel(value: number) {
+    this.send({ type: 'MOD_WHEEL', value });
+  }
+
+  public allNotesOff() {
+    this.send({ type: 'ALL_NOTES_OFF' });
+  }
+
+  public sendMidiCC(cc: number, value: number) {
+    this.send({ type: 'MIDI_CC', cc, value });
+  }
+
   public onMessage(handler: MessageHandler): () => void {
     this.handlers.add(handler);
     return () => this.handlers.delete(handler);

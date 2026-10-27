@@ -6,6 +6,7 @@
 export interface ParamDefinition {
   index: number;
   key: string;
+  safeId: string;
   group: string;
   min: number;
   max: number;
@@ -13,6 +14,7 @@ export interface ParamDefinition {
   defaultValue: number;
   step: number;
   vstIndex: number;
+  vstDisplay: string;
   slotInP: number;
   modDestIdx: number;
   isModDest: boolean;
