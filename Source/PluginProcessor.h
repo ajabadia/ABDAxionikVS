@@ -58,6 +58,11 @@ private:
     juce::AudioProcessorValueTreeState apvts_;
     int currentProgram_{0};
 
+    // Estado del desempacador NRPN de 14 bits
+    uint8_t nrpnMsb_{0};
+    uint8_t nrpnLsb_{0};
+    uint8_t dataEntryMsb_{0};
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AxionikProcessor)
 };
 

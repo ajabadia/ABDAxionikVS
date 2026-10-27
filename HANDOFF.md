@@ -84,6 +84,9 @@
      - `SilverTimeFX`: los 7 algoritmos de modulación temporal (Chorus, Flanger, Phaser, Delay, Multi-Tap, Reverb) con la corrección `Reset()` de Stephan Bernsee (Mac 1.56).
      - `CMasterModFX` (apertura M/S) y `CMasterTimeFX` (reverb espacial).
      - Bombeo de bloques de 128 muestras con recorte canónico *clip-to-zero* (`0x1000bc40`).
+   - **Enrutamiento MIDI Canónico y NRPN de 14 bits**:
+     - PluginProcessor::handleMidiEvent: Enrutador de CCs de hardware para Sticks XY (CC 16..19, 35..37), Blender (CC 70), Filter Reso (CC 71), Filter Cutoff (CC 74) y los 6 controles en tiempo real del Neuron (CC 1, 2, 3, 4, 11 y Channel Pressure).
+     - Desempacador NRPN de 14 bits (CC 99/98/6/38) direccionando 1:1 los 445 parámetros autoritativos de snddat a través de la capa de abstracción DspEngineFacade::setParamNormalized.
    - **Frontend WebUI & Ecosistema UI**:
      - Drawer deslizante universal (`DrawerManager`): panel lateral desde la derecha ocupando el 50% de la pantalla (`50vw`, `min-width: 460px`), unificado para Banco (`BankDrawer`), Resynator 1/2 expandidos (`ResynatorDrawer`), Silver & Master FX Rack (`SilverDrawer`), Matriz de Modulación 6x5 y Master FX.
      - Controladores vectoriales 2D (`TrajectoryStick2D`): emulación de alta precisión de los sticks físicos del Neuron/Nuke con restricción circular física, selección de capas `L1`, `L2`, `L3`, polos cardinales, lectura de coordenadas y cableado bidireccional a los 24 parámetros de capa.

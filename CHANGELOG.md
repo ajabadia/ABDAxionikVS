@@ -5,6 +5,10 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 ## [Unreleased]
 
 ### Added
+- **Enrutamiento MIDI Canónico: Sticks CCs y Desempacador NRPN de 14 bits**:
+  - Ampliado [`MidiMapping.gen.h`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Source/Generated/MidiMapping.gen.h) en [`Scripts/registry_generator.js`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Scripts/registry_generator.js) con las constantes canónicas de hardware de Sticks (`CC 16..19, 35..37`), Blender (`CC 70`), Filter Reso (`CC 71`) y Filter Cutoff (`CC 74`).
+  - Implementado en [`PluginProcessor::handleMidiEvent`](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginProcessor.cpp) el enrutador de CCs de Sticks hacia los 24 parámetros de capa del DSP.
+  - Implementado el parser de **NRPN de 14 bits** (`CC 99 MSB`, `CC 98 LSB`, `CC 6 Data MSB`, `CC 38 Data LSB`) direccionando de forma biyectiva los 445 parámetros autoritativos de `snddat` (`0..444`) directamente a `DspEngineFacade::setParamNormalized`.
 - **Controladores Vectoriales 2D y Paneles Deslizantes Expandidos en WebUI**:
   - Implementado `TrajectoryStick2D` ([TrajectoryStick2D.ts](file:///D:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/TrajectoryStick2D.ts)): joystick circular 2D de alta precisión con restricción de radio físico, selector interactivo de capas `L1 | L2 | L3`, polos cardinales dinámicos, captura de puntero, doble-clic para centrar y lectura numérica $X, Y$.
   - Montados los 4 controladores vectoriales principales (`Scape 1`, `Sphere 1`, `Scape 2`, `Sphere 2`) en el canvas del sintetizador con enlace directo a los 24 parámetros VST correspondientes vía `WebBridge.setParam`.
