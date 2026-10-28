@@ -158,16 +158,14 @@ export class BankDrawer {
       },
       onHeaderAction: (action) => {
         if (action === 'refresh') {
-          WebBridge.scanBank();
-          this.refreshLibrary();
+          this.refreshBank();
         } else if (action === 'folder') {
           this.promptConfigureFolder();
         }
       },
       onFooterAction: (action) => {
         if (action === 'refresh') {
-          WebBridge.scanBank();
-          this.refreshLibrary();
+          this.refreshBank();
         } else if (action === 'folder') {
           this.promptConfigureFolder();
         } else if (action === 'close') {
@@ -313,6 +311,43 @@ export class BankDrawer {
 
   public getBank(): BankSummary {
     return this.currentBank;
+  }
+
+  /**
+   * User-facing refresh: guarantees visible feedback on every click.
+   * Shows a working state first, then the timestamped confirmation from
+   * refreshLibrary(), or an error message if anything throws — so a
+   * silent no-op is impossible unless the click never reaches the drawer.
+   */
+  public refreshBank(): void {
+    const statusEl = this.shell.footerEl.querySelector('#bank-foot-status');
+    if (statusEl) statusEl.textContent = 'Refreshing library…';
+    this.setRefreshing(true);
+    // Let the working state paint before the synchronous reindex runs.
+    window.setTimeout(() => {
+      try {
+        WebBridge.scanBank();
+        this.refreshLibrary();
+        // refreshLibrary() leaves the timestamped confirmation behind.
+      } catch (err) {
+        console.error('[BankDrawer] Refresh failed:', err);
+        const el = this.shell.footerEl.querySelector('#bank-foot-status');
+        if (el) el.textContent = `Refresh failed: ${err instanceof Error ? err.message : String(err)}`;
+      } finally {
+        this.setRefreshing(false);
+      }
+    }, 60);
+  }
+
+  private setRefreshing(active: boolean): void {
+    if (!this.drawerElement) return;
+    this.drawerElement
+      .querySelectorAll('[data-header-action="refresh"], [data-footer-action="refresh"]')
+      .forEach((btn) => {
+        const b = btn as HTMLButtonElement;
+        b.disabled = active;
+        b.classList.toggle('is-refreshing', active);
+      });
   }
 
   public refreshLibrary(): void {
