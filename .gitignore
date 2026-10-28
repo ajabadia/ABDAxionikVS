@@ -36,5 +36,7 @@ temp/
 # Large binary libraries (>2GB)
 NeuronDB/
 neurondb/
+# ...pero el fixture mínimo de tests SÍ se versiona (fallback de sound_format.test.ts en CI)
+!tests/fixtures/NeuronDB/
 # Browser automation artifacts
 .playwright-mcp/

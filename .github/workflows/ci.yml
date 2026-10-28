@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+
+jobs:
+  webui-checks:
+    name: tsc + vitest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Los paquetes @abdsynths/* viven en repos hermanos (protocol workspace:*,
+      # que npm no soporta). Se clonan FUERA del workspace para que vitest no
+      # escanee su propia suite de tests.
+      - name: Clonar dependencias hermanas (ABDShared / ABDSharedCode)
+        run: |
+          git clone --depth 1 https://github.com/ajabadia/ABDShared.git "$RUNNER_TEMP/ABDShared"
+          git clone --depth 1 https://github.com/ajabadia/ABDSharedCode.git "$RUNNER_TEMP/ABDSharedCode"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # No hay lockfile y las únicas dependencies son los workspace:* que npm
+      # rechaza (EUNSUPPORTEDPROTOCOL): se eliminan para instalar solo los
+      # devDependencies reales (typescript, vite, vitest); los paquetes
+      # @abdsynths/* se enlazan en el paso siguiente.
+      - name: Instalar dependencias
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));delete p.dependencies;fs.writeFileSync('package.json',JSON.stringify(p,null,2))"
+          npm install --no-audit --no-fund
+
+      # Después de npm install para que no purge paquetes no declarados.
+      - name: Enlazar @abdsynths/*
+        run: |
+          mkdir -p node_modules/@abdsynths
+          ln -s "$RUNNER_TEMP/ABDShared" node_modules/@abdsynths/shared
+          ln -s "$RUNNER_TEMP/ABDSharedCode/MidiKeyboard" node_modules/@abdsynths/midi-keyb
+
+      - name: Typecheck (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: Tests (vitest)
+        run: npx vitest run
