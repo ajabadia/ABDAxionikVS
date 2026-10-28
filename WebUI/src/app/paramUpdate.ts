@@ -39,6 +39,8 @@ export interface ParamUpdateCtx {
   timeFx: { setIdx: (v: number) => void };
   shapersPanel?: { updateParam: (idx: number, val: number) => void } | null;
   silverPanel?: { updateParam: (idx: number, val: number) => void } | null;
+  blenderPanel?: { updateParam: (idx: number, val: number) => void } | null;
+  filterPanel?: { updateParam: (idx: number, val: number) => void } | null;
 }
 
 const clampIdx = (v: number, max: number): number => Math.max(0, Math.min(max, Math.round(v)));
@@ -98,9 +100,11 @@ export function handleParamUpdate(idx: number, val: number, ctx: ParamUpdateCtx)
     handleStickUpdate(idx, val, ctx);
   }
 
-  // Notificar al panel de Shapers físicos y al de Silver/Slicer
+  // Notificar a los paneles físicos
   ctx.shapersPanel?.updateParam(idx, val);
   ctx.silverPanel?.updateParam(idx, val);
+  ctx.blenderPanel?.updateParam(idx, val);
+  ctx.filterPanel?.updateParam(idx, val);
 }
 
 /** Actualiza la coordenada de uno de los 4 sticks 2D según el índice de capa. */

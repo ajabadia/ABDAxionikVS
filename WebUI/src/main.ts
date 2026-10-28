@@ -20,6 +20,8 @@ import { TrajectoryStick2D } from './ui/TrajectoryStick2D.js';
 import { ResynatorDrawer } from './ui/ResynatorDrawer.js';
 import { EffectsDrawer } from './ui/EffectsDrawer.js';
 import { BlenderDrawer, BLENDER_ALGORITHMS } from './ui/BlenderDrawer.js';
+import { BlenderPanel } from './ui/BlenderPanel.js';
+import { FilterPanel } from './ui/FilterPanel.js';
 import { MatrixDrawer } from './ui/MatrixDrawer.js';
 import { SettingsDrawer } from './ui/SettingsDrawer.js';
 import { DragDropHandler } from './ui/DragDropHandler.js';
@@ -104,59 +106,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div id="silver-mount" class="col-span-2"></div>
       </div>
 
-      <!-- Barra Central: Blender & Filter -->
-      <section class="synth-panel-card central-controls-bar" style="margin: 4px 0; padding: var(--space-2) var(--space-3); display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;">
-        <!-- Blender -->
-        <div style="display: flex; align-items: center; gap: var(--space-2);">
-          <span class="panel-badge">BLENDER</span>
-          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-blender-algo" title="Cycle Blender Fusion Algorithm [261]">
-            ALGO: <strong id="cur-blender-algo-val">Mix</strong>
-          </button>
-          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
-            <span class="hud-label">AMT:</span>
-            <input type="range" id="blender-slider" class="abd-slider" min="-64" max="63" value="0" step="1" style="width: 75px;" />
-            <span class="hud-value stat-num" id="blender-amount-val">0</span>
-          </div>
-          <button type="button" class="btn btn-xs btn-outline" id="btn-edit-blender" title="Expanded Blender & Slicer [261..270]">Edit</button>
-        </div>
-
-        <!-- Separador vertical discreto -->
-        <div style="width: 1px; height: 18px; background: var(--color-panel-border-dim, rgba(255,255,255,0.1));"></div>
-
-        <!-- Filter -->
-        <div style="display: flex; align-items: center; gap: var(--space-2);">
-          <span class="panel-badge">FILTER</span>
-          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
-            <span class="hud-label">CUT:</span>
-            <input type="range" id="filter-freq-slider" class="abd-slider" min="0" max="127" value="100" step="1" style="width: 65px;" />
-            <span class="hud-value stat-num" id="filter-freq-val">100</span>
-          </div>
-          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
-            <span class="hud-label">RESO:</span>
-            <input type="range" id="filter-reso-slider" class="abd-slider" min="0" max="127" value="25" step="1" style="width: 55px;" />
-            <span class="hud-value stat-num" id="filter-reso-val">0.20</span>
-          </div>
-        </div>
-      </section>
-
       <!-- 2. Fila Media: Shaper 1 (izq, span 2), Shaper 2 (centro, span 2), Shaper 3 (der, span 2) -->
       <div class="synth-row" id="row-middle" data-row-id="row-middle">
         <div id="shapers-mount" style="grid-column: 1 / -1; display: contents;"></div>
       </div>
 
-      <!-- 3. Fila Inferior: Controllers (izq, span 2), Expansión Auxiliar (centro+media der, span 3), Master (der, span 1) -->
+      <!-- 3. Fila Inferior: Controllers (2), Blender (1), Filter (1), Reserved/Hueco (1), Master (1) = 6 unidades -->
       <div class="synth-row" id="row-bottom" data-row-id="row-bottom">
         <div id="controllers-mount" class="col-span-2"></div>
-        <section class="synth-panel-card col-span-3 aux-expansion-card" id="aux-panel" style="display: flex; flex-direction: column;">
+        <div id="blender-mount" class="col-span-1"></div>
+        <div id="filter-mount" class="col-span-1"></div>
+        <section class="synth-panel-card col-span-1 aux-expansion-card" id="aux-panel" style="display: flex; flex-direction: column;">
           <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08));">
-            <span class="stick-label">EXPANSION</span>
+            <span class="stick-label">RESERVED</span>
             <div class="panel-actions" style="display: flex; align-items: center; gap: 4px;">
-              <span class="hud-pill" style="font-size: 8.5px; opacity: 0.6;">RESERVED</span>
               <button type="button" class="btn btn-xs btn-outline btn-collapse-row" data-row="row-bottom" title="Colapsar / Descolapsar fila">▾</button>
             </div>
           </div>
           <div class="panel-body aux-body" data-collapse-body style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 120px; border: 1px dashed var(--color-panel-border-dim, rgba(255,255,255,0.12)); border-radius: var(--radius-sm, 4px); margin: 4px 0;">
-            <span style="font-size: 10px; color: var(--color-text-muted); letter-spacing: 1px; text-transform: uppercase;">Módulo de Expansión Auxiliar</span>
+            <span style="font-size: 8.5px; color: var(--color-text-muted); letter-spacing: 0.5px; text-transform: uppercase; text-align: center; line-height: 1.4;">Hueco<br>Disponible</span>
           </div>
         </section>
         <div id="master-mount" class="col-span-1"></div>
@@ -405,6 +373,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  let blenderPanel: BlenderPanel | null = null;
+  const blenderMount = document.getElementById('blender-mount');
+  if (blenderMount) {
+    blenderPanel = new BlenderPanel(blenderMount, {
+      onEdit: () => openBlenderDrawer(),
+    });
+  }
+
+  let filterPanel: FilterPanel | null = null;
+  const filterMount = document.getElementById('filter-mount');
+  if (filterMount) {
+    filterPanel = new FilterPanel(filterMount);
+  }
+
   const masterMount = document.getElementById('master-mount');
   if (masterMount) {
     new MasterOutputPanel(masterMount);
@@ -470,69 +452,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // 6. Controles centrales (Blender, Slicer, Filtro y Silver FX)
-  let curBlenderAlgoIdx = 0;
-  const btnCycleBlender = document.getElementById('btn-cycle-blender-algo');
-  const curBlenderVal = document.getElementById('cur-blender-algo-val');
-  btnCycleBlender?.addEventListener('click', () => {
-    curBlenderAlgoIdx = (curBlenderAlgoIdx + 1) % BLENDER_ALGORITHMS.length;
-    if (curBlenderVal) curBlenderVal.textContent = BLENDER_ALGORITHMS[curBlenderAlgoIdx].name;
-    WebBridge.setParam(ParamIdx.BlenderType, curBlenderAlgoIdx);
-  });
-
-  const blenderSlider = document.getElementById('blender-slider') as HTMLInputElement | null;
-  const blenderVal = document.getElementById('blender-amount-val');
-  blenderSlider?.addEventListener('input', () => {
-    const val = parseFloat(blenderSlider.value);
-    if (blenderVal) blenderVal.textContent = String(val);
-    WebBridge.setParam(ParamIdx.BlenderAmount, val);
-  });
-
-  const slicerTypes = ['Off', '2D', '3D'];
-  let curSlicerTypeIdx = 0;
-  const btnCycleSlicer = document.getElementById('btn-cycle-slicer-type');
-  const curSlicerTypeVal = document.getElementById('cur-slicer-type-val');
-  btnCycleSlicer?.addEventListener('click', () => {
-    curSlicerTypeIdx = (curSlicerTypeIdx + 1) % slicerTypes.length;
-    if (curSlicerTypeVal) curSlicerTypeVal.textContent = slicerTypes[curSlicerTypeIdx];
-    WebBridge.setParam(ParamIdx.SlicerSwitchType, curSlicerTypeIdx);
-  });
-
-  const slicerRateSlider = document.getElementById('slicer-rate-slider') as HTMLInputElement | null;
-  const slicerRateVal = document.getElementById('slicer-rate-val');
-  slicerRateSlider?.addEventListener('input', () => {
-    const val = parseFloat(slicerRateSlider.value);
-    if (slicerRateVal) slicerRateVal.textContent = String(val);
-    WebBridge.setParam(ParamIdx.SlicerRate, val);
-  });
-
-  const slicerDepthSlider = document.getElementById('slicer-depth-slider') as HTMLInputElement | null;
-  const slicerDepthVal = document.getElementById('slicer-depth-val');
-  slicerDepthSlider?.addEventListener('input', () => {
-    const val = parseFloat(slicerDepthSlider.value);
-    if (slicerDepthVal) slicerDepthVal.textContent = String(val);
-    WebBridge.setParam(ParamIdx.SlicerDepth, val);
-  });
-
-  const filterCutSlider = document.getElementById('filter-freq-slider') as HTMLInputElement | null;
-  const filterCutVal = document.getElementById('filter-freq-val');
-  filterCutSlider?.addEventListener('input', () => {
-    const val = parseFloat(filterCutSlider.value);
-    if (filterCutVal) filterCutVal.textContent = String(val);
-    WebBridge.setParam(ParamIdx.FilterFreq, val);
-    silverPanel?.updateSilver(ParamIdx.FilterFreq);
-  });
-
-  const filterResoSlider = document.getElementById('filter-reso-slider') as HTMLInputElement | null;
-  const filterResoVal = document.getElementById('filter-reso-val');
-  filterResoSlider?.addEventListener('input', () => {
-    const val = parseFloat(filterResoSlider.value);
-    if (filterResoVal) filterResoVal.textContent = (val / 127).toFixed(2);
-    WebBridge.setParam(ParamIdx.FilterReso, val);
-    silverPanel?.updateSilver(ParamIdx.FilterReso);
-  });
-
-
   const applyAllParamsToUI = (values: number[]) => {
     if (!Array.isArray(values) || values.length === 0) return;
 
@@ -560,38 +479,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
     r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
 
-    // Blender
-    const blenderAlgo = Math.round(values[ParamIdx.BlenderType] ?? 0);
-    curBlenderAlgoIdx = Math.max(0, Math.min(BLENDER_ALGORITHMS.length - 1, blenderAlgo));
-    if (curBlenderVal) curBlenderVal.textContent = BLENDER_ALGORITHMS[curBlenderAlgoIdx].name;
-
-    const blenderAmount = Math.round(values[ParamIdx.BlenderAmount] ?? 0);
-    if (blenderSlider) blenderSlider.value = String(blenderAmount);
-    if (blenderVal) blenderVal.textContent = String(blenderAmount);
-
-    // Slicer
-    const slicerMode = Math.round(values[ParamIdx.SlicerSwitchType] ?? 0);
-    curSlicerTypeIdx = Math.max(0, Math.min(slicerTypes.length - 1, slicerMode));
-    if (curSlicerTypeVal) curSlicerTypeVal.textContent = slicerTypes[curSlicerTypeIdx];
-
-    const slicerDepth = Math.round(values[ParamIdx.SlicerDepth] ?? 0);
-    if (slicerDepthSlider) slicerDepthSlider.value = String(slicerDepth);
-    if (slicerDepthVal) slicerDepthVal.textContent = String(slicerDepth);
-
-    const slicerRate = Math.round(values[ParamIdx.SlicerRate] ?? 66);
-    if (slicerRateSlider) slicerRateSlider.value = String(slicerRate);
-    if (slicerRateVal) slicerRateVal.textContent = String(slicerRate);
-
-    // Filter
-    const filterCut = Math.round(values[ParamIdx.FilterFreq] ?? 100);
-    if (filterCutSlider) filterCutSlider.value = String(filterCut);
-    if (filterCutVal) filterCutVal.textContent = String(filterCut);
-
-    const filterReso = Math.round(values[ParamIdx.FilterReso] ?? 25);
-    if (filterResoSlider) filterResoSlider.value = String(filterReso);
-    if (filterResoVal) filterResoVal.textContent = (filterReso / 127).toFixed(2);
+    // Blender y Filter panels
+    blenderPanel?.updateAll(values);
+    filterPanel?.updateAll(values);
 
     // Slicer & Silver FX en SilverPanel
+    const slicerMode = Math.round(values[ParamIdx.SlicerSwitchType] ?? 0);
+    const slicerDepth = Math.round(values[ParamIdx.SlicerDepth] ?? 0);
+    const slicerRate = Math.round(values[ParamIdx.SlicerRate] ?? 66);
     silverPanel?.updateParam(ParamIdx.SlicerSwitchType, slicerMode);
     silverPanel?.updateParam(ParamIdx.SlicerDepth, slicerDepth);
     silverPanel?.updateParam(ParamIdx.SlicerRate, slicerRate);
@@ -817,28 +712,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     r2ScapeStick,
     r2SphereStick,
     blender: {
-      slider: blenderSlider,
-      sliderLabel: blenderVal,
+      slider: null,
+      sliderLabel: null,
       setIdx: (v) => {
-        curBlenderAlgoIdx = v;
-        if (curBlenderVal) curBlenderVal.textContent = BLENDER_ALGORITHMS[v].name;
+        blenderPanel?.updateAlgoUi(v);
       },
     },
     slicer: {
-      depthSlider: slicerDepthSlider,
-      depthLabel: slicerDepthVal,
-      rateSlider: slicerRateSlider,
-      rateLabel: slicerRateVal,
+      depthSlider: null,
+      depthLabel: null,
+      rateSlider: null,
+      rateLabel: null,
       setIdx: (v) => {
-        curSlicerTypeIdx = v;
-        if (curSlicerTypeVal) curSlicerTypeVal.textContent = slicerTypes[v];
+        silverPanel?.updateSlicerModeUi(v);
       },
     },
     filter: {
-      cutSlider: filterCutSlider,
-      cutLabel: filterCutVal,
-      resoSlider: filterResoSlider,
-      resoLabel: filterResoVal,
+      cutSlider: null,
+      cutLabel: null,
+      resoSlider: null,
+      resoLabel: null,
     },
     freqFx: {
       setIdx: (v) => {
@@ -852,6 +745,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
     shapersPanel,
     silverPanel,
+    blenderPanel,
+    filterPanel,
   };
 
   // 8. Suscribir telemetría y actualización de parámetros del bridge nativo
