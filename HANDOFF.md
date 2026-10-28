@@ -152,10 +152,10 @@
      - Visualizador continuo de automatizaciones vectoriales grabadas con REC y reproducción dinámica de trayectorias en PLAY.
      - Construido sobre los componentes LcdDisplay / LcdScreen / LcdPanel / lcd.css de ABDShared.
    - **Vista Especial de Interpretación Macro («Remote / Nuke») & Soporte USB Opcional (Fase C)**:
-     - Vista conmutable orientada a directo y performance rápida: joystick vectorial central, 4 macro knobs (`Knob1..4Select` [425..428]) asignables a cualquier parámetro, y los 6 slots de modulación en vivo (`Aftertouch`, `CC 1`, `CC 2`, `CC 3`, `CC 4`, `CC 11`) con destino y fader de profundidad `[-64..+63]`.
-     - Estudio de detección Plug & Play en `ABDShared::HardwareDrivers` para el controlador físico USB <NUKE> original de Hartmann Music, con la regla inquebrantable de **cero dependencia** (100 % autónomo en software).
-   - **5º Joystick Vectorial Dedicado para Silver**:
-     - Incorporación interactiva en el panel o cajón de Silver de un TrajectoryStick2D (como existía en el teclado hardware Hartmann Neuron) para gobernar dinámicamente Cutoff/Resonancia en /Y$, FreqFX y TimeFX con grabación/reproducción vectorial sound.stickrec.
+     - Modal o vista contextual orientada a directo y performance rápida emulando la interfaz Remote del Neuron VS: chasis en diamante de aluminio, joystick vectorial central con halo naranja, 4 macro knobs (Knob1..4Select [425..428]) asignables a cualquier parámetro con displays LCD, y los 6 slots de modulación en vivo (Aftertouch, CC 1, CC 2, CC 3, CC 4, CC 11) con destino y ruedas de profundidad [-64..+63].
+     - Estudio de detección Plug & Play en ABDShared::HardwareDrivers para el controlador físico USB <NUKE> original de Hartmann Music, con la regla inquebrantable de **cero dependencia** (100 % autónomo en software).
+   - **[IMPLEMENTADO EN FASE A.4] 5º Joystick Vectorial Dedicado para Silver**:
+     - Incorporado en SilverPanel.ts mediante TrajectoryStick2D con 3 capas (FILT, FREQ, TIME), lectura homogénea X: 0.xx | Y: 0.yy alineada con Scape y Sphere, y grabación/reproducción vectorial autónoma.
    - **Displays LCD Polares, Blender de Rueda Horizontal & 8 Faders Híbridos de Shaper (Fase C)**:
      - Recreación en cada Resynator de los 4 displays alfanuméricos verdes en los vértices del stick (North-West, North-East, South-West, South-East) mostrando valor en tiempo real `000..127` y etiqueta dinámica de parámetro de `mnAN` (`Coherent`, `OrangeWs`, `WhiteNoi`, `Smooth`, etc.).
      - Recreación del Blender central con diseño hardware: módulo metálico con rueda horizontal dentada superior, display acrílico con barra LED graduada amarilla horizontal bipolar (`< [||||||    ] >`) y botón `Type / Menu` para los 10 algoritmos de mezcla.

@@ -4,6 +4,19 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ## [Unreleased]
 
+### Changed
+- **Estandarización de Coordenadas de Joysticks 2D (`SilverPanel.ts`)**:
+  - Unificada la lectura numérica del HUD de `Vector 2D` en Silver al formato normalizado `X: 0.xx | Y: 0.yy` para todas las capas (`FILT`, `FREQ`, `TIME`), eliminando etiquetas propietarias variables (`CUT/RES`, `FREQ/MIX`, `TIME/FDBK`) para mantener una coherencia visual 1:1 con los otros 4 joysticks del instrumento (`Scape 1`, `Sphere 1`, `Scape 2`, `Sphere 2`).
+- **Ajuste de la Hoja de Ruta (`ROADMAP.md` y `HANDOFF.md`)**:
+  - Reclasificada la sección del emulador hardware del **Hartmann NUKE Remote Controller** como `[PENDIENTE / PLANIFICADO FASE C]`, aclarando que en Fase A sus capacidades quedaron absorbidas en el canvas principal (5 joysticks simultáneos directos) y en la Matrix (los 4 macro encoders continuos `[425..428]` y los 6 controles MIDI).
+  - Incorporada la especificación de diseño de la futura vista simplificada / modal basada en la pestaña `Remote` del plugin original Hartmann Neuron VS (chasis diamante de aluminio, stick 3D naranja, 4 diales con pantallas LCD y consola inferior de 6 controladores).
+
+### Fixed
+- **Reactividad y Estado Visual Activo en Shapers (`ShapersPanel.ts` y `@abdsynths/shared/Components/pillSelector.js`)**:
+  - Corregido el bug visual por el cual al hacer clic en las píldoras de modo `AMP`, `RES`, `FREE` de los Shapers cambiaban los valores de los parámetros en el motor, pero el botón activo permanecía congelado visualmente en `AMP`.
+  - Mejorado `bindPillSelector` en `@abdsynths/shared` para alternar automáticamente la clase `.active` entre elementos hermanos al hacer clic.
+  - Añadida sincronización bidireccional explícita de `.active` y `aria-pressed` en `updateS1LabelsAndSync()`, `updateS2LabelsAndSync()`, `updateS3LabelsAndSync()`, `syncAll()` y reactividad en tiempo real ante eventos de `ParamIdx.Shaper12Status` [253], `ParamIdx.Shaper3Status` [362] y los modos `NORM` / `REP`.
+
 ### Added
 - **Cierre Integral de la Fase A (DSP Clásico 1:1 y WebUI de 445 Parámetros, excepto WASM)**:
   - **EQ de 4 Bandas Paramétricas/Shelving (`[285..301]`, `FUN_1002d3d4`) + Compresor (`[302..305]`, `FUN_1003785c`) en `DspNeuronSilverRack.h` y `DspEngineFacade.cpp`**: implementado el algoritmo `CurFreqFX == 0` (`AlgoEQCompressor`) con filtros biquad RBJ Direct Form I por banda (`Low Shelf`, `Band 1`, `Band 2`, `High Shelf`) y compresor dinámico estéreo con umbral en dB, ganancia de salida y *responsiveness*.
