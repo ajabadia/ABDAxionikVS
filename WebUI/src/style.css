@@ -508,6 +508,7 @@ input[type="range"] {
   box-sizing: border-box;
   position: relative;
   box-shadow: inset 0 8px 12px -4px rgba(0, 0, 0, 0.7);
+  transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s ease;
 }
 
 .keyboard-container::after {
@@ -528,6 +529,7 @@ input[type="range"] {
   gap: 10px;
   align-items: stretch;
   position: relative;
+  min-height: 0;
 }
 
 .wheels-block {
@@ -553,10 +555,18 @@ input[type="range"] {
 }
 
 /* ── Collapsed Keyboard State ───────────────────────────── */
-.keyboard-section.is-collapsed {
-  padding-top: 2px !important;
-  padding-bottom: 2px !important;
-  min-height: 32px !important;
+.keyboard-section.is-collapsed,
+.keyboard-container.is-collapsed {
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+}
+
+.keyboard-section.is-collapsed::after,
+.keyboard-container.is-collapsed::after {
+  display: none !important;
 }
 
 .keyboard-section.is-collapsed .wheels-block,
