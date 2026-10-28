@@ -8,6 +8,7 @@
 
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
+import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 
 export const MOD_SOURCES = [
   { id: 1, name: 'Aftertouch (Channel Pressure)', destParam: 413, depthParam: 414, defaultDest: 61, defaultDepth: 40 },
@@ -103,13 +104,14 @@ export const FREE_CONTROLLER_GROUPS = [
 
 export interface MatrixDrawerOptions {
   onClose: () => void;
+  initialTab?: 'all' | 'midi' | 'controllers';
 }
 
 export class MatrixDrawer {
   static createContent(options: MatrixDrawerOptions): HTMLElement {
     const root = document.createElement('div');
     root.className = 'drawer-view-content';
-    root.style.cssText = 'display: flex; flex-direction: column; gap: var(--space-4); height: 100%;';
+    root.style.cssText = 'display: flex; flex-direction: column; height: 100%; box-sizing: border-box;';
 
     const buildDestOptions = (selectedId: number) =>
       ALL_63_MOD_DESTINATIONS.map((d) => `<option value="${d.id}" ${d.id === selectedId ? 'selected' : ''}>${d.label}</option>`).join('');
@@ -124,6 +126,17 @@ export class MatrixDrawer {
       });
       return opts;
     };
+
+    const viewSectionItems = [
+      { id: 'all', label: 'All Matrix' },
+      { id: 'midi', label: '1. MIDI & Macros' },
+      { id: 'controllers', label: '2. Free Controllers' },
+    ];
+    const viewSectionHtml = pillSelectorHtml(viewSectionItems, options.initialTab || 'all', {
+      id: 'matrix-view-section-pills',
+      size: 'sm',
+      attrName: 'data-view',
+    });
 
     let sourcesHtml = '';
     MOD_SOURCES.forEach((src) => {
@@ -206,32 +219,51 @@ export class MatrixDrawer {
     });
 
     root.innerHTML = `
-      <div class="drawer-header">
-        <div style="display: flex; align-items: center; gap: var(--space-2);">
-          <span class="panel-badge">MODULATION MATRIX</span>
-          <span class="panel-caption">63 Destinations, 6 MIDI Performance Controls & Free Controllers [363..428]</span>
+      <div class="drawer-header ndb-modal-header" style="flex-wrap: wrap; gap: var(--space-2);">
+        <div class="drawer-title ndb-header-title" style="flex: 1; min-width: 240px;">
+          <span class="drawer-icon">${ICONS.matrix}</span>
+          <span class="ndb-title-text">MODULATION MATRIX</span>
+          <span class="panel-badge ndb-badge">[363..428]</span>
         </div>
         <button type="button" class="btn btn-close-drawer ndb-close-btn" id="btn-close-matrix-drawer" title="Close (Esc)">${ICONS.close}</button>
       </div>
 
-      <div class="drawer-scroll-body" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-3); padding-right: 4px;">
-        <!-- 1. The 6 Live MIDI Performance Controllers ([413..424]) -->
-        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-          ${sourcesHtml}
+      <!-- Barra de navegación por pestañas (View Section) -->
+      <div style="padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-panel-border-dim); background: var(--color-panel-surface); display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <span class="hud-label" style="font-size: 11px;">VIEW SECTION:</span>
+          ${viewSectionHtml}
         </div>
+        <span class="hud-pill" style="font-size: 9px; opacity: 0.7;">63 MOD DESTINATIONS</span>
+      </div>
 
-        <!-- 2. The 4 Hardware Macro Knobs ([425..428]) -->
-        <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">
-          <span class="panel-caption" style="color: var(--color-accent); font-weight: 700;">4 MACRO KNOBS ASSIGNMENT ([425..428])</span>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
-            ${knobsHtml}
+      <div class="drawer-scroll-body" id="matrix-scroll-body" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) var(--space-4);">
+        <!-- Bloque 1: Live MIDI Performance Controls & Macro Knobs -->
+        <section id="block-midi-controls" style="display: flex; flex-direction: column; gap: var(--space-3);">
+          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">
+            1. LIVE MIDI PERFORMANCE CONTROLS ([413..424]) & MACROS ([425..428])
           </div>
-        </div>
+          <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            ${sourcesHtml}
+          </div>
 
-        <!-- 3. The 6 × 4 Free Controllers ([363..410]) -->
-        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-          ${freeCtrlHtml}
-        </div>
+          <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2);">
+            <span class="panel-caption" style="color: var(--color-accent); font-weight: 700; font-size: 11px;">4 HARDWARE MACRO KNOBS ASSIGNMENT ([425..428])</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+              ${knobsHtml}
+            </div>
+          </div>
+        </section>
+
+        <!-- Bloque 2: Free Controllers Matrix ([363..410]) -->
+        <section id="block-free-controllers" style="display: flex; flex-direction: column; gap: var(--space-3);">
+          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">
+            2. FREE CONTROLLERS MODULATION MATRIX (6 × 4 SLOTS, [363..410])
+          </div>
+          <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            ${freeCtrlHtml}
+          </div>
+        </section>
       </div>
     `;
 
@@ -259,6 +291,42 @@ export class MatrixDrawer {
         WebBridge.setParam(paramId, val);
       });
     });
+
+    // ── Filtro / Navegación por pestañas (View Section) ─────
+    const blockMidi = root.querySelector('#block-midi-controls') as HTMLElement | null;
+    const blockFree = root.querySelector('#block-free-controllers') as HTMLElement | null;
+    const viewSectionContainer = root.querySelector('#matrix-view-section-pills') as HTMLElement | null;
+    const scrollContainer = root.querySelector('#matrix-scroll-body') as HTMLElement | null;
+
+    const setFilter = (mode: 'all' | 'midi' | 'controllers', doScroll = false) => {
+      const viewPills = viewSectionContainer?.querySelectorAll('[data-view]');
+      viewPills?.forEach((p) => p.classList.toggle('active', p.getAttribute('data-view') === mode));
+
+      if (mode === 'all') {
+        if (blockMidi) blockMidi.style.display = 'flex';
+        if (blockFree) blockFree.style.display = 'flex';
+      } else if (mode === 'midi') {
+        if (blockMidi) blockMidi.style.display = 'flex';
+        if (blockFree) blockFree.style.display = 'none';
+      } else if (mode === 'controllers') {
+        if (blockMidi) blockMidi.style.display = 'none';
+        if (blockFree) blockFree.style.display = 'flex';
+      }
+
+      if (doScroll && scrollContainer) {
+        scrollContainer.scrollTop = 0;
+      }
+    };
+
+    if (viewSectionContainer) {
+      bindPillSelector(viewSectionContainer, (viewId) => {
+        setFilter(viewId as 'all' | 'midi' | 'controllers', viewId !== 'all');
+      }, 'data-view');
+    }
+
+    if (options.initialTab) {
+      setFilter(options.initialTab, true);
+    }
 
     return root;
   }

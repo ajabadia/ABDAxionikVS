@@ -104,6 +104,64 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div id="silver-mount" class="col-span-2"></div>
       </div>
 
+      <!-- Barra Central Recuperada: Blender, Slicer, Filter, Silver FX -->
+      <section class="synth-panel-card central-controls-bar" style="margin: 4px 0; padding: var(--space-2) var(--space-3); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+        <!-- Blender -->
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <span class="panel-badge">BLENDER</span>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-blender-algo" title="Cycle Blender Fusion Algorithm [261]">
+            ALGO: <strong id="cur-blender-algo-val">Mix</strong>
+          </button>
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
+            <span class="hud-label">AMT:</span>
+            <input type="range" id="blender-slider" class="abd-slider" min="-64" max="63" value="0" step="1" style="width: 75px;" />
+            <span class="hud-value stat-num" id="blender-amount-val">0</span>
+          </div>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-edit-blender" title="Expanded Blender & Slicer [261..270]">Edit</button>
+        </div>
+
+        <!-- Slicer -->
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <span class="panel-badge">SLICER</span>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-slicer-type" title="Slicer Mode (0: Off, 1: 2D, 2: 3D) [267]">
+            MODE: <strong id="cur-slicer-type-val">Off</strong>
+          </button>
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
+            <span class="hud-label">RATE:</span>
+            <input type="range" id="slicer-rate-slider" class="abd-slider" min="0" max="200" value="66" step="1" style="width: 60px;" />
+            <span class="hud-value stat-num" id="slicer-rate-val">66</span>
+          </div>
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
+            <span class="hud-label">DEP:</span>
+            <input type="range" id="slicer-depth-slider" class="abd-slider" min="0" max="127" value="0" step="1" style="width: 60px;" />
+            <span class="hud-value stat-num" id="slicer-depth-val">0</span>
+          </div>
+        </div>
+
+        <!-- Filter -->
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <span class="panel-badge">FILTER</span>
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
+            <span class="hud-label">CUT:</span>
+            <input type="range" id="filter-freq-slider" class="abd-slider" min="0" max="127" value="100" step="1" style="width: 65px;" />
+            <span class="hud-value stat-num" id="filter-freq-val">100</span>
+          </div>
+          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
+            <span class="hud-label">RESO:</span>
+            <input type="range" id="filter-reso-slider" class="abd-slider" min="0" max="127" value="25" step="1" style="width: 55px;" />
+            <span class="hud-value stat-num" id="filter-reso-val">0.20</span>
+          </div>
+        </div>
+
+        <!-- Silver FX -->
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <span class="panel-badge">SILVER FX</span>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-freqfx-bar" title="Change Frequency Effect">FREQ: <strong id="cur-freq-fx-val-bar">RingMod</strong></button>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-timefx-bar" title="Change Time Effect">TIME: <strong id="cur-time-fx-val-bar">Chorus</strong></button>
+          <button type="button" class="btn btn-xs btn-primary" id="btn-edit-silver-bar" title="Expanded Silver & Master FX Rack">Edit Rack</button>
+        </div>
+      </section>
+
       <!-- 2. Fila Media: Shaper 1 (izq, span 2), Shaper 2 (centro, span 2), Shaper 3 (der, span 2) -->
       <div class="synth-row" id="row-middle" data-row-id="row-middle">
         <div id="shapers-mount" style="grid-column: 1 / -1; display: contents;"></div>
@@ -257,8 +315,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerManager.openCustom('blender-expanded', content);
   };
 
-  const openMatrixDrawer = () => {
+  const openMatrixDrawer = (initialTab: 'all' | 'midi' | 'controllers' = 'all') => {
     const content = MatrixDrawer.createContent({
+      initialTab,
       onClose: () => drawerManager.close(),
     });
     drawerManager.openCustom('matrix-expanded', content);
@@ -356,7 +415,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const controllersMount = document.getElementById('controllers-mount');
   if (controllersMount) {
     controllersPanel = new ControllersPanel(controllersMount, {
-      onEdit: () => openMatrixDrawer(),
+      onEdit: () => openMatrixDrawer('controllers'),
     });
   }
 
@@ -493,6 +552,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (filterResoVal) filterResoVal.textContent = (val / 127).toFixed(2);
     WebBridge.setParam(ParamIdx.FilterReso, val);
     silverPanel?.updateSilver(ParamIdx.FilterReso);
+  });
+
+  document.getElementById('btn-edit-silver-bar')?.addEventListener('click', openSilverDrawer);
+
+  const btnCycleFreqBar = document.getElementById('btn-cycle-freqfx-bar');
+  const curFreqValBar = document.getElementById('cur-freq-fx-val-bar');
+  btnCycleFreqBar?.addEventListener('click', () => {
+    const cur = Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 2));
+    const next = (cur + 1) % FREQ_ALGO_NAMES.length;
+    WebBridge.setParam(ParamIdx.CurFreqFX, next);
+    if (curFreqValBar) curFreqValBar.textContent = FREQ_ALGO_NAMES[next];
+    silverPanel?.updateFreqAlgo(FREQ_ALGO_NAMES[next]);
+  });
+
+  const btnCycleTimeBar = document.getElementById('btn-cycle-timefx-bar');
+  const curTimeValBar = document.getElementById('cur-time-fx-val-bar');
+  btnCycleTimeBar?.addEventListener('click', () => {
+    const cur = Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 4));
+    const next = (cur + 1) % TIME_ALGO_NAMES.length;
+    WebBridge.setParam(ParamIdx.CurTimeFX, next);
+    if (curTimeValBar) curTimeValBar.textContent = TIME_ALGO_NAMES[next];
+    silverPanel?.updateTimeAlgo(TIME_ALGO_NAMES[next]);
   });
 
   const applyAllParamsToUI = (values: number[]) => {
