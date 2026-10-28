@@ -24,8 +24,8 @@ ninguna es de memoria.
    la copia **sin recortar** del parámetro que cambió y la rama del índice `-1`.
 4. **La matriz en caliente contra el DLL** (`matrix_runtime.log`):
    `neuron_golden --matrix` mueve los seis controles por MIDI sobre el binario
-   real y `verify_matrix.py` (V1–V8) cruza esa salida con el mapa y con los bytes
-   del PE.
+   real y `verify_matrix.py` (V1–V10) cruza esa salida con el mapa, con los bytes
+   del PE y contrasta la paridad de los 63 slots sobre los 351 presets (pasada M6, 21.411 slots bit a bit).
 5. **Correcciones al mapa de origen** (el de `ABDAxionikVS`): los callbacks de las
    filas 0–2 (`0x10013620` a mano en `+0x294`, `0x100139b0` en `+0x2AC`) y de las
    filas 3–4 (`stModDest`/`stModDepth` del bucle de control), el «335» que son
@@ -44,9 +44,10 @@ ninguna es de memoria.
 | ¿Cómo cruza un valor del `.sound` hasta `p[]`? | 335 enganches: registro `snddat` → observador → callback → slot; claves 333/333 contra `sound_schema.csv`; cada slot `p[0..316]` tiene exactamente un observador | A1, B2, G1 |
 | ¿Qué hacen los seis controles MIDI? | `stModDest` recombina el destino **anterior**, `stModDepth` escribe la profundidad y cierra con `combine(-1)`, `FUN_10013490` escribe el valor; en caliente los seis slots quedan en `clip(base + prof·valor)` | J2–J5, V1–V4 |
 | **(«Abierto»)** ¿Qué es la tabla `0x10049E00` y qué hace `FUN_100134E0` con su «índice libre»? | **63 destinos + terminador `0`** — las 64 entradas; el único índice libre alcanzable es `-1` (lo pasan los controles), y su write cae 0x150 B más allá de `params` | F2, J6 |
-| ¿Por qué un destino puede dejar de modular? | Ese write `-1` a `params+0x2E2C` pisa el `ctx[3]` del bloque de contexto que el heap deja contiguo a `params`: el observador de ese destino pasa a la rama `jl 0x10013A56` y escribe `p[slot]` a pelo. 0 o 1 destino por corrida (según el heap) y 13 presets con el evento en el log | M1b, V8 |
+| ¿Por qué un destino puede dejar de modular? | Ese write `-1` a `params+0x2E2C` pisa el `ctx[3]` del bloque de contexto que el heap deja contiguo a `params`: el observador de ese destino pasa a la rama `jl 0x10013A56` y escribe `p[slot]` a pelo. Verificado en 351 presets en pasada M6 contra el DLL (21.411 slots bit a bit) | M1b, V8, M6, V10 |
 | **(«Abierto»)** ¿Quién llena `+0x278C`? | Mecanismo completo: el callback del observador escribe `base[dest]`, `combine` escribe los seis routeados y el caído escribe a pelo; el mapa da además el censo por slot | B2, F2, V1–V8 |
 | ¿Los callbacks del mapa de origen eran fiables? | No: filas 0–2 y 3–4 traían `0x100139d0` y el binario dice otra cosa; corregido y sujeto a E1–E4 | E1–E4 |
+| ¿Quién lee `params+0x0C` y `+0x10` (`R1/R2AmpEnvR`) y qué es `0x10049f00`? | **Nadie en audio**: `FUN_100343e4` (`CSilverRack::UpdateParams`) los copia pero ninguna rutina DSP los lee jamás (*dead mirrors* verificados con `neuron_golden --mirror`). La constante es `1/25.4` (umbral físico de 1 mm para cotas en pulgadas) | Análisis de llamadas cruzadas + sonda runtime |
 
 ## Qué queda abierto (desde este paquete) y su resolución en `ABDAxionikVS`
 

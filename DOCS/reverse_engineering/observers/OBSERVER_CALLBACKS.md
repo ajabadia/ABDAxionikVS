@@ -246,21 +246,22 @@ Y en caliente, contra la DLL cargada, `neuron_golden --matrix`
 - `M3`: `params+0x2E2C` (fuera del objeto) recibe el valor de `params+0x178`;
 - `M4`: una base fuera de ventana recorta por los dos extremos;
 - `M5`: `FUN_100134e0(params, d)` con un destino que no es de los seis copia la base
-  **sin recortar**.
+  **sin recortar**;
+- `M6`: **desenganche y paridad de slots port vs. DLL sobre los 351 presets**:
+  Carga el mismo preset en el `ModMatrix` del port (`applyVersionMigration` + `load_preset`), alimentando previamente los seis valores de control de `params+0x44` del DLL (sin ellos, el preset 176 dest 58 discrepaba por falta del sumando $\text{prof} \times \text{valor}$). Contrasta:
+  1. Qué destinos están desenganchados en cada lado (`ctx[3]` fuera de `0..62`).
+  2. Los 63 slots de destino de `p[]`: donde el enganche coincide en ambos lados, el valor es idéntico bit a bit (tolerancia 1 ULP).
 
-El barrido de los 351 presets instalados deja **5535 comprobaciones, 0 fallos** (los 351
-`M1b` incluidos; en esa corrida ninguno contó desenganchados), y el verificador del log
-cruza la tabla, los destinos y las ventanas con `params_observers_map.csv` y con los
-bytes del PE (`V1`–`V8`; `V8` es la que vigila el desenganche).
+El barrido de los 351 presets instalados deja **6237 comprobaciones de arnés, 0 fallos** (los 351 `M1b` y 351 `M6` incluidos; 21.411 slots bit a bit comparados), y el verificador del log (`tools/verify_matrix.py`) pasa **15/15 verificaciones (`V1`–`V10`)** (donde `V8` vigila la aritmética del desenganche y `V10` exige la coincidencia estricta de la pasada M6).
 
 ## Límites
 
 - El *cuerpo* de `0x10013620` (242 instrucciones) no se ha revisado aquí línea a línea;
   su semántica está en `NeuronVS_preset_format/OBSERVER_CALLBACK.md`.
-- De los dos casos especiales de `stSPEngineCb` (`ctx[2] == 0xA4` y `0xC2`, o sea los slots
-  164 y 194 = `R1AmpEnvR` y `R2AmpEnvR`) se sabe qué escriben (`params+0x0C` y `+0x10`, y
-  sólo si el valor actual supera el doble `0x3FA42850A142850A` ≈ 0,0394), pero no quién
-  lee esos dos campos después: no están identificados sus lectores.
+- **Resolución de los dos casos especiales de `stSPEngineCb` (`ctx[2] == 0xA4` y `0xC2`, slots 164 y 194 = `R1AmpEnvR` y `R2AmpEnvR`)**:
+  - **Lectores de `params+0x0C` y `params+0x10`**: Se ha completado el análisis estático de referencias cruzadas y la sonda dinámica en caliente (`neuron_golden --mirror`). Aunque `FUN_100343e4` (`CSilverRack::UpdateParams`) copia esos dos offsets hacia el sub-objeto de Silver, **ninguna rutina DSP ni proceso de audio los lee jamás**. Son campos espejo inertes (*dead mirrors*), sin influencia alguna en el renderizado de audio.
+  - **Constante `0x10049f00` (`0x3FA42850A142850A`)**: Se ha aclarado su origen físico: es exactamente `1.0 / 25.4` ($\approx 0.03937007874$), que representa 1 milímetro expresado en pulgadas. En los registros 21 y 32 de `snddat`, las cotas de relajación de envolvente se miden en milímetros y se convierten a pulgadas al guardarse en `p[164]` y `p[194]`. La condición verifica si el valor actual supera el umbral físico de 1 mm.
+  - **Régimen de calentamiento de `NeuronVS.dll`**: La DLL original altera su régimen interno entre la 3ª y la 4ª carga de preset (las primeras 3 cargas renderizan bit-idéntico, pero a partir de la 4ª sufren un desplazamiento de $\sim 0.267$ por acumulación de estado estático). En cualquier test de audio diferencial automatizado, deben descartarse los primeros 4 renders como calentamiento (*warm-up*).
 - `ctx[2]` como «slot» y `ctx[3]` como «mod_dest_idx» ya no es sólo una lectura que
   encaje: el arnés lo comprueba en la rejilla cargada (63/63 contextos con su slot, su
   destino y su callback), pero sigue sin ser una prueba de tipos del compilador.  Además,

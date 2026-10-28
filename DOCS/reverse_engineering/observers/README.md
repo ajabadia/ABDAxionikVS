@@ -20,8 +20,9 @@ recuperar**, con su propio verificador contra el binario.
 | Rejilla de slots | `params+0x2B0+s*0x18`, una fila por slot (las de `0x280`/`0x298` son los preliminares) |
 | Comprobaciones del verificador (PE) | **40** (`K1`: 662/662 límites, `K2`: 4 blancos de `0x280`, `K3`: `400/480` en `0x298`) |
 | Comprobaciones de la matriz en el port (`verify_mod_matrix.py`) | **23** (incluyendo `W6` runtime probe + `GoldenParityTest --matrix` 63/63 en `ABDAxionikVS`) |
-| Comprobaciones en caliente (`--matrix` DLL) | 15, sobre 351 presets (235 líneas de arnés en el log) |
-| Destinos que el write `-1` desengancha en caliente | 0 o 1 por corrida (depende del heap) |
+| Comprobaciones en caliente (`--matrix` DLL) | **15/15** (`V1`–`V10`), sobre 351 presets (6237 líneas de arnés en el log) |
+| Slots de modulación verificados bit a bit | **21 411 slots** (61/63 por preset × 351 presets en pasada M6) |
+| Destinos que el write `-1` desengancha en caliente | 0 o 1 por corrida en DLL (depende del heap; en port fijo dest 0) |
 
 ## Contenido
 
@@ -36,7 +37,7 @@ recuperar**, con su propio verificador contra el binario.
 - [`tools/dump_callbacks.py`](tools/dump_callbacks.py) — regenera `functions/`.
 - [`matrix_runtime.log`](matrix_runtime.log) + [`tools/verify_matrix.py`](tools/verify_matrix.py)
   — la matriz movida de verdad contra el DLL (`neuron_golden --matrix`, comprobaciones
-  `M1`–`M5` y `M1b`) y su verificador (`V1`–`V8`).
+  `M1`–`M6` y `M1b`) y su verificador (`V1`–`V10`).
 
 ## Qué es un observador
 

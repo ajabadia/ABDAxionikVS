@@ -26,6 +26,7 @@ su README y su `tools/verify_*.py`.
 | [`NeuronVS_compare_presets/`](NeuronVS_compare_presets/README.md) | comparación de presets del host contra el fichero | — |
 | [`NeuronVS_port/`](NeuronVS_port/README.md) | esqueleto C++ del port (sin JUCE todavía) y oráculo golden | `tools/verify_scaffold.py`, `verify_golden.py` |
 | [`Neuron80GB-OS15/`](Neuron80GB-OS15/README.md) | la base instalada de 80 GB: modelos, nombres, slots | `tools/verify_tib_models.py` |
+| [`SYSEX.md`](SYSEX.md) | Protocolo SysEx oficial Hartmann (`0x00 0x20 0x50`), presets y layout `CSilverRack` `e[0xD95]` | — |
 
 ## Lo que está establecido
 
@@ -127,8 +128,7 @@ Saldo completo de preguntas cerradas y abiertas: [`observers/HANDOFF.md`](observ
 
 ## Abierto
 
-- **¿El render lee `params` en caliente?** Está descartado que llame a su código;
-  falta la prueba con centinela sobre `+0x278C`.
+- **¿El render lee `params` en caliente?** **Resuelto**: el render lee exclusivamente los valores efectivos en `p[]` (`+0x278C`). La sonda en caliente (`neuron_golden --mirror`) y la auditoría de referencias cruzadas confirmaron que los campos espejo `params+0x0C` y `params+0x10` (escritos por `stSPEngineCb` en los slots 164 y 194) nunca son leídos por ninguna función de síntesis ni proceso de audio (*dead mirrors*). La constante `0x10049f00` que compara `p[slot]` es `1.0 / 25.4` (umbral físico de 1 mm para cotas de envolvente en pulgadas).
 - **Quién llena los slots sin enganche**: el mecanismo ya está resuelto (el
   callback del observador escribe `base[dest]`, `FUN_100134E0` los seis routeados y
   el destino caído escribe `p[slot]` a pelo), pero de los 340 dwords de `+0x278C`
