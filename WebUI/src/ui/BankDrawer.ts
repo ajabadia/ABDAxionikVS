@@ -147,11 +147,9 @@ export class BankDrawer {
         { id: 'folder', label: 'Folder', title: 'Configure NeuronDB Library Folder', iconHtml: ICONS.folder },
         { id: 'close', label: 'Close', title: 'Close Drawer (Esc)', iconHtml: ICONS.close },
       ],
-      footerActions: [
-        { id: 'refresh', label: 'Refresh', title: 'Refresh & re-index library metadata', kind: 'outline' },
-        { id: 'folder', label: 'Folder...', kind: 'primary' },
-        { id: 'close', label: 'Close' },
-      ],
+      // No footer actions: the header already serves Refresh/Folder/Close.
+      // The footer keeps the slot + status line (folder summary, refresh
+      // record, selection) with no duplicated buttons.
       onTabChange: (tab) => {
         this.setTab(tab as 'models' | 'presets');
       },
@@ -483,9 +481,9 @@ export class BankDrawer {
     }
 
     const items: BankChipItem[] = [{ id: 'all', label: 'All', count: this.currentBank.models.length }];
+    // All ten sets always: same pill row whatever the folder contains.
     for (let i = 0; i <= 9; i++) {
       const count = counts[i] || 0;
-      if (count === 0 && this.currentBank.models.length > 0) continue;
       const ps = PARAMETER_SETS[i];
       const catName = ps ? ps.name : `Set ${i}`;
       items.push({
@@ -622,10 +620,13 @@ export class BankDrawer {
     );
 
     if (filtered.length === 0) {
+      const emptyMsg = this.filterQuery
+        ? `No models found matching "${this.filterQuery}"`
+        : 'No models in this category yet';
       container.innerHTML = `
         <div class="neurondb-empty-state" style="text-align: center; padding: var(--space-6); color: var(--color-text-dim);">
           <span class="empty-icon">${ICONS.database}</span>
-          <span class="empty-msg">No models found matching "${this.filterQuery}"</span>
+          <span class="empty-msg">${emptyMsg}</span>
         </div>
       `;
       return;
