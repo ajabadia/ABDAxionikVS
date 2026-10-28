@@ -115,10 +115,65 @@ int main() {
                   << " (active voices: " << telemetry.activeVoices << ")\n";
     }
 
+    // Test 6: Silver 4-Band EQ response verification (A/B Cut vs Boost)
+    {
+        engine.reset();
+        engine.setParam(ParamIdx::SilverSwitch, 1.0f);
+        engine.setParam(ParamIdx::FreqFXSwitch, 1.0f);
+        engine.setParam(ParamIdx::CurFreqFX, 0.0f); // 0 = EQ 4-Band & Compressor
+        engine.setParam(ParamIdx::EQ_Switch, 1.0f);
+        engine.setParam(ParamIdx::EQ_LowShelfSwitch, 1.0f);
+        engine.setParam(ParamIdx::EQ_LowShelfFreq, 100.0f); // Shelf around ~500 Hz
+        engine.setParam(ParamIdx::EQ_LowShelfSlope, 50.0f);
+
+        auto measureRms = [&](float gainDb) -> float {
+            engine.reset();
+            engine.setParam(ParamIdx::EQ_LowShelfGain, gainDb);
+            engine.noteOn(36, 0.9f); // C2 low note (65.4 Hz)
+            std::vector<float> left(512, 0.0f);
+            std::vector<float> right(512, 0.0f);
+
+            // Warmup envelope
+            for (int b = 0; b < 5; ++b) {
+                engine.process(left.data(), right.data(), 512);
+            }
+
+            // Accumulate energy
+            double sumSq = 0.0;
+            size_t totalSamples = 0;
+            for (int b = 0; b < 10; ++b) {
+                engine.process(left.data(), right.data(), 512);
+                for (size_t i = 0; i < 512; ++i) {
+                    sumSq += left[i] * left[i] + right[i] * right[i];
+                    totalSamples += 2;
+                }
+            }
+            engine.allNotesOff();
+            return static_cast<float>(std::sqrt(sumSq / totalSamples));
+        };
+
+        float rmsCut = measureRms(-48.0f);   // -12 dB shelf cut
+        float rmsBoost = measureRms(+48.0f); // +12 dB shelf boost
+
+        if (rmsCut <= 0.0f || rmsBoost <= 0.0f) {
+            std::cerr << "[FAIL] Test 6: EQ produced zero signal (rmsCut=" << rmsCut << ", rmsBoost=" << rmsBoost << ")\n";
+            return 6;
+        }
+
+        if (rmsBoost <= rmsCut * 1.5f) {
+            std::cerr << "[FAIL] Test 6: Boost did not significantly increase energy over Cut! rmsCut="
+                      << rmsCut << ", rmsBoost=" << rmsBoost << "\n";
+            return 6;
+        }
+
+        std::cout << "  [PASS] Test 6: Silver 4-Band EQ response verified (Cut RMS: "
+                  << rmsCut << " vs Boost RMS: " << rmsBoost << ", ratio: " << (rmsBoost / rmsCut) << "x)\n";
+    }
+
     // Release all notes
     engine.allNotesOff();
     engine.reset();
 
-    std::cout << "[DspEngineFacadeTests] All 5 tests passed successfully!\n";
+    std::cout << "[DspEngineFacadeTests] All 6 tests passed successfully!\n";
     return 0;
 }

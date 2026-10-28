@@ -319,10 +319,10 @@ DspEngineFacade::RenderBlockParams DspEngineFacade::updateSilverAndMasterFx(cons
     if (freqFxAlgo == 0) { // EQ 4-Band & Compressor
         silver.getFreqFX().setEQParams(
             store_.getRawValue(EQ_Switch) > 0.5f,
-            store_.getRawValue(EQ_LowShelfSwitch) > 0.5f, store_.getRawValue(EQ_LowShelfFreq), store_.getNormalizedValue(EQ_LowShelfGain), store_.getNormalizedValue(EQ_LowShelfSlope),
-            store_.getRawValue(EQ_Band1Switch) > 0.5f, store_.getRawValue(EQ_Band1Freq), store_.getNormalizedValue(EQ_Band1Gain), store_.getNormalizedValue(EQ_Band1Q),
-            store_.getRawValue(EQ_Band2Switch) > 0.5f, store_.getRawValue(EQ_Band2Freq), store_.getNormalizedValue(EQ_Band2Gain), store_.getNormalizedValue(EQ_Band2Q),
-            store_.getRawValue(EQ_HighShelfSwitch) > 0.5f, store_.getRawValue(EQ_HighShelfFreq), store_.getNormalizedValue(EQ_HighShelfGain), store_.getNormalizedValue(EQ_HighShelfSlope)
+            store_.getRawValue(EQ_LowShelfSwitch) > 0.5f, store_.getRawValue(EQ_LowShelfGain), store_.getNormalizedValue(EQ_LowShelfFreq), store_.getNormalizedValue(EQ_LowShelfSlope),
+            store_.getRawValue(EQ_Band1Switch) > 0.5f, store_.getRawValue(EQ_Band1Gain), store_.getNormalizedValue(EQ_Band1Freq), store_.getNormalizedValue(EQ_Band1Q),
+            store_.getRawValue(EQ_Band2Switch) > 0.5f, store_.getRawValue(EQ_Band2Gain), store_.getNormalizedValue(EQ_Band2Freq), store_.getNormalizedValue(EQ_Band2Q),
+            store_.getRawValue(EQ_HighShelfSwitch) > 0.5f, store_.getRawValue(EQ_HighShelfGain), store_.getNormalizedValue(EQ_HighShelfFreq), store_.getNormalizedValue(EQ_HighShelfSlope)
         );
         silver.getFreqFX().setCompressorParams(
             store_.getRawValue(CR_Switch) > 0.5f,
