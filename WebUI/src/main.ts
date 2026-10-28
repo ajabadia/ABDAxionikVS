@@ -104,8 +104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div id="silver-mount" class="col-span-2"></div>
       </div>
 
-      <!-- Barra Central Recuperada: Blender, Slicer, Filter, Silver FX -->
-      <section class="synth-panel-card central-controls-bar" style="margin: 4px 0; padding: var(--space-2) var(--space-3); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <!-- Barra Central: Blender & Filter -->
+      <section class="synth-panel-card central-controls-bar" style="margin: 4px 0; padding: var(--space-2) var(--space-3); display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;">
         <!-- Blender -->
         <div style="display: flex; align-items: center; gap: var(--space-2);">
           <span class="panel-badge">BLENDER</span>
@@ -120,6 +120,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           <button type="button" class="btn btn-xs btn-outline" id="btn-edit-blender" title="Expanded Blender & Slicer [261..270]">Edit</button>
         </div>
 
+        <!-- Separador vertical discreto -->
+        <div style="width: 1px; height: 18px; background: var(--color-panel-border-dim, rgba(255,255,255,0.1));"></div>
 
         <!-- Filter -->
         <div style="display: flex; align-items: center; gap: var(--space-2);">
@@ -134,14 +136,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             <input type="range" id="filter-reso-slider" class="abd-slider" min="0" max="127" value="25" step="1" style="width: 55px;" />
             <span class="hud-value stat-num" id="filter-reso-val">0.20</span>
           </div>
-        </div>
-
-        <!-- Silver FX -->
-        <div style="display: flex; align-items: center; gap: var(--space-2);">
-          <span class="panel-badge">SILVER FX</span>
-          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-freqfx-bar" title="Change Frequency Effect">FREQ: <strong id="cur-freq-fx-val-bar">RingMod</strong></button>
-          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-timefx-bar" title="Change Time Effect">TIME: <strong id="cur-time-fx-val-bar">Chorus</strong></button>
-          <button type="button" class="btn btn-xs btn-primary" id="btn-edit-silver-bar" title="Expanded Silver & Master FX Rack">Edit Rack</button>
         </div>
       </section>
 
@@ -538,27 +532,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     silverPanel?.updateSilver(ParamIdx.FilterReso);
   });
 
-  document.getElementById('btn-edit-silver-bar')?.addEventListener('click', openSilverDrawer);
-
-  const btnCycleFreqBar = document.getElementById('btn-cycle-freqfx-bar');
-  const curFreqValBar = document.getElementById('cur-freq-fx-val-bar');
-  btnCycleFreqBar?.addEventListener('click', () => {
-    const cur = Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 2));
-    const next = (cur + 1) % FREQ_ALGO_NAMES.length;
-    WebBridge.setParam(ParamIdx.CurFreqFX, next);
-    if (curFreqValBar) curFreqValBar.textContent = FREQ_ALGO_NAMES[next];
-    silverPanel?.updateFreqAlgo(FREQ_ALGO_NAMES[next]);
-  });
-
-  const btnCycleTimeBar = document.getElementById('btn-cycle-timefx-bar');
-  const curTimeValBar = document.getElementById('cur-time-fx-val-bar');
-  btnCycleTimeBar?.addEventListener('click', () => {
-    const cur = Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 4));
-    const next = (cur + 1) % TIME_ALGO_NAMES.length;
-    WebBridge.setParam(ParamIdx.CurTimeFX, next);
-    if (curTimeValBar) curTimeValBar.textContent = TIME_ALGO_NAMES[next];
-    silverPanel?.updateTimeAlgo(TIME_ALGO_NAMES[next]);
-  });
 
   const applyAllParamsToUI = (values: number[]) => {
     if (!Array.isArray(values) || values.length === 0) return;
@@ -627,10 +600,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Silver FX (los readouts ahora viven en SilverPanel, igual que en PARAM_UPDATE)
     const freqAlgo = Math.max(0, Math.min(FREQ_ALGO_NAMES.length - 1, Math.round(values[ParamIdx.CurFreqFX] ?? 2)));
-    silverPanel?.updateFreqAlgo(FREQ_ALGO_NAMES[freqAlgo]);
+    silverPanel?.updateFreqAlgoUi(freqAlgo);
 
     const timeAlgo = Math.max(0, Math.min(TIME_ALGO_NAMES.length - 1, Math.round(values[ParamIdx.CurTimeFX] ?? 1)));
-    silverPanel?.updateTimeAlgo(TIME_ALGO_NAMES[timeAlgo]);
+    silverPanel?.updateTimeAlgoUi(timeAlgo);
 
     // Sticks 2D Positions:
     if (r1ScapeStick) {
@@ -869,12 +842,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
     freqFx: {
       setIdx: (v) => {
-        silverPanel?.updateFreqAlgo(FREQ_ALGO_NAMES[v]);
+        silverPanel?.updateFreqAlgoUi(v);
       },
     },
     timeFx: {
       setIdx: (v) => {
-        silverPanel?.updateTimeAlgo(TIME_ALGO_NAMES[v]);
+        silverPanel?.updateTimeAlgoUi(v);
       },
     },
     shapersPanel,

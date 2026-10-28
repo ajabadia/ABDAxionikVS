@@ -287,20 +287,6 @@ export class SilverPanel {
     });
   }
 
-  public updateFreqAlgo(name: string): void {
-    const idx = FREQ_ALGO_NAMES.indexOf(name);
-    if (idx !== -1) {
-      this.updateFreqAlgoUi(idx);
-    }
-  }
-
-  public updateTimeAlgo(name: string): void {
-    const idx = TIME_ALGO_NAMES.indexOf(name);
-    if (idx !== -1) {
-      this.updateTimeAlgoUi(idx);
-    }
-  }
-
   private dispatchSilverStick(coord: StickCoordinate, layerIdx: number): void {
     if (layerIdx === 0) {
       // Filter Cutoff [274] & Resonance [275]
