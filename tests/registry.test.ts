@@ -33,4 +33,35 @@ describe('ABDAxionikVS Parameter Registry & Contracts', () => {
     expect(Object.keys(PARAMETER_SETS.scape).length).toBe(10);
     expect(Object.keys(PARAMETER_SETS.sphere).length).toBe(10);
   });
+
+  it('debe realizar conversiones bidireccionales round-trip exactas en valores frontera (min, max, default)', async () => {
+    const { rawToNormalized, normalizedToRaw } = await import('../WebUI/src/utils/conversion.js');
+
+    for (const def of PARAM_DEFINITIONS) {
+      // 1. Min boundary
+      const normMin = rawToNormalized(def, def.min);
+      expect(normMin).toBeCloseTo(0.0, 5);
+      const rawMinRound = normalizedToRaw(def, normMin);
+      expect(rawMinRound).toBeCloseTo(def.min, 4);
+
+      // 2. Max boundary
+      const normMax = rawToNormalized(def, def.max);
+      expect(normMax).toBeCloseTo(1.0, 5);
+      const rawMaxRound = normalizedToRaw(def, normMax);
+      expect(rawMaxRound).toBeCloseTo(def.max, 4);
+
+      // 3. Default value
+      const normDef = rawToNormalized(def, def.default);
+      expect(normDef).toBeGreaterThanOrEqual(0.0);
+      expect(normDef).toBeLessThanOrEqual(1.0);
+      const rawDefRound = normalizedToRaw(def, normDef);
+      expect(rawDefRound).toBeCloseTo(def.default, 4);
+
+      // 4. Clamping outside boundaries
+      expect(rawToNormalized(def, def.min - 1000)).toBeCloseTo(0.0, 5);
+      expect(rawToNormalized(def, def.max + 1000)).toBeCloseTo(1.0, 5);
+      expect(normalizedToRaw(def, -0.5)).toBeCloseTo(def.min, 4);
+      expect(normalizedToRaw(def, 1.5)).toBeCloseTo(def.max, 4);
+    }
+  });
 });

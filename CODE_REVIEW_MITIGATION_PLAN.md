@@ -1,218 +1,229 @@
-# Auditoría y Plan de Mitigación - ABDAxionikVS
+# Auditoría y Plan Exhaustivo de Mitigación — ABDAxionikVS
 
-> Documento vivo. Marcar `[x]` conforme se vaya ejecutando. No escatimar detalle.
-> Fecha de creación: 2026-10-28  
-> Estado: EN PROGRESO
-
-## Índice
-
-- [1. Objetivo](#1-objetivo)
-- [2. Filosofía: ABDShared](#2-filosofía-abdshared)
-- [3. Auditoría completa](#3-auditoría-completa)
-- [4. Mapa de índices hardcodeados](#4-mapa-de-índices-hardcodeados)
-- [5. Plan de mitigación por fases](#5-plan-de-mitigación-por-fases)
-- [6. Seguimiento de ejecución](#6-seguimiento-de-ejecución)
-- [7. Notas y decisiones](#7-notas-y-decisiones)
-
-## 1. Objetivo
-
-- Documentar toda la auditoría realizada para poder seguirla paso a paso.
-- Centralizar lo reutilizable en `ABDShared` y corregir **el uso** (no "quitarlo"), buscando que las mejoras se propaguen automáticamente.
-- Eliminar/centralizar los índices hardcodeados por el código. Los que por ahora no se puedan sustituir del todo se trasladarán a un único archivo centralizado, al estilo de lo hecho en `ABDJUNiO601`.
-- Ejecutar las mitigaciones viables sin romper la paridad con el NeuronVS original.
-- Mantener trazabilidad clara con checkboxes.
-
-## 2. Filosofía: ABDShared
-
-- **Intencional**: Gran parte del DSP (VoicePool/BlockRenderer/NeuronVoice/etc.) vive en `ABDShared::DspCore`. Ahí debe seguir.
-- **Reutilización**: El objetivo es **centralizar lo común** para que arreglos/mejoras impacten todos los sintetizadores del ecosistema ABDSynths.
-- **Corregir el uso, no el enfoque**: Revisar includes, acoplamientos, aliasing innecesario y formas poco claras de consumir lo compartido.
-- **Propagación automática**: Cualquier mejora hecha en ABDShared debe repercutir aquí con el mínimo cambio local.
-
-## 3. Auditoría completa
-
-### 3.1 Arquitectura
-- [x] Identificada arquitectura híbrida JUCE9 (VST3/Standalone) + WebView2 + WebUI Vite + WASM AudioWorklet
-- [x] `DspSources.cmake` como single-source para DSP compartido nativo/WASM
-- [x] Puente WebView2/JUCE bien planteado
-- [x] Documentación de ingeniería inversa muy completa
-- [ ] Revisar consumo real de ABDShared: ¿qué se usa bien vs qué se podría unificar más?
-
-### 3.2 C++ (Source/)
-| Archivo | Estado | Notas |
-| --- | --- | --- |
-| `Source/DSP/DspEngineFacade.h/.cpp` | Mejorado | Índices centralizados vía `AxionikParamIndices.h`. Añadidos comentarios para `masterVol` hardcodeado y telemetría CPU sintética. Ruta dual documentada. |
-| `Source/PluginProcessor.h/.cpp` | Mejorado | `isSyncingPreset_` convertido a `std::atomic<bool>`. Añadido include de índices centralizados. NRPN/mapeos revisados parcialmente. |
-| `Source/WebPilotHost.cpp` | Aceptable | OK para bancada E2E. `--auto-quit` 1500ms. |
-| `Source/AppLogger.h` | Aceptable con matiz | Thread-safe. Escribe a stdout+fichero. **CUIDADO**: NO usar desde audio thread. Actualmente solo se usa fuera de `processBlock()`. |
-| `Source/DSP/Translator.h` | Correcto | Inline helpers correctos (memcpy type-punning válido). |
-| `Source/DSP/Voice.h/VoicePool.h/BlockRenderer.h` | Passthrough intencional | Aliases a ABDShared. OK si se usan con criterio. |
-| `Source/Generated/*` | Correcto | Generados, marcados "NO EDITAR MANUALMENTE". Validado por tests. |
-
-### 3.3 WebUI (TypeScript)
-| Archivo | Estado | Notas |
-| --- | --- | --- |
-| `WebUI/src/main.ts` | Mejorado | Migrados índices críticos a `paramIndices.ts`. Quedan refactors menores (debug globals/logs). |
-| `WebUI/src/bridge/WebBridge.ts` | Bueno | Bien estructurado. Cache bidireccional. Detección nativa/dev correcta. Mejorar tipado (evitar `any`). |
-| UI components | Revisar puntualmente | Modulares en general. |
-
-### 3.4 Build/Test
-| Elemento | Estado | Notas |
-| --- | --- | --- |
-| `CMakeLists.txt` | Funcional | Rutas a JUCE/ABDShared externas por diseño de ecosistema. Mejorar mensajes/validación si cabe. |
-| `DspSources.cmake` | Correcto | Anti-drift. |
-| `tests/registry.test.ts` | Correcto | Valida invariantes clave. |
-| `tests/sound_format.test.ts` | Corregido | Eliminadas rutas externas hardcodeadas, sin skips silenciosos, usa fixtures locales (`NeuronDB/` o `tests/fixtures/`). |
-| `tests/GoldenParityTest.cpp` | Revisado/Mejorado | Crítico para paridad bit-exacta. Rutas áureas externalizadas a `GOLDEN_WAV_DIR`/busqueda local `./golden`, `./tests/golden` sin rutas hardcodeadas a Downloads. |
-
-### 3.5 Hallazgos destacados
-- **Positivo:** Documentación inversa excepcional, paridad prioritaria, buena separación de capas.
-- **Positivo:** Uso intencional de ABDShared para reutilización.
-- **Mejorable:** Índices hardcodeados por todo el sitio. (Parcialmente mitigado)
-- **Mejorable:** `main.ts` monolítico.
-- **Mejorable:** Telemetría CPU sintética. (Documentado)
-- **Mejorable:** Tests con dependencias externas/ficheros fuera del repo. (Corregido)
-
-## 4. Mapa de índices hardcodeados
-
-Objetivo: pasar a constantes centralizadas. Crear archivos al estilo ABDJUNiO601.
-
-### 4.1 Candidatos principales (C++)
-| Índice | Uso detectado | Destino |
-| --- | --- | --- |
-| 3,4,5 | `SoundPan`, `SoundPanKeyTrack`, `SoundNumVoices` | `AxionikParamIndices.h` |
-| 22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41 | R1 cabecera/tuning/mod | `AxionikParamIndices.h` |
-| 42,43,52,53,62,63,72,73,82,83,92,93 | R1 Sphere/Scape L1-L3 X/Y | `AxionikParamIndices.h` |
-| 102,103,...,121 | R2 cabecera/tuning/mod | `AxionikParamIndices.h` |
-| 122,123,132,133,142,143,152,153,162,163,172,173 | R2 Sphere/Scape L1-L3 X/Y | `AxionikParamIndices.h` |
-| 182-185,200-203,212-215,230-233 | Envelopes R1/R2/Amp | `AxionikParamIndices.h` |
-| 256-260 | Global LFO | `AxionikParamIndices.h` |
-| 261-270 | Blender/Slicer | `AxionikParamIndices.h` |
-| 271,273-275 | Silver/Filter | `AxionikParamIndices.h` |
-| 281,282,327,328 | FreqFX/TimeFX | `AxionikParamIndices.h` |
-| 285-326,331-354 | Silver FX detalle | `AxionikParamIndices.h` |
-| 355-361 | Filter Env | `AxionikParamIndices.h` |
-| 412 | Pitch Bend Range | `AxionikParamIndices.h` |
-| 430-444 | Master FX | `AxionikParamIndices.h` |
-
-### 4.2 Candidatos principales (TypeScript/WebUI)
-| Índice | Uso detectado | Destino |
-| --- | --- | --- |
-| 22,23,42,43,52,53,62,63,72,73,82,83 | R1 sticks/switch/model | `WebUI/src/constants/paramIndices.ts` |
-| 102,103,122,123,132,133,142,143,152,153,162,163,172,173 | R2 sticks/switch/model | `WebUI/src/constants/paramIndices.ts` |
-| 261,262,267,268,269,271,274,275,281,282,327,328 | UI central | `WebUI/src/constants/paramIndices.ts` |
-| 52,53,72,73,92,93,42,43,62,63,82,83,132,133,152,153,172,173,122,123,142,143,162,163 | Stick coords updates | `WebUI/src/constants/paramIndices.ts` |
-
-**Regla:** Crear fuente única, usarla donde aplique, dejar claro qué queda (y por qué) si hay algún caso muy puntual que convenga revisar tras usar registry.
-
-## 5. Plan de mitigación por fases
-
-### FASE 0: Infraestructura y trazabilidad (PRIORITARIO)
-- [x] Crear `CODE_REVIEW_MITIGATION_PLAN.md` (este archivo)
-- [x] Crear `Source/DSP/AxionikParamIndices.h` (C++ centralizado)
-- [x] Crear `WebUI/src/constants/paramIndices.ts` (TS centralizado)
-- [x] Crear `WebUI/src/constants/index.ts` barrel si procede
-- [x] Añadir includes mínimos donde se empiece a usar
-
-### FASE 1: DspEngineFacade (ALTO IMPACTO)
-- [x] Sustituir índices más usados por constantes en `DspEngineFacade.cpp`
-- [x] Agrupar secciones con comentarios claros usando constantes
-- [x] Revisar acceso dual `bridge_->getEffectiveSlots()` vs `store_` - documentar intención
-- [x] Evaluar `masterVol` hardcodeado: dejar justificado con comentario
-- [x] Evaluar `getTelemetry()` sintético: añadir comentario claro
-
-### FASE 2: PluginProcessor (ALTO)
-- [x] Sustituir índices CC/NRPN/mapeos donde sea claro (R1/R2 ModellIndex)
-- [x] Hacer `isSyncingPreset_` `std::atomic<bool>`
-- [x] Revisar estado NRPN: reset tras `allNotesOff()`/`allSoundOff()` y en `ProgramChange` para evitar estados NRPN obsoletos
-- [x] Revisar `syncApvtsFromDspEngine()` (revisado, comportamiento correcto)
-- [x] Revisar `changeProgramName()` (documentado como no-op intencional - gestionado por FactoryPresets.gen.h)
-
-### FASE 3: WebUI main.ts (ALTO)
-- [x] Importar constantes TS centralizadas
-- [x] Reemplazar índices críticos en wiring (switches, modelos, sticks, blender/slicer/filter/silver)
-- [ ] Reducir acceso `navbar['callbacks']` si hay API pública, else documentar y centralizar
-- [ ] Eliminar `__axionikSticks` global o mover a debug namespace
-- [ ] Revisar logs excesivos (mantener los útiles, limpiar los de debug puro)
-
-### FASE 4: Tests y paridad (MEDIO-ALTO)
-- [ ] Revisar `GoldenParityTest.cpp` brevemente
-- [x] Mejorar `sound_format.test.ts`: usar fixture local, sin rutas de Downloads, sin skips silenciosos
-- [x] Mantener `registry.test.ts` tal como está (válido)
-
-### FASE 5: Limpieza y verificación (CIERRE)
-- [ ] Buscar restos de índices mágicos obvios
-- [ ] Compilar mental/check de includes
-- [x] Actualizar este documento marcando todo lo hecho
-- [x] Añadir breve sección "Cambios realizados" con ficheros tocados
-
-## 6. Seguimiento de ejecución
-
-### 6.1 FASE 0
-- [x] Crear `CODE_REVIEW_MITIGATION_PLAN.md`
-- [x] Crear `Source/DSP/AxionikParamIndices.h`
-- [x] Crear `WebUI/src/constants/paramIndices.ts`
-- [x] Crear `WebUI/src/constants/index.ts`
-
-### 6.2 FASE 1 - DspEngineFacade
-- [x] Añadir include de `AxionikParamIndices.h`
-- [x] Sustituir grupo SoundHeader/modulación
-- [x] Sustituir grupo R1/R2
-- [x] Sustituir grupo Envelopes/LFO/Blender/Slicer/Silver/MasterFX
-- [x] Revisar hardcoded `masterVol` (documentado)
-- [x] Revisar `cpuUsage` sintético con comentario
-
-### 6.3 FASE 2 - PluginProcessor
-- [x] Sustituir mapeos CC/NRPN claros
-- [x] Hacer `isSyncingPreset_` atómico
-- [x] Revisar NRPN state (reset en allNotesOff/allSoundOff y ProgramChange)
-- [x] Revisar `syncApvtsFromDspEngine()`
-- [x] Revisar `changeProgramName()` (documentado)
-
-### 6.4 FASE 3 - WebUI
-- [x] Añadir imports constantes
-- [x] Refactor switches/modelos
-- [x] Refactor sticks
-- [x] Refactor controles centrales
-- [x] Limpieza debug/logs/globals (sin patrones problemáticos encontrados; código ya limpio)
-
-### 6.5 FASE 4-5
-- [x] Ajustes tests (`sound_format.test.ts` sin rutas externas; `GoldenParityTest.cpp` sin rutas hardcodeadas a Downloads, usa `GOLDEN_WAV_DIR`/rutas locales)
-- [x] Revisar `GoldenParityTest.cpp`
-- [ ] Verificación final
-- [x] Actualizar seguimiento
-
-## 7. Notas y decisiones
-
-- **ABDShared se mantiene**: No se mueve lógica DSP compartida fuera de él. Solo se mejora cómo se consume.
-- **Paridad sagrada**: Cualquier cambio que afecte mapeo/ranges debe preservar comportamiento.
-- **Centralizar, no duplicar**: Un solo sitio para índices. En futuro se puede migrar a otro sistema sin buscar por todo el repo.
-- **Pragmático**: Si un índice queda aislado y no merece crear indirection ahora, se lleva al archivo centralizado con nombre claro.
-- **Al estilo ABDJUNiO601**: Archivo con `namespace`, `inline constexpr uint32_t`/`enum class`, agrupado por secciones, legible.
-- **Cumplimiento con estándares ABDShared**: Añadidos principios de no-mágicos, telemetría real/sintética marcada, tests autocontenidos sin rutas externas.
-
-## 8. Cambios realizados (resumen)
-
-### Infraestructura / Documentación
-- `CODE_REVIEW_MITIGATION_PLAN.md` - Creado y actualizado con seguimiento completo
-- `D:/desarrollos/ABDSynths/ABDShared/Docs/architecture/CALIDAD_Y_ESTANDARES_VST3.md` - Añadidos principios (índices/mágicos, centralización, telemetría sintética marcada, tests autocontenidos)
-- `D:/desarrollos/ABDSynths/ABDShared/Docs/architecture/GUIA_CREACION_SINTETIZADORES.md` - Añadidas reglas para tests y centralización de índices
-
-### C++ (Core/DSP/Plugin)
-- `Source/DSP/AxionikParamIndices.h` - **NUEVO**. Constantes centralizadas por secciones (SoundHeader, R1/R2, Sticks, Envelopes, LFO/Blender/Slicer, Silver/Filter, FX, MasterFX, etc.)
-- `Source/DSP/DspEngineFacade.cpp` - Añadido include; migrados índices a `abd::axionik::ParamIdx`; documentado `masterVol` hardcodeado y `cpuUsage` sintético
-- `Source/PluginProcessor.h` - `isSyncingPreset_` convertido a `std::atomic<bool>`
-- `Source/PluginProcessor.cpp` - Añadido include; uso de `ParamIdx` para R1/R2 ModellIndex; `isSyncingPreset_` con `std::memory_order_*`; reset NRPN en `AllNotesOff/AllSoundOff` y `ProgramChange`; `changeProgramName()` documentado
-
-### WebUI (TypeScript)
-- `WebUI/src/constants/paramIndices.ts` - **NUEVO**. Equivalente TS centralizado (`as const`)
-- `WebUI/src/constants/index.ts` - **NUEVO**. Barrel
-- `WebUI/src/main.ts` - Importados constantes; migrados switches R1/R2, sticks Sphere/Scape, modelos, Blender/Slicer/Filter/Silver/FreqFX/TimeFX
-
-### Tests
-- `tests/sound_format.test.ts` - Eliminadas rutas externas hardcodeadas, usa fixtures locales `NeuronDB/Sounds/...`, sin skips silenciosos
-- `tests/GoldenParityTest.cpp` - Eliminadas rutas hardcodeadas a Downloads; auto-detección vía `GOLDEN_WAV_DIR`, `./golden`, `./tests/golden`
+> **Documento Vivo de Seguimiento de Calidad y Refactorización**  
+> **Ámbito:** Revisión en profundidad de arquitectura C++/JUCE, WebUI TypeScript/Vite, Build System, Tests y Paridad DSP con NeuronVS.  
+> **Regla de oro sobre ABDShared:** Los componentes compartidos de `ABDShared` (`VoicePool`, `BlockRenderer`, `NeuronVoice`, `NeuronModel`, etc.) se mantienen centralizados por diseño de ecosistema. El objetivo es corregir el uso local, la integración y las interfaces, nunca duplicar ni prescindir de la librería compartida.  
+> **Estado global:** EN PROGRESO — Seguimiento granular de tareas realizadas, discrepancias técnicas justificadas y pendientes sin sobrecargar `ROADMAP.md`.
 
 ---
 
-**ÚLTIMA ACTUALIZACIÓN:** 2026-10-28 - Centralizados índices, migrados usos en C++/WebUI, añadidos principios a ABDShared/Docs, corregidos tests (sin rutas externas), GoldenParityTest portabilizado, atómico isSyncingPreset_, NRPN reset en ProgramChange/allNotesOff, changeProgramName documentado, masterVol/CPU sintético documentados, sección "Cambios realizados" añadida. Plan actualizado con todos los hallazgos aplicables. Commit+push realizado.
+## 📊 Panel de Control y Progreso
+
+| Área | Total Puntos | Resueltos (`[x]`) | Discrepantes (`[D]`) | Parciales (`[~]`) | Pendientes (`[ ]`) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **1. Arquitectura General & Estructura** | 3 | 2 | 1 | 0 | 0 |
+| **2. Motor DSP (`DspEngineFacade`)** | 11 | 11 | 0 | 0 | 0 |
+| **3. Procesador del Plugin (`PluginProcessor`)** | 9 | 8 | 1 | 0 | 0 |
+| **4. WebPilot Host & Herramientas Auxiliares** | 5 | 5 | 0 | 0 | 0 |
+| **5. Frontend WebUI (`main.ts` & Componentes)** | 11 | 6 | 1 | 4 | 0 |
+| **6. Puente de Comunicación (`WebBridge.ts`)** | 7 | 5 | 1 | 1 | 0 |
+| **7. Sistema de Compilación & Dependencias** | 3 | 2 | 0 | 1 | 0 |
+| **8. Suite de Pruebas & Paridad Bit-Exacta** | 4 | 4 | 0 | 0 | 0 |
+| **9. Calidad de Código, Estilo & RE Hygiene** | 3 | 3 | 0 | 0 | 0 |
+| **TOTAL** | **56** | **46** | **4** | **6** | **0** |
+
+---
+
+## 1. Arquitectura General y Estructura del Proyecto
+
+- [x] **1.1. Gestión de dependencias externas y build reproducible:**
+  - *Problema:* Dependencias externas a JUCE (`C:/JUCE`, `../ABDEep/JUCE`) y `ABDShared/Code` en rutas fijas fuera del repo sin variables configurables.
+  - *Acción realizada:* `CMakeLists.txt` actualizado con soporte para variables de CMake y de entorno `JUCE_PATH`, `ABDSHARED_CODE_DIR` y `WEBVIEW2_PACKAGE_DIR`, con mensajes de diagnóstico y `FATAL_ERROR` descriptivos.
+- [D] **1.2. Fronteras y contratos en la arquitectura híbrida:**
+  - *Problema reportado:* Coexisten 4 entornos de compilación/ejecución (Plugin VST3/Standalone JUCE, WebPilot host E2E, WASM AudioWorklet y WebUI Vite).
+  - *Justificación de Discrepancia:* La separación es intencional y fundamental por diseño. WASM y VST3 tienen runtimes y modelos de threading radicalmente distintos. La frontera se blinda al 100% mediante `DspSources.cmake` como single-source estricto y la regla de oro: Cero cabeceras de JUCE en `Source/DSP/`. El flujo de datos entre capas (DSP $\leftrightarrow$ Host $\leftrightarrow$ WebBridge $\leftrightarrow$ WebUI) está completamente desacoplado y protegido contra drift.
+- [x] **1.3. Limpieza de directorios legacy o vacíos:**
+  - *Acción realizada:* Eliminado el directorio `dsp/` residual de la raíz del repositorio.
+
+---
+
+## 2. Motor DSP (`Source/DSP/DspEngineFacade`)
+
+- [x] **2.1. Volumen maestro hardcodeado (`masterVol = 0.85f`):**
+  - *Acción realizada:* Reemplazado el hardcode local por el miembro `masterVolume_{0.85f}`, configurable mediante `setMasterVolume(float)` y consultable con `getMasterVolume() const noexcept`. Preserva la paridad de 0.85f por defecto.
+- [x] **2.2. Telemetría sintética de CPU:**
+  - *Acción realizada:* Sustituido el cálculo sintético (`0.015 * voces`) por medición temporal real con `std::chrono::steady_clock` entre inicio y fin de bloque, normalizada contra la duración teórica del bloque y suavizada mediante filtro IIR monopolo de 1er orden con cero asignaciones dinámicas.
+- [x] **2.3. Ruta dual de parámetros (`bridge_->getEffectiveSlots()` vs `store_.getRawValue()`):**
+  - *Acción realizada:* Encapsulada con los helpers privados `getSlotRaw` y `getSlotNorm` en `DspEngineFacade.h`, garantizando precedencia sistemática e invariable (bridge slots > store) y eliminando ternarios duplicados.
+- [x] **2.4. Centralización de índices mágicos de parámetros:**
+  - *Acción realizada:* Creado `Source/DSP/AxionikParamIndices.h` (`namespace abd::axionik::ParamIdx`) con todas las constantes simbólicas agrupadas por secciones (incluyendo la totalidad de los parámetros de Silver FreqFX, TimeFX y MasterFX) y migrado `DspEngineFacade.cpp`.
+- [x] **2.5. Corrección de micro-rampa anti-pop (Sample-Accurate):**
+  - *Acción realizada:* Implementado `applyAntiPop()` con cálculo sub-bloque exacto `fadeSamples = std::min(numSamples, antiPopRemaining_)`, decremento muestra a muestra y atenuación segura por canal independiente de punteros.
+- [x] **2.6. Tabla de LFO global con tamaño desacoplado:**
+  - *Acción realizada:* Sustituido el literal crudo `8192.0` por la constante simbólica `constexpr double kNeuronLfoTableSize = 8192.0;`.
+- [x] **2.7. Protección contra desbordamiento en modulación de Pitch Bend:**
+  - *Acción realizada:* Aplicado `std::clamp` estricto en semitonos `[-48.0f, +48.0f]` antes de la exponenciación `std::pow(2.0f, semitones / 12.0f)`.
+- [x] **2.8. Normalización de sliders y respeto a la regla de los 3 dominios:**
+  - *Acción realizada:* Validada la correspondencia canónica con `Conversion.gen.h` y creadas pruebas unitarias automáticas en TypeScript que comprueban round-trips de los 445 parámetros.
+- [x] **2.9. Descomposición de la función monolítica `process()`:**
+  - *Acción realizada:* Monolito descompuesto en 7 métodos especializados:
+    1. `processVectorSticks(numSamples)`
+    2. `updateModulationAndPitch(p, numSamples)`
+    3. `updateResynatorLayers(p, globalLfoSignal)`
+    4. `updateEnvelopes(p)`
+    5. `updateSilverAndMasterFx(p, globalLfoSignal)`
+    6. `applyAntiPop(leftChannel, rightChannel, numSamples)`
+    7. `updatePeaksAndTelemetry(leftChannel, rightChannel, numSamples, instantLoad)`
+    Reduciendo `process()` a 30 líneas de alta cohesión.
+- [x] **2.10. Higiene de código de ingeniería inversa (RE Hygiene):**
+  - *Acción realizada:* Identificadores internos crudos de desensamblado sustituidos por descripciones técnicas canónicas en inglés técnico.
+- [x] **2.11. Inclusión explícita de `<algorithm>`:**
+  - *Acción realizada:* Verificada e incluida la cabecera estándar `<algorithm>`.
+
+---
+
+## 3. Procesador del Plugin (`Source/PluginProcessor`)
+
+- [x] **3.1. Máquina de estados MIDI NRPN completa y aislamiento:**
+  - *Acción realizada:* Implementado soporte de reseteo formal ante `CC#121` (*Reset All Controllers*), aislamiento de canal MIDI para evitar que mensajes intercalados de distintos canales corrompan el desempacador, timeout de 500 ms ante secuencias truncadas y reseteo en `allNotesOff()`, `allSoundOff()` y `ProgramChange`.
+- [x] **3.2. Sincronización masiva de parámetros y prevención de reentrancia (`syncApvtsFromDspEngine`):**
+  - *Acción realizada:* `isSyncingPreset_` gobierna la supresión de reentrancia en `parameterChanged()`, drenado atómico bajo `uiParamMutex_` y carga íntegra de parámetros sin provocar tormentas de eventos.
+- [x] **3.3. Atomicidad y memory ordering en flags de sincronización:**
+  - *Acción realizada:* Convertido `isSyncingPreset_` a `std::atomic<bool>` con operaciones `memory_order_release` y `memory_order_acquire`.
+- [x] **3.4. Sanitización defensiva en `setStateInformation`:**
+  - *Acción realizada:* Añadida guarda `if (data == nullptr || sizeInBytes < 16) return;` con logging de diagnóstico ante estados vacíos o truncados.
+- [x] **3.5. Validación y clamping en selección de bancos y programas:**
+  - *Acción realizada:* Aplicado `std::clamp(slot, 0, kNumFactoryPresets - 1)` evitando accesos fuera de rango.
+- [x] **3.6. Consistencia de `currentProgram_`:**
+  - *Acción realizada:* `currentProgram_` se actualiza exclusivamente tras la confirmación exitosa de `loadPresetBySlot(slot)`.
+- [D] **3.7. Método `changeProgramName()`:**
+  - *Problema reportado:* Método no-op con `juce::ignoreUnused`.
+  - *Justificación de Discrepancia:* En la arquitectura de Neuron / NeuronVS y ABDAxionikVS, los presets de fábrica (000..511) provienen de la base de datos inmutable de modelos y sonidos (`FactoryPresets.gen.h` / `NeuronDB`). Permitir la sobreescritura de sus nombres en la memoria de la factoría rompería la integridad referencial del catálogo. Los presets de usuario se guardan y cargan como scripts `.sound` independientes. El comportamiento no-op es intencional y canónico.
+- [x] **3.8. Auditoría de logging en rutas de audio:**
+  - *Acción realizada:* Verificado que `AX_LOG` no se invoca en el bucle crítico de audio (`processBlock`).
+- [x] **3.9. Filtro de excepciones en Windows:**
+  - *Acción realizada:* Verificado `SetUnhandledExceptionFilter(AxionikCrashFilter)` con volcado a log.
+
+---
+
+## 4. WebPilot Host y Herramientas Auxiliares
+
+- [x] **4.1. Tiempo de auto-quit configurable en WebPilotHost:**
+  - *Acción realizada:* Añadido soporte para `--auto-quit`, `--auto-quit=<ms>` y `--timeout=<ms>` en la línea de comandos de `WebPilotHost.cpp`.
+- [x] **4.2. Manejo de fallos de inicialización de WebView2:**
+  - *Acción realizada:* Bloque `try/catch` defensivo al instanciar `JuceWebView2Component` en `PluginEditor.cpp` y renderizado de texto informativo en `paint()` si el runtime no está instalado en la máquina.
+- [x] **4.3. Silenciamiento de excepciones en `AppLogger`:**
+  - *Acción realizada:* Añadida salida de error a `std::cerr` ante fallo de apertura de fichero o excepciones al escribir en `AppLogger.h`.
+- [x] **4.4. Thread safety de `std::localtime` en `AppLogger`:**
+  - *Acción realizada:* Protegido dentro de la sección crítica gobernada por el mutex estático del logger.
+- [x] **4.5. Verificación de helpers en `Translator.h`:**
+  - *Acción realizada:* Verificado C++20 standard y tamaño `kEngineStateSizeBytes = 0x367C`.
+
+---
+
+## 5. Frontend WebUI (`WebUI/src/main.ts` y Componentes)
+
+- [~] **5.1. Modularización del monolito `main.ts`:**
+  - *Estado:* Descompuesto en controladores de componentes dedicados (`Navbar`, `DrawerManager`, `BankDrawer`, `ResynatorDrawer`, `SilverDrawer`, `MasterFxDrawer`, `MatrixDrawer`, `SettingsDrawer`, `DragDropHandler`). Pendiente: extraer `AppBootstrap.ts` y `EventWiring.ts`.
+- [~] **5.2. Encapsulación del estado global mutable:**
+  - *Estado:* Parámetros y modelos centralizados en `WebBridge` y variables reactivas de sesión.
+- [x] **5.3. Eliminación del acceso por corchetes a miembros privados:**
+  - *Acción realizada:* Añadidos métodos públicos formales `toggleMatrix()`, `toggleMfx()` y `toggleBank()` en `AxionikNavbar` y llamados directamente sin corchetes.
+- [x] **5.4. Eliminación de variables de depuración globales en producción:**
+  - *Acción realizada:* `(window as any).__axionikSticks` condicionado bajo `if ((import.meta as any).env?.DEV)`.
+- [x] **5.5. Centralización de índices mágicos en WebUI:**
+  - *Acción realizada:* Creado `WebUI/src/constants/paramIndices.ts` (`PARAM_IDX as const`) y barrel `index.ts`.
+- [~] **5.6. Eliminación de casts abusivos a `any` y tipado estricto:**
+  - *Estado:* Tipado estricto introducido en `WebBridge.ts` con Discriminated Unions y en utilidades de conversión.
+- [D] **5.7. Ciclo de vida y cleanup de `addEventListener` en `window`:**
+  - *Problema reportado:* Listeners en `window` sin `removeEventListener`.
+  - *Justificación de Discrepancia:* ABDAxionikVS WebUI se ejecuta como una vista integrada embebida en WebView2 (en VST3 o Standalone). Su ciclo de vida es idéntico al de la ventana del plugin: la página se carga una sola vez al abrir el editor y el proceso del motor WebView2 se destruye íntegramente al cerrar la ventana. No es una Single Page Application con navegación de rutas donde los componentes se monten y desmonten en el mismo DOM. Implementar desregistro masivo de listeners para el evento `unload` es redundante y no aporta beneficio de memoria.
+- [x] **5.8. Eliminación de stubs engañosos de usuario:**
+  - *Acción realizada:* Sustituido el `alert('Save Preset: Not implemented in preview.')` por logging no intrusivo en consola informando de la disponibilidad a través del gestor de librerías.
+- [x] **5.9. Eliminación de scraping del DOM (`textContent` / `innerText`):**
+  - *Acción realizada:* Incorporadas variables de estado estructurado `currentR1ModelName` y `currentR2ModelName` en `main.ts` utilizadas directamente al abrir los paneles de Resynator 1 y 2 sin consultar el DOM.
+- [~] **5.10. Unificación de estilos CSS dinámicos:**
+  - *Estado:* Estilos encapsulados en `style.css` y clases utilitarias.
+- [x] **5.11. Limpieza de logs de depuración (`console.log`):**
+  - *Acción realizada:* Logs de depuración del puente canalizados bajo `import.meta.env.DEV`.
+
+---
+
+## 6. Puente de Comunicación (`WebUI/src/bridge/WebBridge.ts`)
+
+- [~] **6.1. Detección de pérdida de conexión y reconexión:**
+  - *Estado:* Enlace bidireccional estable mediante `__JUCE__.backend` y `chrome.webview`.
+- [x] **6.2. Estrategia de invalidación y actualización de `paramCache`:**
+  - *Acción realizada:* Añadido método público `clearCache()` e invalidación ante eventos de recarga.
+- [D] **6.3. Sincronización del mapa `uiState` con C++:**
+  - *Problema reportado:* `uiState Map` es puramente local y no se sincroniza ni persiste con el host C++.
+  - *Justificación de Discrepancia:* `uiState` está diseñado expresamente para estado visual transitorio y efímero (pestañas activas, acordeones abiertos, foco visual, zoom de la UI). El estado que debe persistir en el DAW o en los presets del sintetizador viaja única y exclusivamente por los 445 parámetros gobernados por APVTS / `SndDatStore`. Guardar el estado efímero de la UI en el host contaminaría el árbol de estado del preset.
+- [x] **6.4. Política de actualización optimista vs confirmada en `setParam`:**
+  - *Acción realizada:* `paramCache` se actualiza inmediatamente para fluidez de la UI y los eventos `PARAM_UPDATE` del backend confirman y corrigen cualquier clamping del host.
+- [x] **6.5. Visibilidad en modo desarrollo sin backend:**
+  - *Acción realizada:* Añadida traza `[WebBridge Dev OUT]` condicionada a `import.meta.env.DEV`.
+- [x] **6.6. Tipado estricto con Discriminated Unions para mensajes del Bridge:**
+  - *Acción realizada:* Definidas las uniones discriminadas `OutgoingBridgeMessage` e `IncomingBridgeMessage` tipando todas las acciones del protocolo.
+- [x] **6.7. Comprobación de existencia de fichero puente redundante:**
+  - *Acción realizada:* Verificado que sólo existe `WebBridge.ts`.
+
+---
+
+## 7. Sistema de Compilación y Configuración
+
+- [x] **7.1. Flexibilidad en rutas de NuGet / WebView2 en CMake:**
+  - *Acción realizada:* Añadida la variable `WEBVIEW2_PACKAGE_DIR` en CMakeLists.txt con fallbacks a variables de entorno.
+- [~] **7.2. Clarificación de dependencias de workspace en `package.json`:**
+  - *Estado:* Requisito de monorepo documentado.
+- [x] **7.3. Protección anti-deriva con `DspSources.cmake`:**
+  - *Acción realizada:* Regla estricta de cero cabeceras JUCE en `Source/DSP/` cumplida al 100%.
+
+---
+
+## 8. Suite de Pruebas y Paridad Bit-Exacta
+
+- [x] **8.1. Eliminación de rutas externas a `Downloads` en `sound_format.test.ts`:**
+  - *Acción realizada:* Modificado para resolver contra fixtures locales en el repositorio (`NeuronDB/Sounds/` o `tests/fixtures/`) sin saltarse aserciones.
+- [x] **8.2. Portabilidad de `GoldenParityTest.cpp`:**
+  - *Acción realizada:* Soporte para `GOLDEN_WAV_DIR` y resolución relativa `./golden`.
+- [x] **8.3. Ampliación de cobertura de pruebas unitarias C++:**
+  - *Acción realizada:* Creado arnés de pruebas `tests/DspEngineFacadeTests.cpp` y añadido target ejecutable `DspEngineFacadeTests` en `CMakeLists.txt` validando:
+    1. Render de silencio en reposo sin voces activas.
+    2. NoteOn produce señal válida y finita sin NaN/INF.
+    3. Resistencia y clamping a pitch bend extremo sin desbordamiento.
+    4. Acotación de controladores de modulación.
+    5. Medición de telemetría de CPU y voces activas.
+- [x] **8.4. Pruebas de conversión bidireccional de parámetros en TypeScript:**
+  - *Acción realizada:* Creado `WebUI/src/utils/conversion.ts` y añadido test exhaustivo en `tests/registry.test.ts` que valida round-trips de los 445 parámetros en sus límites (`min`, `max`, `default`, clamping).
+
+---
+
+## 9. Calidad de Código, Estilo e Higiene Técnica
+
+- [x] **9.1. Unificación de idioma en código fuente (inglés canónico):**
+  - *Acción realizada:* Comentarios técnicos homogeneizados en inglés en `DspEngineFacade.cpp`, `DspEngineFacade.h` y `AxionikParamIndices.h`.
+- [x] **9.2. Const-correctness defensivo en C++:**
+  - *Acción realizada:* Métodos de solo lectura calificados con `const`, `noexcept` y `[[nodiscard]]`.
+- [x] **9.3. Integración de nuevos principios en `ABDShared/Docs`:**
+  - *Acción realizada:* Actualizados [`CALIDAD_Y_ESTANDARES_VST3.md`](file:///d:/desarrollos/ABDSynths/ABDShared/Docs/architecture/CALIDAD_Y_ESTANDARES_VST3.md), [`LECCIONES_APRENDIDAS_DSP_THREAD_SAFETY.md`](file:///d:/desarrollos/ABDSynths/ABDShared/Docs/architecture/LECCIONES_APRENDIDAS_DSP_THREAD_SAFETY.md) y [`GUIA_CREACION_SINTETIZADORES.md`](file:///d:/desarrollos/ABDSynths/ABDShared/Docs/architecture/GUIA_CREACION_SINTETIZADORES.md).
+
+---
+
+## 10. Registro Histórico de Cambios Aplicados
+
+* **2026-10-28 (Sesión 2 — Ejecución Integral del Plan y Verificación):**
+  * **DSP Engine (`DspEngineFacade`):**
+    * Implementadas las 7 funciones modulares auxiliares y descompuesto `process()`.
+    * Implementado `masterVolume_` con getter/setter y paridad a 0.85f.
+    * Implementada medición de carga de CPU real basada en `std::chrono::steady_clock` con filtrado IIR monopolo.
+    * Implementada rampa anti-pops muestra a muestra decremental y cálculo sub-bloque exacto.
+    * Implementado clamping en Pitch Bend a $[-48, +48]$ semitones y desacoplada la tabla de LFO con `kNeuronLfoTableSize`.
+    * Centralizados todos los índices de Silver FX (EQ, Compressor, Distortion, RingMod, SpWarp, Decimator, Delay, Flanger, Phaser, Chorus).
+  * **Plugin Host (`PluginProcessor` & `PluginEditor`):**
+    * Máquina de estados NRPN robustecida: reseteo en `CC#121`, aislamiento de canal MIDI y timeout de 500 ms.
+    * Clamping de selección de preset por MIDI Program Change a `[0, kNumFactoryPresets - 1]`.
+    * Sanitización defensiva en `setStateInformation` contra buffers menores de 16 bytes o nulos.
+    * Creación defensiva de `JuceWebView2Component` con `try/catch` y mensaje de fallback en `paint()`.
+    * Consistencia atómica en `setCurrentProgram` vinculada al éxito de `loadPresetBySlot`.
+  * **Herramientas & Logger (`WebPilotHost` & `AppLogger`):**
+    * Añadido parsing de `--auto-quit=<ms>` y `--timeout=<ms>` en `WebPilotHost.cpp`.
+    * Añadida notificación a `std::cerr` ante excepciones de escritura en `AppLogger.h`.
+  * **WebUI Frontend & Bridge (`main.ts`, `Navbar.ts`, `WebBridge.ts`):**
+    * Añadidos métodos públicos `toggleMatrix()`, `toggleMfx()`, `toggleBank()` en `Navbar.ts`.
+    * Eliminado el scraping de `textContent` en `main.ts` utilizando las variables de estado reactivo `currentR1ModelName` y `currentR2ModelName`.
+    * Reemplazado el `alert()` intrusivo en `onSavePreset` por logging en consola.
+    * Protegido `(window as any).__axionikSticks` en producción bajo `import.meta.env.DEV`.
+    * Añadido tipado estricto con uniones discriminadas `OutgoingBridgeMessage` e `IncomingBridgeMessage` y método `clearCache()` en `WebBridge.ts`.
+  * **Tests & QA:**
+    * Creado `WebUI/src/utils/conversion.ts` e incorporada prueba unitaria de round-trip para los 445 parámetros en `tests/registry.test.ts` (10 tests Vitest en verde).
+    * Creado arnés de pruebas unitarias C++ `tests/DspEngineFacadeTests.cpp` con 5 pruebas unitarias y añadido a `CMakeLists.txt`.

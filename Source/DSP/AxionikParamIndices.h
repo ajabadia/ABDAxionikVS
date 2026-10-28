@@ -280,8 +280,94 @@ inline constexpr uint32_t FilterCutoffVelocityDepth = 278;
 inline constexpr uint32_t FreqFXSwitch = 281;
 inline constexpr uint32_t CurFreqFX    = 282;
 
+// FreqFX: EQ 4-Band & Compressor (285..305)
+inline constexpr uint32_t EQ_Switch          = 285;
+inline constexpr uint32_t EQ_LowShelfSwitch  = 286;
+inline constexpr uint32_t EQ_LowShelfGain    = 287;
+inline constexpr uint32_t EQ_LowShelfFreq    = 288;
+inline constexpr uint32_t EQ_LowShelfSlope   = 289;
+inline constexpr uint32_t EQ_Band1Switch     = 290;
+inline constexpr uint32_t EQ_Band1Gain       = 291;
+inline constexpr uint32_t EQ_Band1Freq       = 292;
+inline constexpr uint32_t EQ_Band1Q          = 293;
+inline constexpr uint32_t EQ_Band2Switch     = 294;
+inline constexpr uint32_t EQ_Band2Gain       = 295;
+inline constexpr uint32_t EQ_Band2Freq       = 296;
+inline constexpr uint32_t EQ_Band2Q          = 297;
+inline constexpr uint32_t EQ_HighShelfSwitch = 298;
+inline constexpr uint32_t EQ_HighShelfGain   = 299;
+inline constexpr uint32_t EQ_HighShelfFreq   = 300;
+inline constexpr uint32_t EQ_HighShelfSlope  = 301;
+inline constexpr uint32_t CR_Switch          = 302;
+inline constexpr uint32_t CR_Threshold       = 303;
+inline constexpr uint32_t CR_OutGain         = 304;
+inline constexpr uint32_t CR_Responsiveness  = 305;
+
+// FreqFX: Distortion (306..309)
+inline constexpr uint32_t DS_InGain          = 306;
+inline constexpr uint32_t DS_PreFilter       = 307;
+inline constexpr uint32_t DS_ClipCurveType   = 308;
+inline constexpr uint32_t DS_OutGain         = 309;
+
+// FreqFX: Ring Modulator (310..317)
+inline constexpr uint32_t RM_Mix             = 310;
+inline constexpr uint32_t RM_Speed           = 311;
+inline constexpr uint32_t RM_Depth           = 312;
+inline constexpr uint32_t RM_WaveForm        = 313;
+inline constexpr uint32_t RM_ModFreq         = 314;
+inline constexpr uint32_t RM_XoverDelay      = 315;
+inline constexpr uint32_t RM_XoverTime       = 316;
+inline constexpr uint32_t RM_XoverDelayFeedback = 317;
+
+// FreqFX: Spectral Warp (318..323)
+inline constexpr uint32_t SW_Mix             = 318;
+inline constexpr uint32_t SW_Frequency       = 319;
+inline constexpr uint32_t SW_Tilt            = 320;
+inline constexpr uint32_t SW_Damping         = 321;
+inline constexpr uint32_t SW_Speed           = 322;
+inline constexpr uint32_t SW_Depth           = 323;
+
+// FreqFX: Decimator (324..326)
+inline constexpr uint32_t DC_Mix             = 324;
+inline constexpr uint32_t DC_SHFactor        = 325;
+inline constexpr uint32_t DC_PreFilterCutoff = 326;
+
 inline constexpr uint32_t TimeFXSwitch = 327;
 inline constexpr uint32_t CurTimeFX    = 328;
+
+// TimeFX: Stereo Spread (331..332)
+inline constexpr uint32_t SS_ChanDelay       = 331;
+inline constexpr uint32_t SS_Feedback        = 332;
+
+// TimeFX: L/R Delay (333..335)
+inline constexpr uint32_t LRD_Mix            = 333;
+inline constexpr uint32_t LRD_Time           = 334;
+inline constexpr uint32_t LRD_Feedback       = 335;
+
+// TimeFX: Flanger (336..341)
+inline constexpr uint32_t FL_Mix             = 336;
+inline constexpr uint32_t FL_Depth           = 337;
+inline constexpr uint32_t FL_Speed           = 338;
+inline constexpr uint32_t FL_WaveForm        = 339;
+inline constexpr uint32_t FL_Feedback        = 340;
+inline constexpr uint32_t FL_StereoPhase     = 341;
+
+// TimeFX: Phaser (342..347)
+inline constexpr uint32_t PH_Mix             = 342;
+inline constexpr uint32_t PH_Depth           = 343;
+inline constexpr uint32_t PH_Speed           = 344;
+inline constexpr uint32_t PH_WaveForm        = 345;
+inline constexpr uint32_t PH_Feedback        = 346;
+inline constexpr uint32_t PH_StereoPhase     = 347;
+
+// TimeFX: Chorus (348..354)
+inline constexpr uint32_t CH_Mix             = 348;
+inline constexpr uint32_t CH_Depth           = 349;
+inline constexpr uint32_t CH_Speed           = 350;
+inline constexpr uint32_t CH_WaveForm        = 351;
+inline constexpr uint32_t CH_Feedback        = 352;
+inline constexpr uint32_t CH_StereoPhase     = 353;
+inline constexpr uint32_t CH_PreDelay        = 354;
 
 // Filter Env
 inline constexpr uint32_t FilterEnvA = 355;

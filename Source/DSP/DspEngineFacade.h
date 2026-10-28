@@ -118,11 +118,45 @@ public:
     void setOracleClipToZeroMode(bool enabled) noexcept {
         blockRenderer_.setOracleClipToZeroMode(enabled);
     }
-    [[nodiscard]] bool getOracleClipToZeroMode() const noexcept {
-        return blockRenderer_.getOracleClipToZeroMode();
+    /// Control de volumen maestro (0.85f por defecto para paridad NeuronVS)
+    void setMasterVolume(float vol) noexcept {
+        masterVolume_ = std::clamp(vol, 0.0f, 2.0f);
+    }
+    [[nodiscard]] float getMasterVolume() const noexcept {
+        return masterVolume_;
     }
 
 private:
+    [[nodiscard]] inline float getSlotRaw(const float* p, size_t slotIdx, uint32_t paramIdx) const noexcept {
+        return p ? p[slotIdx] : store_.getRawValue(paramIdx);
+    }
+    [[nodiscard]] inline float getSlotNorm(const float* p, size_t slotIdx, uint32_t paramIdx) const noexcept {
+        return p ? p[slotIdx] : store_.getNormalizedValue(paramIdx);
+    }
+
+    struct RenderBlockParams {
+        float blenderNorm{0.5f};
+        int blenderType{0};
+        int slicerType{0};
+        float slicerDepth{0.0f};
+        float slicerRateHz{4.0f};
+        int slicerWave{0};
+        int filterType{0};
+        float cutoffHz{2500.0f};
+        float resonance{0.2f};
+        float filterEnvDepth{0.0f};
+        float filterKeyTrack{0.0f};
+        float filterVelDepth{0.0f};
+    };
+
+    void processVectorSticks(size_t numSamples);
+    float updateModulationAndPitch(const float* p, size_t numSamples);
+    void updateResynatorLayers(const float* p, float globalLfoSignal);
+    void updateEnvelopes(const float* p);
+    RenderBlockParams updateSilverAndMasterFx(const float* p, float globalLfoSignal);
+    void applyAntiPop(float* leftChannel, float* rightChannel, size_t numSamples);
+    void updatePeaksAndTelemetry(const float* leftChannel, const float* rightChannel, size_t numSamples, float instantLoad);
+
     double sampleRate_{44100.0};
     size_t maxBlockSize_{512};
     uint32_t activeVoices_{0};
@@ -130,6 +164,7 @@ private:
     float peakL_{0.0f};
     float peakR_{0.0f};
     double globalLfoPhase_{0.0};
+    float masterVolume_{0.85f};
 
     std::array<float, 6> modControllers_{};
     float pitchBendWheel_{0.0f};

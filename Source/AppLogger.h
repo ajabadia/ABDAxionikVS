@@ -49,9 +49,13 @@ public:
             if (out.is_open()) {
                 out << fullStr;
                 out.flush();
+            } else {
+                std::cerr << "[AppLogger] Could not open log file: " << logFile.getFullPathName().toStdString() << "\n";
             }
+        } catch (const std::exception& e) {
+            std::cerr << "[AppLogger Exception] " << e.what() << "\n";
         } catch (...) {
-            // Ignorar errores de log
+            std::cerr << "[AppLogger Exception] Unknown error while writing log file.\n";
         }
     }
 };

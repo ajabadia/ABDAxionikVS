@@ -3,10 +3,30 @@
  * Comunicación bidireccional entre WebUI y C++ (WebView2) / WASM
  */
 
-export interface BridgeMessage {
-  type: string;
-  [key: string]: any;
-}
+export type OutgoingBridgeMessage =
+  | { type: 'PARAM_SET'; index: number; value: number }
+  | { type: 'NOTE_ON'; note: number; velocity: number }
+  | { type: 'NOTE_OFF'; note: number }
+  | { type: 'ALL_NOTES_OFF' }
+  | { type: 'PITCH_BEND'; value: number }
+  | { type: 'MOD_WHEEL'; value: number }
+  | { type: 'CHANNEL_PRESSURE'; value: number }
+  | { type: 'LOAD_PRESET_SCRIPT'; script: string }
+  | { type: 'LOAD_PRESET_SLOT'; slot: number }
+  | { type: 'LOAD_MODEL_SLOT'; slot: number; resynator: 1 | 2 }
+  | { type: 'INIT_PRESET' }
+  | { type: 'MIDI_CC'; cc: number; value: number }
+  | { type: 'SET_ORACLE_CLIP_MODE'; enabled: boolean }
+  | { type: 'SCAN_BANK' }
+  | { type: 'UI_READY' };
+
+export type IncomingBridgeMessage =
+  | { type: 'PARAM_UPDATE'; index: number; value: number }
+  | { type: 'PRESET_LOADED'; name: string; r1Model: number; r2Model: number; values: number[] }
+  | { type: 'TELEMETRY'; cpuUsage: number; activeVoices: number; peakL: number; peakR: number }
+  | { type: 'BANK_CATALOG_SYNC'; [key: string]: unknown };
+
+export type BridgeMessage = OutgoingBridgeMessage | IncomingBridgeMessage | { type: string; [key: string]: any };
 
 export type MessageHandler = (msg: BridgeMessage) => void;
 
@@ -53,9 +73,15 @@ class WebBridgeImpl {
     } else if (typeof (window as any).chrome?.webview?.postMessage === 'function') {
       (window as any).chrome.webview.postMessage(msg);
     } else {
-      // Mock echo / dev telemetry
-      // console.log('[WebBridge Mock OUT]', msg);
+      // Dev mode telemetry / mock output
+      if ((import.meta as any).env?.DEV) {
+        console.log('[WebBridge Dev OUT]', msg);
+      }
     }
+  }
+
+  public clearCache(): void {
+    this.paramCache.clear();
   }
 
   public setParam(index: number, value: number) {

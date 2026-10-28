@@ -242,23 +242,44 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
         dspEngine_.noteOff(static_cast<uint8_t>(msg.getNoteNumber()));
     } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
         dspEngine_.allNotesOff();
-        nrpnMsb_ = 0; nrpnLsb_ = 0; dataEntryMsb_ = 0;
+        nrpnMsb_ = 0; nrpnLsb_ = 0; dataEntryMsb_ = 0; nrpnChannel_ = -1;
     } else if (msg.isController()) {
         int ccNum = msg.getControllerNumber();
         int rawVal = msg.getControllerValue();
+        int channel = msg.getChannel();
+
+        // CC 121: Reset All Controllers
+        if (ccNum == 121) {
+            nrpnMsb_ = 0; nrpnLsb_ = 0; dataEntryMsb_ = 0; nrpnChannel_ = -1;
+            return;
+        }
+
+        // NRPN timeout (500ms) and channel isolation check
+        uint32_t nowMs = juce::Time::getMillisecondCounter();
+        if (nrpnChannel_ != -1 && (nrpnChannel_ != channel || (nowMs - lastNrpnTimestampMs_ > 500))) {
+            nrpnMsb_ = 0; nrpnLsb_ = 0; dataEntryMsb_ = 0;
+        }
 
         // 1. Desempacador de 14 bits NRPN (CC 99, 98, 6, 38) -> Capa de Abstracción de Parámetros
         if (ccNum == 99) {
             nrpnMsb_ = static_cast<uint8_t>(rawVal & 0x7F);
+            nrpnChannel_ = channel;
+            lastNrpnTimestampMs_ = nowMs;
         } else if (ccNum == 98) {
             nrpnLsb_ = static_cast<uint8_t>(rawVal & 0x7F);
+            nrpnChannel_ = channel;
+            lastNrpnTimestampMs_ = nowMs;
         } else if (ccNum == 6) {
             dataEntryMsb_ = static_cast<uint8_t>(rawVal & 0x7F);
+            nrpnChannel_ = channel;
+            lastNrpnTimestampMs_ = nowMs;
             uint16_t paramIdx = (static_cast<uint16_t>(nrpnMsb_) << 7) | nrpnLsb_;
             if (isNrpnParameterAddress(paramIdx)) {
                 setParameterNormalizedByIndex(paramIdx, static_cast<float>(dataEntryMsb_) / 127.0f);
             }
         } else if (ccNum == 38) {
+            nrpnChannel_ = channel;
+            lastNrpnTimestampMs_ = nowMs;
             uint16_t paramIdx = (static_cast<uint16_t>(nrpnMsb_) << 7) | nrpnLsb_;
             if (isNrpnParameterAddress(paramIdx)) {
                 uint16_t val14 = (static_cast<uint16_t>(dataEntryMsb_) << 7) | static_cast<uint8_t>(rawVal & 0x7F);
@@ -272,8 +293,8 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
         }
     } else if (msg.isProgramChange()) {
         int progNum = msg.getProgramChangeNumber();
-        int slot = static_cast<int>(midiBank_) * 100 + progNum;
-        nrpnMsb_ = 0; nrpnLsb_ = 0; dataEntryMsb_ = 0;
+        int slot = std::clamp(static_cast<int>(midiBank_) * 100 + progNum, 0, static_cast<int>(kNumFactoryPresets) - 1);
+        nrpnMsb_ = 0; nrpnLsb_ = 0; dataEntryMsb_ = 0; nrpnChannel_ = -1;
         loadPresetBySlot(slot);
     } else if (msg.isChannelPressure()) {
         float atVal = static_cast<float>(msg.getChannelPressureValue()) / 127.0f;
@@ -314,9 +335,11 @@ juce::AudioProcessorEditor* AxionikProcessor::createEditor() {
 }
 
 void AxionikProcessor::setCurrentProgram(int index) {
-    currentProgram_ = std::clamp(index, 0, static_cast<int>(kNumFactoryPresets) - 1);
-    int slot = getSlotForProgramIndex(currentProgram_);
-    loadPresetBySlot(slot);
+    int clampedIndex = std::clamp(index, 0, static_cast<int>(kNumFactoryPresets) - 1);
+    int slot = getSlotForProgramIndex(clampedIndex);
+    if (loadPresetBySlot(slot)) {
+        currentProgram_ = clampedIndex;
+    }
 }
 
 const juce::String AxionikProcessor::getProgramName(int index) {
@@ -340,6 +363,10 @@ void AxionikProcessor::getStateInformation(juce::MemoryBlock& destData) {
 }
 
 void AxionikProcessor::setStateInformation(const void* data, int sizeInBytes) {
+    if (data == nullptr || sizeInBytes < 16) {
+        AX_LOG("[PROCESSOR] setStateInformation: invalid or truncated state data received");
+        return;
+    }
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     if (xmlState != nullptr && xmlState->hasTagName(apvts_.state.getType())) {
         apvts_.replaceState(juce::ValueTree::fromXml(*xmlState));

@@ -12,9 +12,9 @@ namespace abd::axionik {
 
 class WebPilotWindow : public juce::DocumentWindow {
 public:
-    WebPilotWindow(juce::String name, bool autoQuit)
+    WebPilotWindow(juce::String name, int autoQuitMs)
         : DocumentWindow(name, juce::Colours::black, DocumentWindow::allButtons),
-          autoQuit_(autoQuit)
+          autoQuitMs_(autoQuitMs)
     {
         setUsingNativeTitleBar(true);
         processor_ = std::make_unique<AxionikProcessor>();
@@ -24,8 +24,8 @@ public:
         centreWithSize(getWidth(), getHeight());
         setVisible(true);
 
-        if (autoQuit_) {
-            juce::Timer::callAfterDelay(1500, [this]() {
+        if (autoQuitMs_ > 0) {
+            juce::Timer::callAfterDelay(autoQuitMs_, [this]() {
                 juce::JUCEApplicationBase::quit();
             });
         }
@@ -38,7 +38,7 @@ public:
 private:
     std::unique_ptr<AxionikProcessor> processor_;
     juce::AudioProcessorEditor* editor_{nullptr};
-    bool autoQuit_{false};
+    int autoQuitMs_{0};
 };
 
 class WebPilotApp : public juce::JUCEApplication {
@@ -48,8 +48,19 @@ public:
     bool moreThanOneInstanceAllowed() override { return true; }
 
     void initialise(const juce::String& commandLine) override {
-        bool autoQuit = commandLine.contains("--auto-quit");
-        mainWindow_ = std::make_unique<WebPilotWindow>("ABDAxionikVS WebPilot Host", autoQuit);
+        int autoQuitMs = 0;
+        auto args = juce::StringArray::fromTokens(commandLine, " ", "\"");
+        for (const auto& arg : args) {
+            if (arg.startsWith("--auto-quit=")) {
+                autoQuitMs = arg.fromFirstOccurrenceOf("--auto-quit=", false, false).getIntValue();
+            } else if (arg == "--auto-quit") {
+                if (autoQuitMs <= 0) autoQuitMs = 1500;
+            } else if (arg.startsWith("--timeout=")) {
+                autoQuitMs = arg.fromFirstOccurrenceOf("--timeout=", false, false).getIntValue();
+            }
+        }
+        if (autoQuitMs < 0) autoQuitMs = 0;
+        mainWindow_ = std::make_unique<WebPilotWindow>("ABDAxionikVS WebPilot Host", autoQuitMs);
     }
 
     void shutdown() override {

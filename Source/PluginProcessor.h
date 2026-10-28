@@ -110,6 +110,8 @@ private:
     uint8_t nrpnMsb_{0};
     uint8_t nrpnLsb_{0};
     uint8_t dataEntryMsb_{0};
+    int nrpnChannel_{-1};
+    uint32_t lastNrpnTimestampMs_{0};
     uint8_t midiBank_{0}; // MIDI Bank Select LSB (CC 32)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AxionikProcessor)

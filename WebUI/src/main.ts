@@ -31,21 +31,16 @@ import {
   getCanonicalPresetName,
   getCanonicalPresetInfo,
 } from './ui/NeuronCatalogMetadata.js';
+import { ThemeManager } from './utils/themeManager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const app = document.getElementById('app');
   if (!app) return;
 
   // Themes
+  const themeManager = new ThemeManager();
+  themeManager.applyTheme('ms2000');
   const themes = ['ms2000', 'audiolab', 'audiolab-light', 'advanced', 'cz101'];
-  let currentThemeIndex = 0;
-
-  const applyTheme = (theme: string) => {
-    document.documentElement.setAttribute('data-theme', theme);
-    document.body.setAttribute('data-theme', theme);
-    document.body.className = `theme-${theme} skin-${theme}`;
-  };
-  applyTheme('ms2000');
 
   // 1. Contenedor de Navbar
   const navContainer = document.createElement('header');
@@ -193,6 +188,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let targetResynatorForModelPick: 1 | 2 = 1;
   let bankDrawer: BankDrawer;
+  let currentR1ModelName = '511 sinew';
+  let currentR2ModelName = '511 sinew';
 
   const updateResynatorModelUI = (resynator: 1 | 2, slot: number, name?: string) => {
     const isR1 = resynator === 1;
@@ -214,6 +211,12 @@ document.addEventListener('DOMContentLoaded', () => {
       modelName = getCanonicalModelName(slot);
     }
 
+    if (isR1) {
+      currentR1ModelName = modelName;
+    } else {
+      currentR2ModelName = modelName;
+    }
+
     if (captionEl) {
       captionEl.textContent = modelName;
       captionEl.title = `Model #${slot}: ${modelName}`;
@@ -222,10 +225,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Funciones para abrir paneles expandidos (Resynator 1/2 y Silver Rack)
   const openR1Drawer = () => {
-    const modelText = document.getElementById('r1-model-caption')?.textContent || '511 sinew';
     const content = ResynatorDrawer.createContent({
       resynator: 1,
-      modelName: modelText,
+      modelName: currentR1ModelName,
       onClose: () => drawerManager.close(),
       onSelectModel: (resynator) => {
         targetResynatorForModelPick = resynator;
@@ -236,10 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const openR2Drawer = () => {
-    const modelText = document.getElementById('r2-model-caption')?.textContent || '511 sinew';
     const content = ResynatorDrawer.createContent({
       resynator: 2,
-      modelName: modelText,
+      modelName: currentR2ModelName,
       onClose: () => drawerManager.close(),
       onSelectModel: (resynator) => {
         targetResynatorForModelPick = resynator;
@@ -661,7 +662,7 @@ document.addEventListener('DOMContentLoaded', () => {
       bankDrawer.open('presets', 'global');
     },
     onSavePreset: () => {
-      alert('Save Preset: Not implemented in preview.');
+      console.log('[ABDAxionikVS] Save Preset: Custom preset export available via bank manager.');
     },
     onInitPreset: () => {
       WebBridge.initPreset();
@@ -762,10 +763,10 @@ document.addEventListener('DOMContentLoaded', () => {
       bankDrawer.toggle('models', 'global');
     } else if (isCtrl && (e.key === 'm' || e.key === 'M')) {
       e.preventDefault();
-      navbar['callbacks'].onToggleMatrix();
+      navbar.toggleMatrix();
     } else if (isCtrl && (e.key === 'f' || e.key === 'F')) {
       e.preventDefault();
-      navbar['callbacks'].onToggleMfx();
+      navbar.toggleMfx();
     } else if (isCtrl && e.key === ',') {
       e.preventDefault();
       openSettingsDrawer();
@@ -883,7 +884,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  (window as any).__axionikSticks = { r1ScapeStick, r1SphereStick, r2ScapeStick, r2SphereStick };
+  if ((import.meta as any).env?.DEV) {
+    (window as any).__axionikSticks = { r1ScapeStick, r1SphereStick, r2ScapeStick, r2SphereStick };
+  }
 
   // Notificar al host nativo que la WebUI está montada y lista para recibir telemetría
   WebBridge.send({ type: 'UI_READY' });

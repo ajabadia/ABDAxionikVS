@@ -19,7 +19,17 @@ endif()
 # ============================================================================
 if(WIN32)
     set(JUCE_USE_WIN_WEBVIEW2 ON CACHE BOOL "Use WebView2 on Windows" FORCE)
-    set(JUCE_WEBVIEW2_PACKAGE_LOCATION "$ENV{USERPROFILE}/AppData/Local/PackageManagement/NuGet/Packages" CACHE PATH "WebView2 package location" FORCE)
+    if(NOT DEFINED JUCE_WEBVIEW2_PACKAGE_LOCATION)
+        if(DEFINED WEBVIEW2_PACKAGE_DIR AND EXISTS "${WEBVIEW2_PACKAGE_DIR}")
+            set(JUCE_WEBVIEW2_PACKAGE_LOCATION "${WEBVIEW2_PACKAGE_DIR}" CACHE PATH "WebView2 package location")
+        elseif(DEFINED ENV{WEBVIEW2_PACKAGE_DIR} AND EXISTS "$ENV{WEBVIEW2_PACKAGE_DIR}")
+            set(JUCE_WEBVIEW2_PACKAGE_LOCATION "$ENV{WEBVIEW2_PACKAGE_DIR}" CACHE PATH "WebView2 package location")
+        elseif(DEFINED ENV{WEBVIEW2_PACKAGE_LOCATION} AND EXISTS "$ENV{WEBVIEW2_PACKAGE_LOCATION}")
+            set(JUCE_WEBVIEW2_PACKAGE_LOCATION "$ENV{WEBVIEW2_PACKAGE_LOCATION}" CACHE PATH "WebView2 package location")
+        elseif(DEFINED ENV{USERPROFILE} AND EXISTS "$ENV{USERPROFILE}/AppData/Local/PackageManagement/NuGet/Packages")
+            set(JUCE_WEBVIEW2_PACKAGE_LOCATION "$ENV{USERPROFILE}/AppData/Local/PackageManagement/NuGet/Packages" CACHE PATH "WebView2 package location")
+        endif()
+    endif()
     add_compile_definitions(
         JUCE_USE_WIN_WEBVIEW2=1
         JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
@@ -27,30 +37,35 @@ if(WIN32)
 endif()
 
 if(NOT DEFINED JUCE_PATH)
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ABDEep/JUCE/CMakeLists.txt")
+    if(DEFINED ENV{JUCE_PATH} AND EXISTS "$ENV{JUCE_PATH}/CMakeLists.txt")
+        set(JUCE_PATH "$ENV{JUCE_PATH}")
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ABDEep/JUCE/CMakeLists.txt")
         set(JUCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../ABDEep/JUCE")
     elseif(EXISTS "C:/JUCE/CMakeLists.txt")
         set(JUCE_PATH "C:/JUCE")
-    elseif(DEFINED ENV{JUCE_PATH})
-        set(JUCE_PATH "$ENV{JUCE_PATH}")
     endif()
 endif()
 
 if(EXISTS "${JUCE_PATH}/CMakeLists.txt")
     add_subdirectory(${JUCE_PATH} juce)
 else()
-    message(FATAL_ERROR "JUCE no encontrado. Defina JUCE_PATH o coloque JUCE en ../ABDEep/JUCE")
+    message(FATAL_ERROR "JUCE no encontrado. Defina la variable de CMake JUCE_PATH, la variable de entorno JUCE_PATH o coloque JUCE en ../ABDEep/JUCE o C:/JUCE")
 endif()
 
 # ============================================================================
 # 2. Ecosistema ABDShared (ABDShared/Code)
 # ============================================================================
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ABDShared/Code/CMakeLists.txt")
-    set(ABDSHARED_CODE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDShared/Code")
-    message(STATUS "ABDShared: Usando repositorio en ${ABDSHARED_CODE_DIR}")
-elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/CMakeLists.txt")
-    set(ABDSHARED_CODE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode")
-    message(STATUS "ABDShared: Usando legacy en ${ABDSHARED_CODE_DIR}")
+if(NOT DEFINED ABDSHARED_CODE_DIR)
+    if(DEFINED ENV{ABDSHARED_CODE_DIR} AND EXISTS "$ENV{ABDSHARED_CODE_DIR}/CMakeLists.txt")
+        set(ABDSHARED_CODE_DIR "$ENV{ABDSHARED_CODE_DIR}")
+        message(STATUS "ABDShared: Usando variable de entorno ABDSHARED_CODE_DIR en ${ABDSHARED_CODE_DIR}")
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ABDShared/Code/CMakeLists.txt")
+        set(ABDSHARED_CODE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDShared/Code")
+        message(STATUS "ABDShared: Usando repositorio en ${ABDSHARED_CODE_DIR}")
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/CMakeLists.txt")
+        set(ABDSHARED_CODE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode")
+        message(STATUS "ABDShared: Usando legacy en ${ABDSHARED_CODE_DIR}")
+    endif()
 endif()
 
 # Desactivar tests internos de los módulos compartidos
@@ -62,6 +77,8 @@ set(ABDSHARED_BUILD_AUDIOCOMPARATOR OFF CACHE BOOL "" FORCE)
 
 if(DEFINED ABDSHARED_CODE_DIR)
     add_subdirectory("${ABDSHARED_CODE_DIR}" "${CMAKE_BINARY_DIR}/ABDShared_build")
+else()
+    message(FATAL_ERROR "ABDShared no encontrado en ../ABDShared/Code ni ../ABDSharedCode. Verifique la estructura del workspace ABDSynths.")
 endif()
 
 # ============================================================================
@@ -194,6 +211,33 @@ if(MSVC)
 endif()
 
 target_link_libraries(GoldenParityTest PRIVATE
+    ABDShared::DspCore
+    ABDShared::SynthCore
+    ABDShared::DspEffects
+)
+
+# ============================================================================
+# 7. Pruebas Unitarias del Motor DSP (DspEngineFacadeTests)
+# ============================================================================
+add_executable(DspEngineFacadeTests
+    Tests/DspEngineFacadeTests.cpp
+    ${AXIONIK_DSP_SOURCES}
+)
+
+target_include_directories(DspEngineFacadeTests PRIVATE
+    Source
+    Source/DSP
+    Source/Generated
+    Tests
+)
+
+target_compile_features(DspEngineFacadeTests PRIVATE cxx_std_20)
+
+if(MSVC)
+    target_link_options(DspEngineFacadeTests PRIVATE "/STACK:8388608")
+endif()
+
+target_link_libraries(DspEngineFacadeTests PRIVATE
     ABDShared::DspCore
     ABDShared::SynthCore
     ABDShared::DspEffects

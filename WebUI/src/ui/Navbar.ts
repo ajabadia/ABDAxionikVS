@@ -281,4 +281,16 @@ export class AxionikNavbar {
   public setCpuLoad(percent: number): void {
     if (this.cpuLoadEl) this.cpuLoadEl.textContent = `${percent.toFixed(1)} %`;
   }
+
+  public toggleMatrix(): void {
+    this.callbacks.onToggleMatrix();
+  }
+
+  public toggleMfx(): void {
+    this.callbacks.onToggleMfx();
+  }
+
+  public toggleBank(): void {
+    this.callbacks.onToggleBank();
+  }
 }

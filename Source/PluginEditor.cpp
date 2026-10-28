@@ -146,8 +146,14 @@ AxionikEditor::AxionikEditor(AxionikProcessor& p)
     auto initialUrl = juce::WebBrowserComponent::getResourceProviderRoot();
     AX_LOG(juce::String("[EDITOR] Creating JuceWebView2Component with initial URL: ") + initialUrl);
 
-    webComponent_ = std::make_unique<abd::webview2::JuceWebView2Component>(options, "dark", initialUrl);
-    addAndMakeVisible(*webComponent_);
+    try {
+        webComponent_ = std::make_unique<abd::webview2::JuceWebView2Component>(options, "dark", initialUrl);
+        addAndMakeVisible(*webComponent_);
+    } catch (const std::exception& e) {
+        AX_LOG(juce::String("[EDITOR CRITICAL] Failed to create WebView2 component: ") + e.what());
+    } catch (...) {
+        AX_LOG("[EDITOR CRITICAL] Unknown exception while creating WebView2 component.");
+    }
 
     setResizable(true, true);
     setResizeLimits(800, 560, 2400, 1680);
@@ -232,6 +238,12 @@ void AxionikEditor::sendBankCatalogSync() {
 
 void AxionikEditor::paint(juce::Graphics& g) {
     g.fillAll(juce::Colour(0xff12141a));
+    if (webComponent_ == nullptr) {
+        g.setColour(juce::Colours::white);
+        g.setFont(16.0f);
+        g.drawText("ABDAxionikVS: WebView2 component failed to initialize.\nPlease verify Microsoft Edge WebView2 Runtime is installed.",
+                   getLocalBounds().reduced(20), juce::Justification::centred, true);
+    }
 }
 
 void AxionikEditor::resized() {
