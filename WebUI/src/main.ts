@@ -22,6 +22,7 @@ import { EffectsDrawer } from './ui/EffectsDrawer.js';
 import { BlenderDrawer, BLENDER_ALGORITHMS } from './ui/BlenderDrawer.js';
 import { BlenderPanel } from './ui/BlenderPanel.js';
 import { FilterPanel } from './ui/FilterPanel.js';
+import { EnvelopeMasterPanel } from './ui/EnvelopeMasterPanel.js';
 import { MatrixDrawer } from './ui/MatrixDrawer.js';
 import { SettingsDrawer } from './ui/SettingsDrawer.js';
 import { DragDropHandler } from './ui/DragDropHandler.js';
@@ -116,17 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div id="controllers-mount" class="col-span-2"></div>
         <div id="blender-mount" class="col-span-1"></div>
         <div id="filter-mount" class="col-span-1"></div>
-        <section class="synth-panel-card col-span-1 aux-expansion-card" id="aux-panel" style="display: flex; flex-direction: column;">
-          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08));">
-            <span class="stick-label">RESERVED</span>
-            <div class="panel-actions" style="display: flex; align-items: center; gap: 4px;">
-              <button type="button" class="btn btn-xs btn-outline btn-collapse-row" data-row="row-bottom" title="Colapsar / Descolapsar fila">▾</button>
-            </div>
-          </div>
-          <div class="panel-body aux-body" data-collapse-body style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 120px; border: 1px dashed var(--color-panel-border-dim, rgba(255,255,255,0.12)); border-radius: var(--radius-sm, 4px); margin: 4px 0;">
-            <span style="font-size: 8.5px; color: var(--color-text-muted); letter-spacing: 0.5px; text-transform: uppercase; text-align: center; line-height: 1.4;">Hueco<br>Disponible</span>
-          </div>
-        </section>
+        <div id="envelope-master-mount" class="col-span-1"></div>
         <div id="master-mount" class="col-span-1"></div>
       </div>
     </div>
@@ -387,6 +378,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     filterPanel = new FilterPanel(filterMount);
   }
 
+  let envelopeMasterPanel: EnvelopeMasterPanel | null = null;
+  const envelopeMasterMount = document.getElementById('envelope-master-mount');
+  if (envelopeMasterMount) {
+    envelopeMasterPanel = new EnvelopeMasterPanel(envelopeMasterMount);
+  }
+
   const masterMount = document.getElementById('master-mount');
   if (masterMount) {
     new MasterOutputPanel(masterMount);
@@ -479,9 +476,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
     r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
 
-    // Blender y Filter panels
+    // Blender, Filter y EnvMaster panels
     blenderPanel?.updateAll(values);
     filterPanel?.updateAll(values);
+    envelopeMasterPanel?.updateAll(values);
 
     // Slicer & Silver FX en SilverPanel
     const slicerMode = Math.round(values[ParamIdx.SlicerSwitchType] ?? 0);
@@ -747,6 +745,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     silverPanel,
     blenderPanel,
     filterPanel,
+    envelopeMasterPanel,
   };
 
   // 8. Suscribir telemetría y actualización de parámetros del bridge nativo

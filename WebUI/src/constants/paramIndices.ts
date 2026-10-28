@@ -209,6 +209,8 @@ export const ParamIdx = {
   R2AmpEnvMode: 234,
 
   // Free Env (4 niveles / 4 tiempos, Shaper)
+  FreeADSR1VelocityDepth: 211,
+  FreeADSR2VelocityDepth: 241,
   FreeEnvLevel1: 242,
   FreeEnvLevel2: 243,
   FreeEnvLevel3: 244,
@@ -217,7 +219,12 @@ export const ParamIdx = {
   FreeEnvTime2: 247,
   FreeEnvTime3: 248,
   FreeEnvTime4: 249,
+  TLFreeEnvMode: 250,
+  TLFreeEnvDepth: 251,
+  Free4Level4TimeVelocityDepth: 252,
   Shaper12Status: 253,
+  FreeEnvType: 254,
+  ShaperResySelect: 255,
 
   // Global
   LFOSwitch: 256,

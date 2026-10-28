@@ -1203,6 +1203,190 @@ select option {
   text-transform: uppercase;
 }
 
+/* ── Envelope Master Panel (1 unit / col-span-1) ── */
+.env-master-card {
+  min-height: 195px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.env-master-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3px 4px;
+  flex: 1;
+  gap: 2px;
+}
+
+.env-section-box {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.env-mini-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.env-mini-label {
+  font-size: 6.5px;
+  font-weight: 700;
+  color: var(--color-text-muted, #7e9bb5);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.env-pills-row {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+}
+
+.env-status-pill {
+  flex: 1;
+  padding: 1.5px 0;
+  font-size: 7px;
+  font-weight: 700;
+  text-align: center;
+  border-radius: var(--radius-xs, 2px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--color-text-muted, #94a3b8);
+  cursor: pointer;
+}
+
+.env-status-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.env-status-pill.active {
+  background: var(--color-accent-amber, #f59e0b);
+  color: #0b0f19;
+  font-weight: 800;
+  border-color: var(--color-accent-amber, #f59e0b);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+}
+
+.env-type-mode-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 2px 4px;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.env-col-box {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.env-type-pill,
+.env-mode-pill {
+  flex: 1;
+  font-size: 6.5px;
+  padding: 1px 2px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--color-text-muted, #94a3b8);
+  border-radius: var(--radius-xs, 2px);
+  cursor: pointer;
+}
+
+.env-type-pill:hover,
+.env-mode-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.env-type-pill.active,
+.env-mode-pill.active {
+  background: var(--color-accent, #00c3ff);
+  color: #0b0f19;
+  font-weight: 800;
+  border-color: var(--color-accent, #00c3ff);
+  box-shadow: 0 0 5px rgba(0, 195, 255, 0.35);
+}
+
+.env-knobs-row {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 1px 0;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.env-knob-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.env-knob-num {
+  font-size: 8px;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-accent, #00c3ff);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.env-knob-title {
+  font-size: 6.5px;
+  font-weight: 700;
+  color: var(--color-text-muted, #7e9bb5);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.env-dest-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+}
+
+.env-dest-pill {
+  font-size: 6.5px;
+  padding: 1.5px 1px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: var(--radius-xs, 2px);
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--color-text-muted, #94a3b8);
+  cursor: pointer;
+}
+
+.env-dest-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.env-dest-pill.active {
+  background: rgba(0, 195, 255, 0.22);
+  color: #fff;
+  border-color: var(--color-accent, #00c3ff);
+  font-weight: 700;
+  box-shadow: 0 0 5px rgba(0, 195, 255, 0.25);
+}
+
+
 
 
 
