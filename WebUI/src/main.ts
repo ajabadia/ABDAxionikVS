@@ -11,6 +11,7 @@ import './style.css';
 import { AxionikNavbar } from './ui/Navbar.js';
 import { BankDrawer } from './ui/BankDrawer.js';
 import { KeyboardStrip } from './ui/KeyboardStrip.js';
+import { ControllersPanel } from './ui/ControllersPanel.js';
 import { DrawerManager } from './ui/Drawers.js';
 import { TrajectoryStick2D } from './ui/TrajectoryStick2D.js';
 import { ResynatorDrawer } from './ui/ResynatorDrawer.js';
@@ -33,7 +34,7 @@ import {
 } from './ui/NeuronCatalogMetadata.js';
 import { ThemeManager } from './utils/themeManager.js';
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const app = document.getElementById('app');
   if (!app) return;
 
@@ -70,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div id="r1-scape-mount"></div>
           <div id="r1-sphere-mount"></div>
         </div>
+        <div id="r1-controllers-mount" style="margin-top: var(--space-2, 8px);"></div>
       </section>
 
       <!-- Columna Resynator 2 -->
@@ -368,6 +370,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 6. Instanciar el bloque frontal de Controladores Hardware («Controllers»)
+  const r1ControllersMount = document.getElementById('r1-controllers-mount');
+  let controllersPanel: ControllersPanel | null = null;
+  if (r1ControllersMount) {
+    controllersPanel = new ControllersPanel(r1ControllersMount);
+  }
+
   // Conectar botones Edit R1, Edit R2, R1/R2 Switch, Model Selection, Edit Blender y Edit Silver Rack
   const updateResySwitchButton = (resy: 1 | 2, enabled: boolean) => {
     const btn = document.getElementById(resy === 1 ? 'btn-toggle-r1' : 'btn-toggle-r2');
@@ -553,32 +562,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (curTimeVal) curTimeVal.textContent = timeAlgoNames[curTimeAlgoIdx];
 
     // Sticks 2D Positions:
-    // R1 Scape (L0: 52/53, L1: 72/73, L2: 92/93)
     if (r1ScapeStick) {
-      r1ScapeStick.setPosition(0, Math.max(0, Math.min(1, (values[52] ?? 64) / 127)), Math.max(0, Math.min(1, (values[53] ?? 64) / 127)), false);
-      r1ScapeStick.setPosition(1, Math.max(0, Math.min(1, (values[72] ?? 64) / 127)), Math.max(0, Math.min(1, (values[73] ?? 64) / 127)), false);
-      r1ScapeStick.setPosition(2, Math.max(0, Math.min(1, (values[92] ?? 64) / 127)), Math.max(0, Math.min(1, (values[93] ?? 64) / 127)), false);
+      r1ScapeStick.setPosition(0, Math.max(0, Math.min(1, (values[ParamIdx.R1L1Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L1Scape2Value] ?? 64) / 127)), false);
+      r1ScapeStick.setPosition(1, Math.max(0, Math.min(1, (values[ParamIdx.R1L2Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L2Scape2Value] ?? 64) / 127)), false);
+      r1ScapeStick.setPosition(2, Math.max(0, Math.min(1, (values[ParamIdx.R1L3Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L3Scape2Value] ?? 64) / 127)), false);
     }
 
-    // R1 Sphere (L0: 42/43, L1: 62/63, L2: 82/83)
     if (r1SphereStick) {
-      r1SphereStick.setPosition(0, Math.max(0, Math.min(1, (values[42] ?? 64) / 127)), Math.max(0, Math.min(1, (values[43] ?? 64) / 127)), false);
-      r1SphereStick.setPosition(1, Math.max(0, Math.min(1, (values[62] ?? 64) / 127)), Math.max(0, Math.min(1, (values[63] ?? 64) / 127)), false);
-      r1SphereStick.setPosition(2, Math.max(0, Math.min(1, (values[82] ?? 64) / 127)), Math.max(0, Math.min(1, (values[83] ?? 64) / 127)), false);
+      r1SphereStick.setPosition(0, Math.max(0, Math.min(1, (values[ParamIdx.R1L1Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L1Sphere2Value] ?? 64) / 127)), false);
+      r1SphereStick.setPosition(1, Math.max(0, Math.min(1, (values[ParamIdx.R1L2Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L2Sphere2Value] ?? 64) / 127)), false);
+      r1SphereStick.setPosition(2, Math.max(0, Math.min(1, (values[ParamIdx.R1L3Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L3Sphere2Value] ?? 64) / 127)), false);
     }
 
-    // R2 Scape (L0: 132/133, L1: 152/153, L2: 172/173)
     if (r2ScapeStick) {
-      r2ScapeStick.setPosition(0, Math.max(0, Math.min(1, (values[132] ?? 64) / 127)), Math.max(0, Math.min(1, (values[133] ?? 64) / 127)), false);
-      r2ScapeStick.setPosition(1, Math.max(0, Math.min(1, (values[152] ?? 64) / 127)), Math.max(0, Math.min(1, (values[153] ?? 64) / 127)), false);
-      r2ScapeStick.setPosition(2, Math.max(0, Math.min(1, (values[172] ?? 64) / 127)), Math.max(0, Math.min(1, (values[173] ?? 64) / 127)), false);
+      r2ScapeStick.setPosition(0, Math.max(0, Math.min(1, (values[ParamIdx.R2L1Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L1Scape2Value] ?? 64) / 127)), false);
+      r2ScapeStick.setPosition(1, Math.max(0, Math.min(1, (values[ParamIdx.R2L2Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L2Scape2Value] ?? 64) / 127)), false);
+      r2ScapeStick.setPosition(2, Math.max(0, Math.min(1, (values[ParamIdx.R2L3Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L3Scape2Value] ?? 64) / 127)), false);
     }
 
-    // R2 Sphere (L0: 122/123, L1: 142/143, L2: 162/163)
     if (r2SphereStick) {
-      r2SphereStick.setPosition(0, Math.max(0, Math.min(1, (values[122] ?? 64) / 127)), Math.max(0, Math.min(1, (values[123] ?? 64) / 127)), false);
-      r2SphereStick.setPosition(1, Math.max(0, Math.min(1, (values[142] ?? 64) / 127)), Math.max(0, Math.min(1, (values[143] ?? 64) / 127)), false);
-      r2SphereStick.setPosition(2, Math.max(0, Math.min(1, (values[162] ?? 64) / 127)), Math.max(0, Math.min(1, (values[163] ?? 64) / 127)), false);
+      r2SphereStick.setPosition(0, Math.max(0, Math.min(1, (values[ParamIdx.R2L1Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L1Sphere2Value] ?? 64) / 127)), false);
+      r2SphereStick.setPosition(1, Math.max(0, Math.min(1, (values[ParamIdx.R2L2Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L2Sphere2Value] ?? 64) / 127)), false);
+      r2SphereStick.setPosition(2, Math.max(0, Math.min(1, (values[ParamIdx.R2L3Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L3Sphere2Value] ?? 64) / 127)), false);
     }
   };
 
@@ -721,11 +726,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetR === 1) {
         r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
         r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
-        WebBridge.setParam(22, slot);
+        WebBridge.setParam(ParamIdx.R1ModellIndex, slot);
       } else {
         r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
         r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
-        WebBridge.setParam(102, slot);
+        WebBridge.setParam(ParamIdx.R2ModellIndex, slot);
       }
       WebBridge.loadModelSlot(slot, targetR);
       console.log(`[ABDAxionikVS] DragDrop: Loaded model "${file.name}" to R${targetR} (Slot ${slot}, ParSet ${parSet})`);
@@ -755,23 +760,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 8. Atajos globales de teclado
-  window.addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    const isCtrl = e.ctrlKey || e.metaKey;
-    if (isCtrl && (e.key === 'b' || e.key === 'B')) {
-      e.preventDefault();
-      bankDrawer.toggle('models', 'global');
-    } else if (isCtrl && (e.key === 'm' || e.key === 'M')) {
-      e.preventDefault();
-      navbar.toggleMatrix();
-    } else if (isCtrl && (e.key === 'f' || e.key === 'F')) {
-      e.preventDefault();
-      navbar.toggleMfx();
-    } else if (isCtrl && e.key === ',') {
-      e.preventDefault();
-      openSettingsDrawer();
-    }
-  });
+  const { setupKeyboardShortcuts } = await import('./app/keyboardShortcuts.js');
+  setupKeyboardShortcuts(bankDrawer, navbar, drawerManager, openSettingsDrawer);
 
   // 8. Suscribir telemetría y actualización de parámetros del bridge nativo
   WebBridge.onMessage((msg) => {
