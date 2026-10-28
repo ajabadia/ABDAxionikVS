@@ -23,6 +23,7 @@ import { BlenderDrawer } from './ui/BlenderDrawer.js';
 import { BlenderPanel } from './ui/BlenderPanel.js';
 import { FilterPanel } from './ui/FilterPanel.js';
 import { EnvelopeMasterPanel } from './ui/EnvelopeMasterPanel.js';
+import { EnvelopeDrawer } from './ui/EnvelopeDrawer.js';
 import { MatrixDrawer } from './ui/MatrixDrawer.js';
 import { SettingsDrawer } from './ui/SettingsDrawer.js';
 import { DragDropHandler } from './ui/DragDropHandler.js';
@@ -259,6 +260,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerManager.openCustom('matrix-expanded', content);
   };
 
+  const openEnvelopeDrawer = (initialTab: 'all' | '4l4t' | 'adsr' | 'routing' = 'all') => {
+    const content = EnvelopeDrawer.createContent({
+      initialTab,
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('envelope-expanded', content);
+  };
+
   const openSettingsDrawer = () => {
     const content = SettingsDrawer.createContent({
       onClose: () => drawerManager.close(),
@@ -375,13 +384,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   let filterPanel: FilterPanel | null = null;
   const filterMount = document.getElementById('filter-mount');
   if (filterMount) {
-    filterPanel = new FilterPanel(filterMount);
+    filterPanel = new FilterPanel(filterMount, {
+      onEdit: () => openEffectsDrawer('silver'),
+    });
   }
 
   let envelopeMasterPanel: EnvelopeMasterPanel | null = null;
   const envelopeMasterMount = document.getElementById('envelope-master-mount');
   if (envelopeMasterMount) {
-    envelopeMasterPanel = new EnvelopeMasterPanel(envelopeMasterMount);
+    envelopeMasterPanel = new EnvelopeMasterPanel(envelopeMasterMount, {
+      onEdit: () => openEnvelopeDrawer(),
+    });
   }
 
   const masterMount = document.getElementById('master-mount');

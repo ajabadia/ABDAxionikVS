@@ -1215,9 +1215,9 @@ select option {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 3px 4px;
+  padding: 5px 6px;
   flex: 1;
-  gap: 2px;
+  gap: 4px;
 }
 
 .env-section-box {
@@ -1322,7 +1322,7 @@ select option {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  padding: 1px 0;
+  padding: 4px 0;
   background: rgba(0, 0, 0, 0.15);
   border-radius: var(--radius-sm, 4px);
   border: 1px solid rgba(255, 255, 255, 0.03);
@@ -1332,11 +1332,11 @@ select option {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
 }
 
 .env-knob-num {
-  font-size: 8px;
+  font-size: 8.5px;
   font-family: var(--font-mono, monospace);
   color: var(--color-accent, #00c3ff);
   font-weight: 600;
@@ -1344,7 +1344,7 @@ select option {
 }
 
 .env-knob-title {
-  font-size: 6.5px;
+  font-size: 7.5px;
   font-weight: 700;
   color: var(--color-text-muted, #7e9bb5);
   letter-spacing: 0.5px;
@@ -1352,38 +1352,30 @@ select option {
   line-height: 1;
 }
 
-.env-dest-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 2px;
-}
-
-.env-dest-pill {
-  font-size: 6.5px;
-  padding: 1.5px 1px;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-radius: var(--radius-xs, 2px);
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.04);
+/* ── Envelope Drawer Destination Cards ── */
+.env-dest-card-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--color-text-muted, #94a3b8);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--color-text, #f8fafc);
   cursor: pointer;
+  transition: all var(--transition-fast, 150ms);
 }
 
-.env-dest-pill:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+.env-dest-card-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.env-dest-pill.active {
-  background: rgba(0, 195, 255, 0.22);
-  color: #fff;
+.env-dest-card-btn.active {
+  background: rgba(0, 195, 255, 0.18);
   border-color: var(--color-accent, #00c3ff);
-  font-weight: 700;
-  box-shadow: 0 0 5px rgba(0, 195, 255, 0.25);
+  box-shadow: 0 0 8px rgba(0, 195, 255, 0.3);
 }
 
 

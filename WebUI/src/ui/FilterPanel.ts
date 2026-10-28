@@ -9,16 +9,22 @@ import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
 
+export interface FilterPanelOptions {
+  onEdit?: () => void;
+}
+
 export class FilterPanel {
   private container: HTMLElement;
+  private options: FilterPanelOptions;
   private rootEl: HTMLElement | null = null;
   private cutKnob: Knob | null = null;
   private resoKnob: Knob | null = null;
   private cutValEl: HTMLElement | null = null;
   private resoValEl: HTMLElement | null = null;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, options: FilterPanelOptions = {}) {
     this.container = container;
+    this.options = options;
     this.render();
   }
 
@@ -35,6 +41,7 @@ export class FilterPanel {
           <span class="hud-pill" style="font-size: 8px; opacity: 0.7;">24dB LP</span>
         </div>
         <div class="panel-actions" style="display: flex; align-items: center; gap: 4px;">
+          <button type="button" class="btn btn-xs btn-outline" id="btn-edit-filter-panel" title="Open Filter & Silver Rack">Edit</button>
           <button type="button" class="btn btn-xs btn-outline btn-collapse-row" data-row="row-bottom" title="Colapsar / Descolapsar fila">▾</button>
         </div>
       </div>
@@ -87,6 +94,10 @@ export class FilterPanel {
         },
       });
     }
+
+    this.rootEl.querySelector('#btn-edit-filter-panel')?.addEventListener('click', () => {
+      this.options.onEdit?.();
+    });
   }
 
   public updateParam(idx: number, val: number): void {
