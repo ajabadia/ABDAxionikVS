@@ -361,10 +361,13 @@ export class BankDrawer {
       this.renderPresets();
     }
 
-    const statusEl = this.drawerElement?.querySelector('#bank-foot-status');
+    // Persistent confirmation with timestamp: refreshing with identical data
+    // changes no counters, so the time proves the click did something.
+    // The message stays until the next bank update restores the summary.
+    const statusEl = this.shell.footerEl.querySelector('#bank-foot-status');
     if (statusEl) {
-      statusEl.textContent = `Library refreshed & re-indexed (${models.length} models, ${presets.length} presets)`;
-      setTimeout(() => this.updateCounters(), 3000);
+      const time = new Date().toLocaleTimeString();
+      statusEl.textContent = `Library refreshed & re-indexed (${models.length} models, ${presets.length} presets) · ${time}`;
     }
   }
 
