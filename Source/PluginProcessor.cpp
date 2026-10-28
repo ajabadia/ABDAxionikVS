@@ -273,6 +273,7 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
     } else if (msg.isProgramChange()) {
         int progNum = msg.getProgramChangeNumber();
         int slot = static_cast<int>(midiBank_) * 100 + progNum;
+        nrpnMsb_ = 0; nrpnLsb_ = 0; dataEntryMsb_ = 0;
         loadPresetBySlot(slot);
     } else if (msg.isChannelPressure()) {
         float atVal = static_cast<float>(msg.getChannelPressureValue()) / 127.0f;
@@ -327,6 +328,8 @@ const juce::String AxionikProcessor::getProgramName(int index) {
 }
 
 void AxionikProcessor::changeProgramName(int index, const juce::String& newName) {
+    // Intencionalmente no-op: la lista de factory presets se gestiona desde el generado
+    // (FactoryPresets.gen.h). Los nombres provienen de NeuronDB/catalogo, no son editables desde aquí.
     juce::ignoreUnused(index, newName);
 }
 

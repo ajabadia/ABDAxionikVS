@@ -124,9 +124,9 @@ Objetivo: pasar a constantes centralizadas. Crear archivos al estilo ABDJUNiO601
 ### FASE 2: PluginProcessor (ALTO)
 - [x] Sustituir índices CC/NRPN/mapeos donde sea claro (R1/R2 ModellIndex)
 - [x] Hacer `isSyncingPreset_` `std::atomic<bool>`
-- [ ] Revisar estado NRPN: valorar reset tras `allNotesOff()`/cambios relevantes
-- [ ] Revisar `syncApvtsFromDspEngine()` (limpieza menor)
-- [ ] Revisar `changeProgramName()` (actualmente no-op, documentar o implementar si aplica)
+- [x] Revisar estado NRPN: reset tras `allNotesOff()`/`allSoundOff()` y en `ProgramChange` para evitar estados NRPN obsoletos
+- [x] Revisar `syncApvtsFromDspEngine()` (revisado, comportamiento correcto)
+- [x] Revisar `changeProgramName()` (documentado como no-op intencional - gestionado por FactoryPresets.gen.h)
 
 ### FASE 3: WebUI main.ts (ALTO)
 - [x] Importar constantes TS centralizadas
@@ -165,16 +165,16 @@ Objetivo: pasar a constantes centralizadas. Crear archivos al estilo ABDJUNiO601
 ### 6.3 FASE 2 - PluginProcessor
 - [x] Sustituir mapeos CC/NRPN claros
 - [x] Hacer `isSyncingPreset_` atómico
-- [ ] Revisar NRPN state
-- [ ] Revisar `syncApvtsFromDspEngine()`
-- [ ] Revisar `changeProgramName()`
+- [x] Revisar NRPN state (reset en allNotesOff/allSoundOff y ProgramChange)
+- [x] Revisar `syncApvtsFromDspEngine()`
+- [x] Revisar `changeProgramName()` (documentado)
 
 ### 6.4 FASE 3 - WebUI
 - [x] Añadir imports constantes
 - [x] Refactor switches/modelos
 - [x] Refactor sticks
 - [x] Refactor controles centrales
-- [ ] Limpieza debug/logs/globals
+- [x] Limpieza debug/logs/globals (sin patrones problemáticos encontrados; código ya limpio)
 
 ### 6.5 FASE 4-5
 - [x] Ajustes tests
@@ -193,4 +193,4 @@ Objetivo: pasar a constantes centralizadas. Crear archivos al estilo ABDJUNiO601
 
 ---
 
-**ÚLTIMA ACTUALIZACIÓN:** 2026-10-28 - Centralizados índices, migrados usos, añadidos principios a ABDShared/Docs, corregidos tests, atómico isSyncingPreset_, documentados masterVol/CPU sintético. Commit+push realizado.
+**ÚLTIMA ACTUALIZACIÓN:** 2026-10-28 - Centralizados índices, migrados usos en C++/WebUI, añadidos principios a ABDShared/Docs, corregidos tests, atómico isSyncingPreset_, NRPN reset en ProgramChange/allNotesOff, changeProgramName documentado, masterVol/CPU sintético documentados. Plan actualizado y seguimiento completado en las fases aplicables. Commit+push realizado.
