@@ -7,6 +7,7 @@
 
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
+import { ParamIdx } from '../constants/paramIndices.js';
 
 export const REVERB_ROOMS = [
   { id: 0, name: 'Hall' },
@@ -27,22 +28,22 @@ export class MasterFxDrawer {
     root.style.cssText = 'display: flex; flex-direction: column; gap: var(--space-4); height: 100%;';
 
     // Rehidratar valores reales desde WebBridge (índices exactos 430..444)
-    const curMasterOn = Math.round(WebBridge.getParam(430, 1)) > 0;
-    const curDelayOn = Math.round(WebBridge.getParam(431, 1)) > 0;
-    const curDelayMix = Math.round(WebBridge.getParam(432, 35));
-    const curDelayL = Math.round(WebBridge.getParam(433, 250));
-    const curDelayR = Math.round(WebBridge.getParam(434, 500));
-    const curDelayFb = Math.round(WebBridge.getParam(435, 25));
-    const curDelayDamp = Math.round(WebBridge.getParam(436, 40));
+    const curMasterOn = Math.round(WebBridge.getParam(ParamIdx.SoundMFXSwitch, 1)) > 0;
+    const curDelayOn = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelaySwitch, 1)) > 0;
+    const curDelayMix = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelayMix, 35));
+    const curDelayL = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelayLTime, 250));
+    const curDelayR = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelayRTime, 500));
+    const curDelayFb = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelayFeedback, 25));
+    const curDelayDamp = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelayFdbkDamp, 40));
 
-    const curRevOn = Math.round(WebBridge.getParam(437, 1)) > 0;
-    const curRevMix = Math.round(WebBridge.getParam(438, 40));
-    const curRevRoom = Math.round(WebBridge.getParam(439, 1));
-    const curRevDecay = Math.round(WebBridge.getParam(440, 65));
-    const curRevDiff = Math.round(WebBridge.getParam(441, 80));
-    const curRevDamp = Math.round(WebBridge.getParam(442, 45));
-    const curRevDetune = Math.round(WebBridge.getParam(443, 20));
-    const curRevSpeed = Math.round(WebBridge.getParam(444, 50));
+    const curRevOn = Math.round(WebBridge.getParam(ParamIdx.SoundMFXReverbSwitch, 1)) > 0;
+    const curRevMix = Math.round(WebBridge.getParam(ParamIdx.SoundMFXReverbMix, 40));
+    const curRevRoom = Math.round(WebBridge.getParam(ParamIdx.SoundMFXReverbRoom, 1));
+    const curRevDecay = Math.round(WebBridge.getParam(ParamIdx.SoundMFXRevDecayTime, 65));
+    const curRevDiff = Math.round(WebBridge.getParam(ParamIdx.SoundMFXRevDiffusion, 80));
+    const curRevDamp = Math.round(WebBridge.getParam(ParamIdx.SoundMFXRevHFDamp, 45));
+    const curRevDetune = Math.round(WebBridge.getParam(ParamIdx.SoundMFXRevDetune, 20));
+    const curRevSpeed = Math.round(WebBridge.getParam(ParamIdx.SoundMFXRevSpeed, 50));
 
     let roomButtonsHtml = '';
     REVERB_ROOMS.forEach((r) => {
@@ -173,7 +174,7 @@ export class MasterFxDrawer {
       masterBtn.classList.toggle('btn-primary', next);
       masterBtn.classList.toggle('btn-outline', !next);
       masterBtn.textContent = `MASTER MFX: ${next ? 'ON' : 'BYPASS'}`;
-      WebBridge.setParam(430, next ? 1 : 0);
+      WebBridge.setParam(ParamIdx.SoundMFXSwitch, next ? 1 : 0);
     });
 
     const bindBypass = (btnId: string, paramId: number) => {
@@ -186,7 +187,7 @@ export class MasterFxDrawer {
         btn.textContent = nextState ? 'Active' : 'Bypass';
         WebBridge.setParam(paramId, nextState ? 1 : 0);
         if (nextState) {
-          WebBridge.setParam(430, 1);
+          WebBridge.setParam(ParamIdx.SoundMFXSwitch, 1);
           masterBtn?.classList.add('active', 'btn-primary');
           masterBtn?.classList.remove('btn-outline');
           if (masterBtn) masterBtn.textContent = 'MASTER MFX: ON';
@@ -201,7 +202,7 @@ export class MasterFxDrawer {
       btn.addEventListener('click', (e) => {
         const target = e.currentTarget as HTMLElement;
         const room = parseInt(target.getAttribute('data-room') || '0', 10);
-        WebBridge.setParam(439, room);
+        WebBridge.setParam(ParamIdx.SoundMFXReverbRoom, room);
         root.querySelectorAll('.btn-reverb-room').forEach((b) => {
           const isAct = parseInt(b.getAttribute('data-room') || '0', 10) === room;
           b.classList.toggle('active', isAct);

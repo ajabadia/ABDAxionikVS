@@ -12,8 +12,6 @@ import {
   MODEL_METADATA,
   PRESET_METADATA,
   createCanonicalBank,
-  getCanonicalModelName,
-  getCanonicalPresetName,
 } from './NeuronCatalogMetadata.js';
 import {
   parseMName,

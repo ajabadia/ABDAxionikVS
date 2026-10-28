@@ -18,6 +18,7 @@
 
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
+import { ParamIdx } from '../constants/paramIndices.js';
 
 export interface SilverDrawerProps {
   onClose: () => void;
@@ -25,25 +26,25 @@ export interface SilverDrawerProps {
 
 export class SilverDrawer {
   public static createContent(props: SilverDrawerProps): HTMLElement {
-    const silverOn = Math.round(WebBridge.getParam(271, 1)) > 0;
-    const curFtype = Math.round(WebBridge.getParam(273, 0));
-    const curCutoff = Math.round(WebBridge.getParam(274, 100));
-    const curReso = Math.round(WebBridge.getParam(275, 20));
-    const curFilterLfo = Math.round(WebBridge.getParam(276, 0));
-    const curFilterKt = Math.round(WebBridge.getParam(277, 0));
-    const curFilterVel = Math.round(WebBridge.getParam(278, 0));
+    const silverOn = Math.round(WebBridge.getParam(ParamIdx.SilverSwitch, 1)) > 0;
+    const curFtype = Math.round(WebBridge.getParam(ParamIdx.FilterType, 0));
+    const curCutoff = Math.round(WebBridge.getParam(ParamIdx.FilterFreq, 100));
+    const curReso = Math.round(WebBridge.getParam(ParamIdx.FilterReso, 20));
+    const curFilterLfo = Math.round(WebBridge.getParam(ParamIdx.FilterLfoDepth, 0));
+    const curFilterKt = Math.round(WebBridge.getParam(ParamIdx.FilterKeyTrack, 0));
+    const curFilterVel = Math.round(WebBridge.getParam(ParamIdx.FilterCutoffVelocityDepth, 0));
 
-    const curFEnvA = Math.round(WebBridge.getParam(355, 10));
-    const curFEnvD = Math.round(WebBridge.getParam(356, 40));
-    const curFEnvS = Math.round(WebBridge.getParam(357, 64));
-    const curFEnvR = Math.round(WebBridge.getParam(358, 30));
-    const curFEnvDepth = Math.round(WebBridge.getParam(360, 0));
+    const curFEnvA = Math.round(WebBridge.getParam(ParamIdx.FilterEnvA, 10));
+    const curFEnvD = Math.round(WebBridge.getParam(ParamIdx.FilterEnvD, 40));
+    const curFEnvS = Math.round(WebBridge.getParam(ParamIdx.FilterEnvS, 64));
+    const curFEnvR = Math.round(WebBridge.getParam(ParamIdx.FilterEnvR, 30));
+    const curFEnvDepth = Math.round(WebBridge.getParam(ParamIdx.FilterEnvDepth, 0));
 
-    const curFreqEnable = Math.round(WebBridge.getParam(281, 0)) !== 0;
-    const curFreqAlgo = Math.max(0, Math.min(4, Math.round(WebBridge.getParam(282, 0))));
+    const curFreqEnable = Math.round(WebBridge.getParam(ParamIdx.FreqFXSwitch, 0)) !== 0;
+    const curFreqAlgo = Math.max(0, Math.min(4, Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0))));
 
-    const curTimeEnable = Math.round(WebBridge.getParam(327, 0)) !== 0;
-    const curTimeAlgo = Math.max(0, Math.min(4, Math.round(WebBridge.getParam(328, 0))));
+    const curTimeEnable = Math.round(WebBridge.getParam(ParamIdx.TimeFXSwitch, 0)) !== 0;
+    const curTimeAlgo = Math.max(0, Math.min(4, Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 0))));
 
     const el = document.createElement('div');
     el.className = 'silver-drawer-view';
@@ -451,7 +452,7 @@ export class SilverDrawer {
       silverSwitchBtn.classList.toggle('btn-primary', next);
       silverSwitchBtn.classList.toggle('btn-outline', !next);
       silverSwitchBtn.textContent = `SILVER RACK: ${next ? 'ON' : 'BYPASS'}`;
-      WebBridge.setParam(271, next ? 1 : 0);
+      WebBridge.setParam(ParamIdx.SilverSwitch, next ? 1 : 0);
     });
 
     el.querySelectorAll('[data-ftype]').forEach((chip) => {
@@ -460,8 +461,8 @@ export class SilverDrawer {
         const target = e.currentTarget as HTMLElement;
         target.classList.add('active');
         const ftype = parseInt(target.getAttribute('data-ftype') || '0', 10);
-        WebBridge.setParam(271, 1);
-        WebBridge.setParam(273, ftype);
+        WebBridge.setParam(ParamIdx.SilverSwitch, 1);
+        WebBridge.setParam(ParamIdx.FilterType, ftype);
       });
     });
 
@@ -471,7 +472,7 @@ export class SilverDrawer {
         const target = e.currentTarget as HTMLElement;
         target.classList.add('active');
         const algo = parseInt(target.getAttribute('data-freqalgo') || '0', 10);
-        WebBridge.setParam(282, algo);
+        WebBridge.setParam(ParamIdx.CurFreqFX, algo);
         renderFreqSubpanel(algo);
       });
     });
@@ -482,21 +483,21 @@ export class SilverDrawer {
         const target = e.currentTarget as HTMLElement;
         target.classList.add('active');
         const algo = parseInt(target.getAttribute('data-timealgo') || '0', 10);
-        WebBridge.setParam(328, algo);
+        WebBridge.setParam(ParamIdx.CurTimeFX, algo);
         renderTimeSubpanel(algo);
       });
     });
 
     const freqCheck = el.querySelector('#check-freqfx-enable') as HTMLInputElement | null;
     freqCheck?.addEventListener('change', () => {
-      if (freqCheck.checked) WebBridge.setParam(271, 1);
-      WebBridge.setParam(281, freqCheck.checked ? 1 : 0);
+      if (freqCheck.checked) WebBridge.setParam(ParamIdx.SilverSwitch, 1);
+      WebBridge.setParam(ParamIdx.FreqFXSwitch, freqCheck.checked ? 1 : 0);
     });
 
     const timeCheck = el.querySelector('#check-timefx-enable') as HTMLInputElement | null;
     timeCheck?.addEventListener('change', () => {
-      if (timeCheck.checked) WebBridge.setParam(271, 1);
-      WebBridge.setParam(327, timeCheck.checked ? 1 : 0);
+      if (timeCheck.checked) WebBridge.setParam(ParamIdx.SilverSwitch, 1);
+      WebBridge.setParam(ParamIdx.TimeFXSwitch, timeCheck.checked ? 1 : 0);
     });
 
     return el;

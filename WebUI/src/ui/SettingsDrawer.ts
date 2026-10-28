@@ -9,6 +9,7 @@
 
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
+import { ParamIdx } from '../constants/paramIndices.js';
 
 export interface SettingsDrawerOptions {
   onClose: () => void;
@@ -25,12 +26,14 @@ export class SettingsDrawer {
     root.className = 'drawer-view-content';
     root.style.cssText = 'display: flex; flex-direction: column; gap: var(--space-4); height: 100%;';
 
-    const curVoices = Math.max(1, Math.min(12, Math.round(WebBridge.getParam(5, 8))));
-    const curPan = Math.round(WebBridge.getParam(3, 0));
-    const curPanKt = Math.round(WebBridge.getParam(4, 0));
-    const curPbRange = Math.round(WebBridge.getParam(412, 2));
-    const curFootswitchDest = Math.round(WebBridge.getParam(411, 0));
+    const curVoices = Math.max(1, Math.min(12, Math.round(WebBridge.getParam(ParamIdx.SoundNumVoices, 8))));
+    const curPan = Math.round(WebBridge.getParam(ParamIdx.SoundPan, 0));
+    const curPanKt = Math.round(WebBridge.getParam(ParamIdx.SoundPanKeyTrack, 0));
+    const curPbRange = Math.round(WebBridge.getParam(ParamIdx.PitchBendRange, 2));
+    const curFootswitchDest = Math.round(WebBridge.getParam(ParamIdx.FootSwitchDest, 0));
     const curOracleClip = WebBridge.getUIState<boolean>('oracleClipMode', false);
+    const curZoom = options.currentZoom ?? 1.0;
+    const curTheme = options.currentTheme ?? 'ms2000';
 
     root.innerHTML = `
       <div class="drawer-header ndb-modal-header">
@@ -130,20 +133,20 @@ export class SettingsDrawer {
           <div style="display: flex; flex-direction: column; gap: var(--space-2);">
             <span class="hud-label">COLOR THEME:</span>
             <div class="ndb-chips-row" style="flex-wrap: wrap; gap: var(--space-2);" id="settings-theme-chips">
-              <button type="button" class="ndb-chip" data-theme="ms2000">MS2000 (Default Dark Cyan)</button>
-              <button type="button" class="ndb-chip" data-theme="audiolab">AudioLab (Pro Dark Slate)</button>
-              <button type="button" class="ndb-chip" data-theme="audiolab-light">AudioLab Light (Laboratory)</button>
-              <button type="button" class="ndb-chip" data-theme="advanced">Advanced (Orange Contrast)</button>
-              <button type="button" class="ndb-chip" data-theme="cz101">CZ101 (Classic Teal & Red)</button>
+              <button type="button" class="ndb-chip ${curTheme === 'ms2000' ? 'active' : ''}" data-theme="ms2000">MS2000 (Default Dark Cyan)</button>
+              <button type="button" class="ndb-chip ${curTheme === 'audiolab' ? 'active' : ''}" data-theme="audiolab">AudioLab (Pro Dark Slate)</button>
+              <button type="button" class="ndb-chip ${curTheme === 'audiolab-light' ? 'active' : ''}" data-theme="audiolab-light">AudioLab Light (Laboratory)</button>
+              <button type="button" class="ndb-chip ${curTheme === 'advanced' ? 'active' : ''}" data-theme="advanced">Advanced (Orange Contrast)</button>
+              <button type="button" class="ndb-chip ${curTheme === 'cz101' ? 'active' : ''}" data-theme="cz101">CZ101 (Classic Teal & Red)</button>
             </div>
           </div>
 
           <div style="display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2);">
             <span class="hud-label">UI ZOOM SCALE:</span>
             <div class="ndb-chips-row" style="gap: var(--space-2);" id="settings-zoom-chips">
-              <button type="button" class="ndb-chip" data-zoom="1.0">100% (Normal)</button>
-              <button type="button" class="ndb-chip" data-zoom="1.25">125% (Medium)</button>
-              <button type="button" class="ndb-chip" data-zoom="1.5">150% (Large)</button>
+              <button type="button" class="ndb-chip ${Math.abs(curZoom - 1.0) < 0.05 ? 'active' : ''}" data-zoom="1.0">100% (Normal)</button>
+              <button type="button" class="ndb-chip ${Math.abs(curZoom - 1.25) < 0.05 ? 'active' : ''}" data-zoom="1.25">125% (Medium)</button>
+              <button type="button" class="ndb-chip ${Math.abs(curZoom - 1.5) < 0.05 ? 'active' : ''}" data-zoom="1.5">150% (Large)</button>
             </div>
           </div>
         </div>
@@ -171,7 +174,7 @@ export class SettingsDrawer {
 
     const footSelect = root.querySelector('#settings-foot-select') as HTMLSelectElement | null;
     footSelect?.addEventListener('change', () => {
-      WebBridge.setParam(411, parseInt(footSelect.value, 10));
+      WebBridge.setParam(ParamIdx.FootSwitchDest, parseInt(footSelect.value, 10));
     });
 
     const clipCheck = root.querySelector('#settings-oracle-clip') as HTMLInputElement | null;

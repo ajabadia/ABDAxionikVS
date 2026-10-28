@@ -27,12 +27,11 @@ import { ParamIdx } from './constants/paramIndices.js';
 import { getParameterSetStickLabels } from './ui/ParameterSets.js';
 import {
   MODEL_METADATA,
-  PRESET_METADATA,
   getCanonicalModelName,
-  getCanonicalPresetName,
   getCanonicalPresetInfo,
 } from './ui/NeuronCatalogMetadata.js';
 import { ThemeManager } from './utils/themeManager.js';
+import { handleParamUpdate, type ParamUpdateCtx } from './app/paramUpdate.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const app = document.getElementById('app');
@@ -40,8 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Themes
   const themeManager = new ThemeManager();
-  themeManager.applyTheme('ms2000');
-  const themes = ['ms2000', 'audiolab', 'audiolab-light', 'advanced', 'cz101'];
+  themeManager.setTheme('ms2000');
 
   // 1. Contenedor de Navbar
   const navContainer = document.createElement('header');
@@ -190,8 +188,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let targetResynatorForModelPick: 1 | 2 = 1;
   let bankDrawer: BankDrawer;
+  let navbar: AxionikNavbar | null = null;
+  let currentZoom = parseFloat(document.body.style.zoom) || 1.0;
   let currentR1ModelName = '511 sinew';
   let currentR2ModelName = '511 sinew';
+
+  const applyTheme = (theme: string) => {
+    themeManager.setTheme(theme);
+    navbar?.setTheme(theme);
+  };
+
+  const applyZoom = (zoom: number) => {
+    currentZoom = zoom;
+    document.body.style.zoom = String(zoom);
+    navbar?.setZoom(zoom);
+  };
 
   const updateResynatorModelUI = (resynator: 1 | 2, slot: number, name?: string) => {
     const isR1 = resynator === 1;
@@ -285,16 +296,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       onClose: () => drawerManager.close(),
       onConfigureFolder: () => bankDrawer.promptConfigureFolder(),
       onSelectTheme: (theme) => {
-        const idx = themes.indexOf(theme);
-        if (idx >= 0) {
-          currentThemeIndex = idx;
-          applyTheme(theme);
-        }
+        applyTheme(theme);
       },
       onZoom: (zoom) => {
-        document.body.style.zoom = String(zoom);
+        applyZoom(zoom);
       },
-      currentTheme: themes[currentThemeIndex],
+      currentTheme: themeManager.getCurrentTheme(),
+      currentZoom,
     });
     drawerManager.openCustom('settings-expanded', content);
   };
@@ -372,9 +380,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 6. Instanciar el bloque frontal de Controladores Hardware («Controllers»)
   const r1ControllersMount = document.getElementById('r1-controllers-mount');
-  let controllersPanel: ControllersPanel | null = null;
   if (r1ControllersMount) {
-    controllersPanel = new ControllersPanel(r1ControllersMount);
+    new ControllersPanel(r1ControllersMount);
   }
 
   // Conectar botones Edit R1, Edit R2, R1/R2 Switch, Model Selection, Edit Blender y Edit Silver Rack
@@ -642,7 +649,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 6. Inicializar Navbar Universal (SynthNavBar)
-  const navbar = new AxionikNavbar(navContainer, {
+  navbar = new AxionikNavbar(navContainer, {
     onConfigureFolder: () => {
       bankDrawer.promptConfigureFolder();
     },
@@ -671,9 +678,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
     onInitPreset: () => {
       WebBridge.initPreset();
-      navbar.setPresetName('000 InitSound');
-      navbar.setModelName(1, '511 sinew');
-      navbar.setModelName(2, '511 sinew');
+      navbar?.setPresetName('000 InitSound');
+      navbar?.setModelName(1, '511 sinew');
+      navbar?.setModelName(2, '511 sinew');
       updateResynatorModelUI(1, 511, '511 sinew');
       updateResynatorModelUI(2, 511, '511 sinew');
       console.log('[ABDAxionikVS] Sound initialized to factory default.');
@@ -698,20 +705,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       bankDrawer.open('models', resynator === 1 ? 'r1' : 'r2');
     },
     onSelectTheme: (theme) => {
-      const idx = themes.indexOf(theme);
-      if (idx >= 0) {
-        currentThemeIndex = idx;
-        applyTheme(theme);
-      }
+      applyTheme(theme);
     },
     onToggleTheme: () => {
-      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-      applyTheme(themes[currentThemeIndex]);
+      const nextTheme = themeManager.cycleTheme();
+      navbar?.setTheme(nextTheme);
     },
     onZoom: (zoomLevel) => {
-      document.body.style.zoom = String(zoomLevel);
+      applyZoom(zoomLevel);
     },
   });
+
+  // Sincronizar estado inicial de tema y zoom en la Navbar
+  navbar.setTheme(themeManager.getCurrentTheme());
+  navbar.setZoom(currentZoom);
 
   // 7. Gestor Drag & Drop para modelos, presets y paquetes zip
   new DragDropHandler({
@@ -761,12 +768,60 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 8. Atajos globales de teclado
   const { setupKeyboardShortcuts } = await import('./app/keyboardShortcuts.js');
-  setupKeyboardShortcuts(bankDrawer, navbar, drawerManager, openSettingsDrawer);
+  setupKeyboardShortcuts(bankDrawer, navbar, openSettingsDrawer);
+
+  // Contexto para el manejador PARAM_UPDATE (módulo app/paramUpdate.ts)
+  const paramUpdateCtx: ParamUpdateCtx = {
+    updateResySwitchButton,
+    updateResynatorModelUI,
+    setModelName: (r, text) => navbar?.setModelName(r, text),
+    r1ScapeStick,
+    r1SphereStick,
+    r2ScapeStick,
+    r2SphereStick,
+    blender: {
+      slider: blenderSlider,
+      sliderLabel: blenderVal,
+      setIdx: (v) => {
+        curBlenderAlgoIdx = v;
+        if (curBlenderVal) curBlenderVal.textContent = BLENDER_ALGORITHMS[v].name;
+      },
+    },
+    slicer: {
+      depthSlider: slicerDepthSlider,
+      depthLabel: slicerDepthVal,
+      rateSlider: slicerRateSlider,
+      rateLabel: slicerRateVal,
+      setIdx: (v) => {
+        curSlicerTypeIdx = v;
+        if (curSlicerTypeVal) curSlicerTypeVal.textContent = slicerTypes[v];
+      },
+    },
+    filter: {
+      cutSlider: filterCutSlider,
+      cutLabel: filterCutVal,
+      resoSlider: filterResoSlider,
+      resoLabel: filterResoVal,
+    },
+    freqFx: {
+      setIdx: (v) => {
+        curFreqAlgoIdx = v;
+        if (curFreqVal) curFreqVal.textContent = freqAlgoNames[v];
+      },
+    },
+    timeFx: {
+      setIdx: (v) => {
+        curTimeAlgoIdx = v;
+        if (curTimeVal) curTimeVal.textContent = timeAlgoNames[v];
+      },
+    },
+  };
 
   // 8. Suscribir telemetría y actualización de parámetros del bridge nativo
   WebBridge.onMessage((msg) => {
     if (msg.type === 'BANK_CATALOG_SYNC') {
-      bankDrawer.syncCatalogFromHost(msg);
+      // El payload viaja sin tipar por el bridge; se adapta a la forma que espera BankDrawer.
+      bankDrawer.syncCatalogFromHost(msg as Parameters<BankDrawer['syncCatalogFromHost']>[0]);
     } else if (msg.type === 'PRESET_LOADED') {
       if (typeof msg.name === 'string' && msg.name) {
         navbar.setPresetName(msg.name);
@@ -787,90 +842,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (typeof msg.activeVoices === 'number') navbar.setVoices(msg.activeVoices);
       if (typeof msg.cpuUsage === 'number') navbar.setCpuLoad(msg.cpuUsage);
     } else if (msg.type === 'PARAM_UPDATE') {
-      const idx = msg.index;
-      const val = msg.value;
-      if (idx === 23) {
-        updateResySwitchButton(1, val > 0.5);
-      } else if (idx === 103) {
-        updateResySwitchButton(2, val > 0.5);
-      } else if (idx === 22) {
-        const slot = Math.round(val);
-        const name = getCanonicalModelName(slot);
-        updateResynatorModelUI(1, slot, name);
-        navbar.setModelName(1, `#${String(slot).padStart(3, '0')} ${name}`);
-        const meta = MODEL_METADATA[slot];
-        const pSet = meta ? meta[0] : (slot % 10);
-        r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(pSet, 'scape'));
-        r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(pSet, 'sphere'));
-      } else if (idx === 102) {
-        const slot = Math.round(val);
-        const name = getCanonicalModelName(slot);
-        updateResynatorModelUI(2, slot, name);
-        navbar.setModelName(2, `#${String(slot).padStart(3, '0')} ${name}`);
-        const meta = MODEL_METADATA[slot];
-        const pSet = meta ? meta[0] : (slot % 10);
-        r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(pSet, 'scape'));
-        r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(pSet, 'sphere'));
-      } else if (idx === 261) {
-        curBlenderAlgoIdx = Math.max(0, Math.min(BLENDER_ALGORITHMS.length - 1, Math.round(val)));
-        if (curBlenderVal) curBlenderVal.textContent = BLENDER_ALGORITHMS[curBlenderAlgoIdx].name;
-      } else if (idx === 262 && blenderSlider) {
-        blenderSlider.value = String(val);
-        if (blenderVal) blenderVal.textContent = String(val);
-      } else if (idx === 267) {
-        curSlicerTypeIdx = Math.max(0, Math.min(slicerTypes.length - 1, Math.round(val)));
-        if (curSlicerTypeVal) curSlicerTypeVal.textContent = slicerTypes[curSlicerTypeIdx];
-      } else if (idx === 268 && slicerDepthSlider) {
-        slicerDepthSlider.value = String(val);
-        if (slicerDepthVal) slicerDepthVal.textContent = String(val);
-      } else if (idx === 269 && slicerRateSlider) {
-        slicerRateSlider.value = String(val);
-        if (slicerRateVal) slicerRateVal.textContent = String(val);
-      } else if (idx === 274 && filterCutSlider) {
-        filterCutSlider.value = String(val);
-        if (filterCutVal) filterCutVal.textContent = String(val);
-      } else if (idx === 275 && filterResoSlider) {
-        filterResoSlider.value = String(val);
-        if (filterResoVal) filterResoVal.textContent = (val / 127).toFixed(2);
-      } else if (idx === 282) {
-        curFreqAlgoIdx = Math.max(0, Math.min(freqAlgoNames.length - 1, Math.round(val)));
-        if (curFreqVal) curFreqVal.textContent = freqAlgoNames[curFreqAlgoIdx];
-      } else if (idx === 328) {
-        curTimeAlgoIdx = Math.max(0, Math.min(timeAlgoNames.length - 1, Math.round(val)));
-        if (curTimeVal) curTimeVal.textContent = timeAlgoNames[curTimeAlgoIdx];
-      } else if (r1ScapeStick && (idx === 52 || idx === 72 || idx === 92)) {
-        const layer = idx === 52 ? 0 : (idx === 72 ? 1 : 2);
-        const norm = Math.max(0, Math.min(1, val / 127));
-        r1ScapeStick.setPosition(layer, norm, r1ScapeStick.getCoordinates(layer).y, false);
-      } else if (r1ScapeStick && (idx === 53 || idx === 73 || idx === 93)) {
-        const layer = idx === 53 ? 0 : (idx === 73 ? 1 : 2);
-        const norm = Math.max(0, Math.min(1, val / 127));
-        r1ScapeStick.setPosition(layer, r1ScapeStick.getCoordinates(layer).x, norm, false);
-      } else if (r1SphereStick && (idx === 42 || idx === 62 || idx === 82)) {
-        const layer = idx === 42 ? 0 : (idx === 62 ? 1 : 2);
-        const norm = Math.max(0, Math.min(1, val / 127));
-        r1SphereStick.setPosition(layer, norm, r1SphereStick.getCoordinates(layer).y, false);
-      } else if (r1SphereStick && (idx === 43 || idx === 63 || idx === 83)) {
-        const layer = idx === 43 ? 0 : (idx === 63 ? 1 : 2);
-        const norm = Math.max(0, Math.min(1, val / 127));
-        r1SphereStick.setPosition(layer, r1SphereStick.getCoordinates(layer).x, norm, false);
-      } else if (r2ScapeStick && (idx === 132 || idx === 152 || idx === 172)) {
-        const layer = idx === 132 ? 0 : (idx === 152 ? 1 : 2);
-        const norm = Math.max(0, Math.min(1, val / 127));
-        r2ScapeStick.setPosition(layer, norm, r2ScapeStick.getCoordinates(layer).y, false);
-      } else if (r2ScapeStick && (idx === 133 || idx === 153 || idx === 173)) {
-        const layer = idx === 133 ? 0 : (idx === 153 ? 1 : 2);
-        const norm = Math.max(0, Math.min(1, val / 127));
-        r2ScapeStick.setPosition(layer, r2ScapeStick.getCoordinates(layer).x, norm, false);
-      } else if (r2SphereStick && (idx === 122 || idx === 142 || idx === 162)) {
-        const layer = idx === 122 ? 0 : (idx === 142 ? 1 : 2);
-        const norm = Math.max(0, Math.min(1, val / 127));
-        r2SphereStick.setPosition(layer, norm, r2SphereStick.getCoordinates(layer).y, false);
-      } else if (r2SphereStick && (idx === 123 || idx === 143 || idx === 163)) {
-        const layer = idx === 123 ? 0 : (idx === 143 ? 1 : 2);
-        const norm = Math.max(0, Math.min(1, val / 127));
-        r2SphereStick.setPosition(layer, r2SphereStick.getCoordinates(layer).x, norm, false);
-      }
+      handleParamUpdate(msg.index, msg.value, paramUpdateCtx);
     }
   });
 

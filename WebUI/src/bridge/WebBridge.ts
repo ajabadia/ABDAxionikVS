@@ -16,6 +16,7 @@ export type OutgoingBridgeMessage =
   | { type: 'LOAD_MODEL_SLOT'; slot: number; resynator: 1 | 2 }
   | { type: 'INIT_PRESET' }
   | { type: 'MIDI_CC'; cc: number; value: number }
+  | { type: 'SET_MASTER_VOLUME'; volume: number }
   | { type: 'SET_ORACLE_CLIP_MODE'; enabled: boolean }
   | { type: 'SCAN_BANK' }
   | { type: 'UI_READY' };
@@ -143,6 +144,12 @@ class WebBridgeImpl {
 
   public sendMidiCC(cc: number, value: number) {
     this.send({ type: 'MIDI_CC', cc, value });
+  }
+
+  public setMasterVolume(volume: number) {
+    const clamped = Math.max(0, Math.min(1, volume));
+    this.setUIState('masterVolume', clamped);
+    this.send({ type: 'SET_MASTER_VOLUME', volume: clamped });
   }
 
   public setOracleClipMode(enabled: boolean) {

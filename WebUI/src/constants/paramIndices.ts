@@ -208,6 +208,17 @@ export const ParamIdx = {
   R2AmpEnvR: 233,
   R2AmpEnvMode: 234,
 
+  // Free Env (4 niveles / 4 tiempos, Shaper)
+  FreeEnvLevel1: 242,
+  FreeEnvLevel2: 243,
+  FreeEnvLevel3: 244,
+  FreeEnvLevel4: 245,
+  FreeEnvTime1: 246,
+  FreeEnvTime2: 247,
+  FreeEnvTime3: 248,
+  FreeEnvTime4: 249,
+  Shaper12Status: 253,
+
   // Global
   LFOSwitch: 256,
   LFODepth: 257,
@@ -217,6 +228,9 @@ export const ParamIdx = {
   BlenderType: 261,
   BlenderAmount: 262,
   BlenderLfoDepth: 263,
+  BlenderFreeADSR1Depth: 264,
+  BlenderFreeADSR2Depth: 265,
+  BlenderFree4L4TDepth: 266,
   SlicerSwitchType: 267,
   SlicerDepth: 268,
   SlicerRate: 269,
@@ -243,6 +257,7 @@ export const ParamIdx = {
   FilterEnvDepth: 360,
 
   // Mod / Master
+  FootSwitchDest: 411,
   PitchBendRange: 412,
   SoundMFXSwitch: 430,
   SoundMFXDelaySwitch: 431,

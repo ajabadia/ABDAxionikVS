@@ -30,7 +30,7 @@ export interface NavbarCallbacks {
 export class AxionikNavbar {
   private container: HTMLElement;
   private callbacks: NavbarCallbacks;
-  public navBarInstance: unknown = null;
+  public navBarInstance: ReturnType<typeof createSynthNavBar> = null;
   private presetNameEl: HTMLElement | null = null;
   private r1ModelNameEl: HTMLElement | null = null;
   private r2ModelNameEl: HTMLElement | null = null;
@@ -241,12 +241,14 @@ export class AxionikNavbar {
       case 'zoom':
         if (typeof value === 'number') {
           this.currentZoom = value;
+          this.updateActiveValues();
           this.callbacks.onZoom(value);
         }
         break;
       case 'selectTheme':
         if (typeof value === 'string') {
           this.currentTheme = value;
+          this.updateActiveValues();
           this.callbacks.onSelectTheme(value);
         }
         break;
@@ -260,6 +262,23 @@ export class AxionikNavbar {
         console.log(`[AxionikNavbar] Action: ${action}`, value);
         break;
     }
+  }
+
+  private updateActiveValues(): void {
+    this.navBarInstance?.setActiveValues({
+      zoom: this.currentZoom,
+      selectTheme: this.currentTheme,
+    });
+  }
+
+  public setZoom(zoom: number): void {
+    this.currentZoom = zoom;
+    this.updateActiveValues();
+  }
+
+  public setTheme(theme: string): void {
+    this.currentTheme = theme;
+    this.updateActiveValues();
   }
 
   public setPresetName(name: string): void {

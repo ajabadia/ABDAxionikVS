@@ -1,11 +1,9 @@
 import { BankDrawer } from '../ui/BankDrawer.js';
 import { AxionikNavbar } from '../ui/Navbar.js';
-import { DrawerManager } from '../ui/Drawers.js';
 
 export function setupKeyboardShortcuts(
   bankDrawer: BankDrawer,
-  navbar: AxionikNavbar,
-  drawerManager: DrawerManager,
+  navbar: AxionikNavbar | null,
   openSettingsDrawer: () => void
 ) {
   window.addEventListener('keydown', (e) => {
@@ -16,10 +14,10 @@ export function setupKeyboardShortcuts(
       bankDrawer.toggle('models', 'global');
     } else if (isCtrl && (e.key === 'm' || e.key === 'M')) {
       e.preventDefault();
-      navbar.toggleMatrix();
+      navbar?.toggleMatrix();
     } else if (isCtrl && (e.key === 'f' || e.key === 'F')) {
       e.preventDefault();
-      navbar.toggleMfx();
+      navbar?.toggleMfx();
     } else if (isCtrl && e.key === ',') {
       e.preventDefault();
       openSettingsDrawer();

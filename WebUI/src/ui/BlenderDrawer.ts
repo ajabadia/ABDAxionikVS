@@ -7,6 +7,7 @@
 
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
+import { ParamIdx } from '../constants/paramIndices.js';
 
 export const BLENDER_ALGORITHMS = [
   { id: 0, name: 'Mix', desc: 'Linear volume crossfade between Resynator 1 and 2' },
@@ -37,17 +38,17 @@ export class BlenderDrawer {
     root.style.cssText = 'display: flex; flex-direction: column; gap: var(--space-4); height: 100%;';
 
     // 1. Rehidratar estado real de los parámetros
-    const curBlenderType = Math.round(WebBridge.getParam(261, 0));
-    const curAmount = Math.round(WebBridge.getParam(262, 0));
-    const curLfoDepth = Math.round(WebBridge.getParam(263, 0));
-    const curAdsr1 = Math.round(WebBridge.getParam(264, 0));
-    const curAdsr2 = Math.round(WebBridge.getParam(265, 0));
-    const cur4l4t = Math.round(WebBridge.getParam(266, 0));
+    const curBlenderType = Math.round(WebBridge.getParam(ParamIdx.BlenderType, 0));
+    const curAmount = Math.round(WebBridge.getParam(ParamIdx.BlenderAmount, 0));
+    const curLfoDepth = Math.round(WebBridge.getParam(ParamIdx.BlenderLfoDepth, 0));
+    const curAdsr1 = Math.round(WebBridge.getParam(ParamIdx.BlenderFreeADSR1Depth, 0));
+    const curAdsr2 = Math.round(WebBridge.getParam(ParamIdx.BlenderFreeADSR2Depth, 0));
+    const cur4l4t = Math.round(WebBridge.getParam(ParamIdx.BlenderFree4L4TDepth, 0));
 
-    const curSlicerType = Math.round(WebBridge.getParam(267, 0));
-    const curSlicerDepth = Math.round(WebBridge.getParam(268, 64));
-    const curSlicerRate = Math.round(WebBridge.getParam(269, 66));
-    const curSlicerWave = Math.round(WebBridge.getParam(270, 0));
+    const curSlicerType = Math.round(WebBridge.getParam(ParamIdx.SlicerSwitchType, 0));
+    const curSlicerDepth = Math.round(WebBridge.getParam(ParamIdx.SlicerDepth, 64));
+    const curSlicerRate = Math.round(WebBridge.getParam(ParamIdx.SlicerRate, 66));
+    const curSlicerWave = Math.round(WebBridge.getParam(ParamIdx.SlicerWaveForm, 0));
 
     let algoButtonsHtml = '';
     BLENDER_ALGORITHMS.forEach((a) => {
@@ -174,7 +175,7 @@ export class BlenderDrawer {
       btn.addEventListener('click', (e) => {
         const target = e.currentTarget as HTMLElement;
         const algo = parseInt(target.getAttribute('data-algo') || '0', 10);
-        WebBridge.setParam(261, algo);
+        WebBridge.setParam(ParamIdx.BlenderType, algo);
         root.querySelectorAll('.btn-blender-algo').forEach((b) => {
           const isAct = parseInt(b.getAttribute('data-algo') || '0', 10) === algo;
           b.classList.toggle('active', isAct);
@@ -191,7 +192,7 @@ export class BlenderDrawer {
       btn.addEventListener('click', (e) => {
         const target = e.currentTarget as HTMLElement;
         const type = parseInt(target.getAttribute('data-type') || '0', 10);
-        WebBridge.setParam(267, type);
+        WebBridge.setParam(ParamIdx.SlicerSwitchType, type);
         root.querySelectorAll('.btn-slicer-type').forEach((b) => {
           const isAct = parseInt(b.getAttribute('data-type') || '0', 10) === type;
           b.classList.toggle('active', isAct);
@@ -206,7 +207,7 @@ export class BlenderDrawer {
       btn.addEventListener('click', (e) => {
         const target = e.currentTarget as HTMLElement;
         const wave = parseInt(target.getAttribute('data-wave') || '0', 10);
-        WebBridge.setParam(270, wave);
+        WebBridge.setParam(ParamIdx.SlicerWaveForm, wave);
         root.querySelectorAll('.btn-slicer-wave').forEach((b) => {
           const isAct = parseInt(b.getAttribute('data-wave') || '0', 10) === wave;
           b.classList.toggle('active', isAct);

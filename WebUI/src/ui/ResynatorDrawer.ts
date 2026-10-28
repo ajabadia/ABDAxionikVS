@@ -12,6 +12,7 @@
 
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
+import { ParamIdx } from '../constants/paramIndices.js';
 import { MultiStageShaperPad } from './MultiStageShaperPad.js';
 
 export interface ResynatorDrawerProps {
@@ -60,16 +61,16 @@ export class ResynatorDrawer {
 
     // Shaper 4L4T [242..253]
     const curShaperTimes = [
-      WebBridge.getParam(246, 25) / 127 || 0.2,
-      WebBridge.getParam(247, 51) / 127 || 0.4,
-      WebBridge.getParam(248, 38) / 127 || 0.3,
-      WebBridge.getParam(249, 64) / 127 || 0.5,
+      WebBridge.getParam(ParamIdx.FreeEnvTime1, 25) / 127 || 0.2,
+      WebBridge.getParam(ParamIdx.FreeEnvTime2, 51) / 127 || 0.4,
+      WebBridge.getParam(ParamIdx.FreeEnvTime3, 38) / 127 || 0.3,
+      WebBridge.getParam(ParamIdx.FreeEnvTime4, 64) / 127 || 0.5,
     ];
     const curShaperLevels = [
-      WebBridge.getParam(242, 50) / 63 || 0.8,
-      WebBridge.getParam(243, -25) / 63 || -0.4,
-      WebBridge.getParam(244, 32) / 63 || 0.5,
-      WebBridge.getParam(245, 0) / 63 || 0.0,
+      WebBridge.getParam(ParamIdx.FreeEnvLevel1, 50) / 63 || 0.8,
+      WebBridge.getParam(ParamIdx.FreeEnvLevel2, -25) / 63 || -0.4,
+      WebBridge.getParam(ParamIdx.FreeEnvLevel3, 32) / 63 || 0.5,
+      WebBridge.getParam(ParamIdx.FreeEnvLevel4, 0) / 63 || 0.0,
     ];
     const curShaperMode = g(253, 1);
 
@@ -240,7 +241,7 @@ export class ResynatorDrawer {
 
     const lfoChk = el.querySelector('#chk-global-lfo') as HTMLInputElement | null;
     lfoChk?.addEventListener('change', () => {
-      WebBridge.setParam(256, lfoChk.checked ? 1 : 0);
+      WebBridge.setParam(ParamIdx.LFOSwitch, lfoChk.checked ? 1 : 0);
     });
 
     // Octave slider [33 / 113] (0..3 -> displayed -2..+1)
@@ -289,12 +290,12 @@ export class ResynatorDrawer {
         mode: curShaperMode,
         onChange: (val) => {
           val.levels.forEach((lvl, idx) => {
-            WebBridge.setParam(242 + idx, Math.round(lvl * 63));
+            WebBridge.setParam(ParamIdx.FreeEnvLevel1 + idx, Math.round(lvl * 63));
           });
           val.times.forEach((t, idx) => {
-            WebBridge.setParam(246 + idx, Math.round(t * 127));
+            WebBridge.setParam(ParamIdx.FreeEnvTime1 + idx, Math.round(t * 127));
           });
-          WebBridge.setParam(253, val.mode);
+          WebBridge.setParam(ParamIdx.Shaper12Status, val.mode);
         },
       });
     }

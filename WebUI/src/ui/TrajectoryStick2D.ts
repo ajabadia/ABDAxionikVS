@@ -26,6 +26,15 @@ export interface TrajectoryStickOptions {
   initialLayer?: 0 | 1 | 2;
   labels?: StickLabels;
   labelsPerLayer?: StickLabels[];
+  showHeader?: boolean;
+  showLayers?: boolean;
+  readout?: boolean;
+  hasRecorder?: boolean;
+  springReturn?: boolean;
+  restX?: number;
+  restY?: number;
+  size?: number;
+  className?: string;
   onPositionChange?: (layerIdx: number, coord: StickCoordinate) => void;
   onChange?: (layerIdx: number, coord: StickCoordinate) => void;
   onOpenExpanded?: () => void;
@@ -70,6 +79,10 @@ export class TrajectoryStick2D extends SharedStick {
 
   public clearTrajectory(): void {
     super.clearTrajectory();
+  }
+
+  public destroy(): void {
+    super.destroy();
   }
 }
 
