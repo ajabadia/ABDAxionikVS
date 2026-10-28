@@ -19,7 +19,7 @@ import { DrawerManager } from './ui/Drawers.js';
 import { TrajectoryStick2D } from './ui/TrajectoryStick2D.js';
 import { ResynatorDrawer } from './ui/ResynatorDrawer.js';
 import { EffectsDrawer } from './ui/EffectsDrawer.js';
-import { BlenderDrawer, BLENDER_ALGORITHMS } from './ui/BlenderDrawer.js';
+import { BlenderDrawer } from './ui/BlenderDrawer.js';
 import { BlenderPanel } from './ui/BlenderPanel.js';
 import { FilterPanel } from './ui/FilterPanel.js';
 import { EnvelopeMasterPanel } from './ui/EnvelopeMasterPanel.js';
