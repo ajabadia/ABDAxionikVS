@@ -23,18 +23,21 @@ export interface TrajectoryStickOptions {
   resynator?: 1 | 2;
   domain?: 'scape' | 'sphere';
   numLayers?: number;
+  layerNames?: string[];
   initialLayer?: 0 | 1 | 2;
   labels?: StickLabels;
   labelsPerLayer?: StickLabels[];
   showHeader?: boolean;
   showLayers?: boolean;
   readout?: boolean;
+  formatReadout?: (layerIdx: number, coord: StickCoordinate) => string;
   hasRecorder?: boolean;
   springReturn?: boolean;
   restX?: number;
   restY?: number;
   size?: number;
   className?: string;
+  onLayerChange?: (layerIdx: number) => void;
   onPositionChange?: (layerIdx: number, coord: StickCoordinate) => void;
   onChange?: (layerIdx: number, coord: StickCoordinate) => void;
   onOpenExpanded?: () => void;
@@ -43,6 +46,9 @@ export interface TrajectoryStickOptions {
 export class TrajectoryStick2D extends SharedStick {
   /** Estado de grabación de trayectoria (propiedad real del componente base de ABDShared). */
   public declare isRecording: boolean;
+
+  /** Índice de la capa activa (propiedad real del componente base de ABDShared). */
+  public declare activeLayer: number;
 
   constructor(container: HTMLElement, options: TrajectoryStickOptions) {
     super(container, options);
@@ -62,6 +68,10 @@ export class TrajectoryStick2D extends SharedStick {
 
   public setLabels(labels: StickLabels): void {
     super.setLabels(labels);
+  }
+
+  public setReadout(text: string): void {
+    super.setReadout(text);
   }
 
   public setLayerLabels(layerIndex: number, labels: StickLabels): void {

@@ -258,6 +258,71 @@ input[type="range"] {
   padding: var(--space-2, 6px);
 }
 
+/* ── Silver Filter & Multi-FX Rack Layout ── */
+.silver-body {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: var(--space-2, 6px);
+  flex: 1;
+}
+
+.silver-fx-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 74px;
+  flex-shrink: 0;
+  background: var(--color-panel-surface, #1e222b);
+  border: 1px solid var(--color-border-subtle, #333a47);
+  border-radius: var(--radius-md, 8px);
+  padding: 6px 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.silver-fx-col-title {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-accent, #38bdf8);
+  text-transform: uppercase;
+  text-align: center;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--color-panel-border-dim, rgba(255, 255, 255, 0.06));
+}
+
+.silver-pills-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.silver-pills-stack .btn {
+  font-size: 8px;
+  padding: 2px 2px;
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+#silver-stick-mount {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+#silver-stick-mount > .trajectory-stick-card {
+  width: 100%;
+  height: 100%;
+  justify-content: space-between;
+}
+
 /* ── Sincronización de colapso por fila ── */
 .synth-row.is-row-collapsed [data-collapse-body] {
   display: none !important;
