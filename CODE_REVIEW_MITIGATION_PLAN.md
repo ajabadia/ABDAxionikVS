@@ -63,7 +63,7 @@
 | `DspSources.cmake` | Correcto | Anti-drift. |
 | `tests/registry.test.ts` | Correcto | Valida invariantes clave. |
 | `tests/sound_format.test.ts` | Corregido | Eliminadas rutas externas hardcodeadas, sin skips silenciosos, usa fixtures locales (`NeuronDB/` o `tests/fixtures/`). |
-| `GoldenParityTest.cpp` | Pendiente revisión | Crítico para paridad bit-exacta. |
+| `tests/GoldenParityTest.cpp` | Revisado/Mejorado | Crítico para paridad bit-exacta. Rutas áureas externalizadas a `GOLDEN_WAV_DIR`/busqueda local `./golden`, `./tests/golden` sin rutas hardcodeadas a Downloads. |
 
 ### 3.5 Hallazgos destacados
 - **Positivo:** Documentación inversa excepcional, paridad prioritaria, buena separación de capas.
@@ -177,8 +177,8 @@ Objetivo: pasar a constantes centralizadas. Crear archivos al estilo ABDJUNiO601
 - [x] Limpieza debug/logs/globals (sin patrones problemáticos encontrados; código ya limpio)
 
 ### 6.5 FASE 4-5
-- [x] Ajustes tests
-- [ ] Revisar `GoldenParityTest.cpp`
+- [x] Ajustes tests (`sound_format.test.ts` sin rutas externas; `GoldenParityTest.cpp` sin rutas hardcodeadas a Downloads, usa `GOLDEN_WAV_DIR`/rutas locales)
+- [x] Revisar `GoldenParityTest.cpp`
 - [ ] Verificación final
 - [x] Actualizar seguimiento
 
@@ -211,7 +211,8 @@ Objetivo: pasar a constantes centralizadas. Crear archivos al estilo ABDJUNiO601
 
 ### Tests
 - `tests/sound_format.test.ts` - Eliminadas rutas externas hardcodeadas, usa fixtures locales `NeuronDB/Sounds/...`, sin skips silenciosos
+- `tests/GoldenParityTest.cpp` - Eliminadas rutas hardcodeadas a Downloads; auto-detección vía `GOLDEN_WAV_DIR`, `./golden`, `./tests/golden`
 
 ---
 
-**ÚLTIMA ACTUALIZACIÓN:** 2026-10-28 - Centralizados índices, migrados usos en C++/WebUI, añadidos principios a ABDShared/Docs, corregidos tests, atómico isSyncingPreset_, NRPN reset en ProgramChange/allNotesOff, changeProgramName documentado, masterVol/CPU sintético documentados, sección "Cambios realizados" añadida. Plan actualizado y seguimiento completado en las fases aplicables. Commit+push realizado.
+**ÚLTIMA ACTUALIZACIÓN:** 2026-10-28 - Centralizados índices, migrados usos en C++/WebUI, añadidos principios a ABDShared/Docs, corregidos tests (sin rutas externas), GoldenParityTest portabilizado, atómico isSyncingPreset_, NRPN reset en ProgramChange/allNotesOff, changeProgramName documentado, masterVol/CPU sintético documentados, sección "Cambios realizados" añadida. Plan actualizado con todos los hallazgos aplicables. Commit+push realizado.

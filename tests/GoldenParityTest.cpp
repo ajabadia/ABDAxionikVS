@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <cstdlib>
 
 #include "DSP/DspEngineFacade.h"
 #include "Generated/FactoryPresets.gen.h"
@@ -400,16 +401,20 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Auto-detección de vector áureo si no se especificó
+    // Auto-detección de vector áureo si no se especificó (sin rutas hardcodeadas externas)
     if (goldenPath.empty()) {
         std::string wavName = "note" + std::to_string(noteNumber) + "_" + std::to_string(presetSlot) + 
                               "_" + std::to_string(sampleRate) + "_" + std::to_string(blockSize) + ".wav";
-        const std::vector<fs::path> candidateGolden = {
-            fs::path(R"(C:\Users\ajaba\Downloads\neuron\NeuronVS_port\golden)") / wavName,
-            fs::path(R"(C:\Users\ajaba\Downloads\neuron\NeuronVS_vst2\golden)") / wavName,
-            fs::path("./golden") / wavName,
-            R"(C:\Users\ajaba\Downloads\neuron\NeuronVS_port\golden\note60_176_44100_512.wav)"
-        };
+        const char* envGolden = std::getenv("GOLDEN_WAV_DIR");
+        std::vector<fs::path> candidateGolden;
+        if (envGolden && *envGolden) {
+            candidateGolden.push_back(fs::path(envGolden) / wavName);
+            candidateGolden.push_back(fs::path(envGolden) / "note60_176_44100_512.wav");
+        }
+        candidateGolden.push_back(fs::path("./golden") / wavName);
+        candidateGolden.push_back(fs::path("./tests/golden") / wavName);
+        candidateGolden.push_back(fs::path("../golden") / wavName);
+        candidateGolden.push_back(fs::path("../tests/golden") / wavName);
         for (const auto& p : candidateGolden) {
             if (fs::exists(p)) {
                 goldenPath = p;
