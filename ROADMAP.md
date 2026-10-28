@@ -439,6 +439,20 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
          - Selector de modo entre ruedas estÃ¡ndar (`Pitch Bend` + `Modulation Wheel`) y el **Control 1 / Performance Stick** del sintetizador hardware original Hartmann Neuron (joystick 2D analÃ³gico: Eje X = Pitch Bend bipolar `[-48..+48]`, Eje Y+ hacia arriba = `ModWheel` CC 1 / `ModWheelDepth` `[414]`, Eje Y- hacia abajo = `Breath` CC 2 / `BreathDepth` `[416]`).
   3. Conectar `ParameterBridge` (telemetrÃ­a espectral/envolventes/sticks a ~15-30 Hz con diffing, carga de modelos y presets, aprendizaje MIDI CC) y validar el selftest E2E en Standalone y Bancada WebView2.
   4. **CorrecciÃ³n de Paridad DSP en `DspEngineFacade.cpp` (`setEQParams`)**: Corregida la inversiÃ³n preexistente de argumentos de frecuencia y ganancia en las 4 bandas del ecualizador paramÃ©trico, garantizando la respuesta de frecuencia exacta del hardware/plugin original.
+   5. **Verificación M6 / V10 de la Modulation Matrix (351 Presets Bit a Bit)**:
+      - Comparación completa del desenganche y valores efectivos `p[]` entre el port y el DLL original.
+      - Identificado y corregido el desajuste en el preset 176 (destino 58, control 1 prof 0.920635) mediante la alimentación previa de los valores de control de `params+0x44` al port.
+      - **351/351 presets en verde**, 6.237 comprobaciones de arnés, 21.411 slots bit a bit (61/63 por preset × 351).
+      - Verificador `verify_matrix.py` actualizado a `V10` (15/15 comprobaciones superadas).
+   6. **Ciclo de Vida y Parametrización de los Tres Objetos del Cierre en `engine+0x3650/0x3654/0x3658`**:
+      - Creados en el constructor `FUN_10044884` sobre `operator_new(0x367C)` y destruidos por `FUN_100461c4`:
+        - `+0x3650` (`e[0xD94]`): Coro / Slicer (352.936 B) parametrizado por `FUN_10040550` desde los slots 226..229 (`p[0xE2..0xE5]`).
+        - `+0x3654` (`e[0xD95]`): Delay largo / CSilverRack (541.640 B) parametrizado por `FUN_100343e4(this, p)` con 64 campos (`st+0x0C..st+0x110`, 54 literales de `p[249..316]` + 10 calculados).
+        - `+0x3658` (`e[0xD96]`): Reloj del banco aditivo (120 B) con avance de 1024 muestras por bloque vía `FUN_10029530`.
+   7. **Especificación Canónica SysEx y Presets de Fábrica**:
+      - Confirmada la ausencia de SysEx en el DLL VST2 (filtra estrictamente `kVstMidiType`).
+      - Decodificada la cabecera canónica del hardware Hartmann desde el volcado de firmware `neuron_1_5_0.mid`: `F0 00 20 50 01 7F 70 00` (Manufacturer ID oficial MMA: `0x00 0x20 0x50`).
+      - Tabla canónica de 445 descriptores embebida en `.rdata:0x10049F08`, nombres de 1.000 sonidos inicializados con `InitSound` (`0x100525BC`).
 - **VerificaciÃ³n (DoD)**:
   - Cierre de la **Fase A (Hartmann Neuron ClÃ¡sico 1:1)**: `build.bat nopause` 100 % en verde (CTest + Vitest 43/43 + Selftest E2E en las dos superficies + paridad WASM `AudioWorklet`).
 
