@@ -22,6 +22,9 @@ import {
 import { createBankShell } from '@abdsynths/shared/components/bank/bankShell.js';
 import { bankCardHtml, bindBankCards } from '@abdsynths/shared/components/bank/bankCard.js';
 import { bankChipsHtml, bindBankChips, type BankChipItem } from '@abdsynths/shared/components/bank/bankChips.js';
+import { getPresetCategoryInfo } from './presetCategories.js';
+
+export { getPresetCategoryInfo };
 
 export interface BankModelEntry {
   slot: number;
@@ -89,20 +92,6 @@ const STICK_TABLE = [4, 8, 8, 12, 16, 20, 32, 32, 48, 64];
 export function stickModesToComplexity(modes: number): number {
   const idx = STICK_TABLE.indexOf(modes);
   return idx >= 0 ? idx + 1 : Math.max(1, Math.min(10, Math.round(modes / 6.4)));
-}
-
-export function getPresetCategoryInfo(category: string): { icon: string; catClass: string; paramId: number } {
-  const cat = (category || '').toLowerCase();
-  if (cat.includes('string') || cat.includes('solo') || cat.includes('chord')) return { icon: ICONS.param1, catClass: 'cat-1', paramId: 1 };
-  if (cat.includes('bell') || cat.includes('percussion') || cat.includes('world')) return { icon: ICONS.param2, catClass: 'cat-2', paramId: 2 };
-  if (cat.includes('bass') || cat.includes('pluck') || cat.includes('plugged')) return { icon: ICONS.param3, catClass: 'cat-3', paramId: 3 };
-  if (cat.includes('pad') || cat.includes('showcase')) return { icon: ICONS.param4, catClass: 'cat-4', paramId: 4 };
-  if (cat.includes('key') || cat.includes('piano') || cat.includes('organ')) return { icon: ICONS.param5, catClass: 'cat-5', paramId: 5 };
-  if (cat.includes('wind') || cat.includes('reed') || cat.includes('brass') || cat.includes('vocal') || cat.includes('voice') || cat.includes('choir')) return { icon: ICONS.param6, catClass: 'cat-6', paramId: 6 };
-  if (cat.includes('texture') || cat.includes('drone') || cat.includes('fx')) return { icon: ICONS.param7, catClass: 'cat-7', paramId: 7 };
-  if (cat.includes('arp') || cat.includes('loop') || cat.includes('sequenced')) return { icon: ICONS.param8, catClass: 'cat-8', paramId: 8 };
-  if (cat.includes('rhythm') || cat.includes('drum')) return { icon: ICONS.param9, catClass: 'cat-9', paramId: 9 };
-  return { icon: ICONS.param0, catClass: 'cat-0', paramId: 0 };
 }
 
 const STORAGE_FOLDER_KEY = 'abdsynths_axionik_neurondb_folder';
