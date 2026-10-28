@@ -84,6 +84,14 @@ export const ALL_63_MOD_DESTINATIONS = [
   { id: 62, label: '62: Filter Resonance [275]' },
 ];
 
+export function getModDestinationLabel(destId: number): string {
+  if (destId === 3000 || destId === undefined || destId === null) return 'Off';
+  const normId = destId >= 3001 ? destId - 3001 : destId;
+  const found = ALL_63_MOD_DESTINATIONS.find((d) => d.id === normId);
+  if (!found) return 'Off';
+  return found.label.replace(/^\d+:\s*/, '').replace(/\s*\[\d+\]$/, '');
+}
+
 export const FREE_CONTROLLER_GROUPS = [
   { name: 'Aftertouch Free [363..370]', baseDest: 363, baseDepth: 367 },
   { name: 'Controller 1 Up [371..378]', baseDest: 371, baseDepth: 375 },
@@ -105,6 +113,17 @@ export class MatrixDrawer {
 
     const buildDestOptions = (selectedId: number) =>
       ALL_63_MOD_DESTINATIONS.map((d) => `<option value="${d.id}" ${d.id === selectedId ? 'selected' : ''}>${d.label}</option>`).join('');
+
+    const buildFreeDestOptions = (selectedVal: number) => {
+      const isOff = selectedVal === 3000 || selectedVal === 0;
+      let opts = `<option value="3000" ${isOff ? 'selected' : ''}>-- Off / None --</option>`;
+      ALL_63_MOD_DESTINATIONS.forEach((d) => {
+        const val = 3001 + d.id;
+        const isSelected = selectedVal === val || selectedVal === d.id;
+        opts += `<option value="${val}" ${isSelected ? 'selected' : ''}>${d.label}</option>`;
+      });
+      return opts;
+    };
 
     let sourcesHtml = '';
     MOD_SOURCES.forEach((src) => {
@@ -156,12 +175,23 @@ export class MatrixDrawer {
     FREE_CONTROLLER_GROUPS.forEach((grp) => {
       let slotsHtml = '';
       for (let s = 0; s < 4; ++s) {
+        const destIdx = grp.baseDest + s;
         const dpIdx = grp.baseDepth + s;
-        const curDp = Math.round(WebBridge.getParam(dpIdx, 63));
+        const curDestVal = Math.round(WebBridge.getParam(destIdx, 3000));
+        const curDp = Math.round(WebBridge.getParam(dpIdx, 0));
         slotsHtml += `
-          <div>
-            <span class="hud-label" style="font-size: 9px;">SLOT ${s + 1} DEPTH [${dpIdx}]: <strong class="src-depth-val">${curDp}</strong></span>
-            <input type="range" class="abd-slider src-depth-slider" data-param="${dpIdx}" min="-64" max="63" value="${curDp}" step="1" style="width: 100%;" />
+          <div class="hud-pill" style="display: flex; flex-direction: column; gap: 4px; padding: var(--space-2); background: var(--color-bg-base, rgba(0,0,0,0.3)); border-radius: var(--radius-sm, 4px);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="hud-label" style="font-size: 9px; font-weight: 700;">SLOT ${s + 1} [${destIdx}]:</span>
+              <span class="hud-value stat-num src-depth-val" style="font-size: 10px;">${curDp}</span>
+            </div>
+            <select class="btn btn-xs btn-outline src-dest-select" data-param="${destIdx}" style="height: 22px; font-size: 9px; width: 100%;">
+              ${buildFreeDestOptions(curDestVal)}
+            </select>
+            <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+              <span class="hud-label" style="font-size: 8px;">DEPTH:</span>
+              <input type="range" class="abd-slider src-depth-slider" data-param="${dpIdx}" min="-64" max="63" value="${curDp}" step="1" style="flex: 1;" />
+            </div>
           </div>
         `;
       }

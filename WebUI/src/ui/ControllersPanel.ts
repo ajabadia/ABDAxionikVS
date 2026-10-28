@@ -3,16 +3,19 @@
  * Réplica fiel del bloque físico frontal «Controllers» del teclado hardware Hartmann Neuron.
  * 
  * Componentes canónicos reutilizados de ABDShared (filosofía DRY):
- * 1. Control 1 Performance Stick:
+ * 1. Control 1 Performance Stick (Izquierda):
  *    - TrajectoryStick2D de @abdsynths/shared/components/trajectoryStick2D.js (1 capa, spring-return).
  *    - Eje X: Pitch Bend bipolar con retorno por muelle al centro ([-48, +48] semitonos).
  *    - Eje Y: Control 1 (Modulation Wheel CC 1 / ModulationDepth [416]).
  *    - Marcado físico: "Pitch ◀ ▶" y "▲ Control 1 ▼".
- * 2. Control 2 (Wheel original + LedLadder a su derecha):
- *    - Rueda de modulación física (Wheel de @abdsynths/shared/components) con sus dimensiones nativas de filmstrip (18x76px).
- *    - Indicador vertical de LEDs discretos (LedLadder de @abdsynths/shared/components) colocado a la derecha de la rueda.
- * 3. Knobs apilados verticalmente (Control 3 arriba, Master Vol abajo):
- *    - Knobs rotatorios canónicos de ABDShared con colores tokenizados generales.
+ *    - Badge de destino dinámico: Muestra en vivo la asignación activa (ej. ▲ Cutoff).
+ * 2. Control 2 (Centro):
+ *    - Rueda de modulación física (Wheel de @abdsynths/shared/components, 18x76px).
+ *    - Indicador vertical de LEDs discretos (LedLadder de @abdsynths/shared/components, 76px de altura).
+ *    - Badge de destino dinámico: Muestra en vivo la asignación activa (ej. Blender Amount).
+ * 3. Control 3 (Derecha):
+ *    - Rueda de modulación física y tira de LEDs exactamente idénticas a Control 2 (DRY).
+ *    - Badge de destino dinámico para Control 3 (ej. Slicer Depth).
  * 
  * Capa de abstracción:
  * Toda la comunicación viaja a través de WebBridge desacoplada del DSP.
@@ -21,20 +24,26 @@
 import { TrajectoryStick2D } from './TrajectoryStick2D.js';
 import { Wheel } from '@abdsynths/shared/components/wheel.js';
 import { LedLadder } from '@abdsynths/shared/components/ledLadder.js';
-import { Knob } from '@abdsynths/shared/components/knob.js';
 import { WebBridge } from '../bridge/WebBridge.js';
+import { getModDestinationLabel } from './MatrixDrawer.js';
+
+export interface ControllersPanelOptions {
+  onEdit?: () => void;
+}
 
 export class ControllersPanel {
   private container: HTMLElement;
+  private options: ControllersPanelOptions;
   private rootEl: HTMLElement | null = null;
   private stick: TrajectoryStick2D | null = null;
-  private ledLadder: LedLadder | null = null;
   private control2Wheel: Wheel | null = null;
-  private control3Knob: Knob | null = null;
-  private volumeKnob: Knob | null = null;
+  private control2LedLadder: LedLadder | null = null;
+  private control3Wheel: Wheel | null = null;
+  private control3LedLadder: LedLadder | null = null;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, options: ControllersPanelOptions = {}) {
     this.container = container;
+    this.options = options;
     this.render();
   }
 
@@ -42,85 +51,103 @@ export class ControllersPanel {
     this.rootEl = document.createElement('div');
     this.rootEl.className = 'synth-panel-card controllers-hardware-panel';
     this.rootEl.innerHTML = `
-      <div class="panel-header controllers-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2, 6px); padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08));">
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <span class="controllers-led-badge" style="width: 7px; height: 7px; border-radius: 50%; background: var(--color-accent, #00c3ff); box-shadow: 0 0 6px var(--color-accent, #00c3ff);"></span>
-          <span style="font-weight: 700; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-main, #e8f4ff);">Controllers</span>
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08));">
+        <span class="stick-label">CONTROLLERS</span>
+        <div class="panel-actions" style="display: flex; align-items: center; gap: 4px;">
+          <button type="button" class="btn btn-xs btn-outline" id="btn-edit-controllers" title="Edit Controllers Assignment & Modulation Matrix (Ctrl+M)">Edit Matrix</button>
+          <button type="button" class="btn btn-xs btn-outline btn-collapse-row" data-row="row-bottom" title="Colapsar / Descolapsar fila">▾</button>
         </div>
-        <span class="panel-badge" style="font-size: 8px; opacity: 0.7;">HARDWARE PERFORMANCE</span>
       </div>
 
-      <div class="controllers-grid" style="display: flex; align-items: center; justify-content: flex-start; gap: var(--space-5, 24px); padding: 8px 12px; flex-wrap: wrap; min-height: 170px;">
-        
-        <!-- 1. Control 1 Performance Stick (caja más alta con tamaño canónico de 130px) -->
-        <div class="controller-stick-section" id="ctrl1-stick-mount" style="display: flex; align-items: center; justify-content: center;"></div>
+      <div class="panel-body controllers-body" data-collapse-body style="flex: 1; display: flex; flex-direction: column;">
+        <div class="controllers-grid" style="display: flex; align-items: center; justify-content: space-around; gap: 12px; padding: 4px; flex: 1;">
+          
+          <!-- 1. Control 1 Performance Stick (Pitch X / Mod Y) -->
+          <div class="controller-stick-section" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+            <div id="ctrl1-stick-mount" style="display: flex; align-items: center; justify-content: center;"></div>
+            <div class="hud-pill ctrl-dest-tag" id="ctrl1-dest-label" style="font-size: 8.5px; padding: 2px 6px; text-align: center; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-accent); font-weight: 600; border-radius: 3px;" title="Control 1 Assignment">▲ Cutoff</div>
+          </div>
 
-        <!-- 2. Control 2 (Wheel tamaño original 18x76px + LedLadder a su derecha) -->
-        <div class="controller-wheel-section" style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
-          <div id="ctrl2-wheel-mount"></div>
-          <div id="ctrl2-led-ladder-mount" style="display: flex; align-items: center;"></div>
+          <!-- 2. Control 2 (Wheel + LedLadder a su derecha) -->
+          <div class="controller-wheel-section" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+            <div class="shaper-wheel-bezel" style="display: flex; flex-direction: row; align-items: center; gap: 6px;">
+              <div id="ctrl2-wheel-mount"></div>
+              <div id="ctrl2-led-ladder-mount" style="display: flex; align-items: center;"></div>
+            </div>
+            <div class="hud-pill ctrl-dest-tag" id="ctrl2-dest-label" style="font-size: 8.5px; padding: 2px 6px; text-align: center; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-accent); font-weight: 600; border-radius: 3px;" title="Control 2 Assignment">LFO Depth</div>
+          </div>
+
+          <!-- 3. Control 3 (Wheel + LedLadder exactamente idéntico a Control 2) -->
+          <div class="controller-wheel-section" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+            <div class="shaper-wheel-bezel" style="display: flex; flex-direction: row; align-items: center; gap: 6px;">
+              <div id="ctrl3-wheel-mount"></div>
+              <div id="ctrl3-led-ladder-mount" style="display: flex; align-items: center;"></div>
+            </div>
+            <div class="hud-pill ctrl-dest-tag" id="ctrl3-dest-label" style="font-size: 8.5px; padding: 2px 6px; text-align: center; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-accent); font-weight: 600; border-radius: 3px;" title="Control 3 Assignment">Control 3</div>
+          </div>
+
         </div>
-
-        <!-- 3 & 4. Knobs apilados verticalmente (Control 3 encima, Master Vol debajo) -->
-        <div class="controllers-knobs-column" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
-          <div id="ctrl3-knob-mount"></div>
-          <div id="master-vol-knob-mount"></div>
-        </div>
-
       </div>
     `;
 
     this.container.appendChild(this.rootEl);
 
-    // Inicializar subcomponentes canónicos de ABDShared
+    // Inicializar subcomponentes
     this.initPerformanceStick();
-    this.initLedLadder();
     this.initControl2Wheel();
-    this.initControl3Knob();
-    this.initMasterVolumeKnob();
+    this.initControl2LedLadder();
+    this.initControl3Wheel();
+    this.initControl3LedLadder();
+
+    // Evento Edit Matrix
+    this.rootEl.querySelector('#btn-edit-controllers')?.addEventListener('click', () => {
+      this.options.onEdit?.();
+    });
+
+    this.updateLabels();
   }
 
   private initPerformanceStick(): void {
     const mount = this.rootEl?.querySelector('#ctrl1-stick-mount');
     if (!mount) return;
 
-    // Caja alta: size 130px para dar gran presencia física y amplitud al pozo del joystick
     this.stick = new TrajectoryStick2D(mount as HTMLElement, {
-      label: 'Control 1',
-      numLayers: 1,
+      label: 'CONTROL 1',
+      resynator: 1,
+      domain: 'scape',
       showHeader: false,
       showLayers: false,
-      hasRecorder: false,
       readout: false,
+      hasRecorder: false,
       springReturn: true,
       restX: 0.5,
       restY: 0.0,
-      size: 130,
+      size: 110,
       className: 'borderless',
       labels: {
-        north: '▲ Control 1 ▼',
-        south: '◀ Pitch ▶',
-        west: '',
-        east: '',
+        north: '▲ Control 1',
+        south: '▼',
+        west: '◀ Pitch',
+        east: 'Pitch ▶',
       },
-      onChange: (_layerIdx, coord) => {
-        // Pitch bend: X va de 0.0 a 1.0 (centro 0.5) -> normalizado [-1.0, +1.0]
-        const pitchNorm = (coord.x - 0.5) * 2.0;
-        WebBridge.pitchBend(pitchNorm);
+      onPositionChange: (_layerIdx, coord) => {
+        // Eje X: Pitch Bend (0..1 donde 0.5 es centro) -> -8192..+8191
+        const pbNormalized = (coord.x - 0.5) * 2.0;
+        const pbRaw = Math.round(pbNormalized * 8192);
+        WebBridge.pitchBend(pbRaw);
 
-        // Control 1: Y va de 0.0 a 1.0 (arriba positivo) -> CC 1 [0..127]
-        const ccVal = Math.round(coord.y * 127.0);
-        WebBridge.sendMidiCC(1, ccVal);
+        // Eje Y: Control 1 (Modulation Wheel CC 1 / ModulationDepth [416])
+        const modWheelRaw = Math.round(coord.y * 127);
+        WebBridge.modWheel(modWheelRaw);
       },
     });
   }
 
-  private initLedLadder(): void {
+  private initControl2LedLadder(): void {
     const mount = this.rootEl?.querySelector('#ctrl2-led-ladder-mount');
     if (!mount) return;
 
-    // Altura sincronizada con los 76px de la rueda original
-    this.ledLadder = new LedLadder(mount as HTMLElement, {
+    this.control2LedLadder = new LedLadder(mount as HTMLElement, {
       segments: 10,
       mode: 'bar',
       bipolar: false,
@@ -129,14 +156,13 @@ export class ControllersPanel {
       segmentHeight: 4,
       ariaLabel: 'Control 2 LED Level',
     });
-    this.ledLadder.setValue(0.0);
+    this.control2LedLadder.setValue(0.0);
   }
 
   private initControl2Wheel(): void {
     const mount = this.rootEl?.querySelector('#ctrl2-wheel-mount');
     if (!mount) return;
 
-    // Tamaño original exacto del filmstrip de bender.png (18px ancho x 76px alto, 101 fotogramas)
     this.control2Wheel = new Wheel(mount as HTMLElement, {
       type: 'mod',
       label: 'Control 2',
@@ -146,53 +172,94 @@ export class ControllersPanel {
       frameHeight: 76,
       onChange: (rawVal: number) => {
         const normalized = Math.max(0, Math.min(1, rawVal / 127.0));
-        // Sincronizar indicador de LEDs inmediatamente a su derecha
-        this.ledLadder?.setValue(normalized);
-        // Despachar a través de la capa de abstracción
+        this.control2LedLadder?.setValue(normalized);
         WebBridge.sendMidiCC(2, rawVal);
       },
     });
   }
 
-  private initControl3Knob(): void {
-    const mount = this.rootEl?.querySelector('#ctrl3-knob-mount');
+  private initControl3LedLadder(): void {
+    const mount = this.rootEl?.querySelector('#ctrl3-led-ladder-mount');
     if (!mount) return;
 
-    // Knob asignable Control 3 apilado arriba
-    this.control3Knob = new Knob(mount as HTMLElement, {
-      size: 38,
+    this.control3LedLadder = new LedLadder(mount as HTMLElement, {
+      segments: 10,
+      mode: 'bar',
+      bipolar: false,
+      showArrows: true,
+      width: 14,
+      segmentHeight: 4,
+      ariaLabel: 'Control 3 LED Level',
+    });
+    this.control3LedLadder.setValue(0.0);
+  }
+
+  private initControl3Wheel(): void {
+    const mount = this.rootEl?.querySelector('#ctrl3-wheel-mount');
+    if (!mount) return;
+
+    this.control3Wheel = new Wheel(mount as HTMLElement, {
+      type: 'mod',
       label: 'Control 3',
-      value: 0.0,
-      onChange: (normVal: number) => {
-        const ccVal = Math.round(normVal * 127.0);
-        WebBridge.sendMidiCC(3, ccVal);
+      min: 0,
+      max: 127,
+      frameWidth: 18,
+      frameHeight: 76,
+      onChange: (rawVal: number) => {
+        const normalized = Math.max(0, Math.min(1, rawVal / 127.0));
+        this.control3LedLadder?.setValue(normalized);
+        WebBridge.sendMidiCC(3, rawVal);
       },
     });
   }
 
-  private initMasterVolumeKnob(): void {
-    const mount = this.rootEl?.querySelector('#master-vol-knob-mount');
-    if (!mount) return;
+  public updateLabels(): void {
+    // Control 1: check Free Controller 1 Up Slot 1 [371] or MIDI Mod Wheel Dest [415]
+    const c1UpDest = Math.round(WebBridge.getParam(371, 3000));
+    const modWheelDest = Math.round(WebBridge.getParam(415, 59));
+    const c1Label = this.rootEl?.querySelector('#ctrl1-dest-label');
+    if (c1Label) {
+      if (c1UpDest !== 3000) {
+        c1Label.textContent = `▲ ${getModDestinationLabel(c1UpDest)}`;
+      } else {
+        c1Label.textContent = `▲ ${getModDestinationLabel(modWheelDest)}`;
+      }
+    }
 
-    // Knob de volumen maestro apilado abajo con colores tokenizados generales de ABDShared
-    this.volumeKnob = new Knob(mount as HTMLElement, {
-      size: 38,
-      label: 'Master Vol',
-      value: 0.85, // Paridad canónica 0.85
-      onChange: (normVal: number) => {
-        WebBridge.setMasterVolume(normVal);
-      },
-    });
+    // Control 2: check Free Controller 2 Slot 1 [387] or Breath Dest [417]
+    const c2Dest = Math.round(WebBridge.getParam(387, 3000));
+    const breathDest = Math.round(WebBridge.getParam(417, 56));
+    const c2Label = this.rootEl?.querySelector('#ctrl2-dest-label');
+    if (c2Label) {
+      if (c2Dest !== 3000) {
+        c2Label.textContent = getModDestinationLabel(c2Dest);
+      } else {
+        c2Label.textContent = getModDestinationLabel(breathDest);
+      }
+    }
+
+    // Control 3: check Free Controller 3 Slot 1 [395] or CC 3 Dest [419]
+    const c3Dest = Math.round(WebBridge.getParam(395, 3000));
+    const cc3Dest = Math.round(WebBridge.getParam(419, 57));
+    const c3Label = this.rootEl?.querySelector('#ctrl3-dest-label');
+    if (c3Label) {
+      if (c3Dest !== 3000) {
+        c3Label.textContent = getModDestinationLabel(c3Dest);
+      } else {
+        c3Label.textContent = getModDestinationLabel(cc3Dest);
+      }
+    }
   }
 
   public destroy(): void {
     this.stick?.destroy();
-    this.ledLadder?.destroy();
     this.control2Wheel?.destroy();
-    this.control3Knob?.destroy();
-    this.volumeKnob?.destroy();
+    this.control2LedLadder?.destroy();
+    this.control3Wheel?.destroy();
+    this.control3LedLadder?.destroy();
     if (this.rootEl && this.rootEl.parentNode) {
-      this.rootEl.remove();
+      this.rootEl.parentNode.removeChild(this.rootEl);
     }
+    this.rootEl = null;
   }
 }
