@@ -36,3 +36,5 @@ temp/
 # Large binary libraries (>2GB)
 NeuronDB/
 neurondb/
+# Browser automation artifacts
+.playwright-mcp/
