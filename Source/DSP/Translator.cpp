@@ -24,6 +24,7 @@
 #include <cmath>
 
 #include "Translator.h"
+#include "AxionikParamIndices.h"
 
 namespace abd::axionik {
 using uint = uint32_t;
@@ -378,59 +379,59 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
     // flag de traduccion (byte 0xD98) esta apagado.
     if ((p != nullptr) && ((char)e[0x366] != '\0')) {
       e[0x10] = *p;
-      e[0x11] = p[1];
-      e[9] = p[0xac];
-      e[10] = p[0xca];
-      e[0xb] = p[0xd5];
-      e[0xc] = p[0xd4];
-      dVar19 = (double)f32_bits(p[0xd3]);
+      e[0x11] = p[abd::axionik::SlotIdx::SoundPanKeyTrack];
+      e[9] = p[abd::axionik::SlotIdx::FreeADSR1VelocityDepth];
+      e[10] = p[abd::axionik::SlotIdx::FreeADSR2VelocityDepth];
+      e[0xb] = p[abd::axionik::SlotIdx::Free4Level4TimeVelocityDepth];
+      e[0xc] = p[abd::axionik::SlotIdx::TLFreeEnvDepth];
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::TLFreeEnvMode]);
       uVar14 = trunc_i32(dVar19);
       e[0xd] = uVar14;
-      dVar19 = (double)f32_bits(p[0xf1]);
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::FilterEnvMode]);
       uVar14 = trunc_i32(dVar19);
       e[0xe] = uVar14;
-      dVar19 = (double)f32_bits(p[0xd6]);
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::FreeEnvType]);
       uVar14 = trunc_i32(dVar19);
       e[0xf] = uVar14;
-      e[2] = p[2];
-      dVar19 = (double)f32_bits(p[0xdc]);
+      e[2] = p[abd::axionik::SlotIdx::PitchBendRange];
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::BlenderType]);
       uVar14 = trunc_i32(dVar19);
       *e = uVar14;
-      fVar1 = f32_bits(p[0xdd]);
+      fVar1 = f32_bits(p[abd::axionik::SlotIdx::BlenderAmount]);
       fVar2 = (float)k_1030e2c0;
-      e[3] = p[0xdd];
+      e[3] = p[abd::axionik::SlotIdx::BlenderAmount];
       if (fVar1 < fVar2) {
         e[3] = 0x322bcc77;
         fVar1 = f32_bits(e[3]);
       }
       e[4] = f32_raw(((float)k_1030e2d0 - fVar1));
-      e[6] = p[0xdf];
-      e[7] = p[0xe0];
-      e[8] = p[0xe1];
-      e[5] = p[0xde];
-      dVar19 = (double)f32_bits(p[0xf4]);
+      e[6] = p[abd::axionik::SlotIdx::BlenderFreeADSR1Depth];
+      e[7] = p[abd::axionik::SlotIdx::BlenderFreeADSR2Depth];
+      e[8] = p[abd::axionik::SlotIdx::BlenderFree4L4TDepth];
+      e[5] = p[abd::axionik::SlotIdx::BlenderLfoDepth];
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::SilverSwitch]);
       uVar14 = trunc_i32(dVar19);
       e[1] = uVar14;
       fVar1 = k_1030e2d8;
-      if (f32_bits(p[0xec]) == k_1030e2dc) {
+      if (f32_bits(p[abd::axionik::SlotIdx::SilverL1Contour]) == k_1030e2dc) {
         fVar1 = k_1030e2e0;
       }
-      e[0x13] = p[0xea];
-      e[0x9e] = f32_raw((fVar1 * f32_bits(p[0xf2])));
-      e[0x9c] = p[0xeb];
-      e[0x9d] = p[0xe9];
-      e[0x12] = p[0xf3];
-      e[0x9a] = p[0xe7];
-      e[0x9b] = p[0xe8];
+      e[0x13] = p[abd::axionik::SlotIdx::FilterKeyTrack];
+      e[0x9e] = f32_raw((fVar1 * f32_bits(p[abd::axionik::SlotIdx::FilterEnvDepth])));
+      e[0x9c] = p[abd::axionik::SlotIdx::FilterCutoffVelocityDepth];
+      e[0x9d] = p[abd::axionik::SlotIdx::FilterLfoDepth];
+      e[0x12] = p[abd::axionik::SlotIdx::FilterEnvVelocityDepth];
+      e[0x9a] = p[abd::axionik::SlotIdx::FilterFreq];
+      e[0x9b] = p[abd::axionik::SlotIdx::FilterReso];
       if (e[0xf] == 1) {
-        fVar1 = f32_bits(p[0xcd]);
-        fVar2 = f32_bits(p[0xcf]);
-        fVar3 = f32_bits(p[0xcb]);
-        fVar4 = f32_bits(p[0xd0]);
-        fVar5 = f32_bits(p[0xcc]);
-        fVar6 = f32_bits(p[0xd1]);
-        fVar7 = f32_bits(p[0xd2]);
-        fVar8 = f32_bits(p[0xce]);
+        fVar1 = f32_bits(p[abd::axionik::SlotIdx::FreeEnvLevel3]);
+        fVar2 = f32_bits(p[abd::axionik::SlotIdx::FreeEnvTime1]);
+        fVar3 = f32_bits(p[abd::axionik::SlotIdx::FreeEnvLevel1]);
+        fVar4 = f32_bits(p[abd::axionik::SlotIdx::FreeEnvTime2]);
+        fVar5 = f32_bits(p[abd::axionik::SlotIdx::FreeEnvLevel2]);
+        fVar6 = f32_bits(p[abd::axionik::SlotIdx::FreeEnvTime3]);
+        fVar7 = f32_bits(p[abd::axionik::SlotIdx::FreeEnvTime4]);
+        fVar8 = f32_bits(p[abd::axionik::SlotIdx::FreeEnvLevel4]);
         if ((char)e[0x91] == '\0') {
           *(undefined1 *)(e + 0x91) = 1;
         }
@@ -496,10 +497,10 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         e[0x71] = 0;
         e[0x6e] = f32_raw((fVar1 / (float)(int)uVar14));
       }
-      fVar1 = f32_bits(p[0xed]);
-      fVar2 = f32_bits(p[0xee]);
-      fVar3 = f32_bits(p[0xef]);
-      fVar4 = f32_bits(p[0xf0]);
+      fVar1 = f32_bits(p[abd::axionik::SlotIdx::FilterEnvA]);
+      fVar2 = f32_bits(p[abd::axionik::SlotIdx::FilterEnvD]);
+      fVar3 = f32_bits(p[abd::axionik::SlotIdx::FilterEnvS]);
+      fVar4 = f32_bits(p[abd::axionik::SlotIdx::FilterEnvR]);
       if ((char)e[0x54] == '\0') {
         *(undefined1 *)(e + 0x54) = 1;
       }
@@ -551,11 +552,11 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x2a] = uVar14;
       e[0x2c] = 0;
       e[0x2b] = f32_raw((fVar1 / (float)(int)uVar14));
-      dVar19 = (double)f32_bits(p[0xe6]);
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::FilterType]);
       uVar14 = trunc_i32(dVar19);
       if (e[0x9f] != uVar14) {
         e[0xa0] = 1;
-        dVar19 = (double)f32_bits(p[0xe6]);
+        dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::FilterType]);
         uVar14 = trunc_i32(dVar19);
         e[0x9f] = uVar14;
       }
@@ -575,11 +576,11 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       else {
         e[0x9b] = 0;
       }
-      uVar14 = p[0xd9];
-      uVar15 = p[0xd8];
-      dVar19 = (double)f32_bits(p[0xdb]);
-      fVar1 = f32_bits(p[0xd7]);
-      fVar2 = f32_bits(p[0xda]);
+      uVar14 = p[abd::axionik::SlotIdx::LFORate];
+      uVar15 = p[abd::axionik::SlotIdx::LFODepth];
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::LFOWaveForm]);
+      fVar1 = f32_bits(p[abd::axionik::SlotIdx::LFOSwitch]);
+      fVar2 = f32_bits(p[abd::axionik::SlotIdx::LFODelay]);
       if ((char)e[0x99] == '\0') {
         *(undefined1 *)(e + 0x99) = 1;
       }
@@ -608,44 +609,44 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
                    (double)f32_bits(e[2]));
       dVar19 = k_1030e438;
       e[0x36a] = f32_raw((float)dVar18);
-      if (dVar19 <= (double)f32_bits(p[3])) {
+      if (dVar19 <= (double)f32_bits(p[abd::axionik::SlotIdx::R1Switch])) {
         e[0xa1] = 1;
       }
       else {
         e[0xa1] = 0;
       }
       fVar1 = (float)k_1030e458;
-      e[0x1a5] = f32_raw(((float)k_1030e448 * f32_bits(p[8]) + (float)k_1030e440));
-      e[0x1a6] = f32_raw((fVar1 * f32_bits(p[9]) + (float)k_1030e450));
-      e[0x1a7] = p[0x12];
-      e[0x1a8] = p[0xdb];
-      e[0x1b7] = p[0xd];
-      e[0x1b9] = p[5];
-      fVar1 = f32_bits(p[4]);
-      e[0xa3] = p[4];
+      e[0x1a5] = f32_raw(((float)k_1030e448 * f32_bits(p[abd::axionik::SlotIdx::R1ModelSizeKeyTrack]) + (float)k_1030e440));
+      e[0x1a6] = f32_raw((fVar1 * f32_bits(p[abd::axionik::SlotIdx::R1ModelSizeOffset]) + (float)k_1030e450));
+      e[0x1a7] = p[abd::axionik::SlotIdx::R1ModelVelocitySwitch];
+      e[0x1a8] = p[abd::axionik::SlotIdx::LFOWaveForm];
+      e[0x1b7] = p[abd::axionik::SlotIdx::R1PitchLfoDepth];
+      e[0x1b9] = p[abd::axionik::SlotIdx::R1AmpLfoDepth];
+      fVar1 = f32_bits(p[abd::axionik::SlotIdx::R1Volume]);
+      e[0xa3] = p[abd::axionik::SlotIdx::R1Volume];
       e[0xa4] = f32_raw((fVar1 * fVar1));
-      e[0x1aa] = p[7];
-      e[0x1ba] = p[6];
-      e[0x1b8] = p[0xe];
-      e[0x1be] = p[0xf];
-      e[0x1bf] = p[0x10];
-      e[0x1c0] = p[0x11];
-      dVar19 = (double)f32_bits(p[0x93]);
+      e[0x1aa] = p[abd::axionik::SlotIdx::R1VolumeVelocityDepth];
+      e[0x1ba] = p[abd::axionik::SlotIdx::R1AmpKeyTrack];
+      e[0x1b8] = p[abd::axionik::SlotIdx::R1PitchKeyTrack];
+      e[0x1be] = p[abd::axionik::SlotIdx::R1FreeADSR1PitchDepth];
+      e[0x1bf] = p[abd::axionik::SlotIdx::R1FreeADSR2PitchDepth];
+      e[0x1c0] = p[abd::axionik::SlotIdx::R1Free4L4TPitchDepth];
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::R1ResEnvMode]);
       uVar14 = trunc_i32(dVar19);
       e[0x1bb] = uVar14;
-      dVar19 = (double)f32_bits(p[0xa5]);
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::R1AmpEnvMode]);
       uVar14 = trunc_i32(dVar19);
       e[0x1bc] = uVar14;
-      dVar19 = (double)f32_bits(p[0xaa]);
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::R1FreeEnvMode]);
       uVar14 = trunc_i32(dVar19);
       e[0x1bd] = uVar14;
       dVar19 = k_1030e470;
-      e[0xa5] = f32_raw((f32_bits(p[10]) - k_1030e460));
-      e[0xa6] = p[0xb];
+      e[0xa5] = f32_raw((f32_bits(p[abd::axionik::SlotIdx::R1Octave]) - k_1030e460));
+      e[0xa6] = p[abd::axionik::SlotIdx::R1Semi];
       dVar18 = k_1030e468;
       dVar19 = ((double)f32_bits(e[0xa5]) * k_1030e478 + dVar19 * (double)f32_bits(e[0xa6]) +
-               (double)f32_bits(p[0xc])) * k_1030e480;
-      e[0xa7] = p[0xc];
+               (double)f32_bits(p[abd::axionik::SlotIdx::R1Cents])) * k_1030e480;
+      e[0xa7] = p[abd::axionik::SlotIdx::R1Cents];
       dVar19 = std::pow(dVar18,dVar19);
       e[0x202] = 0;
       e[0x201] = 0;
@@ -654,76 +655,76 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x1ff] = 0;
       e[0x1fe] = 0;
       e[0x1fd] = 0;
-      if (f32_bits(p[0x24]) == k_1030e4a0) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R1L1ContourScape]) == k_1030e4a0) {
         e[0x1fd] = 0x3f800000;
       }
-      if (f32_bits(p[0x1b]) == k_1030e4a8) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R1L1ContourSphere]) == k_1030e4a8) {
         e[0x1fe] = 0x3f800000;
       }
-      if (f32_bits(p[0x36]) == k_1030e4b0) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R1L2ContourScape]) == k_1030e4b0) {
         e[0x1ff] = 0x3f800000;
       }
-      if (f32_bits(p[0x2d]) == k_1030e4b8) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R1L2ContourSphere]) == k_1030e4b8) {
         e[0x200] = 0x3f800000;
       }
-      if (f32_bits(p[0x48]) == k_1030e4c0) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R1L3ContourScape]) == k_1030e4c0) {
         e[0x201] = 0x3f800000;
       }
-      if (f32_bits(p[0x3f]) == k_1030e4c8) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R1L3ContourSphere]) == k_1030e4c8) {
         e[0x202] = 0x3f800000;
       }
-      e[0x1a9] = p[0x94];
-      e[0x1ab] = f32_raw((f32_bits(e[0x1fd]) * f32_bits(p[0x95])));
-      e[0x1ac] = f32_raw((f32_bits(e[0x1fd]) * f32_bits(p[0x96])));
-      e[0x1ad] = f32_raw((f32_bits(e[0x1fe]) * f32_bits(p[0x97])));
-      e[0x1ae] = f32_raw((f32_bits(e[0x1fe]) * f32_bits(p[0x98])));
-      e[0x1af] = f32_raw((f32_bits(e[0x1ff]) * f32_bits(p[0x99])));
-      e[0x1b0] = f32_raw((f32_bits(e[0x1ff]) * f32_bits(p[0x9a])));
-      e[0x1b1] = f32_raw((f32_bits(e[0x200]) * f32_bits(p[0x9b])));
-      e[0x1b2] = f32_raw((f32_bits(e[0x200]) * f32_bits(p[0x9c])));
-      e[0x1b3] = f32_raw((f32_bits(e[0x201]) * f32_bits(p[0x9d])));
-      e[0x1b4] = f32_raw((f32_bits(e[0x201]) * f32_bits(p[0x9e])));
-      e[0x1b5] = f32_raw((f32_bits(e[0x202]) * f32_bits(p[0x9f])));
-      e[0x1b6] = f32_raw((f32_bits(e[0x202]) * f32_bits(p[0xa0])));
-      e[0x1c1] = p[0x20];
-      e[0x1c2] = p[0x21];
-      e[0x1c3] = p[0x17];
-      e[0x1c4] = p[0x18];
-      e[0x1c5] = p[0x32];
-      e[0x1c6] = p[0x33];
-      e[0x1c7] = p[0x29];
-      e[0x1c8] = p[0x2a];
-      e[0x1c9] = p[0x44];
-      e[0x1ca] = p[0x45];
-      e[0x1cb] = p[0x3b];
-      e[0x1cc] = p[0x3c];
-      e[0x1cd] = p[0x22];
-      e[0x1ce] = p[0x23];
-      e[0x1cf] = p[0x19];
-      e[0x1d0] = p[0x1a];
-      e[0x1d1] = p[0x34];
-      e[0x1d2] = p[0x35];
-      e[0x1d3] = p[0x2b];
-      e[0x1d4] = p[0x2c];
-      e[0x1d5] = p[0x46];
-      e[0x1d6] = p[0x47];
-      e[0x1d7] = p[0x3d];
-      e[0x1d8] = p[0x3e];
-      e[0x1d9] = p[0x1e];
+      e[0x1a9] = p[abd::axionik::SlotIdx::R1ParaEnvVelocityDepth];
+      e[0x1ab] = f32_raw((f32_bits(e[0x1fd]) * f32_bits(p[abd::axionik::SlotIdx::R1L1Scape1EnvDepth])));
+      e[0x1ac] = f32_raw((f32_bits(e[0x1fd]) * f32_bits(p[abd::axionik::SlotIdx::R1L1Scape2EnvDepth])));
+      e[0x1ad] = f32_raw((f32_bits(e[0x1fe]) * f32_bits(p[abd::axionik::SlotIdx::R1L1Sphere1EnvDepth])));
+      e[0x1ae] = f32_raw((f32_bits(e[0x1fe]) * f32_bits(p[abd::axionik::SlotIdx::R1L1Sphere2EnvDepth])));
+      e[0x1af] = f32_raw((f32_bits(e[0x1ff]) * f32_bits(p[abd::axionik::SlotIdx::R1L2Scape1EnvDepth])));
+      e[0x1b0] = f32_raw((f32_bits(e[0x1ff]) * f32_bits(p[abd::axionik::SlotIdx::R1L2Scape2EnvDepth])));
+      e[0x1b1] = f32_raw((f32_bits(e[0x200]) * f32_bits(p[abd::axionik::SlotIdx::R1L2Sphere1EnvDepth])));
+      e[0x1b2] = f32_raw((f32_bits(e[0x200]) * f32_bits(p[abd::axionik::SlotIdx::R1L2Sphere2EnvDepth])));
+      e[0x1b3] = f32_raw((f32_bits(e[0x201]) * f32_bits(p[abd::axionik::SlotIdx::R1L3Scape1EnvDepth])));
+      e[0x1b4] = f32_raw((f32_bits(e[0x201]) * f32_bits(p[abd::axionik::SlotIdx::R1L3Scape2EnvDepth])));
+      e[0x1b5] = f32_raw((f32_bits(e[0x202]) * f32_bits(p[abd::axionik::SlotIdx::R1L3Sphere1EnvDepth])));
+      e[0x1b6] = f32_raw((f32_bits(e[0x202]) * f32_bits(p[abd::axionik::SlotIdx::R1L3Sphere2EnvDepth])));
+      e[0x1c1] = p[abd::axionik::SlotIdx::R1L1Scape1LfoDepth];
+      e[0x1c2] = p[abd::axionik::SlotIdx::R1L1Scape2LfoDepth];
+      e[0x1c3] = p[abd::axionik::SlotIdx::R1L1Sphere1LfoDepth];
+      e[0x1c4] = p[abd::axionik::SlotIdx::R1L1Sphere2LfoDepth];
+      e[0x1c5] = p[abd::axionik::SlotIdx::R1L2Scape1LfoDepth];
+      e[0x1c6] = p[abd::axionik::SlotIdx::R1L2Scape2LfoDepth];
+      e[0x1c7] = p[abd::axionik::SlotIdx::R1L2Sphere1LfoDepth];
+      e[0x1c8] = p[abd::axionik::SlotIdx::R1L2Sphere2LfoDepth];
+      e[0x1c9] = p[abd::axionik::SlotIdx::R1L3Scape1LfoDepth];
+      e[0x1ca] = p[abd::axionik::SlotIdx::R1L3Scape2LfoDepth];
+      e[0x1cb] = p[abd::axionik::SlotIdx::R1L3Sphere1LfoDepth];
+      e[0x1cc] = p[abd::axionik::SlotIdx::R1L3Sphere2LfoDepth];
+      e[0x1cd] = p[abd::axionik::SlotIdx::R1L1Scape1VelocityDepth];
+      e[0x1ce] = p[abd::axionik::SlotIdx::R1L1Scape2VelocityDepth];
+      e[0x1cf] = p[abd::axionik::SlotIdx::R1L1Sphere1VelocityDepth];
+      e[0x1d0] = p[abd::axionik::SlotIdx::R1L1Sphere2VelocityDepth];
+      e[0x1d1] = p[abd::axionik::SlotIdx::R1L2Scape1VelocityDepth];
+      e[0x1d2] = p[abd::axionik::SlotIdx::R1L2Scape2VelocityDepth];
+      e[0x1d3] = p[abd::axionik::SlotIdx::R1L2Sphere1VelocityDepth];
+      e[0x1d4] = p[abd::axionik::SlotIdx::R1L2Sphere2VelocityDepth];
+      e[0x1d5] = p[abd::axionik::SlotIdx::R1L3Scape1VelocityDepth];
+      e[0x1d6] = p[abd::axionik::SlotIdx::R1L3Scape2VelocityDepth];
+      e[0x1d7] = p[abd::axionik::SlotIdx::R1L3Sphere1VelocityDepth];
+      e[0x1d8] = p[abd::axionik::SlotIdx::R1L3Sphere2VelocityDepth];
+      e[0x1d9] = p[abd::axionik::SlotIdx::R1L1Scape1KeyTrack];
       dVar19 = k_1030e4d8;
-      e[0x1da] = p[0x1f];
-      e[0x1db] = p[0x15];
-      e[0x1dc] = p[0x16];
-      e[0x1dd] = p[0x30];
-      e[0x1de] = p[0x31];
-      e[0x1df] = p[0x27];
-      e[0x1e0] = p[0x28];
-      e[0x1e1] = p[0x42];
-      e[0x1e2] = p[0x43];
-      e[0x1e3] = p[0x39];
-      e[0x1e4] = p[0x3a];
+      e[0x1da] = p[abd::axionik::SlotIdx::R1L1Scape2KeyTrack];
+      e[0x1db] = p[abd::axionik::SlotIdx::R1L1Sphere1KeyTrack];
+      e[0x1dc] = p[abd::axionik::SlotIdx::R1L1Sphere2KeyTrack];
+      e[0x1dd] = p[abd::axionik::SlotIdx::R1L2Scape1KeyTrack];
+      e[0x1de] = p[abd::axionik::SlotIdx::R1L2Scape2KeyTrack];
+      e[0x1df] = p[abd::axionik::SlotIdx::R1L2Sphere1KeyTrack];
+      e[0x1e0] = p[abd::axionik::SlotIdx::R1L2Sphere2KeyTrack];
+      e[0x1e1] = p[abd::axionik::SlotIdx::R1L3Scape1KeyTrack];
+      e[0x1e2] = p[abd::axionik::SlotIdx::R1L3Scape2KeyTrack];
+      e[0x1e3] = p[abd::axionik::SlotIdx::R1L3Sphere1KeyTrack];
+      e[0x1e4] = p[abd::axionik::SlotIdx::R1L3Sphere2KeyTrack];
       dVar18 = k_1030e500;
-      dVar19 = dVar19 * (double)f32_bits(p[0x1c]) + k_1030e4d0;
+      dVar19 = dVar19 * (double)f32_bits(p[abd::axionik::SlotIdx::R1L1Scape1Value]) + k_1030e4d0;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e4e0 <= fVar17) {
@@ -735,7 +736,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030e4e8;
       }
       e[0x1e5] = f32_raw((float)(fVar17 * (long double)k_1030e4f0));
-      dVar19 = dVar18 * (double)f32_bits(p[0x1d]) + k_1030e4f8;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R1L1Scape2Value]) + k_1030e4f8;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e508 <= fVar17) {
@@ -752,7 +753,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x1e8] = f32_raw((fVar1 - f32_bits(e[0x1e6])));
       e[0x1e7] = f32_raw((fVar2 - f32_bits(e[0x1e5])));
       dVar18 = k_1030e560;
-      dVar19 = (double)(f32_bits(p[0x2e]) * (float)k_1030e538 + (float)k_1030e530);
+      dVar19 = (double)(f32_bits(p[abd::axionik::SlotIdx::R1L2Scape1Value]) * (float)k_1030e538 + (float)k_1030e530);
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e540 <= fVar17) {
@@ -764,7 +765,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030e548;
       }
       e[0x1e9] = f32_raw((float)(fVar17 * (long double)k_1030e550));
-      dVar19 = dVar18 * (double)f32_bits(p[0x2f]) + k_1030e558;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R1L2Scape2Value]) + k_1030e558;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e568 <= fVar17) {
@@ -781,7 +782,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x1ec] = f32_raw((fVar1 - f32_bits(e[0x1ea])));
       e[0x1eb] = f32_raw((fVar2 - f32_bits(e[0x1e9])));
       dVar18 = k_1030e5c0;
-      dVar19 = (double)(f32_bits(p[0x40]) * (float)k_1030e598 + (float)k_1030e590);
+      dVar19 = (double)(f32_bits(p[abd::axionik::SlotIdx::R1L3Scape1Value]) * (float)k_1030e598 + (float)k_1030e590);
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e5a0 <= fVar17) {
@@ -793,7 +794,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030e5a8;
       }
       e[0x1ed] = f32_raw((float)(fVar17 * (long double)k_1030e5b0));
-      dVar19 = dVar18 * (double)f32_bits(p[0x41]) + k_1030e5b8;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R1L3Scape2Value]) + k_1030e5b8;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e5c8 <= fVar17) {
@@ -810,7 +811,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x1ef] = f32_raw((fVar1 - f32_bits(e[0x1ed])));
       e[0x1ee] = f32_raw((float)(fVar17 * fVar11));
       dVar18 = k_1030e620;
-      dVar19 = (double)(f32_bits(p[0x13]) * (float)k_1030e5f8 + (float)k_1030e5f0);
+      dVar19 = (double)(f32_bits(p[abd::axionik::SlotIdx::R1L1Sphere1Value]) * (float)k_1030e5f8 + (float)k_1030e5f0);
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e600 <= fVar17) {
@@ -822,7 +823,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030e608;
       }
       e[0x1f1] = f32_raw((float)(fVar17 * (long double)k_1030e610));
-      dVar19 = dVar18 * (double)f32_bits(p[0x14]) + k_1030e618;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R1L1Sphere2Value]) + k_1030e618;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e628 <= fVar17) {
@@ -839,7 +840,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[500] = f32_raw((fVar1 - f32_bits(e[0x1f2])));
       e[499] = f32_raw((fVar2 - f32_bits(e[0x1f1])));
       dVar18 = k_1030e680;
-      dVar19 = (double)(f32_bits(p[0x25]) * (float)k_1030e658 + (float)k_1030e650);
+      dVar19 = (double)(f32_bits(p[abd::axionik::SlotIdx::R1L2Sphere1Value]) * (float)k_1030e658 + (float)k_1030e650);
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e660 <= fVar17) {
@@ -851,7 +852,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030e668;
       }
       e[0x1f5] = f32_raw((float)(fVar17 * (long double)k_1030e670));
-      dVar19 = dVar18 * (double)f32_bits(p[0x26]) + k_1030e678;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R1L2Sphere2Value]) + k_1030e678;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e688 <= fVar17) {
@@ -868,7 +869,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x1f8] = f32_raw((fVar1 - f32_bits(e[0x1f6])));
       e[0x1f7] = f32_raw((fVar2 - f32_bits(e[0x1f5])));
       dVar18 = k_1030e6e0;
-      dVar19 = (double)(f32_bits(p[0x37]) * (float)k_1030e6b8 + (float)k_1030e6b0);
+      dVar19 = (double)(f32_bits(p[abd::axionik::SlotIdx::R1L3Sphere1Value]) * (float)k_1030e6b8 + (float)k_1030e6b0);
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e6c0 <= fVar17) {
@@ -880,7 +881,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030e6c8;
       }
       e[0x1f9] = f32_raw((float)(fVar17 * (long double)k_1030e6d0));
-      dVar19 = dVar18 * (double)f32_bits(p[0x38]) + k_1030e6d8;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R1L3Sphere2Value]) + k_1030e6d8;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e6e8 <= fVar17) {
@@ -896,10 +897,10 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       fVar2 = (float)k_1030e700;
       e[0x1fc] = f32_raw((fVar1 - f32_bits(e[0x1fa])));
       e[0x1fb] = f32_raw((fVar2 - f32_bits(e[0x1f9])));
-      fVar1 = f32_bits(p[0xa1]);
-      fVar2 = f32_bits(p[0xa2]);
-      fVar3 = f32_bits(p[0xa3]);
-      fVar4 = f32_bits(p[0xa4]);
+      fVar1 = f32_bits(p[abd::axionik::SlotIdx::R1AmpEnvA]);
+      fVar2 = f32_bits(p[abd::axionik::SlotIdx::R1AmpEnvD]);
+      fVar3 = f32_bits(p[abd::axionik::SlotIdx::R1AmpEnvS]);
+      fVar4 = f32_bits(p[abd::axionik::SlotIdx::R1AmpEnvR]);
       if ((char)e[0xe8] == '\0') {
         *(undefined1 *)(e + 0xe8) = 1;
       }
@@ -951,10 +952,10 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0xbe] = uVar14;
       e[0xc0] = 0;
       e[0xbf] = f32_raw((fVar1 / (float)(int)uVar14));
-      fVar1 = f32_bits(p[0x8f]);
-      fVar2 = f32_bits(p[0x90]);
-      fVar3 = f32_bits(p[0x91]);
-      fVar4 = f32_bits(p[0x92]);
+      fVar1 = f32_bits(p[abd::axionik::SlotIdx::R1ResEnvA]);
+      fVar2 = f32_bits(p[abd::axionik::SlotIdx::R1ResEnvD]);
+      fVar3 = f32_bits(p[abd::axionik::SlotIdx::R1ResEnvS]);
+      fVar4 = f32_bits(p[abd::axionik::SlotIdx::R1ResEnvR]);
       if ((char)e[0x129] == '\0') {
         *(undefined1 *)(e + 0x129) = 1;
       }
@@ -1006,12 +1007,12 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0xff] = uVar14;
       e[0x101] = 0;
       e[0x100] = f32_raw((fVar1 / (float)(int)uVar14));
-      e[0x167] = p[0xab];
+      e[0x167] = p[abd::axionik::SlotIdx::R1FreeEnvDepth];
       if (e[0xf] == 0) {
-        fVar1 = f32_bits(p[0xa6]);
-        fVar2 = f32_bits(p[0xa7]);
-        fVar3 = f32_bits(p[0xa8]);
-        fVar4 = f32_bits(p[0xa9]);
+        fVar1 = f32_bits(p[abd::axionik::SlotIdx::R1FreeEnvA]);
+        fVar2 = f32_bits(p[abd::axionik::SlotIdx::R1FreeEnvD]);
+        fVar3 = f32_bits(p[abd::axionik::SlotIdx::R1FreeEnvS]);
+        fVar4 = f32_bits(p[abd::axionik::SlotIdx::R1FreeEnvR]);
         if ((char)e[0x1a4] == '\0') {
           *(undefined1 *)(e + 0x1a4) = 1;
         }
@@ -1064,44 +1065,44 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         e[0x17e] = 0;
         e[0x17b] = f32_raw((fVar1 / (float)(int)uVar14));
       }
-      if ((float)k_1030e838 <= f32_bits(p[0x49])) {
+      if ((float)k_1030e838 <= f32_bits(p[abd::axionik::SlotIdx::R2Switch])) {
         e[0x203] = 1;
       }
       else {
         e[0x203] = 0;
       }
       fVar1 = (float)k_1030e858;
-      e[0x307] = f32_raw(((float)k_1030e848 * f32_bits(p[0x4e]) + (float)k_1030e840));
-      e[0x308] = f32_raw((fVar1 * f32_bits(p[0x4f]) + (float)k_1030e850));
-      e[0x309] = p[0x58];
-      e[0x30a] = p[0xdb];
-      e[0x319] = p[0x53];
-      e[0x31b] = p[0x4b];
-      fVar1 = f32_bits(p[0x4a]);
-      e[0x205] = p[0x4a];
+      e[0x307] = f32_raw(((float)k_1030e848 * f32_bits(p[abd::axionik::SlotIdx::R2ModelSizeKeyTrack]) + (float)k_1030e840));
+      e[0x308] = f32_raw((fVar1 * f32_bits(p[abd::axionik::SlotIdx::R2ModelSizeOffset]) + (float)k_1030e850));
+      e[0x309] = p[abd::axionik::SlotIdx::R2ModelVelocitySwitch];
+      e[0x30a] = p[abd::axionik::SlotIdx::LFOWaveForm];
+      e[0x319] = p[abd::axionik::SlotIdx::R2PitchLfoDepth];
+      e[0x31b] = p[abd::axionik::SlotIdx::R2AmpLfoDepth];
+      fVar1 = f32_bits(p[abd::axionik::SlotIdx::R2Volume]);
+      e[0x205] = p[abd::axionik::SlotIdx::R2Volume];
       e[0x206] = f32_raw((fVar1 * fVar1));
-      e[0x30c] = p[0x4d];
-      e[0x31c] = p[0x4c];
-      e[0x31a] = p[0x54];
-      e[0x321] = p[0x56];
-      e[0x321] = p[0x56];
-      e[0x322] = p[0x57];
-      dVar19 = (double)f32_bits(p[0xb1]);
+      e[0x30c] = p[abd::axionik::SlotIdx::R2VolumeVelocityDepth];
+      e[0x31c] = p[abd::axionik::SlotIdx::R2AmpKeyTrack];
+      e[0x31a] = p[abd::axionik::SlotIdx::R2PitchKeyTrack];
+      e[0x321] = p[abd::axionik::SlotIdx::R2FreeADSR2PitchDepth];
+      e[0x321] = p[abd::axionik::SlotIdx::R2FreeADSR2PitchDepth];
+      e[0x322] = p[abd::axionik::SlotIdx::R2Free4L4TPitchDepth];
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::R2ResEnvMode]);
       uVar14 = trunc_i32(dVar19);
       e[0x31d] = uVar14;
-      dVar19 = (double)f32_bits(p[0xc3]);
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::R2AmpEnvMode]);
       uVar14 = trunc_i32(dVar19);
       e[0x31e] = uVar14;
-      dVar19 = (double)f32_bits(p[200]);
+      dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::R2FreeEnvMode]);
       uVar14 = trunc_i32(dVar19);
       e[799] = uVar14;
       dVar19 = k_1030e870;
-      e[0x207] = f32_raw((f32_bits(p[0x50]) - k_1030e860));
-      e[0x208] = p[0x51];
+      e[0x207] = f32_raw((f32_bits(p[abd::axionik::SlotIdx::R2Octave]) - k_1030e860));
+      e[0x208] = p[abd::axionik::SlotIdx::R2Semi];
       dVar18 = k_1030e868;
       dVar19 = ((double)f32_bits(e[0x207]) * k_1030e878 + dVar19 * (double)f32_bits(e[0x208])
-               + (double)f32_bits(p[0x52])) * k_1030e880;
-      e[0x209] = p[0x52];
+               + (double)f32_bits(p[abd::axionik::SlotIdx::R2Cents])) * k_1030e880;
+      e[0x209] = p[abd::axionik::SlotIdx::R2Cents];
       dVar19 = std::pow(dVar18,dVar19);
       e[0x364] = 0;
       e[0x363] = 0;
@@ -1110,76 +1111,76 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x361] = 0;
       e[0x360] = 0;
       e[0x35f] = 0;
-      if (f32_bits(p[0x6a]) == k_1030e8a0) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R2L1ContourScape]) == k_1030e8a0) {
         e[0x35f] = 0x3f800000;
       }
-      if (f32_bits(p[0x61]) == k_1030e8a8) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R2L1ContourSphere]) == k_1030e8a8) {
         e[0x360] = 0x3f800000;
       }
-      if (f32_bits(p[0x7c]) == k_1030e8b0) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R2L2ContourScape]) == k_1030e8b0) {
         e[0x361] = 0x3f800000;
       }
-      if (f32_bits(p[0x73]) == k_1030e8b8) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R2L2ContourSphere]) == k_1030e8b8) {
         e[0x362] = 0x3f800000;
       }
-      if (f32_bits(p[0x8e]) == k_1030e8c0) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R2L3ContourScape]) == k_1030e8c0) {
         e[0x363] = 0x3f800000;
       }
-      if (f32_bits(p[0x85]) == k_1030e8c8) {
+      if (f32_bits(p[abd::axionik::SlotIdx::R2L3ContourSphere]) == k_1030e8c8) {
         e[0x364] = 0x3f800000;
       }
-      e[0x30b] = p[0xb2];
-      e[0x30d] = f32_raw((f32_bits(e[0x35f]) * f32_bits(p[0xb3])));
-      e[0x30e] = f32_raw((f32_bits(e[0x35f]) * f32_bits(p[0xb4])));
-      e[0x30f] = f32_raw((f32_bits(e[0x360]) * f32_bits(p[0xb5])));
-      e[0x310] = f32_raw((f32_bits(e[0x360]) * f32_bits(p[0xb6])));
-      e[0x311] = f32_raw((f32_bits(e[0x361]) * f32_bits(p[0xb7])));
-      e[0x312] = f32_raw((f32_bits(e[0x361]) * f32_bits(p[0xb8])));
-      e[0x313] = f32_raw((f32_bits(e[0x362]) * f32_bits(p[0xb9])));
-      e[0x314] = f32_raw((f32_bits(e[0x362]) * f32_bits(p[0xba])));
-      e[0x315] = f32_raw((f32_bits(e[0x363]) * f32_bits(p[0xbb])));
-      e[0x316] = f32_raw((f32_bits(e[0x363]) * f32_bits(p[0xbc])));
-      e[0x317] = f32_raw((f32_bits(e[0x364]) * f32_bits(p[0xbd])));
-      e[0x318] = f32_raw((f32_bits(e[0x364]) * f32_bits(p[0xbe])));
-      e[0x323] = p[0x66];
-      e[0x324] = p[0x67];
-      e[0x325] = p[0x5d];
-      e[0x326] = p[0x5e];
-      e[0x327] = p[0x78];
-      e[0x328] = p[0x79];
-      e[0x329] = p[0x6f];
-      e[0x32a] = p[0x70];
-      e[0x32b] = p[0x8a];
-      e[0x32c] = p[0x8b];
-      e[0x32d] = p[0x81];
-      e[0x32e] = p[0x82];
-      e[0x32f] = p[0x68];
-      e[0x330] = p[0x69];
-      e[0x331] = p[0x5f];
-      e[0x332] = p[0x60];
-      e[0x333] = p[0x7a];
-      e[0x334] = p[0x7b];
-      e[0x335] = p[0x71];
-      e[0x336] = p[0x72];
-      e[0x337] = p[0x8c];
-      e[0x338] = p[0x8d];
-      e[0x339] = p[0x83];
-      e[0x33a] = p[0x84];
-      e[0x33b] = p[100];
+      e[0x30b] = p[abd::axionik::SlotIdx::R2ParaEnvVelocityDepth];
+      e[0x30d] = f32_raw((f32_bits(e[0x35f]) * f32_bits(p[abd::axionik::SlotIdx::R2L1Scape1EnvDepth])));
+      e[0x30e] = f32_raw((f32_bits(e[0x35f]) * f32_bits(p[abd::axionik::SlotIdx::R2L1Scape2EnvDepth])));
+      e[0x30f] = f32_raw((f32_bits(e[0x360]) * f32_bits(p[abd::axionik::SlotIdx::R2L1Sphere1EnvDepth])));
+      e[0x310] = f32_raw((f32_bits(e[0x360]) * f32_bits(p[abd::axionik::SlotIdx::R2L1Sphere2EnvDepth])));
+      e[0x311] = f32_raw((f32_bits(e[0x361]) * f32_bits(p[abd::axionik::SlotIdx::R2L2Scape1EnvDepth])));
+      e[0x312] = f32_raw((f32_bits(e[0x361]) * f32_bits(p[abd::axionik::SlotIdx::R2L2Scape2EnvDepth])));
+      e[0x313] = f32_raw((f32_bits(e[0x362]) * f32_bits(p[abd::axionik::SlotIdx::R2L2Sphere1EnvDepth])));
+      e[0x314] = f32_raw((f32_bits(e[0x362]) * f32_bits(p[abd::axionik::SlotIdx::R2L2Sphere2EnvDepth])));
+      e[0x315] = f32_raw((f32_bits(e[0x363]) * f32_bits(p[abd::axionik::SlotIdx::R2L3Scape1EnvDepth])));
+      e[0x316] = f32_raw((f32_bits(e[0x363]) * f32_bits(p[abd::axionik::SlotIdx::R2L3Scape2EnvDepth])));
+      e[0x317] = f32_raw((f32_bits(e[0x364]) * f32_bits(p[abd::axionik::SlotIdx::R2L3Sphere1EnvDepth])));
+      e[0x318] = f32_raw((f32_bits(e[0x364]) * f32_bits(p[abd::axionik::SlotIdx::R2L3Sphere2EnvDepth])));
+      e[0x323] = p[abd::axionik::SlotIdx::R2L1Scape1LfoDepth];
+      e[0x324] = p[abd::axionik::SlotIdx::R2L1Scape2LfoDepth];
+      e[0x325] = p[abd::axionik::SlotIdx::R2L1Sphere1LfoDepth];
+      e[0x326] = p[abd::axionik::SlotIdx::R2L1Sphere2LfoDepth];
+      e[0x327] = p[abd::axionik::SlotIdx::R2L2Scape1LfoDepth];
+      e[0x328] = p[abd::axionik::SlotIdx::R2L2Scape2LfoDepth];
+      e[0x329] = p[abd::axionik::SlotIdx::R2L2Sphere1LfoDepth];
+      e[0x32a] = p[abd::axionik::SlotIdx::R2L2Sphere2LfoDepth];
+      e[0x32b] = p[abd::axionik::SlotIdx::R2L3Scape1LfoDepth];
+      e[0x32c] = p[abd::axionik::SlotIdx::R2L3Scape2LfoDepth];
+      e[0x32d] = p[abd::axionik::SlotIdx::R2L3Sphere1LfoDepth];
+      e[0x32e] = p[abd::axionik::SlotIdx::R2L3Sphere2LfoDepth];
+      e[0x32f] = p[abd::axionik::SlotIdx::R2L1Scape1VelocityDepth];
+      e[0x330] = p[abd::axionik::SlotIdx::R2L1Scape2VelocityDepth];
+      e[0x331] = p[abd::axionik::SlotIdx::R2L1Sphere1VelocityDepth];
+      e[0x332] = p[abd::axionik::SlotIdx::R2L1Sphere2VelocityDepth];
+      e[0x333] = p[abd::axionik::SlotIdx::R2L2Scape1VelocityDepth];
+      e[0x334] = p[abd::axionik::SlotIdx::R2L2Scape2VelocityDepth];
+      e[0x335] = p[abd::axionik::SlotIdx::R2L2Sphere1VelocityDepth];
+      e[0x336] = p[abd::axionik::SlotIdx::R2L2Sphere2VelocityDepth];
+      e[0x337] = p[abd::axionik::SlotIdx::R2L3Scape1VelocityDepth];
+      e[0x338] = p[abd::axionik::SlotIdx::R2L3Scape2VelocityDepth];
+      e[0x339] = p[abd::axionik::SlotIdx::R2L3Sphere1VelocityDepth];
+      e[0x33a] = p[abd::axionik::SlotIdx::R2L3Sphere2VelocityDepth];
+      e[0x33b] = p[abd::axionik::SlotIdx::R2L1Scape1KeyTrack];
       dVar19 = k_1030e8d8;
-      e[0x33c] = p[0x65];
-      e[0x33d] = p[0x5b];
-      e[0x33e] = p[0x5c];
-      e[0x33f] = p[0x76];
-      e[0x340] = p[0x77];
-      e[0x341] = p[0x6d];
-      e[0x342] = p[0x6e];
-      e[0x343] = p[0x88];
-      e[0x344] = p[0x89];
-      e[0x345] = p[0x7f];
-      e[0x346] = p[0x80];
+      e[0x33c] = p[abd::axionik::SlotIdx::R2L1Scape2KeyTrack];
+      e[0x33d] = p[abd::axionik::SlotIdx::R2L1Sphere1KeyTrack];
+      e[0x33e] = p[abd::axionik::SlotIdx::R2L1Sphere2KeyTrack];
+      e[0x33f] = p[abd::axionik::SlotIdx::R2L2Scape1KeyTrack];
+      e[0x340] = p[abd::axionik::SlotIdx::R2L2Scape2KeyTrack];
+      e[0x341] = p[abd::axionik::SlotIdx::R2L2Sphere1KeyTrack];
+      e[0x342] = p[abd::axionik::SlotIdx::R2L2Sphere2KeyTrack];
+      e[0x343] = p[abd::axionik::SlotIdx::R2L3Scape1KeyTrack];
+      e[0x344] = p[abd::axionik::SlotIdx::R2L3Scape2KeyTrack];
+      e[0x345] = p[abd::axionik::SlotIdx::R2L3Sphere1KeyTrack];
+      e[0x346] = p[abd::axionik::SlotIdx::R2L3Sphere2KeyTrack];
       dVar18 = k_1030e900;
-      dVar19 = dVar19 * (double)f32_bits(p[0x62]) + k_1030e8d0;
+      dVar19 = dVar19 * (double)f32_bits(p[abd::axionik::SlotIdx::R2L1Scape1Value]) + k_1030e8d0;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e8e0 <= fVar17) {
@@ -1191,7 +1192,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030e8e8;
       }
       e[0x347] = f32_raw((float)(fVar17 * (long double)k_1030e8f0));
-      dVar19 = dVar18 * (double)f32_bits(p[99]) + k_1030e8f8;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R2L1Scape2Value]) + k_1030e8f8;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e908 <= fVar17) {
@@ -1208,7 +1209,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x34a] = f32_raw((fVar1 - f32_bits(e[0x348])));
       e[0x349] = f32_raw((fVar2 - f32_bits(e[0x347])));
       dVar18 = k_1030e960;
-      dVar19 = (double)(f32_bits(p[0x74]) * (float)k_1030e938 + (float)k_1030e930);
+      dVar19 = (double)(f32_bits(p[abd::axionik::SlotIdx::R2L2Scape1Value]) * (float)k_1030e938 + (float)k_1030e930);
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e940 <= fVar17) {
@@ -1220,7 +1221,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030e948;
       }
       e[0x34b] = f32_raw((float)(fVar17 * (long double)k_1030e950));
-      dVar19 = dVar18 * (double)f32_bits(p[0x75]) + k_1030e958;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R2L2Scape2Value]) + k_1030e958;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e968 <= fVar17) {
@@ -1237,7 +1238,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x34e] = f32_raw((fVar1 - f32_bits(e[0x34c])));
       e[0x34d] = f32_raw((fVar2 - f32_bits(e[0x34b])));
       dVar18 = k_1030e9c0;
-      dVar19 = (double)(f32_bits(p[0x86]) * (float)k_1030e998 + (float)k_1030e990);
+      dVar19 = (double)(f32_bits(p[abd::axionik::SlotIdx::R2L3Scape1Value]) * (float)k_1030e998 + (float)k_1030e990);
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e9a0 <= fVar17) {
@@ -1249,7 +1250,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030e9a8;
       }
       e[0x34f] = f32_raw((float)(fVar17 * (long double)k_1030e9b0));
-      dVar19 = dVar18 * (double)f32_bits(p[0x87]) + k_1030e9b8;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R2L3Scape2Value]) + k_1030e9b8;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030e9c8 <= fVar17) {
@@ -1266,7 +1267,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x352] = f32_raw((fVar1 - f32_bits(e[0x350])));
       e[0x351] = f32_raw((fVar2 - f32_bits(e[0x34f])));
       dVar18 = k_1030ea20;
-      dVar19 = (double)(f32_bits(p[0x59]) * (float)k_1030e9f8 + (float)k_1030e9f0);
+      dVar19 = (double)(f32_bits(p[abd::axionik::SlotIdx::R2L1Sphere1Value]) * (float)k_1030e9f8 + (float)k_1030e9f0);
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030ea00 <= fVar17) {
@@ -1278,7 +1279,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030ea08;
       }
       e[0x353] = f32_raw((float)(fVar17 * (long double)k_1030ea10));
-      dVar19 = dVar18 * (double)f32_bits(p[0x5a]) + k_1030ea18;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R2L1Sphere2Value]) + k_1030ea18;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030ea28 <= fVar17) {
@@ -1295,7 +1296,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x356] = f32_raw((fVar1 - f32_bits(e[0x354])));
       e[0x355] = f32_raw((fVar2 - f32_bits(e[0x353])));
       dVar18 = k_1030ea80;
-      dVar19 = (double)(f32_bits(p[0x6b]) * (float)k_1030ea58 + (float)k_1030ea50);
+      dVar19 = (double)(f32_bits(p[abd::axionik::SlotIdx::R2L2Sphere1Value]) * (float)k_1030ea58 + (float)k_1030ea50);
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030ea60 <= fVar17) {
@@ -1307,7 +1308,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030ea68;
       }
       e[0x357] = f32_raw((float)(fVar17 * (long double)k_1030ea70));
-      dVar19 = dVar18 * (double)f32_bits(p[0x6c]) + k_1030ea78;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R2L2Sphere2Value]) + k_1030ea78;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030ea88 <= fVar17) {
@@ -1324,7 +1325,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x35a] = f32_raw((fVar1 - f32_bits(e[0x358])));
       e[0x359] = f32_raw((fVar2 - f32_bits(e[0x357])));
       dVar18 = k_1030eae0;
-      dVar19 = (double)(f32_bits(p[0x7d]) * (float)k_1030eab8 + (float)k_1030eab0);
+      dVar19 = (double)(f32_bits(p[abd::axionik::SlotIdx::R2L3Sphere1Value]) * (float)k_1030eab8 + (float)k_1030eab0);
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030eac0 <= fVar17) {
@@ -1336,7 +1337,7 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
         fVar17 = (long double)k_1030eac8;
       }
       e[0x35b] = f32_raw((float)(fVar17 * (long double)k_1030ead0));
-      dVar19 = dVar18 * (double)f32_bits(p[0x7e]) + k_1030ead8;
+      dVar19 = dVar18 * (double)f32_bits(p[abd::axionik::SlotIdx::R2L3Sphere2Value]) + k_1030ead8;
       uVar14 = trunc_i32(dVar19);
       fVar17 = (long double)(int)uVar14;
       if ((long double)k_1030eae8 <= fVar17) {
@@ -1352,10 +1353,10 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       fVar2 = (float)k_1030eb00;
       e[0x35e] = f32_raw((fVar1 - f32_bits(e[0x35c])));
       e[0x35d] = f32_raw((fVar2 - f32_bits(e[0x35b])));
-      fVar1 = f32_bits(p[0xbf]);
-      fVar2 = f32_bits(p[0xc0]);
-      fVar3 = f32_bits(p[0xc1]);
-      fVar4 = f32_bits(p[0xc2]);
+      fVar1 = f32_bits(p[abd::axionik::SlotIdx::R2AmpEnvA]);
+      fVar2 = f32_bits(p[abd::axionik::SlotIdx::R2AmpEnvD]);
+      fVar3 = f32_bits(p[abd::axionik::SlotIdx::R2AmpEnvS]);
+      fVar4 = f32_bits(p[abd::axionik::SlotIdx::R2AmpEnvR]);
       if ((char)e[0x24a] == '\0') {
         *(undefined1 *)(e + 0x24a) = 1;
       }
@@ -1407,10 +1408,10 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x220] = uVar14;
       e[0x222] = 0;
       e[0x221] = f32_raw((fVar1 / (float)(int)uVar14));
-      fVar1 = f32_bits(p[0xad]);
-      fVar2 = f32_bits(p[0xae]);
-      fVar3 = f32_bits(p[0xaf]);
-      fVar4 = f32_bits(p[0xb0]);
+      fVar1 = f32_bits(p[abd::axionik::SlotIdx::R2ResEnvA]);
+      fVar2 = f32_bits(p[abd::axionik::SlotIdx::R2ResEnvD]);
+      fVar3 = f32_bits(p[abd::axionik::SlotIdx::R2ResEnvS]);
+      fVar4 = f32_bits(p[abd::axionik::SlotIdx::R2ResEnvR]);
       if ((char)e[0x28b] == '\0') {
         *(undefined1 *)(e + 0x28b) = 1;
       }
@@ -1462,12 +1463,12 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       e[0x261] = uVar14;
       e[0x263] = 0;
       e[0x262] = f32_raw((fVar1 / (float)(int)uVar14));
-      e[0x2c9] = p[0xc9];
+      e[0x2c9] = p[abd::axionik::SlotIdx::R2FreeEnvDepth];
       if (e[0xf] == 0) {
-        fVar1 = f32_bits(p[0xc4]);
-        fVar2 = f32_bits(p[0xc5]);
-        fVar3 = f32_bits(p[0xc6]);
-        fVar4 = f32_bits(p[199]);
+        fVar1 = f32_bits(p[abd::axionik::SlotIdx::R2FreeEnvA]);
+        fVar2 = f32_bits(p[abd::axionik::SlotIdx::R2FreeEnvD]);
+        fVar3 = f32_bits(p[abd::axionik::SlotIdx::R2FreeEnvS]);
+        fVar4 = f32_bits(p[abd::axionik::SlotIdx::R2FreeEnvR]);
         if ((char)e[0x306] == '\0') {
           *(undefined1 *)(e + 0x306) = 1;
         }
@@ -1522,12 +1523,12 @@ void translateParametersToEngine(uint32_t* engineState, const float* pFloat) {
       }
       pcVar10 = (char *)(uintptr_t)e[0xd94];
       if (pcVar10 != nullptr && *pcVar10 != '\0') {
-        *(uint *)(pcVar10 + 4) = p[0xe2];
-        dVar19 = (double)f32_bits(p[0xe5]);
+        *(uint *)(pcVar10 + 4) = p[abd::axionik::SlotIdx::SlicerSwitchType];
+        dVar19 = (double)f32_bits(p[abd::axionik::SlotIdx::SlicerWaveForm]);
         uVar14 = trunc_i32(dVar19);
         *(uint *)(pcVar10 + 8) = uVar14;
-        *(uint *)(pcVar10 + 0xc) = p[0xe3];
-        *(uint *)(pcVar10 + 0x10) = p[0xe4];
+        *(uint *)(pcVar10 + 0xc) = p[abd::axionik::SlotIdx::SlicerDepth];
+        *(uint *)(pcVar10 + 0x10) = p[abd::axionik::SlotIdx::SlicerRate];
       }
       translateSubObject((void*)(uintptr_t)e[0xd95], p);
       cVar13 = validateEngineState(e);

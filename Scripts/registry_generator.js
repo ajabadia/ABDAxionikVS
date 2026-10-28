@@ -500,6 +500,119 @@ for (const art of ARTEFACTOS) {
   }
 }
 
+// =========================================================================
+// Verificación complementaria: Source/DSP/AxionikParamIndices.h (ParamIdx)
+// Debe cubrir exactamente los 445 índices del enum ParamID (sin faltantes,
+// sin sobrantes, sin valores discrepantes ni duplicados).
+// =========================================================================
+function verifyParamIdxHeader() {
+  const errors = [];
+  const headerPath = path.join(rootDir, 'Source', 'DSP', 'AxionikParamIndices.h');
+  if (!fs.existsSync(headerPath)) {
+    errors.push('Falta Source/DSP/AxionikParamIndices.h');
+    return errors;
+  }
+
+  const reg = fs.readFileSync(path.join(rootDir, 'Source', 'Generated', 'ParameterRegistry.gen.h'), 'utf8');
+  const enumBlock = (reg.match(/enum class ParamID[\s\S]*?\n};/) || [''])[0];
+  const params = [...enumBlock.matchAll(/([A-Za-z0-9_]+) = (\d+)/g)].map(m => ({ name: m[1], val: +m[2] }));
+
+  const hdr = fs.readFileSync(headerPath, 'utf8');
+  const entries = [...hdr.matchAll(/uint32_t\s+([A-Za-z0-9_]+)\s*=\s*(\d+)\s*;/g)].map(m => ({ name: m[1], val: +m[2] }));
+  const byName = new Map(entries.map(e => [e.name, e.val]));
+
+  for (const p of params) {
+    if (!byName.has(p.name)) errors.push(`ParamIdx: falta ${p.name} (= ${p.val})`);
+    else if (byName.get(p.name) !== p.val) errors.push(`ParamIdx: ${p.name} discrepante (header=${byName.get(p.name)}, registry=${p.val})`);
+  }
+  const registryNames = new Set(params.map(p => p.name));
+  for (const e of entries) {
+    if (!registryNames.has(e.name)) errors.push(`ParamIdx: sobra ${e.name} (= ${e.val})`);
+  }
+  const seenVal = new Map();
+  for (const e of entries) {
+    if (seenVal.has(e.val)) errors.push(`ParamIdx: valor ${e.val} duplicado (${seenVal.get(e.val)} y ${e.name})`);
+    else seenVal.set(e.val, e.name);
+  }
+  return errors;
+}
+
+// Verificación de SlotIdx: cobertura exacta del mapa slot<->param de
+// DOCS/reverse_engineering/dsp/params_observers_map.csv (columna slot_in_p),
+// mas ausencia de literales numéricos de slot en el código DSP escrito a mano.
+function verifySlotIdxHeader() {
+  const errors = [];
+  const headerPath = path.join(rootDir, 'Source', 'DSP', 'AxionikParamIndices.h');
+  if (!fs.existsSync(headerPath)) {
+    errors.push('Falta Source/DSP/AxionikParamIndices.h');
+    return errors;
+  }
+
+  // Mapa canónico slot -> key desde el CSV
+  const csvPath = path.join(rootDir, 'DOCS', 'reverse_engineering', 'dsp', 'params_observers_map.csv');
+  const csvLines = fs.readFileSync(csvPath, 'utf8').split(/\r?\n/).filter(Boolean);
+  const hdrCols = csvLines[0].split(',');
+  const iSlot = hdrCols.indexOf('slot_in_p');
+  const iKey = hdrCols.indexOf('snddat_key');
+  const slotToKey = new Map();
+  for (const line of csvLines.slice(1)) {
+    const c = line.split(',');
+    const s = +c[iSlot];
+    if (s >= 0) slotToKey.set(s, c[iKey]);
+  }
+
+  const hdr = fs.readFileSync(headerPath, 'utf8');
+  const block = (hdr.match(/namespace SlotIdx \{[\s\S]*?\} \/\/ namespace SlotIdx/) || [''])[0];
+  const entries = [...block.matchAll(/inline constexpr size_t\s+([A-Za-z0-9_]+)\s*=\s*(\d+)\s*;/g)]
+    .map(m => ({ name: m[1], val: +m[2] }));
+  const bySlot = new Map(entries.map(e => [e.val, e.name]));
+  const byName = new Map(entries.map(e => [e.name, e.val]));
+
+  for (const [s, k] of slotToKey) {
+    if (!bySlot.has(s)) errors.push(`SlotIdx: falta el slot ${s} (${k})`);
+    else if (bySlot.get(s) !== k) errors.push(`SlotIdx: slot ${s} discrepante (header=${bySlot.get(s)}, csv=${k})`);
+  }
+  for (const e of entries) {
+    const canon = slotToKey.get(e.val);
+    if (canon === undefined) errors.push(`SlotIdx: sobra ${e.name} (slot ${e.val} sin clave en el CSV)`);
+    else if (canon !== e.name) errors.push(`SlotIdx: ${e.name} = ${e.val} pero el CSV dice ${canon}`);
+    if (!byName.has(e.name)) errors.push(`SlotIdx: clave interna inválida ${e.name}`);
+  }
+
+  // Lint: ningun literal numerico de slot en el código DSP escrito a mano
+  const dspDir = path.join(rootDir, 'Source', 'DSP');
+  for (const f of fs.readdirSync(dspDir)) {
+    if (!/\.(h|cpp)$/.test(f)) continue;
+    const lines = fs.readFileSync(path.join(dspDir, f), 'utf8').split(/\r?\n/);
+    lines.forEach((line, i) => {
+      const code = line.replace(/\/\/.*$/, ''); // ignora comentarios de linea
+      if (/getSlot(?:Raw|Norm)\(\s*p\s*,\s*(?:0x[0-9a-fA-F]+|\d)/.test(code)) {
+        errors.push(`${f}:${i + 1}: literal de slot en getSlot (usa SlotIdx::)`);
+      }
+      if (/\bp\s*\[\s*(?:0x[0-9a-fA-F]+|\d+)\s*\]/.test(code)) {
+        errors.push(`${f}:${i + 1}: literal p[N] crudo, decimal o hex (usa SlotIdx::)`);
+      }
+    });
+  }
+  return errors;
+}
+
+const paramIdxErrors = verifyParamIdxHeader();
+if (paramIdxErrors.length) {
+  for (const e of paramIdxErrors) console.error(`[ERROR] ${e}`);
+  hasErrors = true;
+} else {
+  console.log('[OK] Al dia: Source/DSP/AxionikParamIndices.h (445/445 ParamIdx)');
+}
+
+const slotIdxErrors = verifySlotIdxHeader();
+if (slotIdxErrors.length) {
+  for (const e of slotIdxErrors) console.error(`[ERROR] ${e}`);
+  hasErrors = true;
+} else {
+  console.log('[OK] Al dia: Source/DSP/AxionikParamIndices.h SlotIdx (317 slots, sin literales crudos)');
+}
+
 if (CHECK_ONLY && hasErrors) {
   process.exit(1);
 }

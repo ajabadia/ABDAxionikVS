@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <algorithm>
 #include "State/NeuronSound.h"
+#include "AxionikParamIndices.h"
 
 namespace abd::axionik {
 
@@ -56,25 +57,19 @@ public:
     [[nodiscard]] size_t getEventCount() const noexcept { return events_.size(); }
 
     /// Mapeo canónico de los 8 controles de stick (0..7) a índices de parámetro snddat
-    /// Control 0: R1 Scape X (param 52)
-    /// Control 1: R1 Scape Y (param 53)
-    /// Control 2: R1 Sphere X (param 42)
-    /// Control 3: R1 Sphere Y (param 43)
-    /// Control 4: R2 Scape X (param 132)
-    /// Control 5: R2 Scape Y (param 133)
-    /// Control 6: R2 Sphere X (param 122)
-    /// Control 7: R2 Sphere Y (param 123)
+    /// Control 0/1: R1 Scape X/Y · Control 2/3: R1 Sphere X/Y
+    /// Control 4/5: R2 Scape X/Y · Control 6/7: R2 Sphere X/Y
     static constexpr uint32_t getParamIndexForControl(uint8_t control) noexcept {
         switch (control) {
-            case 0: return 52;  // R1L1Scape1Value (Scape X)
-            case 1: return 53;  // R1L1Scape2Value (Scape Y)
-            case 2: return 42;  // R1L1Sphere1Value (Sphere X)
-            case 3: return 43;  // R1L1Sphere2Value (Sphere Y)
-            case 4: return 132; // R2L1Scape1Value (Scape X)
-            case 5: return 133; // R2L1Scape2Value (Scape Y)
-            case 6: return 122; // R2L1Sphere1Value (Sphere X)
-            case 7: return 123; // R2L1Sphere2Value (Sphere Y)
-            default: return 52;
+            case 0: return ParamIdx::R1L1Scape1Value;
+            case 1: return ParamIdx::R1L1Scape2Value;
+            case 2: return ParamIdx::R1L1Sphere1Value;
+            case 3: return ParamIdx::R1L1Sphere2Value;
+            case 4: return ParamIdx::R2L1Scape1Value;
+            case 5: return ParamIdx::R2L1Scape2Value;
+            case 6: return ParamIdx::R2L1Sphere1Value;
+            case 7: return ParamIdx::R2L1Sphere2Value;
+            default: return ParamIdx::R1L1Scape1Value;
         }
     }
 
