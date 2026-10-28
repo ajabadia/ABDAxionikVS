@@ -23,6 +23,7 @@ import {
 } from '@abdsynths/shared/formats/neuron';
 import { createBankShell } from '@abdsynths/shared/components/bank/bankShell.js';
 import { bankCardHtml, bindBankCards } from '@abdsynths/shared/components/bank/bankCard.js';
+import { bankChipsHtml, bindBankChips, type BankChipItem } from '@abdsynths/shared/components/bank/bankChips.js';
 
 export interface BankModelEntry {
   slot: number;
@@ -115,6 +116,7 @@ export class BankDrawer {
   private drawerElement: HTMLElement | null = null;
   private shell!: ReturnType<typeof createBankShell>;
   private cardUnbind: (() => void) | null = null;
+  private chipsUnbind: (() => void) | null = null;
   private currentBank: BankSummary = { folderName: 'Default Library', models: [], presets: [] };
   private activeTab: 'models' | 'presets' = 'models';
   private preferredResynator: 1 | 2 = 1;
@@ -144,6 +146,11 @@ export class BankDrawer {
         { id: 'refresh', label: 'Refresh', title: 'Refresh & Re-index Library Metadata', iconHtml: ICONS.refresh },
         { id: 'folder', label: 'Folder', title: 'Configure NeuronDB Library Folder', iconHtml: ICONS.folder },
         { id: 'close', label: 'Close', title: 'Close Drawer (Esc)', iconHtml: ICONS.close },
+      ],
+      footerActions: [
+        { id: 'refresh', label: 'Refresh', title: 'Refresh & re-index library metadata', kind: 'outline' },
+        { id: 'folder', label: 'Folder...', kind: 'primary' },
+        { id: 'close', label: 'Close' },
       ],
       onTabChange: (tab) => {
         this.setTab(tab as 'models' | 'presets');
@@ -186,14 +193,20 @@ export class BankDrawer {
     // Keep the historical content id and inline layout so host CSS applies unchanged.
     this.shell.contentEl.id = 'bank-list-container';
     this.shell.contentEl.setAttribute('style', 'flex: 1; overflow-y: auto; padding: var(--space-3);');
-    // Keep the historical footer id and inline layout.
+    // Keep the historical footer id and inline layout (the shell owns the
+    // skeleton: slot + status + declarative actions).
     this.shell.footerEl.id = 'bank-footer';
     this.shell.footerEl.setAttribute(
       'style',
       'padding: var(--space-2) var(--space-3); border-top: 1px solid var(--color-panel-border-dim); display: flex; justify-content: space-between; align-items: center; background: var(--color-panel-surface);'
     );
+    // Historical status text metrics (shared class is larger).
+    this.shell.footerEl
+      .querySelector('[data-shell-foot-status]')
+      ?.setAttribute('style', 'font-size: var(--text-xs); color: var(--color-text-dim);');
+    this.shell.setFootSlot('LIBRARY:');
+    this.shell.setFooterStatus('No folder configured');
     this.renderToolbar();
-    this.renderFooter();
   }
 
   private renderToolbar(): void {
@@ -227,21 +240,6 @@ export class BankDrawer {
       this.callerContext = 'r2';
       this.setPreferredResynator(2);
     });
-  }
-
-  private renderFooter(): void {
-    if (!this.drawerElement) return;
-    this.shell.footerEl.innerHTML = `
-      <div class="ndb-footer-selection">
-        <span class="ndb-footer-slot" id="bank-foot-slot" style="font-weight: 700; color: var(--color-accent);">LIBRARY:</span>
-        <span class="ndb-footer-details" id="bank-foot-status" style="font-size: var(--text-xs); color: var(--color-text-dim);">No folder configured</span>
-      </div>
-      <div class="neurondb-footer-actions">
-        <button type="button" class="btn btn-xs btn-outline" data-footer-action="refresh" title="Refresh & re-index library metadata">Refresh</button>
-        <button type="button" class="btn btn-xs btn-primary" data-footer-action="folder">Folder...</button>
-        <button type="button" class="btn btn-xs" data-footer-action="close">Close</button>
-      </div>
-    `;
   }
 
   public setBank(bank: BankSummary): void {
@@ -302,10 +300,7 @@ export class BankDrawer {
       this.renderPresets();
     }
 
-    const statusEl = this.drawerElement?.querySelector('#bank-foot-status');
-    if (statusEl) {
-      statusEl.textContent = `${this.currentBank.folderName} (${models.length} models, ${presets.length} presets)`;
-    }
+    this.shell.setFooterStatus(`${this.currentBank.folderName} (${models.length} models, ${presets.length} presets)`);
     console.log(`[BankDrawer] Synced ${models.length} models and ${presets.length} presets from native host.`);
   }
 
@@ -320,10 +315,9 @@ export class BankDrawer {
    * silent no-op is impossible unless the click never reaches the drawer.
    */
   public refreshBank(): void {
-    const statusEl = this.shell.footerEl.querySelector('#bank-foot-status');
-    if (statusEl) statusEl.textContent = 'Refreshing library…';
+    this.shell.setFooterStatus('Refreshing library…');
     this.shell.flashStatus('Refreshing library…', 'working');
-    this.setRefreshing(true);
+    this.shell.setBusy('refresh', true);
     // Let the working state paint before the synchronous reindex runs.
     window.setTimeout(() => {
       try {
@@ -337,24 +331,12 @@ export class BankDrawer {
       } catch (err) {
         console.error('[BankDrawer] Refresh failed:', err);
         const message = `Refresh failed: ${err instanceof Error ? err.message : String(err)}`;
-        const el = this.shell.footerEl.querySelector('#bank-foot-status');
-        if (el) el.textContent = message;
+        this.shell.setFooterStatus(message);
         this.shell.flashStatus(message, 'error');
       } finally {
-        this.setRefreshing(false);
+        this.shell.setBusy('refresh', false);
       }
     }, 60);
-  }
-
-  private setRefreshing(active: boolean): void {
-    if (!this.drawerElement) return;
-    this.drawerElement
-      .querySelectorAll('[data-header-action="refresh"], [data-footer-action="refresh"]')
-      .forEach((btn) => {
-        const b = btn as HTMLButtonElement;
-        b.disabled = active;
-        b.classList.toggle('is-refreshing', active);
-      });
   }
 
   public refreshLibrary(): void {
@@ -406,11 +388,10 @@ export class BankDrawer {
     // Persistent confirmation with timestamp: refreshing with identical data
     // changes no counters, so the time proves the click did something.
     // The message stays until the next bank update restores the summary.
-    const statusEl = this.shell.footerEl.querySelector('#bank-foot-status');
-    if (statusEl) {
-      const time = new Date().toLocaleTimeString();
-      statusEl.textContent = `Library refreshed & re-indexed (${models.length} models, ${presets.length} presets) · ${time}`;
-    }
+    const time = new Date().toLocaleTimeString();
+    this.shell.setFooterStatus(
+      `Library refreshed & re-indexed (${models.length} models, ${presets.length} presets) · ${time}`
+    );
   }
 
   private updateCounters(): void {
@@ -421,10 +402,7 @@ export class BankDrawer {
     this.shell.setTabCount('models', mCount);
     this.shell.setTabCount('presets', pCount);
 
-    const footStatusEl = this.shell.footerEl.querySelector('#bank-foot-status');
-    if (footStatusEl) {
-      footStatusEl.textContent = `${this.currentBank.folderName} (${mCount} models, ${pCount} presets)`;
-    }
+    this.shell.setFooterStatus(`${this.currentBank.folderName} (${mCount} models, ${pCount} presets)`);
   }
 
   private updateTargetRowUI(): void {
@@ -468,35 +446,32 @@ export class BankDrawer {
 
     container.style.display = 'flex';
 
+    // The row only serves the pick; filtering stays host logic (same as cards).
+    this.chipsUnbind?.();
+    this.chipsUnbind = null;
+
     if (this.activeTab === 'presets') {
       const catCounts: Record<string, number> = {};
       for (const p of this.currentBank.presets) {
         const c = p.category || 'General';
         catCounts[c] = (catCounts[c] || 0) + 1;
       }
-      const allActive = this.selectedPresetCategory === 'all';
-      let html = `
-        <button type="button" class="ndb-chip ${allActive ? 'active' : ''}" data-pcat="all" style="padding: 2px 8px; font-size: 10px;">
-          All (${this.currentBank.presets.length})
-        </button>
-      `;
-      const orderedCats = Object.keys(catCounts).sort();
-      for (const cat of orderedCats) {
-        const isAct = this.selectedPresetCategory === cat;
-        const info = getPresetCategoryInfo(cat);
-        html += `
-          <button type="button" class="ndb-chip ${info.catClass} ${isAct ? 'active' : ''}" data-pcat="${cat}" style="padding: 2px 8px; font-size: 10px;">
-            ${cat} (${catCounts[cat]})
-          </button>
-        `;
-      }
-      container.innerHTML = html;
-      container.querySelectorAll<HTMLButtonElement>('.ndb-chip').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          this.selectedPresetCategory = btn.getAttribute('data-pcat') || 'all';
-          this.renderCategoryChips();
-          this.renderPresets();
-        });
+      const items: BankChipItem[] = [
+        { id: 'all', label: 'All', count: this.currentBank.presets.length },
+        ...Object.keys(catCounts)
+          .sort()
+          .map((cat) => ({
+            id: cat,
+            label: cat,
+            count: catCounts[cat],
+            catClass: getPresetCategoryInfo(cat).catClass,
+          })),
+      ];
+      container.innerHTML = bankChipsHtml(items, this.selectedPresetCategory);
+      this.chipsUnbind = bindBankChips(container, (id) => {
+        this.selectedPresetCategory = id;
+        this.renderCategoryChips();
+        this.renderPresets();
       });
       return;
     }
@@ -507,35 +482,28 @@ export class BankDrawer {
       counts[m.parameterSet] = (counts[m.parameterSet] || 0) + 1;
     }
 
-    const allActive = this.selectedCategory === 'all';
-    let html = `
-      <button type="button" class="ndb-chip ${allActive ? 'active' : ''}" data-cat="all" style="padding: 2px 8px; font-size: 10px;">
-        All (${this.currentBank.models.length})
-      </button>
-    `;
-
+    const items: BankChipItem[] = [{ id: 'all', label: 'All', count: this.currentBank.models.length }];
     for (let i = 0; i <= 9; i++) {
       const count = counts[i] || 0;
       if (count === 0 && this.currentBank.models.length > 0) continue;
-      const isAct = this.selectedCategory === i;
       const ps = PARAMETER_SETS[i];
       const catName = ps ? ps.name : `Set ${i}`;
-      html += `
-        <button type="button" class="ndb-chip cat-${i} ${isAct ? 'active' : ''}" data-cat="${i}" style="padding: 2px 8px; font-size: 10px;" title="${catName}">
-          <span class="cat-${i}" style="font-weight: 700;">${i}:</span> ${ps ? ps.category : catName} (${count})
-        </button>
-      `;
+      items.push({
+        id: String(i),
+        label: ps ? ps.category : catName,
+        count,
+        catClass: `cat-${i}`,
+        title: catName,
+        prefixHtml: `<span class="cat-${i}" style="font-weight: 700;">${i}:</span> `,
+      });
     }
 
-    container.innerHTML = html;
-
-    container.querySelectorAll<HTMLButtonElement>('.ndb-chip').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const cat = btn.getAttribute('data-cat');
-        this.selectedCategory = cat === 'all' ? 'all' : parseInt(cat || '0', 10);
-        this.renderCategoryChips();
-        this.renderModels();
-      });
+    const activeId = this.selectedCategory === 'all' ? 'all' : String(this.selectedCategory);
+    container.innerHTML = bankChipsHtml(items, activeId);
+    this.chipsUnbind = bindBankChips(container, (id) => {
+      this.selectedCategory = id === 'all' ? 'all' : parseInt(id || '0', 10);
+      this.renderCategoryChips();
+      this.renderModels();
     });
   }
 
