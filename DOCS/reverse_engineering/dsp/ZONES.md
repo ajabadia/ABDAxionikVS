@@ -686,6 +686,38 @@ pasa el par por `FUN_100295d0` y `FUN_10029e34` (0x80 muestras cada una,
 `0x1003a48e` y `0x1003a4bf`). Esa cadena y el lazo de estado `engine+0x3658`…
 `engine+0x3678` que viene después ya son la etapa de salida, no el mezclador.
 
+#### Quién crea y parametriza los tres objetos del cierre (`+0x3650`, `+0x3654`, `+0x3658`)
+
+Los tres objetos colgados de la cola del estado del motor (`engine+0x3650`..`+0x3658`, slots `0xD94`..`0xD96`) nacen en el constructor maestro del engine (`FUN_10044884`, llamado desde `FUN_10038220` sobre un bloque `operator_new(0x367C)` = `0xD9F` dwords), encadenados mediante guardas secuenciales (cada constructor solo se invoca si el anterior devolvió puntero válido) en el orden **reloj → delay largo → coro**, y son destruidos en `FUN_100461c4`:
+
+| Slot | Objeto | Creación | Tamaño | Liberación |
+|---|---|---|---|---|
+| `+0x3658` (`0xD96`) | **Reloj del banco aditivo** | Wrapper `0x14` → hijo `0xC` → `FUN_10046660` → `FUN_100444b4(0x800)` | 20 + 12 + 88 B | `FUN_10023610` → `FUN_10022c40` |
+| `+0x3654` (`0xD95`) | **Delay largo (`CSilverRack`)** | `operator_new(0x843C8)` → `FUN_10045ff4` → `FUN_100463f0` | 541.640 B + sub-objetos `0xE494`/`0x2402C` | `FUN_100235c0` |
+| `+0x3650` (`0xD94`) | **Coro (`Slicer`)** | `operator_new(0x562A8)` → `FUN_10046184` → `FUN_10046600` | 352.936 B autónomos | `operator_delete` directo |
+
+##### Parametrización en tiempo de ejecución:
+
+1. **Coro / Slicer (`+0x3650`, `e[0xD94]`)**:
+   - Parametrizado exclusivamente al final del traductor (`FUN_10040550`, portado en `Translator.cpp` L1524–1532) desde los 4 slots canónicos del Slicer (claves de esquema 226..229):
+     - `+4` = `p[0xE2]` = `p[226]` (`SlotIdx::SlicerSwitchType`: modo 0..2)
+     - `+8` = `trunc(p[0xE5])` = `trunc(p[229])` (`SlotIdx::SlicerWaveForm`: forma de onda)
+     - `+0xC` = `p[0xE3]` = `p[227]` (`SlotIdx::SlicerDepth`: profundidad / mezcla)
+     - `+0x10` = `p[0xE4]` = `p[228]` (`SlotIdx::SlicerRate`: paso del LFO / velocidad)
+   - Ninguna otra rutina en todo el PE vuelve a escribir en su memoria.
+
+2. **Delay largo / CSilverRack (`+0x3654`, `e[0xD95]`)**:
+   - Parametrizado por `FUN_100343e4(this = e[0xD95], p)` (la primera de las dos llamadas al cierre de `FUN_10040550`).
+   - Vuelca el bloque `p` sobre la cabecera del sub-objeto: **64 campos** desde `st+0x0C` hasta `st+0x110` (54 copias directas de `p[249]..p[316]` + 10 valores derivados calculados; `+0xC8` es el único dword retenido intacto).
+   - Las lecturas en `FUN_10029e34` confirman su semántica DSP:
+     - `+0x20` / `+0x28` ← `p[277]` / `p[279]` (tiempos objetivo de delay estéreo).
+     - `+0xB8` ← `p[294]` (coeficiente de realimentación escalado por `0.99 · x`).
+     - `+0x34` ← forma de interpolación calculada.
+
+3. **Reloj del banco aditivo (`+0x3658`, `e[0xD96]`)**:
+   - Nadie lo parametriza tras el constructor: sus campos son constantes fijas de fábrica (`0x800`, `44100.0f`, `512`) más referencias a `engine+0xDA0` / `+0xD94`.
+   - Su contador interno `+8` es incrementado en cada bloque por `FUN_10029530`, disparando `FUN_100330f0` exactamente cada 1024 muestras de audio.
+
 #### Lo que esto corrige de lo anterior
 
 1. **Los buffers no están a `+0x200`** (§ arriba): índice de −0x80 a −1.
@@ -715,9 +747,8 @@ pasa el par por `FUN_100295d0` y `FUN_10029e34` (0x80 muestras cada una,
 - **El modo 1 llama igual a `FUN_1003d6f0`** (la etapa por voz de
   `engine+0x27C`) y luego descarta su retorno (`0x1003b4dd`). No se sabe si la
   etapa se usa como calentamiento a propósito o es un resto del diseño.
-- **`FUN_10029530` / `FUN_100295d0` / `FUN_10029e34`.** Son el cierre del bloque
-  (0x80 muestras sobre los dos buses) y quedan sin desmenuzar, igual que la
-  escala de 24.0 y el desplazamiento de una muestra del bus B.
+- **`FUN_10029530` / `FUN_100295d0` / `FUN_10029e34` (Resuelto en §6.5):**
+  Identificados y documentados plenamente como los operadores del cierre sobre los tres objetos en `engine+0x3650/0x3654/0x3658`: `FUN_10029530` avanza el reloj del banco aditivo disparando `FUN_100330f0` cada 1024 muestras; `FUN_100295d0` y `FUN_10029e34` procesan el bus a través del Coro/Slicer (`e[0xD94]`) y del Delay largo / SilverRack (`e[0xD95]`, parametrizado por `FUN_100343e4`).
 - **Los 5 campos que no siguen la regla +70.** En 42 de los 47 campos con `p[N]`
   literal en las dos capas, R2 usa `p[N+70]`; en 4 la diferencia es +30 y en 1
   es 0. No se ha identificado el criterio de esas excepciones.

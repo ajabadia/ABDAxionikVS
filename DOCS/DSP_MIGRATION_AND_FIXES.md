@@ -76,14 +76,19 @@ Cada observador en `params + 0x2B0 + slot * 0x18` (24 bytes: `{float min, float 
            FUN_100134e0(params, mod_idx);
 
            // 3. Caso especial para R1AmpEnvR (slot 0xA4 = 164) y R2AmpEnvR (slot 0xC2 = 194):
+           // params+0x0C y params+0x10 son campos espejo muertos (dead mirrors):
+           // FUN_100343e4 (CSilverRack::UpdateParams) los copia, pero ningún método DSP
+           // ni proceso de audio los lee jamás (verificado con neuron_golden --mirror).
+           // La constante 0x10049F00 es 1.0 / 25.4 (umbral físico de 1 mm en pulgadas).
+           constexpr double kOneMmInInches = 1.0 / 25.4; // 0x3FA42850A142850A
            if (slot == 0xA4) {
                *reinterpret_cast<float*>(params + 0x0C) = new_val;
                float* p_slot = reinterpret_cast<float*>(params + 0x278C + slot * 4);
-               if (*p_slot == 0.0f) *p_slot = new_val;
+               if (static_cast<double>(*p_slot) > kOneMmInInches) *p_slot = new_val;
            } else if (slot == 0xC2) {
                *reinterpret_cast<float*>(params + 0x10) = new_val;
                float* p_slot = reinterpret_cast<float*>(params + 0x278C + slot * 4);
-               if (*p_slot == 0.0f) *p_slot = new_val;
+               if (static_cast<double>(*p_slot) > kOneMmInInches) *p_slot = new_val;
            }
        } else {
            // Parámetro NO modulable (mod_idx == -1):
@@ -476,5 +481,19 @@ Tras la aplicación de estas correcciones junto con la alineación 1:1 del Filtr
 - **Verificación de Zonas (`--zones`)**: **`VEREDICTO ZONAS: CORRECTO`** (`128/128` teclas validadas para R1 y R2).
 - **Verificación de Matriz (`--matrix`)**: **`VEREDICTO MATRIZ: CORRECTO`** (`63/63` destinos remapeados + `6` controles MIDI en tiempo real validados).
 
+### 11.5 Régimen de Calentamiento de la DLL Original (`NeuronVS.dll`) en Tests de Paridad
+- **Comportamiento Detectado en Oráculo**: Al ejecutar pruebas de paridad automatizadas consecutivas contra `NeuronVS.dll`, la instancia de la DLL original altera su régimen interno acumulativo entre la 3ª y la 4ª carga de preset. Las primeras 3 cargas renderizan bit-idéntico; a partir de la 4ª carga, el motor sufre un desplazamiento medio de audio de $\sim 0.267$ debido a residuos en variables estáticas internas del binario original de 2004.
+- **Protocolo de Evaluación Áurea**: En cualquier pipeline de prueba diferencial automatizada (`GoldenParityTest`), **deben descartarse siempre los primeros 4 renders de calentamiento (warm-up)** para comparar contra el régimen permanente y estable de la DLL.
 
-
+### 11.6 Corrección de Inversión de Argumentos Freq/Gain en EQ 4-Bandas (`DspEngineFacade.cpp`)
+- **Desviación Detectada**: En `Source/DSP/DspEngineFacade.cpp` (`setEQParams`), los argumentos pasados a la etapa de ecualización de 4 bandas (`silverRack_.setEQParams`) estaban en orden inverso (`freq` en la posición de `gain` y `gain` en la posición de `freq`) para las 4 bandas (`Low Shelf [287/288]`, `Band 1 [291/292]`, `Band 2 [295/296]` y `High Shelf [299/300]`).
+- **Corrección**: Se corrigió el orden de paso de argumentos en `DspEngineFacade.cpp` para ajustarse exactamente a la firma canónica de `ABDShared::DspEffects::ParametricEQ4Band`:
+  ```cpp
+  silverRack_.setEQParams(
+      eqLowShelfGain_, eqLowShelfFreq_,
+      eqBand1Gain_, eqBand1Freq_,
+      eqBand2Gain_, eqBand2Freq_,
+      eqHighShelfGain_, eqHighShelfFreq_
+  );
+  ```
+- **Integración de `Shaper3Status` (`[362]`)**: Incorporado al catálogo de constantes `ParamIdx.Shaper3Status = 362` en `paramIndices.ts` para gobernar el conmutador de activación del Shaper 3 (Filtro / EFX Env) tanto en la WebUI (`ShapersPanel.ts`) como en el puente DSP.

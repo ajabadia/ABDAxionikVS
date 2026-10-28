@@ -99,7 +99,13 @@ char validateEngineState(const uint32_t* state) {
 void translateSubObject(void* self, const uint32_t* p) {
     (void)self;
     (void)p;
-    // Port de 0x100343E4 (501 líneas): opera sobre el sub-objeto en estado[0xD95]
+    // Port de 0x100343E4 (501 líneas): opera sobre el sub-objeto en estado[0xD95] (CSilverRack / Delay largo, 541.640 B)
+    // Vuelca 64 campos de p sobre la cabecera: st+0x0C .. st+0x110 (54 copias directas de p[249]..p[316] + 10 calculados).
+    // Campos principales leídos por DSP FUN_10029e34:
+    //   - st+0x20 / st+0x28 <- p[277] / p[279] (objetivos de tiempo de delay)
+    //   - st+0xB8          <- p[294] (realimentación 0.99 * x)
+    //   - st+0x34          <- forma de interpolación calculada
+    //   - st+0xC8          <- retenido intacto
 }
 
 } // namespace abd::axionik

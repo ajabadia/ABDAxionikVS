@@ -256,7 +256,7 @@ if (cVar13 != '\0')
 
 | función | firma real | qué se sabe |
 |---|---|---|
-| `FUN_100343e4` | `void __thiscall(void* self /* = e[0xD95] */, const uint32_t* p)` | 501 líneas; escribe en el sub-objeto, no en `e`. Su cuerpo no está portado |
+| `FUN_100343e4` | `void __thiscall(void* self /* = e[0xD95] */, const uint32_t* p)` | 501 líneas; vuelca 64 campos de `p` sobre la cabecera del Delay largo (`CSilverRack`, `st+0x0C`..`+0x110`: 54 copias de `p[249]..p[316]` + 10 calculados). Su mapa completo de campos está identificado |
 | `FUN_100373a0` | `char __fastcall(const uint32_t* state /* = e */)` | 969 B (195 líneas); **portada** en [`src/translator_hooks.cpp`](../src/translator_hooks.cpp); valida las dos tablas de 128 entradas |
 
 `FUN_100373a0` es el **validador**: con el byte `0xD98` apagado devuelve 0 sin
@@ -274,10 +274,11 @@ un AND de las 2.048 comprobaciones (128 teclas × 2 capas × 8 punteros); sólo 
 es 1 el traductor escribe `0xD99 = 1`, que es lo que habilita el teclado. El detalle del formato está en
 [`NeuronVS_neurondb/SCAPE_SPHERE.md`](../../NeuronVS_neurondb/SCAPE_SPHERE.md).
 
-`FUN_100343e4` sigue sin portar: recibe `this = e[0xD95]` (un sub-objeto del
-motor, no los 13.948 B del estado) y `p`; su cuerpo de 501 líneas no está
-traducido. El hook es un no-op documentado, no un olvido: lo que escriba en su
-sub-objeto no aparece en la comparación dword a dword del estado.
+`FUN_100343e4` parametriza el sub-objeto `e[0xD95]` (el Delay largo / `CSilverRack` de 541.640 B, ver `ZONES.md §6.5`):
+recibe `this = e[0xD95]` y `p`, y vuelca 64 campos desde `st+0x0C` a `st+0x110` (54 copias directas de `p[249]..p[316]`
+más 10 valores derivados calculados para tiempos y feedback; `+0xC8` queda intacto). Su mapeo completo está verificado en el desensamblado
+frente a las lecturas DSP de `FUN_10029e34`. En el arnés diferencial de estado de 13.948 B, el hook actúa como un no-op
+aislado porque el sub-objeto reside fuera del array `e[]`.
 
 ## 8. Cómo se comprueba
 
@@ -476,9 +477,7 @@ descriptores de `ZONES.md` §4.3 delante y detrás de cada cambio.
 1. **El mapa slot → parámetro.** `p[N]` es un slot, no un parámetro. El mapa de
    `0x10049E00` tiene 64 entradas; para el resto no hay nombre. Cerrarlo pide
    seguir a quién llena `params+0x278C` (candidato: `FUN_10013ea0`, el cargador).
-2. **El cuerpo de `FUN_100343e4`.** La ABI ya está recuperada (§7), pero sus 501
-   líneas siguen sin portar: no se sabe qué escribe en el sub-objeto `e[0xD95]`
-   ni si eso afecta a la siguiente nota.
+2. **El cuerpo de `FUN_100343e4`.** La ABI y el mapa completo de los 64 campos escritos en el sub-objeto `e[0xD95]` (`st+0x0C` a `st+0x110`) ya están identificados y vinculados a las lecturas DSP de `FUN_10029e34` (ver `ZONES.md §6.5`). Queda pendiente únicamente portar las 501 líneas C hacia C++ para unificar la parametrización de Silver.
 3. **Los límites de `FUN_100373a0`.** La comprobación de frames se reproduce
    con contadores *unsigned*, como el original: un `.sphere` con `+0x18`
    corrupto (p. ej. `0xFFFFFFFF`) hace que el binario recorra miles de millones
