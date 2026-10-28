@@ -191,6 +191,27 @@ Objetivo: pasar a constantes centralizadas. Crear archivos al estilo ABDJUNiO601
 - **Al estilo ABDJUNiO601**: Archivo con `namespace`, `inline constexpr uint32_t`/`enum class`, agrupado por secciones, legible.
 - **Cumplimiento con estándares ABDShared**: Añadidos principios de no-mágicos, telemetría real/sintética marcada, tests autocontenidos sin rutas externas.
 
+## 8. Cambios realizados (resumen)
+
+### Infraestructura / Documentación
+- `CODE_REVIEW_MITIGATION_PLAN.md` - Creado y actualizado con seguimiento completo
+- `D:/desarrollos/ABDSynths/ABDShared/Docs/architecture/CALIDAD_Y_ESTANDARES_VST3.md` - Añadidos principios (índices/mágicos, centralización, telemetría sintética marcada, tests autocontenidos)
+- `D:/desarrollos/ABDSynths/ABDShared/Docs/architecture/GUIA_CREACION_SINTETIZADORES.md` - Añadidas reglas para tests y centralización de índices
+
+### C++ (Core/DSP/Plugin)
+- `Source/DSP/AxionikParamIndices.h` - **NUEVO**. Constantes centralizadas por secciones (SoundHeader, R1/R2, Sticks, Envelopes, LFO/Blender/Slicer, Silver/Filter, FX, MasterFX, etc.)
+- `Source/DSP/DspEngineFacade.cpp` - Añadido include; migrados índices a `abd::axionik::ParamIdx`; documentado `masterVol` hardcodeado y `cpuUsage` sintético
+- `Source/PluginProcessor.h` - `isSyncingPreset_` convertido a `std::atomic<bool>`
+- `Source/PluginProcessor.cpp` - Añadido include; uso de `ParamIdx` para R1/R2 ModellIndex; `isSyncingPreset_` con `std::memory_order_*`; reset NRPN en `AllNotesOff/AllSoundOff` y `ProgramChange`; `changeProgramName()` documentado
+
+### WebUI (TypeScript)
+- `WebUI/src/constants/paramIndices.ts` - **NUEVO**. Equivalente TS centralizado (`as const`)
+- `WebUI/src/constants/index.ts` - **NUEVO**. Barrel
+- `WebUI/src/main.ts` - Importados constantes; migrados switches R1/R2, sticks Sphere/Scape, modelos, Blender/Slicer/Filter/Silver/FreqFX/TimeFX
+
+### Tests
+- `tests/sound_format.test.ts` - Eliminadas rutas externas hardcodeadas, usa fixtures locales `NeuronDB/Sounds/...`, sin skips silenciosos
+
 ---
 
-**ÚLTIMA ACTUALIZACIÓN:** 2026-10-28 - Centralizados índices, migrados usos en C++/WebUI, añadidos principios a ABDShared/Docs, corregidos tests, atómico isSyncingPreset_, NRPN reset en ProgramChange/allNotesOff, changeProgramName documentado, masterVol/CPU sintético documentados. Plan actualizado y seguimiento completado en las fases aplicables. Commit+push realizado.
+**ÚLTIMA ACTUALIZACIÓN:** 2026-10-28 - Centralizados índices, migrados usos en C++/WebUI, añadidos principios a ABDShared/Docs, corregidos tests, atómico isSyncingPreset_, NRPN reset en ProgramChange/allNotesOff, changeProgramName documentado, masterVol/CPU sintético documentados, sección "Cambios realizados" añadida. Plan actualizado y seguimiento completado en las fases aplicables. Commit+push realizado.
