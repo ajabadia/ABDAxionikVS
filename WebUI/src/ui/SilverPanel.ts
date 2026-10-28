@@ -12,9 +12,11 @@
 import { TrajectoryStick2D, type StickCoordinate, type StickLabels } from './TrajectoryStick2D.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
+import { Knob } from '@abdsynths/shared/components';
 
 export interface SilverPanelOptions {
   onEditSilver?: () => void;
+  onEditSlicer?: () => void;
 }
 
 export const FREQ_ALGO_NAMES = ['EQ/Comp', 'Distortion', 'RingMod', 'Decimator', 'Sp-Warp'];
@@ -26,6 +28,11 @@ export class SilverPanel {
   private rootEl: HTMLElement | null = null;
   private silverStick: TrajectoryStick2D | null = null;
   private currentSilverLevel: number = 0; // 0: Filter, 1: Freq FX, 2: Time FX
+
+  // Slicer Hardware controls
+  private depthKnob: Knob | null = null;
+  private rateKnob: Knob | null = null;
+  private curSlicerMode: number = 0; // 0: Off, 1: 1D, 2: 3D
 
   constructor(container: HTMLElement, options: SilverPanelOptions = {}) {
     this.container = container;
@@ -62,7 +69,7 @@ export class SilverPanel {
       </div>
 
       <div class="panel-body silver-body" data-collapse-body>
-        <!-- Columna Izquierda: Algoritmos FREQ FX -->
+        <!-- Columna 1: Algoritmos FREQ FX -->
         <aside class="silver-fx-column silver-freq-col">
           <span class="silver-fx-col-title">FREQ FX</span>
           <div class="silver-pills-stack" id="silver-freq-pills">
@@ -70,14 +77,49 @@ export class SilverPanel {
           </div>
         </aside>
 
-        <!-- Centro: Sub-caja TrajectoryStick2D Vectorial -->
+        <!-- Columna 2: Sub-caja TrajectoryStick2D Vectorial -->
         <div id="silver-stick-mount"></div>
 
-        <!-- Columna Derecha: Algoritmos TIME FX -->
+        <!-- Columna 3: Algoritmos TIME FX -->
         <aside class="silver-fx-column silver-time-col">
           <span class="silver-fx-col-title">TIME FX</span>
           <div class="silver-pills-stack" id="silver-time-pills">
             ${timePillsHtml}
+          </div>
+        </aside>
+
+        <!-- Columna 4: Hardware Slicer (LFO 1D/3D) -->
+        <aside class="silver-fx-column slicer-hardware-col" id="slicer-col">
+          <div class="slicer-header-line" id="slicer-header-edit" title="Open Slicer & Blender Settings">
+            <span class="slicer-status-dot" id="slicer-dot"></span>
+            <span class="silver-fx-col-title" style="border: none; padding: 0;">SLICER</span>
+          </div>
+
+          <!-- Selector de Modo con LEDs apilados 1D / 3D -->
+          <div class="slicer-mode-section">
+            <div class="slicer-leds-stack">
+              <div class="slicer-led" id="slicer-led-1d" title="1D Vertical Oscillation">
+                <span class="slicer-led-pip"></span>
+                <span class="slicer-led-label">1D</span>
+              </div>
+              <div class="slicer-led" id="slicer-led-3d" title="3D Spatial Modulation">
+                <span class="slicer-led-pip"></span>
+                <span class="slicer-led-label">3D</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-xs btn-outline slicer-mode-btn" id="btn-slicer-mode" title="Toggle Slicer Mode: Off -> 1D -> 3D">MODE</button>
+          </div>
+
+          <!-- Knob 1: Depth / Spread -->
+          <div class="slicer-knob-wrapper">
+            <div id="slicer-depth-mount" style="display: flex; justify-content: center;"></div>
+            <span class="slicer-knob-sublabel" id="slicer-depth-sublabel">0</span>
+          </div>
+
+          <!-- Knob 2: Rate -->
+          <div class="slicer-knob-wrapper">
+            <div id="slicer-rate-mount" style="display: flex; justify-content: center;"></div>
+            <span class="slicer-knob-sublabel" id="slicer-rate-sublabel">6.6 Hz</span>
           </div>
         </aside>
       </div>
@@ -85,8 +127,9 @@ export class SilverPanel {
 
     this.container.appendChild(this.rootEl);
 
-    // Inicializar Stick 2D de Silver
+    // Inicializar Stick 2D de Silver y Slicer
     this.initSilverStick();
+    this.initSlicer();
 
     // Eventos del Header
     this.rootEl.querySelector('#btn-edit-silver')?.addEventListener('click', () => {
@@ -391,8 +434,114 @@ export class SilverPanel {
     }
   }
 
+  private initSlicer(): void {
+    const modeBtn = this.rootEl?.querySelector('#btn-slicer-mode');
+    modeBtn?.addEventListener('click', () => {
+      const nextMode = (this.curSlicerMode + 1) % 3;
+      WebBridge.setParam(ParamIdx.SlicerSwitchType, nextMode);
+      this.updateSlicerModeUi(nextMode);
+    });
+
+    const headerEdit = this.rootEl?.querySelector('#slicer-header-edit');
+    headerEdit?.addEventListener('click', () => {
+      this.options.onEditSlicer?.();
+    });
+
+    // Depth knob
+    const depthMount = this.rootEl?.querySelector('#slicer-depth-mount') as HTMLElement | null;
+    const depthSub = this.rootEl?.querySelector('#slicer-depth-sublabel');
+    const initDepth = Math.round(WebBridge.getParam(ParamIdx.SlicerDepth, 0));
+    if (depthMount) {
+      this.depthKnob = new Knob(depthMount, {
+        size: 34,
+        value: initDepth / 127.0,
+        label: this.curSlicerMode === 2 ? 'SPREAD' : 'DEPTH',
+        onChange: (normVal: number) => {
+          const val = Math.round(normVal * 127.0);
+          WebBridge.setParam(ParamIdx.SlicerDepth, val);
+          if (depthSub) depthSub.textContent = String(val);
+        },
+      });
+      if (depthSub) depthSub.textContent = String(initDepth);
+    }
+
+    // Rate knob
+    const rateMount = this.rootEl?.querySelector('#slicer-rate-mount') as HTMLElement | null;
+    const rateSub = this.rootEl?.querySelector('#slicer-rate-sublabel');
+    const initRate = Math.round(WebBridge.getParam(ParamIdx.SlicerRate, 66));
+    if (rateMount) {
+      this.rateKnob = new Knob(rateMount, {
+        size: 34,
+        value: initRate / 200.0,
+        label: 'RATE',
+        onChange: (normVal: number) => {
+          const val = Math.round(normVal * 200.0);
+          WebBridge.setParam(ParamIdx.SlicerRate, val);
+          if (rateSub) rateSub.textContent = `${(val / 10).toFixed(1)} Hz`;
+        },
+      });
+      if (rateSub) rateSub.textContent = `${(initRate / 10).toFixed(1)} Hz`;
+    }
+
+    // Sincronizar estado inicial
+    const initMode = Math.round(WebBridge.getParam(ParamIdx.SlicerSwitchType, 0));
+    this.updateSlicerModeUi(initMode);
+  }
+
+  public updateSlicerModeUi(mode: number): void {
+    this.curSlicerMode = Math.max(0, Math.min(2, mode));
+    const dot = this.rootEl?.querySelector('#slicer-dot');
+    const led1d = this.rootEl?.querySelector('#slicer-led-1d');
+    const led3d = this.rootEl?.querySelector('#slicer-led-3d');
+    const modeBtn = this.rootEl?.querySelector('#btn-slicer-mode');
+
+    if (dot) dot.classList.toggle('active', this.curSlicerMode > 0);
+    if (led1d) led1d.classList.toggle('active-1d', this.curSlicerMode === 1);
+    if (led3d) led3d.classList.toggle('active-3d', this.curSlicerMode === 2);
+
+    if (modeBtn) {
+      modeBtn.textContent = this.curSlicerMode === 0 ? 'OFF' : (this.curSlicerMode === 1 ? '1D' : '3D');
+      modeBtn.classList.toggle('btn-primary', this.curSlicerMode > 0);
+      modeBtn.classList.toggle('active', this.curSlicerMode > 0);
+      modeBtn.classList.toggle('btn-outline', this.curSlicerMode === 0);
+    }
+  }
+
+  public updateParam(idx: number, val: number): void {
+    if (idx === ParamIdx.SlicerSwitchType) {
+      this.updateSlicerModeUi(Math.round(val));
+      return;
+    }
+    if (idx === ParamIdx.SlicerDepth) {
+      this.depthKnob?.setValue(val / 127.0, false);
+      const sub = this.rootEl?.querySelector('#slicer-depth-sublabel');
+      if (sub) sub.textContent = String(Math.round(val));
+      return;
+    }
+    if (idx === ParamIdx.SlicerRate) {
+      this.rateKnob?.setValue(val / 200.0, false);
+      const sub = this.rootEl?.querySelector('#slicer-rate-sublabel');
+      if (sub) sub.textContent = `${(val / 10).toFixed(1)} Hz`;
+      return;
+    }
+    if (idx === ParamIdx.SilverSwitch) {
+      this.updateSilverToggle(val > 0.5);
+      return;
+    }
+    if (idx === ParamIdx.CurFreqFX) {
+      this.updateFreqAlgoUi(Math.round(val));
+      return;
+    }
+    if (idx === ParamIdx.CurTimeFX) {
+      this.updateTimeAlgoUi(Math.round(val));
+      return;
+    }
+  }
+
   public destroy(): void {
     this.silverStick?.destroy();
+    this.depthKnob?.destroy();
+    this.rateKnob?.destroy();
     if (this.rootEl && this.rootEl.parentNode) {
       this.rootEl.parentNode.removeChild(this.rootEl);
     }

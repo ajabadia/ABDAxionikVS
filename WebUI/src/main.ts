@@ -120,23 +120,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           <button type="button" class="btn btn-xs btn-outline" id="btn-edit-blender" title="Expanded Blender & Slicer [261..270]">Edit</button>
         </div>
 
-        <!-- Slicer -->
-        <div style="display: flex; align-items: center; gap: var(--space-2);">
-          <span class="panel-badge">SLICER</span>
-          <button type="button" class="btn btn-xs btn-outline" id="btn-cycle-slicer-type" title="Slicer Mode (0: Off, 1: 2D, 2: 3D) [267]">
-            MODE: <strong id="cur-slicer-type-val">Off</strong>
-          </button>
-          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
-            <span class="hud-label">RATE:</span>
-            <input type="range" id="slicer-rate-slider" class="abd-slider" min="0" max="200" value="66" step="1" style="width: 60px;" />
-            <span class="hud-value stat-num" id="slicer-rate-val">66</span>
-          </div>
-          <div class="hud-pill" style="display: flex; align-items: center; gap: 4px;">
-            <span class="hud-label">DEP:</span>
-            <input type="range" id="slicer-depth-slider" class="abd-slider" min="0" max="127" value="0" step="1" style="width: 60px;" />
-            <span class="hud-value stat-num" id="slicer-depth-val">0</span>
-          </div>
-        </div>
 
         <!-- Filter -->
         <div style="display: flex; align-items: center; gap: var(--space-2);">
@@ -424,6 +407,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (silverMount) {
     silverPanel = new SilverPanel(silverMount, {
       onEditSilver: () => openSilverDrawer(),
+      onEditSlicer: () => openBlenderDrawer(),
     });
   }
 
@@ -633,6 +617,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const filterReso = Math.round(values[ParamIdx.FilterReso] ?? 25);
     if (filterResoSlider) filterResoSlider.value = String(filterReso);
     if (filterResoVal) filterResoVal.textContent = (filterReso / 127).toFixed(2);
+
+    // Slicer & Silver FX en SilverPanel
+    silverPanel?.updateParam(ParamIdx.SlicerSwitchType, slicerMode);
+    silverPanel?.updateParam(ParamIdx.SlicerDepth, slicerDepth);
+    silverPanel?.updateParam(ParamIdx.SlicerRate, slicerRate);
+    silverPanel?.updateParam(ParamIdx.SilverSwitch, values[ParamIdx.SilverSwitch] ?? 1);
+    silverPanel?.updateSilver();
 
     // Silver FX (los readouts ahora viven en SilverPanel, igual que en PARAM_UPDATE)
     const freqAlgo = Math.max(0, Math.min(FREQ_ALGO_NAMES.length - 1, Math.round(values[ParamIdx.CurFreqFX] ?? 2)));
@@ -887,6 +878,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
     },
     shapersPanel,
+    silverPanel,
   };
 
   // 8. Suscribir telemetría y actualización de parámetros del bridge nativo
