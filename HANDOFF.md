@@ -124,6 +124,15 @@
      - Gestor de Bancos (`BankDrawer`): estilos canónicos (`catalog-browser.css`), iconos `param0`..`param9`, selector de carpeta de librería con persistencia en `localStorage` y escaneo recursivo.
      - Teclado de interpretación (`KeyboardStrip`): integrado con `@abdsynths/midi-keyb`, ruedas activas de Pitch Bend y Modulación (`bender.png`), botones de octava con LEDs, Panic, Hold, Retrig y Sustain.
      - Barra de navegación (`AxionikNavbar`): integrado con `createSynthNavBar`, cambio de temas (`ms2000`, `audiolab`, `cz101`, etc.), zoom y lectura en vivo de telemetría.
+     - **Paneles Modulares y Shapers (`ShapersPanel.ts`, `ControllersPanel.ts`, `SilverPanel.ts`, `MasterOutputPanel.ts`)**:
+       - `ShapersPanel.ts`: 3 tarjetas homogéneas (`SHAPER 1`, `SHAPER 2`, `SHAPER 3`) con ruedas `Wheel` y barras `LedLadder` de `ABDShared` (`[200..207, 216..219]`, `[230..237, 246..249]`, `[355..358]` y `Shaper3Status [362]`), gobernadas mediante la capa de abstracción formal.
+       - `ControllersPanel.ts`: Control 1 (Joystick 2D), Control 2 (Wheel + LedLadder), Control 3 (Wheel + LedLadder) y selector de Footswitch Assign en píldoras estándar.
+       - `SilverPanel.ts`: Tarjeta dedicada con diseño armónico idéntico a las tarjetas Scape/Sphere.
+       - `MasterOutputPanel.ts`: Bloque maestro a la derecha con Master Volume knob, selector de calidad de interpolación y medidor VU.
+       - `pillSelector.ts`: Centralización DRY de todos los selectores de píldoras de la aplicación consumiendo tokens de `@abdsynths/shared`.
+       - `EffectsDrawer.ts`: Modernizado al 100% con Rotary Knobs (`Knob` de `@abdsynths/shared/components/knob.js`) en L1 (Multimode Filter en 2 filas: Filtro 6 knobs + ADSR 4 knobs), L2 (Frequency FX con botones Active/Bypass por banda y en cabecera) y L3 (Time & Modulation FX), más Bloque 2 Master Spatial FX & Dynamics.
+   - **Corrección de Paridad DSP**:
+     - `DspEngineFacade.cpp`: Corregido orden invertido de argumentos `gain` y `freq` en `setEQParams` para las 4 bandas del ecualizador paramétrico.
    - **Trazas y Diagnóstico**:
      - `AppLogger.h`: registro a fichero `ABDAxionikVS.log` junto al ejecutable.
 
@@ -154,9 +163,13 @@
        - Modo `Amplifier`: Shaper 1 Amp ADSR (`A, D, S, R`) y Shaper 2 Amp ADSR (`A, D, S, R`).
        - Modo `Stick Levels`: ADSR de modulación de parámetros para la capa activa.
        - Modo `Free`: 2x ADSR libres independientes, o envolvente unificada `4L4T` (Niveles 1..4 y Tiempos 1..4 mapeados a lo largo de los 8 faders).
-   - **Panel de Controladores de Rendimiento Físico (Left-Hand Performance Controllers)**:
-     - Recreación visual y funcional en la interfaz (al lateral del teclado MIDI inferior o como dock desplegable) del bloque físico del hardware original:
-       - **Joystick Bipolar de Tono y Modulación (Pitch / Control 1)**: Joystick analógico con cúpula roja translúcida retroiluminada sobre bisel circular con serigrafía de 4 cuadrantes (< Pitch -, > Pitch +, ^ / v Control 1), con recentrado elástico horizontal para Pitch Bend y modulación libre vertical (Control 1 / CC 1).
-       - **Rueda y Barra de Segmentos LED (Control 2)**: Rueda dentada vertical con visor acrílico y escala graduada reactiva de LEDs amarillos (Control 2 / CC 2).
-       - **Potenciómetro Cónico Rojo (Master Volume)**: Knob icónico rojo para ganancia maestra.
-       - **Potenciómetro Cónico Negro (Control 3)**: Knob giratorio continuo para la 3ª fuente de modulación (Control 3 / CC 3).
+   - **[IMPLEMENTADO EN FASE A.4] Paneles de Interpretación, Silver y Master Output Unificados sobre el Teclado**:
+     - **Reorganización Arquitectónica del Canvas**:
+       - Separación de `ControllersPanel`, `SilverPanel` y `MasterOutputPanel` fuera de las columnas de los resonadores.
+       - Disposición en fila dedicada (`.bottom-controllers-row`) ubicada **justo encima del teclado virtual**.
+       - Resonadores 1 y 2 desacoplados y simétricos arriba (`.resynators-row`), seguidos del rack central (Blender/Slicer/Filter + Shapers 1, 2 y 3).
+     - **Unificación Estética y Filosofía DRY**:
+       - Eliminación de la caja/borde cuadrada que englobaba el joystick en `ControllersPanel` y `SilverPanel` mediante `className: 'borderless'`, logrando apariencia idéntica a los joysticks superiores de Scape y Sphere.
+       - Estandarización de cabeceras en todas las tarjetas de la aplicación utilizando la clase `.stick-label` para títulos y `.panel-actions` para acciones, eliminando estilos ad-hoc y badges LED innecesarios.
+       - Sincronización exacta de alturas entre los 3 paneles inferiores mediante grid CSS con `align-items: stretch`.
+       - Eliminación definitiva del conflicto de barras de desplazamiento vertical («scrolls van a la suya») al remover `overflow-y: auto` de `.resynator-column` y consolidar un único scroll fluido en `.workspace-canvas`.

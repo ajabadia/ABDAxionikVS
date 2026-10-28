@@ -15,6 +15,7 @@ export interface KeyboardStripHandlers {
   onAftertouch?: (value: number, note?: number) => void;
   onPanic?: () => void;
   onSustainChange?: (active: boolean) => void;
+  onCollapseChange?: (collapsed: boolean) => void;
 }
 
 export class KeyboardStrip {
@@ -97,6 +98,10 @@ export class KeyboardStrip {
       onSustainChange: (active: boolean) => {
         this.handlers.onSustainChange?.(active);
       },
+      onCollapseChange: (collapsed: boolean) => {
+        this.container.classList.toggle('is-collapsed', collapsed);
+        this.handlers.onCollapseChange?.(collapsed);
+      },
       config: {
         numOctaves: 4,
         startNote: 36, // C2
@@ -114,10 +119,27 @@ export class KeyboardStrip {
         enableTouch: true,
         enableAftertouch: true,
         enableResizeObserver: true,
+        enableCollapse: true,
       }
     });
 
     (window as any).__kbd = this.kbdInstance;
+  }
+
+  public isCollapsed(): boolean {
+    return this.kbdInstance?.isCollapsed?.() ?? false;
+  }
+
+  public collapse(): void {
+    this.kbdInstance?.collapse?.();
+  }
+
+  public expand(): void {
+    this.kbdInstance?.expand?.();
+  }
+
+  public toggleCollapse(): void {
+    this.kbdInstance?.toggleCollapse?.();
   }
 
   public panic(): void {

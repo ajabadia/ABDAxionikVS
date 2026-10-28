@@ -37,6 +37,7 @@ export interface ParamUpdateCtx {
   };
   freqFx: { setIdx: (v: number) => void };
   timeFx: { setIdx: (v: number) => void };
+  shapersPanel?: { updateParam: (idx: number, val: number) => void } | null;
 }
 
 const clampIdx = (v: number, max: number): number => Math.max(0, Math.min(max, Math.round(v)));
@@ -95,6 +96,9 @@ export function handleParamUpdate(idx: number, val: number, ctx: ParamUpdateCtx)
   } else {
     handleStickUpdate(idx, val, ctx);
   }
+
+  // Notificar al panel de Shapers físicos si coincide con alguno de sus parámetros activos
+  ctx.shapersPanel?.updateParam(idx, val);
 }
 
 /** Actualiza la coordenada de uno de los 4 sticks 2D según el índice de capa. */

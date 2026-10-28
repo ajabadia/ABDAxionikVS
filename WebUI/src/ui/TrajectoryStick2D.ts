@@ -41,6 +41,9 @@ export interface TrajectoryStickOptions {
 }
 
 export class TrajectoryStick2D extends SharedStick {
+  /** Estado de grabación de trayectoria (propiedad real del componente base de ABDShared). */
+  public declare isRecording: boolean;
+
   constructor(container: HTMLElement, options: TrajectoryStickOptions) {
     super(container, options);
   }

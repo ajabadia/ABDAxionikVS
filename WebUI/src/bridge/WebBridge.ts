@@ -45,6 +45,7 @@ class WebBridgeImpl {
   }
 
   private checkNative() {
+    if (typeof window === 'undefined') return;
     if (this.isNative) return;
     const juce = (window as any).__JUCE__;
     if (juce?.backend) {

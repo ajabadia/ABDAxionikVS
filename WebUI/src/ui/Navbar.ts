@@ -73,7 +73,7 @@ export class AxionikNavbar {
           { id: 201, label: 'NeuronDB Bank Browser...', action: 'toggleBank', shortcut: 'Ctrl+B' },
           { separator: true },
           { id: 202, label: 'Free Controllers Modulation Matrix (6x5)...', action: 'toggleMatrix', shortcut: 'Ctrl+M' },
-          { id: 203, label: 'Master FX & Dynamics Rack...', action: 'toggleMfx', shortcut: 'Ctrl+F' },
+          { id: 203, label: 'Effects Rack (Silver & Master)...', action: 'toggleMfx', shortcut: 'Ctrl+F' },
           { separator: true },
           { id: 204, label: 'Global Synth Settings...', action: 'toggleSettings', shortcut: 'Ctrl+,' },
         ],
@@ -139,8 +139,8 @@ export class AxionikNavbar {
       <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-matrix" title="Modulation Matrix 6x5 (Ctrl+M)">
         ${ICONS.matrix} <span>Matrix</span>
       </button>
-      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-mfx" title="Master FX Rack (Ctrl+F)">
-        ${ICONS.fx} <span>Master FX</span>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-mfx" title="Effects Rack (Silver & Master) (Ctrl+F)">
+        ${ICONS.fx} <span>Effects</span>
       </button>
       <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-bank" title="NeuronDB Bank Browser (Ctrl+B)">
         ${ICONS.database} <span>NeuronDB</span>

@@ -255,6 +255,7 @@ export const ParamIdx = {
   FilterEnvR: 358,
   FilterEnvMode: 359,
   FilterEnvDepth: 360,
+  Shaper3Status: 362,
 
   // Mod / Master
   FootSwitchDest: 411,
