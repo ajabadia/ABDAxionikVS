@@ -322,17 +322,24 @@ export class BankDrawer {
   public refreshBank(): void {
     const statusEl = this.shell.footerEl.querySelector('#bank-foot-status');
     if (statusEl) statusEl.textContent = 'Refreshing library…';
+    this.shell.flashStatus('Refreshing library…', 'working');
     this.setRefreshing(true);
     // Let the working state paint before the synchronous reindex runs.
     window.setTimeout(() => {
       try {
         WebBridge.scanBank();
         this.refreshLibrary();
-        // refreshLibrary() leaves the timestamped confirmation behind.
+        // refreshLibrary() leaves the timestamped confirmation in the
+        // footer; the flash is the unmissable counterpart for fast runs.
+        const mCount = this.currentBank.models.length;
+        const pCount = this.currentBank.presets.length;
+        this.shell.flashStatus(`Library refreshed · ${mCount} models, ${pCount} presets`, 'ok');
       } catch (err) {
         console.error('[BankDrawer] Refresh failed:', err);
+        const message = `Refresh failed: ${err instanceof Error ? err.message : String(err)}`;
         const el = this.shell.footerEl.querySelector('#bank-foot-status');
-        if (el) el.textContent = `Refresh failed: ${err instanceof Error ? err.message : String(err)}`;
+        if (el) el.textContent = message;
+        this.shell.flashStatus(message, 'error');
       } finally {
         this.setRefreshing(false);
       }
