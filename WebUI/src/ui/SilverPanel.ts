@@ -265,7 +265,6 @@ export class SilverPanel {
       const res = Math.round(coord.y * 127.0);
       WebBridge.setParam(ParamIdx.FilterFreq, cut);
       WebBridge.setParam(ParamIdx.FilterReso, res);
-      this.silverStick?.setReadout(`CUT: ${cut} | RES: ${(res / 127.0).toFixed(2)}`);
     } else if (layerIdx === 1) {
       // Frequency FX mode
       const curFreqFx = Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0));
@@ -275,25 +274,18 @@ export class SilverPanel {
         const mix = Math.round(coord.y * 127.0);
         WebBridge.setParam(314, modFreq);
         WebBridge.setParam(310, mix);
-        this.silverStick?.setReadout(`FREQ: ${modFreq} | MIX: ${mix}`);
       } else if (curFreqFx === 1) {
         // Distortion: DS_InGain [306], DS_PreFilter [307]
         const inGain = Math.round(coord.x * 127.0);
         const preCut = Math.round(coord.y * 127.0);
         WebBridge.setParam(306, inGain);
         WebBridge.setParam(307, preCut);
-        this.silverStick?.setReadout(`DRV: ${inGain} | PRE: ${preCut}`);
       } else if (curFreqFx === 3) {
         // Decimator: DC_SHFactor [325], DC_Mix [324]
         const sh = Math.round(coord.x * 127.0);
         const mix = Math.round(coord.y * 127.0);
         WebBridge.setParam(325, sh);
         WebBridge.setParam(324, mix);
-        this.silverStick?.setReadout(`S&H: ${sh} | MIX: ${mix}`);
-      } else {
-        const valX = Math.round(coord.x * 127.0);
-        const valY = Math.round(coord.y * 127.0);
-        this.silverStick?.setReadout(`X: ${valX} | Y: ${valY}`);
       }
     } else if (layerIdx === 2) {
       // Time FX mode
@@ -304,20 +296,17 @@ export class SilverPanel {
         const fb = Math.round(coord.y * 127.0);
         WebBridge.setParam(333, mix);
         WebBridge.setParam(336, fb);
-        this.silverStick?.setReadout(`TIME: ${mix} | FDBK: ${fb}`);
       } else if (curTimeFx === 4) {
         // Chorus: CH_Mix [352], CH_Depth [353]
         const mix = Math.round(coord.x * 127.0);
         const depth = Math.round(coord.y * 127.0);
         WebBridge.setParam(352, mix);
         WebBridge.setParam(353, depth);
-        this.silverStick?.setReadout(`MIX: ${mix} | DEP: ${depth}`);
-      } else {
-        const valX = Math.round(coord.x * 127.0);
-        const valY = Math.round(coord.y * 127.0);
-        this.silverStick?.setReadout(`X: ${valX} | Y: ${valY}`);
       }
     }
+
+    // Formato canónico uniforme con Scape y Sphere: X: 0.xx | Y: 0.yy
+    this.silverStick?.setReadout(`X: ${coord.x.toFixed(2)} | Y: ${coord.y.toFixed(2)}`);
   }
 
   public setSilverLevel(level: number): void {
@@ -354,58 +343,50 @@ export class SilverPanel {
     if (this.currentSilverLevel === 0) {
       const cut = Math.round(WebBridge.getParam(ParamIdx.FilterFreq, 100));
       const res = Math.round(WebBridge.getParam(ParamIdx.FilterReso, 25));
-      this.silverStick?.setReadout(`CUT: ${cut} | RES: ${(res / 127.0).toFixed(2)}`);
+      const normX = cut / 127.0;
+      const normY = res / 127.0;
+      this.silverStick?.setReadout(`X: ${normX.toFixed(2)} | Y: ${normY.toFixed(2)}`);
       if (this.silverStick && !this.silverStick.isRecording) {
-        this.silverStick.setPosition(0, cut / 127.0, res / 127.0, false);
+        this.silverStick.setPosition(0, normX, normY, false);
       }
     } else if (this.currentSilverLevel === 1) {
-      let lblX = 'PAR1';
-      let lblY = 'PAR2';
       let valX = 64;
       let valY = 64;
 
       if (curFreqIdx === 2) {
-        lblX = 'FREQ';
-        lblY = 'MIX';
         valX = Math.round(WebBridge.getParam(314, 64));
         valY = Math.round(WebBridge.getParam(310, 64));
       } else if (curFreqIdx === 1) {
-        lblX = 'DRV';
-        lblY = 'PRE';
         valX = Math.round(WebBridge.getParam(306, 64));
         valY = Math.round(WebBridge.getParam(307, 64));
       } else if (curFreqIdx === 3) {
-        lblX = 'S&H';
-        lblY = 'MIX';
         valX = Math.round(WebBridge.getParam(325, 16));
         valY = Math.round(WebBridge.getParam(324, 64));
       }
 
-      this.silverStick?.setReadout(`${lblX}: ${valX} | ${lblY}: ${valY}`);
+      const normX = valX / 127.0;
+      const normY = valY / 127.0;
+      this.silverStick?.setReadout(`X: ${normX.toFixed(2)} | Y: ${normY.toFixed(2)}`);
       if (this.silverStick && !this.silverStick.isRecording) {
-        this.silverStick.setPosition(1, valX / 127.0, valY / 127.0, false);
+        this.silverStick.setPosition(1, normX, normY, false);
       }
     } else if (this.currentSilverLevel === 2) {
-      let lblX = 'PAR1';
-      let lblY = 'PAR2';
       let valX = 64;
       let valY = 64;
 
       if (curTimeIdx === 1) {
-        lblX = 'TIME';
-        lblY = 'FDBK';
         valX = Math.round(WebBridge.getParam(333, 50));
         valY = Math.round(WebBridge.getParam(336, 40));
       } else if (curTimeIdx === 4) {
-        lblX = 'MIX';
-        lblY = 'DEP';
         valX = Math.round(WebBridge.getParam(352, 64));
         valY = Math.round(WebBridge.getParam(353, 64));
       }
 
-      this.silverStick?.setReadout(`${lblX}: ${valX} | ${lblY}: ${valY}`);
+      const normX = valX / 127.0;
+      const normY = valY / 127.0;
+      this.silverStick?.setReadout(`X: ${normX.toFixed(2)} | Y: ${normY.toFixed(2)}`);
       if (this.silverStick && !this.silverStick.isRecording) {
-        this.silverStick.setPosition(2, valX / 127.0, valY / 127.0, false);
+        this.silverStick.setPosition(2, normX, normY, false);
       }
     }
   }

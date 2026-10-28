@@ -456,6 +456,14 @@ export class ShapersPanel {
   }
 
   private updateS1LabelsAndSync(): void {
+    // Sincronizar estado visual de píldoras de modo S1
+    const s1Pills = this.rootEl?.querySelectorAll<HTMLButtonElement>('#s1-mode-pills [data-pill]');
+    s1Pills?.forEach((btn) => {
+      const isActive = btn.getAttribute('data-pill') === this.s1Mode;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+
     const targetBadge = this.rootEl?.querySelector('#s1-target-badge');
     const subLabels = this.s1Mode === 'amp' ? ['Amp', 'Amp', 'Amp', 'Amp']
                     : (this.s1Mode === 'res' ? ['Res', 'Res', 'Res', 'Res'] : ['Free', 'Free', 'Free', 'Free']);
@@ -476,9 +484,27 @@ export class ShapersPanel {
       slot.ladder.setValue(norm);
       slot.readoutEl.textContent = String(Math.round(val));
     }
+
+    // Sincronizar píldoras de Env Mode (Norm / Rep)
+    const envModeParam = this.s1Mode === 'res' ? ParamIdx.R1ResEnvMode : ParamIdx.R1AmpEnvMode;
+    const envVal = String(Math.round(WebBridge.getParam(envModeParam, 0)));
+    const envPills = this.rootEl?.querySelectorAll<HTMLButtonElement>('#s1-env-mode-pills [data-pill]');
+    envPills?.forEach((btn) => {
+      const isActive = btn.getAttribute('data-pill') === envVal;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
   }
 
   private updateS2LabelsAndSync(): void {
+    // Sincronizar estado visual de píldoras de modo S2
+    const s2Pills = this.rootEl?.querySelectorAll<HTMLButtonElement>('#s2-mode-pills [data-pill]');
+    s2Pills?.forEach((btn) => {
+      const isActive = btn.getAttribute('data-pill') === this.s2Mode;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+
     const targetBadge = this.rootEl?.querySelector('#s2-target-badge');
     const subLabels = this.s2Mode === 'amp' ? ['Amp', 'Amp', 'Amp', 'Amp']
                     : (this.s2Mode === 'res' ? ['Res', 'Res', 'Res', 'Res'] : ['Free', 'Free', 'Free', 'Free']);
@@ -499,9 +525,27 @@ export class ShapersPanel {
       slot.ladder.setValue(norm);
       slot.readoutEl.textContent = String(Math.round(val));
     }
+
+    // Sincronizar píldoras de Env Mode (Norm / Rep)
+    const envModeParam = this.s2Mode === 'res' ? ParamIdx.R2ResEnvMode : ParamIdx.R2AmpEnvMode;
+    const envVal = String(Math.round(WebBridge.getParam(envModeParam, 0)));
+    const envPills = this.rootEl?.querySelectorAll<HTMLButtonElement>('#s2-env-mode-pills [data-pill]');
+    envPills?.forEach((btn) => {
+      const isActive = btn.getAttribute('data-pill') === envVal;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
   }
 
   private updateS3LabelsAndSync(): void {
+    // Sincronizar estado visual de píldoras de modo S3
+    const s3Pills = this.rootEl?.querySelectorAll<HTMLButtonElement>('#s3-mode-pills [data-pill]');
+    s3Pills?.forEach((btn) => {
+      const isActive = btn.getAttribute('data-pill') === this.s3Mode;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+
     const targetBadge = this.rootEl?.querySelector('#s3-target-badge');
     const isFilter = this.s3Mode === 'filter';
     
@@ -527,9 +571,27 @@ export class ShapersPanel {
       slot.ladder.setValue(norm);
       slot.readoutEl.textContent = String(Math.round(val));
     }
+
+    // Sincronizar píldoras de Env Mode (Norm / Rep)
+    const envVal = String(Math.round(WebBridge.getParam(ParamIdx.FilterEnvMode, 0)));
+    const envPills = this.rootEl?.querySelectorAll<HTMLButtonElement>('#s3-env-mode-pills [data-pill]');
+    envPills?.forEach((btn) => {
+      const isActive = btn.getAttribute('data-pill') === envVal;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
   }
 
   public syncAll(): void {
+    // Sincronizar modos desde parámetros del motor si están presentes
+    const s12Status = Math.round(WebBridge.getParam(ParamIdx.Shaper12Status, 1));
+    const s12Mode = s12Status === 0 ? 'res' : (s12Status === 1 ? 'amp' : 'free');
+    this.s1Mode = s12Mode;
+    this.s2Mode = s12Mode;
+
+    const s3Status = Math.round(WebBridge.getParam(ParamIdx.Shaper3Status, 1));
+    this.s3Mode = s3Status === 0 ? 'efx' : 'filter';
+
     this.updateS1LabelsAndSync();
     this.updateS2LabelsAndSync();
     this.updateS3LabelsAndSync();
@@ -539,6 +601,32 @@ export class ShapersPanel {
    * Actualiza en tiempo real cualquier parámetro afectado si coincide con alguno de los activos.
    */
   public updateParam(idx: number, val: number): void {
+    if (idx === ParamIdx.Shaper12Status) {
+      const s12Mode = val === 0 ? 'res' : (val === 1 ? 'amp' : 'free');
+      this.s1Mode = s12Mode;
+      this.s2Mode = s12Mode;
+      this.updateS1LabelsAndSync();
+      this.updateS2LabelsAndSync();
+      return;
+    }
+    if (idx === ParamIdx.Shaper3Status) {
+      this.s3Mode = val === 0 ? 'efx' : 'filter';
+      this.updateS3LabelsAndSync();
+      return;
+    }
+    if (idx === ParamIdx.R1AmpEnvMode || idx === ParamIdx.R1ResEnvMode) {
+      this.updateS1LabelsAndSync();
+      return;
+    }
+    if (idx === ParamIdx.R2AmpEnvMode || idx === ParamIdx.R2ResEnvMode) {
+      this.updateS2LabelsAndSync();
+      return;
+    }
+    if (idx === ParamIdx.FilterEnvMode) {
+      this.updateS3LabelsAndSync();
+      return;
+    }
+
     // Shaper 1
     for (let i = 0; i < 4; i++) {
       if (this.getActiveParamForS1(i) === idx) {
