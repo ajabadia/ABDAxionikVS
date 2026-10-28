@@ -5,16 +5,15 @@ import { parseSoundScript, parseStickRec, decodeSoundPresetName, serializeSoundS
 
 describe('Neuron Classic Sound Preset & StickRec Parsing (Parity 1:1)', () => {
   const localDbSound000 = path.join(__dirname, '../NeuronDB/Sounds/000.sound');
+  const fixtureSound000 = path.join(__dirname, 'fixtures/NeuronDB/Sounds/000.sound');
   const sound000Path = fs.existsSync(localDbSound000)
     ? localDbSound000
-    : 'C:/Users/ajaba/Downloads/neuron/NeuronVS-db/NeuronDB/Sounds/000.sound';
-  const has000 = fs.existsSync(sound000Path);
+    : (fs.existsSync(fixtureSound000) ? fixtureSound000 : undefined);
+  const has000 = Boolean(sound000Path);
 
   it('debe parsear sound.script canónico de 445 parámetros y decodificar el nombre de preset', () => {
-    if (!has000) {
-      console.log('Skipping local file check (NeuronDB not found in Downloads)');
-      return;
-    }
+    expect(has000).toBe(true);
+    if (!sound000Path) throw new Error('NeuronDB/Sounds/000.sound no encontrado');
 
     const scriptText = fs.readFileSync(path.join(sound000Path, 'sound.script'), 'utf-8');
     const preset = parseSoundScript(scriptText);
@@ -33,7 +32,8 @@ describe('Neuron Classic Sound Preset & StickRec Parsing (Parity 1:1)', () => {
   });
 
   it('debe parsear sound.stickrec (líneas hexadecimales de 9 dígitos TTTTFCVVV)', () => {
-    if (!has000) return;
+    expect(has000).toBe(true);
+    if (!sound000Path) throw new Error('NeuronDB/Sounds/000.sound no encontrado');
 
     const stickText = fs.readFileSync(path.join(sound000Path, 'sound.stickrec'), 'utf-8');
     const events = parseStickRec(stickText);

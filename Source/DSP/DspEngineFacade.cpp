@@ -4,6 +4,7 @@
 // ============================================================================
 
 #include "DspEngineFacade.h"
+#include "AxionikParamIndices.h"
 #include <cmath>
 #include <algorithm>
 
@@ -133,164 +134,171 @@ void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t nu
     });
 
     // 1. Matriz de Modulación (6 controles -> 63 destinos -> p[slot]) & Pitch Bend
-    // A. Pitch Bend Wheel (-1.0 .. +1.0) con rango en semitonos (param 412 / p[2])
+    // A. Pitch Bend Wheel (-1.0 .. +1.0) con rango en semitonos (param PitchBendRange / p[2])
+    using namespace abd::axionik::ParamIdx;
+    // Ruta dual: preferir slots efectivos del bridge, con fallback a store_.
+    // Precedencia documentada para mantener paridad; evitar desincronización.
     const float* p = bridge_ ? bridge_->getEffectiveSlots() : nullptr;
-    float pbRange = p ? p[2] : store_.getRawValue(412);
+    float pbRange = p ? p[2] : store_.getRawValue(PitchBendRange);
     if (pbRange <= 0.0f) pbRange = 2.0f;
     float pbFactor = std::pow(2.0f, (pitchBendWheel_ * pbRange) / 12.0f);
     voicePool_.updatePitchBendFactor(pbFactor);
 
-    // B. Polifonía (SoundNumVoices [5]), Paneo (SoundPan [3], SoundPanKeyTrack [4]) y Umbrales VelocitySwitch ([41], [121])
-    size_t maxVoices = static_cast<size_t>(std::clamp(store_.getRawValue(5), 1.0f, 12.0f));
+    // B. Polifonía (SoundNumVoices), Paneo (SoundPan, SoundPanKeyTrack) y Umbrales VelocitySwitch (R1/R2)
+    size_t maxVoices = static_cast<size_t>(std::clamp(store_.getRawValue(SoundNumVoices), 1.0f, 12.0f));
     voicePool_.setMaxActiveVoices(maxVoices);
-    float soundPan = p ? p[0] : (store_.getRawValue(3) / 64.0f);
-    float soundPanKt = p ? p[1] : (store_.getRawValue(4) / 64.0f);
+    float soundPan = p ? p[0] : (store_.getRawValue(SoundPan) / 64.0f);
+    float soundPanKt = p ? p[1] : (store_.getRawValue(SoundPanKeyTrack) / 64.0f);
     voicePool_.updateVoicePan(soundPan, soundPanKt);
-    float r1VelSw = (p ? p[18] : store_.getRawValue(41)) / 127.0f;
-    float r2VelSw = (p ? p[88] : store_.getRawValue(121)) / 127.0f;
+    float r1VelSw = (p ? p[18] : store_.getRawValue(R1ModelVelocitySwitch)) / 127.0f;
+    float r2VelSw = (p ? p[88] : store_.getRawValue(R2ModelVelocitySwitch)) / 127.0f;
     voicePool_.setVelocitySwitchThresholds(r1VelSw, r2VelSw);
 
-    // C. R1Switch [23] (p[3]) y R2Switch [103] (p[73])
-    bool r1On = (p ? p[3] : store_.getRawValue(23)) > 0.5f;
-    bool r2On = (p ? p[73] : store_.getRawValue(103)) > 0.5f;
+    // C. R1Switch / R2Switch
+    bool r1On = (p ? p[3] : store_.getRawValue(R1Switch)) > 0.5f;
+    bool r2On = (p ? p[73] : store_.getRawValue(R2Switch)) > 0.5f;
     voicePool_.updateResynatorEnabled(0, r1On);
     voicePool_.updateResynatorEnabled(1, r2On);
 
-    // D. LFO Global ([256..260]: LFOSwitch, LFODepth p[216], LFORate p[217], LFODelay p[218], LFOWaveForm p[219])
-    bool lfoOn = (p ? p[215] : store_.getRawValue(256)) > 0.5f;
+    // D. LFO Global (LFOSwitch/LFODepth/LFORate/LFODelay/LFOWaveForm)
+    bool lfoOn = (p ? p[215] : store_.getRawValue(LFOSwitch)) > 0.5f;
     float globalLfoSignal = 0.0f;
     if (lfoOn) {
-        float lfoDepth = p ? p[216] : store_.getNormalizedValue(257);
-        float lfoRateNorm = p ? p[217] : (store_.getRawValue(258) / 1000.0f);
+        float lfoDepth = p ? p[216] : store_.getNormalizedValue(LFODepth);
+        float lfoRateNorm = p ? p[217] : (store_.getRawValue(LFORate) / 1000.0f);
         float lfoRateHz = 0.05f + std::clamp(lfoRateNorm, 0.0f, 1.0f) * 24.95f;
-        int lfoWave = static_cast<int>(p ? p[219] : store_.getRawValue(260));
+        int lfoWave = static_cast<int>(p ? p[219] : store_.getRawValue(LFOWaveForm));
         globalLfoPhase_ += static_cast<double>(lfoRateHz) * (8192.0 / sampleRate_) * static_cast<double>(numSamples);
         while (globalLfoPhase_ >= 8192.0) globalLfoPhase_ -= 8192.0;
         globalLfoSignal = abd::dsp::DspNeuronLfoTables::readInterpolated(lfoWave, globalLfoPhase_) * lfoDepth;
     }
 
     // 2. Resynator 1 & 2: Capas L1, L2, L3 leídas directamente de p[slot] (con los 6 controles sumados y recortados)
-    // R1 (destinos 2..13 -> slots 28,29,19,20, 46,47,37,38, 64,65,55,56):
-    float r1_sc1 = p ? p[28] : store_.getNormalizedValue(52);
-    float r1_sc2 = p ? p[29] : store_.getNormalizedValue(53);
-    float r1_sp1 = p ? p[19] : store_.getNormalizedValue(42);
-    float r1_sp2 = p ? p[20] : store_.getNormalizedValue(43);
+    // R1 L1
+    float r1_sc1 = p ? p[28] : store_.getNormalizedValue(R1L1Scape1Value);
+    float r1_sc2 = p ? p[29] : store_.getNormalizedValue(R1L1Scape2Value);
+    float r1_sp1 = p ? p[19] : store_.getNormalizedValue(R1L1Sphere1Value);
+    float r1_sp2 = p ? p[20] : store_.getNormalizedValue(R1L1Sphere2Value);
     voicePool_.updateVoiceLayerParams(0, 0, r1_sc1, r1_sc2, r1_sp1, r1_sp2, 1.0f);
 
-    float r1_l2_sc1 = p ? p[46] : store_.getNormalizedValue(72);
-    float r1_l2_sc2 = p ? p[47] : store_.getNormalizedValue(73);
-    float r1_l2_sp1 = p ? p[37] : store_.getNormalizedValue(62);
-    float r1_l2_sp2 = p ? p[38] : store_.getNormalizedValue(63);
+    // R1 L2
+    float r1_l2_sc1 = p ? p[46] : store_.getNormalizedValue(R1L2Scape1Value);
+    float r1_l2_sc2 = p ? p[47] : store_.getNormalizedValue(R1L2Scape2Value);
+    float r1_l2_sp1 = p ? p[37] : store_.getNormalizedValue(R1L2Sphere1Value);
+    float r1_l2_sp2 = p ? p[38] : store_.getNormalizedValue(R1L2Sphere2Value);
     voicePool_.updateVoiceLayerParams(0, 1, r1_l2_sc1, r1_l2_sc2, r1_l2_sp1, r1_l2_sp2, 0.85f);
 
-    float r1_l3_sc1 = p ? p[64] : store_.getNormalizedValue(92);
-    float r1_l3_sc2 = p ? p[65] : store_.getNormalizedValue(93);
-    float r1_l3_sp1 = p ? p[55] : store_.getNormalizedValue(82);
-    float r1_l3_sp2 = p ? p[56] : store_.getNormalizedValue(83);
+    // R1 L3
+    float r1_l3_sc1 = p ? p[64] : store_.getNormalizedValue(R1L3Scape1Value);
+    float r1_l3_sc2 = p ? p[65] : store_.getNormalizedValue(R1L3Scape2Value);
+    float r1_l3_sp1 = p ? p[55] : store_.getNormalizedValue(R1L3Sphere1Value);
+    float r1_l3_sp2 = p ? p[56] : store_.getNormalizedValue(R1L3Sphere2Value);
     voicePool_.updateVoiceLayerParams(0, 2, r1_l3_sc1, r1_l3_sc2, r1_l3_sp1, r1_l3_sp2, 0.70f);
 
-    // R2 (destinos 16..27 -> slots 98,99,89,90, 116,117,107,108, 134,135,125,126):
-    float r2_sc1 = p ? p[98] : store_.getNormalizedValue(132);
-    float r2_sc2 = p ? p[99] : store_.getNormalizedValue(133);
-    float r2_sp1 = p ? p[89] : store_.getNormalizedValue(122);
-    float r2_sp2 = p ? p[90] : store_.getNormalizedValue(123);
+    // R2 L1
+    float r2_sc1 = p ? p[98] : store_.getNormalizedValue(R2L1Scape1Value);
+    float r2_sc2 = p ? p[99] : store_.getNormalizedValue(R2L1Scape2Value);
+    float r2_sp1 = p ? p[89] : store_.getNormalizedValue(R2L1Sphere1Value);
+    float r2_sp2 = p ? p[90] : store_.getNormalizedValue(R2L1Sphere2Value);
     voicePool_.updateVoiceLayerParams(1, 0, r2_sc1, r2_sc2, r2_sp1, r2_sp2, 1.0f);
 
-    float r2_l2_sc1 = p ? p[116] : store_.getNormalizedValue(152);
-    float r2_l2_sc2 = p ? p[117] : store_.getNormalizedValue(153);
-    float r2_l2_sp1 = p ? p[107] : store_.getNormalizedValue(142);
-    float r2_l2_sp2 = p ? p[108] : store_.getNormalizedValue(143);
+    // R2 L2
+    float r2_l2_sc1 = p ? p[116] : store_.getNormalizedValue(R2L2Scape1Value);
+    float r2_l2_sc2 = p ? p[117] : store_.getNormalizedValue(R2L2Scape2Value);
+    float r2_l2_sp1 = p ? p[107] : store_.getNormalizedValue(R2L2Sphere1Value);
+    float r2_l2_sp2 = p ? p[108] : store_.getNormalizedValue(R2L2Sphere2Value);
     voicePool_.updateVoiceLayerParams(1, 1, r2_l2_sc1, r2_l2_sc2, r2_l2_sp1, r2_l2_sp2, 0.85f);
 
-    float r2_l3_sc1 = p ? p[134] : store_.getNormalizedValue(172);
-    float r2_l3_sc2 = p ? p[135] : store_.getNormalizedValue(173);
-    float r2_l3_sp1 = p ? p[125] : store_.getNormalizedValue(162);
-    float r2_l3_sp2 = p ? p[126] : store_.getNormalizedValue(163);
+    // R2 L3
+    float r2_l3_sc1 = p ? p[134] : store_.getNormalizedValue(R2L3Scape1Value);
+    float r2_l3_sc2 = p ? p[135] : store_.getNormalizedValue(R2L3Scape2Value);
+    float r2_l3_sp1 = p ? p[125] : store_.getNormalizedValue(R2L3Sphere1Value);
+    float r2_l3_sp2 = p ? p[126] : store_.getNormalizedValue(R2L3Sphere2Value);
     voicePool_.updateVoiceLayerParams(1, 2, r2_l3_sc1, r2_l3_sc2, r2_l3_sp1, r2_l3_sp2, 0.70f);
 
     // 3. Algoritmos Parset (FUN_10031d30)
-    int r1Parset = static_cast<int>(store_.getRawValue(24));
-    int r2Parset = static_cast<int>(store_.getRawValue(104));
+    int r1Parset = static_cast<int>(store_.getRawValue(R1Type));
+    int r2Parset = static_cast<int>(store_.getRawValue(R2Type));
     voicePool_.updateVoiceParset(0, r1Parset);
     voicePool_.updateVoiceParset(1, r2Parset);
 
-    // 4. Afinación y volumen de resonadores desde p[slot] (Dest 0=p[4], Dest 1=p[11], Dest 14=p[74], Dest 15=p[81])
-    int r1Oct = static_cast<int>(p ? p[10] : store_.getRawValue(33));
-    int r1Semi = static_cast<int>(std::round(p ? p[11] : store_.getRawValue(34)));
-    float r1PitchLfo = p ? p[13] : (store_.getRawValue(36) / 64.0f);
-    float r1Cents = (p ? p[12] : store_.getRawValue(35)) + globalLfoSignal * r1PitchLfo * 100.0f;
+    // 4. Afinación y volumen de resonadores desde p[slot]
+    int r1Oct = static_cast<int>(p ? p[10] : store_.getRawValue(R1Octave));
+    int r1Semi = static_cast<int>(std::round(p ? p[11] : store_.getRawValue(R1Semi)));
+    float r1PitchLfo = p ? p[13] : (store_.getRawValue(R1PitchLfoDepth) / 64.0f);
+    float r1Cents = (p ? p[12] : store_.getRawValue(R1Cents)) + globalLfoSignal * r1PitchLfo * 100.0f;
     voicePool_.updateVoiceTuning(0, r1Oct, r1Semi, r1Cents);
-    float r1AmpLfo = p ? p[5] : (store_.getRawValue(28) / 64.0f);
-    float r1Vol = std::clamp((p ? p[4] : store_.getNormalizedValue(27)) * (1.0f + globalLfoSignal * r1AmpLfo * 0.5f), 0.0f, 1.5f);
+    float r1AmpLfo = p ? p[5] : (store_.getRawValue(R1AmpLfoDepth) / 64.0f);
+    float r1Vol = std::clamp((p ? p[4] : store_.getNormalizedValue(R1Volume)) * (1.0f + globalLfoSignal * r1AmpLfo * 0.5f), 0.0f, 1.5f);
     voicePool_.updateVoiceVolume(0, r1Vol);
 
-    int r2Oct = static_cast<int>(p ? p[80] : store_.getRawValue(113));
-    int r2Semi = static_cast<int>(std::round(p ? p[81] : store_.getRawValue(114)));
-    float r2PitchLfo = p ? p[83] : (store_.getRawValue(116) / 64.0f);
-    float r2Cents = (p ? p[82] : store_.getRawValue(115)) + globalLfoSignal * r2PitchLfo * 100.0f;
+    int r2Oct = static_cast<int>(p ? p[80] : store_.getRawValue(R2Octave));
+    int r2Semi = static_cast<int>(std::round(p ? p[81] : store_.getRawValue(R2Semi)));
+    float r2PitchLfo = p ? p[83] : (store_.getRawValue(R2PitchLfoDepth) / 64.0f);
+    float r2Cents = (p ? p[82] : store_.getRawValue(R2Cents)) + globalLfoSignal * r2PitchLfo * 100.0f;
     voicePool_.updateVoiceTuning(1, r2Oct, r2Semi, r2Cents);
-    float r2AmpLfo = p ? p[75] : (store_.getRawValue(108) / 64.0f);
-    float r2Vol = std::clamp((p ? p[74] : store_.getNormalizedValue(107)) * (1.0f + globalLfoSignal * r2AmpLfo * 0.5f), 0.0f, 1.5f);
+    float r2AmpLfo = p ? p[75] : (store_.getRawValue(R2AmpLfoDepth) / 64.0f);
+    float r2Vol = std::clamp((p ? p[74] : store_.getNormalizedValue(R2Volume)) * (1.0f + globalLfoSignal * r2AmpLfo * 0.5f), 0.0f, 1.5f);
     voicePool_.updateVoiceVolume(1, r2Vol);
 
-    // 5. Envolventes moduladas desde p[slot] (Destinos 28..55, regla cuadrática FUN_10040550)
-    float aNorm = p ? p[161] : store_.getNormalizedValue(200);
-    float dNorm = p ? p[162] : store_.getNormalizedValue(201);
-    float sLvl  = p ? p[163] : store_.getNormalizedValue(202);
-    float rNorm = p ? p[164] : store_.getNormalizedValue(203);
+    // 5. Envolventes moduladas desde p[slot]
+    float aNorm = p ? p[161] : store_.getNormalizedValue(R1AmpEnvA);
+    float dNorm = p ? p[162] : store_.getNormalizedValue(R1AmpEnvD);
+    float sLvl  = p ? p[163] : store_.getNormalizedValue(R1AmpEnvS);
+    float rNorm = p ? p[164] : store_.getNormalizedValue(R1AmpEnvR);
     voicePool_.updateAmpEnvelope(aNorm, dNorm, sLvl, rNorm);
 
-    float faNorm = p ? p[237] : store_.getNormalizedValue(355);
-    float fdNorm = p ? p[238] : store_.getNormalizedValue(356);
-    float fsLvl  = p ? p[239] : store_.getNormalizedValue(357);
-    float frNorm = p ? p[240] : store_.getNormalizedValue(358);
+    float faNorm = p ? p[237] : store_.getNormalizedValue(FilterEnvA);
+    float fdNorm = p ? p[238] : store_.getNormalizedValue(FilterEnvD);
+    float fsLvl  = p ? p[239] : store_.getNormalizedValue(FilterEnvS);
+    float frNorm = p ? p[240] : store_.getNormalizedValue(FilterEnvR);
     voicePool_.updateFilterEnvelope(faNorm, fdNorm, fsLvl, frNorm);
 
-    // R1 ResEnv (Dest 28..31 -> p[143..146]) y R2 ResEnv (Dest 40..43 -> p[173..176])
-    float r1Ra = p ? p[143] : store_.getNormalizedValue(182);
-    float r1Rd = p ? p[144] : store_.getNormalizedValue(183);
-    float r1Rs = p ? p[145] : store_.getNormalizedValue(184);
-    float r1Rr = p ? p[146] : store_.getNormalizedValue(185);
+    // R1 ResEnv / R2 ResEnv
+    float r1Ra = p ? p[143] : store_.getNormalizedValue(R1ResEnvA);
+    float r1Rd = p ? p[144] : store_.getNormalizedValue(R1ResEnvD);
+    float r1Rs = p ? p[145] : store_.getNormalizedValue(R1ResEnvS);
+    float r1Rr = p ? p[146] : store_.getNormalizedValue(R1ResEnvR);
     voicePool_.updateResEnvelopes(0, r1Ra, r1Rd, r1Rs, r1Rr);
 
-    float r2Ra = p ? p[173] : store_.getNormalizedValue(212);
-    float r2Rd = p ? p[174] : store_.getNormalizedValue(213);
-    float r2Rs = p ? p[175] : store_.getNormalizedValue(214);
-    float r2Rr = p ? p[176] : store_.getNormalizedValue(215);
+    float r2Ra = p ? p[173] : store_.getNormalizedValue(R2ResEnvA);
+    float r2Rd = p ? p[174] : store_.getNormalizedValue(R2ResEnvD);
+    float r2Rs = p ? p[175] : store_.getNormalizedValue(R2ResEnvS);
+    float r2Rr = p ? p[176] : store_.getNormalizedValue(R2ResEnvR);
     voicePool_.updateResEnvelopes(1, r2Ra, r2Rd, r2Rs, r2Rr);
 
-    // 6. Blender & Slicer desde p[slot] (Dest 56=p[221], Dest 57=p[227], Dest 58=p[228])
-    float blenderLfoMod = p ? p[222] : (store_.getRawValue(263) / 64.0f);
-    float blenderBase = p ? p[221] : std::clamp((store_.getRawValue(262) + 64.0f) / 127.0f, 0.0f, 1.0f);
+    // 6. Blender & Slicer desde p[slot]
+    float blenderLfoMod = p ? p[222] : (store_.getRawValue(BlenderLfoDepth) / 64.0f);
+    float blenderBase = p ? p[221] : std::clamp((store_.getRawValue(BlenderAmount) + 64.0f) / 127.0f, 0.0f, 1.0f);
     float blenderNorm = std::clamp(blenderBase + globalLfoSignal * blenderLfoMod * 0.5f, 0.0f, 1.0f);
-    int blenderType = static_cast<int>(p ? p[220] : store_.getRawValue(261));
+    int blenderType = static_cast<int>(p ? p[220] : store_.getRawValue(BlenderType));
 
-    int slicerType = static_cast<int>(p ? p[226] : store_.getRawValue(267));
-    float slicerDepth = p ? p[227] : std::clamp(store_.getRawValue(268) / 127.0f, 0.0f, 1.0f);
-    float slicerRateNorm = p ? p[228] : std::clamp(store_.getRawValue(269) / 200.0f, 0.0f, 1.0f);
+    int slicerType = static_cast<int>(p ? p[226] : store_.getRawValue(SlicerSwitchType));
+    float slicerDepth = p ? p[227] : std::clamp(store_.getRawValue(SlicerDepth) / 127.0f, 0.0f, 1.0f);
+    float slicerRateNorm = p ? p[228] : std::clamp(store_.getRawValue(SlicerRate) / 200.0f, 0.0f, 1.0f);
     float slicerRateHz = std::clamp(std::pow(10.0f, slicerRateNorm * 4.0f - 2.0f), 0.01f, 100.0f);
-    int slicerWave = static_cast<int>(p ? p[229] : store_.getRawValue(270));
+    int slicerWave = static_cast<int>(p ? p[229] : store_.getRawValue(SlicerWaveForm));
 
-    // 7. Configuración del Silver Rack desde p[slot] (SilverSwitch = param 271 / p[244], Dest 61=p[231] FilterFreq, Dest 62=p[232] FilterReso)
-    float filterLfoMod = p ? p[233] : (store_.getRawValue(276) / 64.0f);
-    float filterFreqBase = p ? p[231] : std::clamp(store_.getRawValue(274) / 127.0f, 0.0f, 1.0f);
+    // 7. Configuración del Silver Rack
+    float filterLfoMod = p ? p[233] : (store_.getRawValue(FilterLfoDepth) / 64.0f);
+    float filterFreqBase = p ? p[231] : std::clamp(store_.getRawValue(FilterFreq) / 127.0f, 0.0f, 1.0f);
     float filterFreqNorm = std::clamp(filterFreqBase + globalLfoSignal * filterLfoMod * 0.5f, 0.0f, 1.0f);
     float cutoffHz = std::clamp(20.0f * std::pow(900.0f, filterFreqNorm), 20.0f, 20000.0f);
-    float filterResoNorm = p ? p[232] : std::clamp(store_.getRawValue(275) / 127.0f, 0.0f, 1.0f);
+    float filterResoNorm = p ? p[232] : std::clamp(store_.getRawValue(FilterReso) / 127.0f, 0.0f, 1.0f);
     float resonance = std::clamp(filterResoNorm * 0.95f, 0.0f, 0.95f);
-    bool silverSwitchOn = (p ? p[244] : store_.getRawValue(271)) > 0.5f;
-    int filterType = silverSwitchOn ? static_cast<int>(p ? p[230] : store_.getRawValue(273)) : -1;
+    bool silverSwitchOn = (p ? p[244] : store_.getRawValue(SilverSwitch)) > 0.5f;
+    int filterType = silverSwitchOn ? static_cast<int>(p ? p[230] : store_.getRawValue(FilterType)) : -1;
 
-    float filterEnvDepth = p ? p[242] : (store_.getRawValue(360) / 64.0f); // -1.0 .. +1.0
-    float filterKeyTrack = (p ? p[234] : (store_.getRawValue(277) / 64.0f)) * 64.0f;
-    float filterVelDepth = (p ? p[235] : (store_.getRawValue(278) / 64.0f)) * 64.0f;
+    float filterEnvDepth = p ? p[242] : (store_.getRawValue(FilterEnvDepth) / 64.0f); // -1.0 .. +1.0
+    float filterKeyTrack = (p ? p[234] : (store_.getRawValue(FilterKeyTrack) / 64.0f)) * 64.0f;
+    float filterVelDepth = (p ? p[235] : (store_.getRawValue(FilterCutoffVelocityDepth) / 64.0f)) * 64.0f;
 
     auto& silver = blockRenderer_.getSilverRack();
 
-    // FreqFX (habilitado sólo si SilverSwitch [271] y FreqFXSwitch [281] están activos, FUN_10029e34 L158-161)
-    bool freqFxOn = silverSwitchOn && ((p ? p[245] : store_.getRawValue(281)) > 0.5f);
+    // FreqFX (habilitado sólo si SilverSwitch y FreqFXSwitch están activos)
+    bool freqFxOn = silverSwitchOn && ((p ? p[245] : store_.getRawValue(FreqFXSwitch)) > 0.5f);
     silver.getFreqFX().setEnabled(freqFxOn);
-    int freqFxAlgo = static_cast<int>(p ? p[246] : store_.getRawValue(282));
+    int freqFxAlgo = static_cast<int>(p ? p[246] : store_.getRawValue(CurFreqFX));
     silver.getFreqFX().setAlgorithm(freqFxAlgo);
 
     if (freqFxAlgo == 0) { // EQ 4-Band ([285..301]) + Compressor ([302..305]) (FUN_1002d3d4 / FUN_1003785c)
@@ -337,14 +345,14 @@ void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t nu
         silver.getFreqFX().setSpWarpParams(mix, freq, tilt, damp, speed, depth);
     }
 
-    // TimeFX (habilitado sólo si SilverSwitch [271] y TimeFXSwitch [327] están activos, FUN_10029e34 L158, L483)
-    bool timeFxOn = silverSwitchOn && ((p ? p[290] : store_.getRawValue(327)) > 0.5f);
+    // TimeFX (habilitado sólo si SilverSwitch y TimeFXSwitch están activos)
+    bool timeFxOn = silverSwitchOn && ((p ? p[290] : store_.getRawValue(TimeFXSwitch)) > 0.5f);
     silver.getTimeFX().setEnabled(timeFxOn);
-    int timeFxAlgo = static_cast<int>(p ? p[291] : store_.getRawValue(328));
+    int timeFxAlgo = static_cast<int>(p ? p[291] : store_.getRawValue(CurTimeFX));
     silver.getTimeFX().setAlgorithm(timeFxAlgo);
 
     if (timeFxAlgo == 0) { // Stereo Spread
-        float delay = store_.getRawValue(331); // -64..+63 ms (con signo para L o R)
+        float delay = store_.getRawValue(331); // -64..+63 ms
         float fdbk = store_.getRawValue(332) / 64.0f;
         silver.getTimeFX().setStereoSpreadParams(delay, fdbk);
     } else if (timeFxAlgo == 1) { // L/R Delay
@@ -352,7 +360,7 @@ void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t nu
         float timeMs = store_.getRawValue(334);
         float fdbk = store_.getRawValue(335) / 64.0f;
         silver.getTimeFX().setLRDelayParams(mix, timeMs, fdbk);
-    } else if (timeFxAlgo == 2) { // Flanger (336..341)
+    } else if (timeFxAlgo == 2) { // Flanger
         float mix = store_.getNormalizedValue(336);
         float depth = store_.getNormalizedValue(337);
         float speed = 0.1f + store_.getNormalizedValue(338) * 15.0f;
@@ -360,7 +368,7 @@ void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t nu
         float fdbk = store_.getRawValue(340) / 64.0f;
         float stPhase = store_.getNormalizedValue(341);
         silver.getTimeFX().setModulationParams(mix, depth, speed, fdbk, wave, stPhase, 0.0f);
-    } else if (timeFxAlgo == 3) { // Phaser (342..347)
+    } else if (timeFxAlgo == 3) { // Phaser
         float mix = store_.getNormalizedValue(342);
         float depth = store_.getNormalizedValue(343);
         float speed = 0.1f + store_.getNormalizedValue(344) * 15.0f;
@@ -368,7 +376,7 @@ void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t nu
         float fdbk = store_.getRawValue(346) / 64.0f;
         float stPhase = store_.getNormalizedValue(347);
         silver.getTimeFX().setModulationParams(mix, depth, speed, fdbk, wave, stPhase, 0.0f);
-    } else if (timeFxAlgo == 4) { // Chorus (348..354)
+    } else if (timeFxAlgo == 4) { // Chorus
         float mix = store_.getNormalizedValue(348);
         float depth = store_.getNormalizedValue(349);
         float speed = 0.1f + store_.getNormalizedValue(350) * 15.0f;
@@ -379,25 +387,25 @@ void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t nu
         silver.getTimeFX().setModulationParams(mix, depth, speed, fdbk, wave, stPhase, preDel);
     }
 
-    // 8. Configuración de Master FX (SoundMFX [430..444])
-    bool mfxMasterOn = store_.getRawValue(430) > 0.5f;
+    // 8. Configuración de Master FX
+    bool mfxMasterOn = store_.getRawValue(SoundMFXSwitch) > 0.5f;
     auto& mTime = blockRenderer_.getMasterTimeFX();
     mTime.setMasterEnabled(mfxMasterOn);
-    mTime.setDelayEnabled(store_.getRawValue(431) > 0.5f);
-    mTime.setReverbEnabled(store_.getRawValue(437) > 0.5f);
+    mTime.setDelayEnabled(store_.getRawValue(SoundMFXDelaySwitch) > 0.5f);
+    mTime.setReverbEnabled(store_.getRawValue(SoundMFXReverbSwitch) > 0.5f);
 
-    float dMix = store_.getNormalizedValue(432);
-    float dL = store_.getRawValue(433);
-    float dR = store_.getRawValue(434);
-    float dFb = store_.getRawValue(435) / 64.0f;
-    float dDamp = store_.getNormalizedValue(436);
+    float dMix = store_.getNormalizedValue(SoundMFXDelayMix);
+    float dL = store_.getRawValue(SoundMFXDelayLTime);
+    float dR = store_.getRawValue(SoundMFXDelayRTime);
+    float dFb = store_.getRawValue(SoundMFXDelayFeedback) / 64.0f;
+    float dDamp = store_.getNormalizedValue(SoundMFXDelayFdbkDamp);
     mTime.setDelayParameters(dMix, dL, dR, dFb, dDamp);
 
-    float rMix = store_.getNormalizedValue(438);
-    int rRoom = static_cast<int>(store_.getRawValue(439));
-    float rDecay = store_.getNormalizedValue(440);
-    float rDiff = store_.getNormalizedValue(441);
-    float rDamp = store_.getNormalizedValue(442);
+    float rMix = store_.getNormalizedValue(SoundMFXReverbMix);
+    int rRoom = static_cast<int>(store_.getRawValue(SoundMFXReverbRoom));
+    float rDecay = store_.getNormalizedValue(SoundMFXRevDecayTime);
+    float rDiff = store_.getNormalizedValue(SoundMFXRevDiffusion);
+    float rDamp = store_.getNormalizedValue(SoundMFXRevHFDamp);
     mTime.setReverbParameters(rMix, rRoom, rDecay, rDiff, rDamp);
 
     auto& mMod = blockRenderer_.getMasterModFX();
@@ -405,6 +413,8 @@ void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t nu
     mMod.setParameters(0.0f, 0.5f, 1.0f);
 
     // 9. Master volume
+    // Nota: Hardcodeado intencionalmente por diseño de paridad con NeuronVS.
+    // No expuesto como parámetro en este puerto; mantener justificado hasta migración a registry.
     float masterVol = 0.85f;
 
     // 10. Renderizar bloques de 128 muestras (FUN_100382b0)
@@ -440,11 +450,13 @@ void DspEngineFacade::process(float* leftChannel, float* rightChannel, size_t nu
     peakL_ = maxL;
     peakR_ = (rightChannel != nullptr) ? maxR : maxL;
     activeVoices_ = voicePool_.getActiveVoiceCount();
+    // Telemetría sintética (estimada). No es medición real de CPU.
     cpuUsage_ = activeVoices_ > 0 ? (0.015f * static_cast<float>(activeVoices_)) : 0.002f;
 }
 
 Telemetry DspEngineFacade::getTelemetry() const noexcept {
     Telemetry t;
+    // cpuUsage es un valor estimado sintéticamente (no medido)
     t.cpuUsage = cpuUsage_;
     t.activeVoices = activeVoices_;
     t.peakL = peakL_;

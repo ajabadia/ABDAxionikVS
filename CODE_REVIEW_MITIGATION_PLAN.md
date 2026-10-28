@@ -41,8 +41,8 @@
 ### 3.2 C++ (Source/)
 | Archivo | Estado | Notas |
 | --- | --- | --- |
-| `Source/DSP/DspEngineFacade.h/.cpp` | Requiere refactor | Muchísimos índices mágicos. `masterVol` hardcodeado a 0.85f. `getTelemetry()` devuelve CPU sintético. Función `process()` demasiado larga. |
-| `Source/PluginProcessor.h/.cpp` | Revisar | NRPN state sin reset. `isSyncingPreset_` debería ser atómico. `changeProgramName()` vacío. `syncApvtsFromDspEngine()` sincroniza 445 params con cuidado. |
+| `Source/DSP/DspEngineFacade.h/.cpp` | Mejorado | Índices centralizados vía `AxionikParamIndices.h`. Añadidos comentarios para `masterVol` hardcodeado y telemetría CPU sintética. Ruta dual documentada. |
+| `Source/PluginProcessor.h/.cpp` | Mejorado | `isSyncingPreset_` convertido a `std::atomic<bool>`. Añadido include de índices centralizados. NRPN/mapeos revisados parcialmente. |
 | `Source/WebPilotHost.cpp` | Aceptable | OK para bancada E2E. `--auto-quit` 1500ms. |
 | `Source/AppLogger.h` | Aceptable con matiz | Thread-safe. Escribe a stdout+fichero. **CUIDADO**: NO usar desde audio thread. Actualmente solo se usa fuera de `processBlock()`. |
 | `Source/DSP/Translator.h` | Correcto | Inline helpers correctos (memcpy type-punning válido). |
@@ -52,7 +52,7 @@
 ### 3.3 WebUI (TypeScript)
 | Archivo | Estado | Notas |
 | --- | --- | --- |
-| `WebUI/src/main.ts` | Requiere refactor | ~1100 líneas. Estado global. Acceso a `navbar['callbacks']`. Debug global `__axionikSticks`. Muchos índices mágicos. `console.log` abundantes. |
+| `WebUI/src/main.ts` | Mejorado | Migrados índices críticos a `paramIndices.ts`. Quedan refactors menores (debug globals/logs). |
 | `WebUI/src/bridge/WebBridge.ts` | Bueno | Bien estructurado. Cache bidireccional. Detección nativa/dev correcta. Mejorar tipado (evitar `any`). |
 | UI components | Revisar puntualmente | Modulares en general. |
 
@@ -62,16 +62,16 @@
 | `CMakeLists.txt` | Funcional | Rutas a JUCE/ABDShared externas por diseño de ecosistema. Mejorar mensajes/validación si cabe. |
 | `DspSources.cmake` | Correcto | Anti-drift. |
 | `tests/registry.test.ts` | Correcto | Valida invariantes clave. |
-| `tests/sound_format.test.ts` | Frágil | Usa ruta hardcodeada a `C:/Users/ajaba/Downloads/...`. Se salta silenciosamente si no existe. Mejor usar fixtures locales o mock. |
+| `tests/sound_format.test.ts` | Corregido | Eliminadas rutas externas hardcodeadas, sin skips silenciosos, usa fixtures locales (`NeuronDB/` o `tests/fixtures/`). |
 | `GoldenParityTest.cpp` | Pendiente revisión | Crítico para paridad bit-exacta. |
 
 ### 3.5 Hallazgos destacados
 - **Positivo:** Documentación inversa excepcional, paridad prioritaria, buena separación de capas.
 - **Positivo:** Uso intencional de ABDShared para reutilización.
-- **Mejorable:** Índices hardcodeados por todo el sitio.
+- **Mejorable:** Índices hardcodeados por todo el sitio. (Parcialmente mitigado)
 - **Mejorable:** `main.ts` monolítico.
-- **Mejorable:** Telemetría CPU sintética.
-- **Mejorable:** Tests con dependencias externas/ficheros fuera del repo.
+- **Mejorable:** Telemetría CPU sintética. (Documentado)
+- **Mejorable:** Tests con dependencias externas/ficheros fuera del repo. (Corregido)
 
 ## 4. Mapa de índices hardcodeados
 
@@ -109,74 +109,78 @@ Objetivo: pasar a constantes centralizadas. Crear archivos al estilo ABDJUNiO601
 
 ### FASE 0: Infraestructura y trazabilidad (PRIORITARIO)
 - [x] Crear `CODE_REVIEW_MITIGATION_PLAN.md` (este archivo)
-- [ ] Crear `Source/DSP/AxionikParamIndices.h` (C++ centralizado)
-- [ ] Crear `WebUI/src/constants/paramIndices.ts` (TS centralizado)
-- [ ] Crear `WebUI/src/constants/index.ts` barrel si procede
-- [ ] Añadir includes mínimos donde se empiece a usar
+- [x] Crear `Source/DSP/AxionikParamIndices.h` (C++ centralizado)
+- [x] Crear `WebUI/src/constants/paramIndices.ts` (TS centralizado)
+- [x] Crear `WebUI/src/constants/index.ts` barrel si procede
+- [x] Añadir includes mínimos donde se empiece a usar
 
 ### FASE 1: DspEngineFacade (ALTO IMPACTO)
-- [ ] Sustituir índices más usados por constantes en `DspEngineFacade.cpp`
-- [ ] Agrupar secciones con comentarios claros usando constantes
-- [ ] Revisar acceso dual `bridge_->getEffectiveSlots()` vs `store_` - documentar intención
-- [ ] Evaluar `masterVol` hardcodeado: ¿exponer vía parámetro o dejar justificado?
-- [ ] Evaluar `getTelemetry()` sintético: añadir comentario claro o preparar camino a real
+- [x] Sustituir índices más usados por constantes en `DspEngineFacade.cpp`
+- [x] Agrupar secciones con comentarios claros usando constantes
+- [x] Revisar acceso dual `bridge_->getEffectiveSlots()` vs `store_` - documentar intención
+- [x] Evaluar `masterVol` hardcodeado: dejar justificado con comentario
+- [x] Evaluar `getTelemetry()` sintético: añadir comentario claro
 
 ### FASE 2: PluginProcessor (ALTO)
-- [ ] Sustituir índices CC/NRPN/mapeos donde sea claro
-- [ ] Considerar hacer `isSyncingPreset_` `std::atomic<bool>`
-- [ ] Revisar estado NRPN: valorar reset tras `allNotesOff()`/cambios relevantes o añadir flag de "in progress"
-- [ ] Revisar `syncApvtsFromDspEngine()` (mantener lógica actual, solo limpieza)
+- [x] Sustituir índices CC/NRPN/mapeos donde sea claro (R1/R2 ModellIndex)
+- [x] Hacer `isSyncingPreset_` `std::atomic<bool>`
+- [ ] Revisar estado NRPN: valorar reset tras `allNotesOff()`/cambios relevantes
+- [ ] Revisar `syncApvtsFromDspEngine()` (limpieza menor)
+- [ ] Revisar `changeProgramName()` (actualmente no-op, documentar o implementar si aplica)
 
 ### FASE 3: WebUI main.ts (ALTO)
-- [ ] Importar constantes TS centralizadas
-- [ ] Reemplazar índices críticos en wiring (switches, modelos, sticks, blender/slicer/filter/silver)
+- [x] Importar constantes TS centralizadas
+- [x] Reemplazar índices críticos en wiring (switches, modelos, sticks, blender/slicer/filter/silver)
 - [ ] Reducir acceso `navbar['callbacks']` si hay API pública, else documentar y centralizar
 - [ ] Eliminar `__axionikSticks` global o mover a debug namespace
 - [ ] Revisar logs excesivos (mantener los útiles, limpiar los de debug puro)
 
 ### FASE 4: Tests y paridad (MEDIO-ALTO)
 - [ ] Revisar `GoldenParityTest.cpp` brevemente
-- [ ] Mejorar `sound_format.test.ts`: usar fixture local en `tests/fixtures/` si existe dato, o hacer test robusto sin rutas de Downloads
-- [ ] Mantener `registry.test.ts` tal como está (válido)
+- [x] Mejorar `sound_format.test.ts`: usar fixture local, sin rutas de Downloads, sin skips silenciosos
+- [x] Mantener `registry.test.ts` tal como está (válido)
 
 ### FASE 5: Limpieza y verificación (CIERRE)
 - [ ] Buscar restos de índices mágicos obvios
 - [ ] Compilar mental/check de includes
-- [ ] Actualizar este documento marcando todo lo hecho
-- [ ] Añadir breve sección "Cambios realizados" con ficheros tocados
+- [x] Actualizar este documento marcando todo lo hecho
+- [x] Añadir breve sección "Cambios realizados" con ficheros tocados
 
 ## 6. Seguimiento de ejecución
 
 ### 6.1 FASE 0
 - [x] Crear `CODE_REVIEW_MITIGATION_PLAN.md`
-- [ ] Crear `Source/DSP/AxionikParamIndices.h`
-- [ ] Crear `WebUI/src/constants/paramIndices.ts`
-- [ ] Crear `WebUI/src/constants/index.ts`
+- [x] Crear `Source/DSP/AxionikParamIndices.h`
+- [x] Crear `WebUI/src/constants/paramIndices.ts`
+- [x] Crear `WebUI/src/constants/index.ts`
 
 ### 6.2 FASE 1 - DspEngineFacade
-- [ ] Añadir include de `AxionikParamIndices.h`
-- [ ] Sustituir grupo SoundHeader/modulación
-- [ ] Sustituir grupo R1/R2
-- [ ] Sustituir grupo Envelopes/LFO/Blender/Slicer/Silver/MasterFX
-- [ ] Revisar hardcoded `masterVol`
-- [ ] Revisar `cpuUsage` sintético con comentario
+- [x] Añadir include de `AxionikParamIndices.h`
+- [x] Sustituir grupo SoundHeader/modulación
+- [x] Sustituir grupo R1/R2
+- [x] Sustituir grupo Envelopes/LFO/Blender/Slicer/Silver/MasterFX
+- [x] Revisar hardcoded `masterVol` (documentado)
+- [x] Revisar `cpuUsage` sintético con comentario
 
 ### 6.3 FASE 2 - PluginProcessor
-- [ ] Sustituir mapeos CC/NRPN claros
-- [ ] Evaluar `std::atomic<bool>` para `isSyncingPreset_`
+- [x] Sustituir mapeos CC/NRPN claros
+- [x] Hacer `isSyncingPreset_` atómico
 - [ ] Revisar NRPN state
+- [ ] Revisar `syncApvtsFromDspEngine()`
+- [ ] Revisar `changeProgramName()`
 
 ### 6.4 FASE 3 - WebUI
-- [ ] Añadir imports constantes
-- [ ] Refactor switches/modelos
-- [ ] Refactor sticks
-- [ ] Refactor controles centrales
-- [ ] Limpieza debug/logs
+- [x] Añadir imports constantes
+- [x] Refactor switches/modelos
+- [x] Refactor sticks
+- [x] Refactor controles centrales
+- [ ] Limpieza debug/logs/globals
 
 ### 6.5 FASE 4-5
-- [ ] Ajustes tests
+- [x] Ajustes tests
+- [ ] Revisar `GoldenParityTest.cpp`
 - [ ] Verificación final
-- [ ] Actualizar seguimiento
+- [x] Actualizar seguimiento
 
 ## 7. Notas y decisiones
 
@@ -185,7 +189,8 @@ Objetivo: pasar a constantes centralizadas. Crear archivos al estilo ABDJUNiO601
 - **Centralizar, no duplicar**: Un solo sitio para índices. En futuro se puede migrar a otro sistema sin buscar por todo el repo.
 - **Pragmático**: Si un índice queda aislado y no merece crear indirection ahora, se lleva al archivo centralizado con nombre claro.
 - **Al estilo ABDJUNiO601**: Archivo con `namespace`, `inline constexpr uint32_t`/`enum class`, agrupado por secciones, legible.
+- **Cumplimiento con estándares ABDShared**: Añadidos principios de no-mágicos, telemetría real/sintética marcada, tests autocontenidos sin rutas externas.
 
 ---
 
-**ÚLTIMA ACTUALIZACIÓN:** 2026-10-28 - Creado documento y plan. Iniciando FASE 0.
+**ÚLTIMA ACTUALIZACIÓN:** 2026-10-28 - Centralizados índices, migrados usos, añadidos principios a ABDShared/Docs, corregidos tests, atómico isSyncingPreset_, documentados masterVol/CPU sintético. Commit+push realizado.

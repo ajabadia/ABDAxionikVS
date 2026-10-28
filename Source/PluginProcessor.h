@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <vector>
+#include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "DSP/DspEngineFacade.h"
 #include "Generated/ParameterRegistry.gen.h"
@@ -95,7 +96,7 @@ private:
     DspEngineFacade dspEngine_;
     juce::AudioProcessorValueTreeState apvts_;
     int currentProgram_{0};
-    bool isSyncingPreset_{false};
+    std::atomic<bool> isSyncingPreset_{false};
 
     // Mapa de búsqueda O(1) de clave APVTS a índice de parámetro
     std::unordered_map<juce::String, uint32_t> paramIdToIndex_;

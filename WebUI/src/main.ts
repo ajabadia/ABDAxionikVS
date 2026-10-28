@@ -22,6 +22,7 @@ import { SettingsDrawer } from './ui/SettingsDrawer.js';
 import { DragDropHandler } from './ui/DragDropHandler.js';
 import { WebBridge } from './bridge/WebBridge.js';
 import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
+import { ParamIdx } from './constants/paramIndices.js';
 import { getParameterSetStickLabels } from './ui/ParameterSets.js';
 import {
   MODEL_METADATA,
@@ -313,8 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
       domain: 'scape',
       labelsPerLayer: getParameterSetStickLabels(0, 'scape'),
       onPositionChange: (layerIdx, coord) => {
-        const paramX = layerIdx === 0 ? 52 : (layerIdx === 1 ? 72 : 92);
-        const paramY = layerIdx === 0 ? 53 : (layerIdx === 1 ? 73 : 93);
+        const paramX = layerIdx === 0 ? ParamIdx.R1L1Scape1Value : (layerIdx === 1 ? ParamIdx.R1L2Scape1Value : ParamIdx.R1L3Scape1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R1L1Scape2Value : (layerIdx === 1 ? ParamIdx.R1L2Scape2Value : ParamIdx.R1L3Scape2Value);
         WebBridge.setParam(paramX, coord.x);
         WebBridge.setParam(paramY, coord.y);
       },
@@ -328,8 +329,8 @@ document.addEventListener('DOMContentLoaded', () => {
       domain: 'sphere',
       labelsPerLayer: getParameterSetStickLabels(0, 'sphere'),
       onPositionChange: (layerIdx, coord) => {
-        const paramX = layerIdx === 0 ? 42 : (layerIdx === 1 ? 62 : 82);
-        const paramY = layerIdx === 0 ? 43 : (layerIdx === 1 ? 63 : 83);
+        const paramX = layerIdx === 0 ? ParamIdx.R1L1Sphere1Value : (layerIdx === 1 ? ParamIdx.R1L2Sphere1Value : ParamIdx.R1L3Sphere1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R1L1Sphere2Value : (layerIdx === 1 ? ParamIdx.R1L2Sphere2Value : ParamIdx.R1L3Sphere2Value);
         WebBridge.setParam(paramX, coord.x);
         WebBridge.setParam(paramY, coord.y);
       },
@@ -343,8 +344,8 @@ document.addEventListener('DOMContentLoaded', () => {
       domain: 'scape',
       labelsPerLayer: getParameterSetStickLabels(0, 'scape'),
       onPositionChange: (layerIdx, coord) => {
-        const paramX = layerIdx === 0 ? 132 : (layerIdx === 1 ? 152 : 172);
-        const paramY = layerIdx === 0 ? 133 : (layerIdx === 1 ? 153 : 173);
+        const paramX = layerIdx === 0 ? ParamIdx.R2L1Scape1Value : (layerIdx === 1 ? ParamIdx.R2L2Scape1Value : ParamIdx.R2L3Scape1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R2L1Scape2Value : (layerIdx === 1 ? ParamIdx.R2L2Scape2Value : ParamIdx.R2L3Scape2Value);
         WebBridge.setParam(paramX, coord.x);
         WebBridge.setParam(paramY, coord.y);
       },
@@ -358,8 +359,8 @@ document.addEventListener('DOMContentLoaded', () => {
       domain: 'sphere',
       labelsPerLayer: getParameterSetStickLabels(0, 'sphere'),
       onPositionChange: (layerIdx, coord) => {
-        const paramX = layerIdx === 0 ? 122 : (layerIdx === 1 ? 142 : 162);
-        const paramY = layerIdx === 0 ? 123 : (layerIdx === 1 ? 143 : 163);
+        const paramX = layerIdx === 0 ? ParamIdx.R2L1Sphere1Value : (layerIdx === 1 ? ParamIdx.R2L2Sphere1Value : ParamIdx.R2L3Sphere1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R2L1Sphere2Value : (layerIdx === 1 ? ParamIdx.R2L2Sphere2Value : ParamIdx.R2L3Sphere2Value);
         WebBridge.setParam(paramX, coord.x);
         WebBridge.setParam(paramY, coord.y);
       },
@@ -377,14 +378,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   document.getElementById('btn-toggle-r1')?.addEventListener('click', () => {
-    const next = WebBridge.getParam(23, 1) < 0.5;
+    const next = WebBridge.getParam(ParamIdx.R1Switch, 1) < 0.5;
     updateResySwitchButton(1, next);
-    WebBridge.setParam(23, next ? 1 : 0);
+    WebBridge.setParam(ParamIdx.R1Switch, next ? 1 : 0);
   });
   document.getElementById('btn-toggle-r2')?.addEventListener('click', () => {
-    const next = WebBridge.getParam(103, 1) < 0.5;
+    const next = WebBridge.getParam(ParamIdx.R2Switch, 1) < 0.5;
     updateResySwitchButton(2, next);
-    WebBridge.setParam(103, next ? 1 : 0);
+    WebBridge.setParam(ParamIdx.R2Switch, next ? 1 : 0);
   });
   document.getElementById('btn-edit-r1')?.addEventListener('click', openR1Drawer);
   document.getElementById('btn-edit-r2')?.addEventListener('click', openR2Drawer);
@@ -406,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
   btnCycleBlender?.addEventListener('click', () => {
     curBlenderAlgoIdx = (curBlenderAlgoIdx + 1) % BLENDER_ALGORITHMS.length;
     if (curBlenderVal) curBlenderVal.textContent = BLENDER_ALGORITHMS[curBlenderAlgoIdx].name;
-    WebBridge.setParam(261, curBlenderAlgoIdx);
+    WebBridge.setParam(ParamIdx.BlenderType, curBlenderAlgoIdx);
   });
 
   const blenderSlider = document.getElementById('blender-slider') as HTMLInputElement | null;
@@ -414,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
   blenderSlider?.addEventListener('input', () => {
     const val = parseFloat(blenderSlider.value);
     if (blenderVal) blenderVal.textContent = String(val);
-    WebBridge.setParam(262, val);
+    WebBridge.setParam(ParamIdx.BlenderAmount, val);
   });
 
   const slicerTypes = ['Off', '2D', '3D'];
@@ -424,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
   btnCycleSlicer?.addEventListener('click', () => {
     curSlicerTypeIdx = (curSlicerTypeIdx + 1) % slicerTypes.length;
     if (curSlicerTypeVal) curSlicerTypeVal.textContent = slicerTypes[curSlicerTypeIdx];
-    WebBridge.setParam(267, curSlicerTypeIdx);
+    WebBridge.setParam(ParamIdx.SlicerSwitchType, curSlicerTypeIdx);
   });
 
   const slicerRateSlider = document.getElementById('slicer-rate-slider') as HTMLInputElement | null;
@@ -432,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
   slicerRateSlider?.addEventListener('input', () => {
     const val = parseFloat(slicerRateSlider.value);
     if (slicerRateVal) slicerRateVal.textContent = String(val);
-    WebBridge.setParam(269, val);
+    WebBridge.setParam(ParamIdx.SlicerRate, val);
   });
 
   const slicerDepthSlider = document.getElementById('slicer-depth-slider') as HTMLInputElement | null;
@@ -440,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
   slicerDepthSlider?.addEventListener('input', () => {
     const val = parseFloat(slicerDepthSlider.value);
     if (slicerDepthVal) slicerDepthVal.textContent = String(val);
-    WebBridge.setParam(268, val);
+    WebBridge.setParam(ParamIdx.SlicerDepth, val);
   });
 
   const filterCutSlider = document.getElementById('filter-freq-slider') as HTMLInputElement | null;
@@ -448,7 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
   filterCutSlider?.addEventListener('input', () => {
     const val = parseFloat(filterCutSlider.value);
     if (filterCutVal) filterCutVal.textContent = String(val);
-    WebBridge.setParam(274, val);
+    WebBridge.setParam(ParamIdx.FilterFreq, val);
   });
 
   const filterResoSlider = document.getElementById('filter-reso-slider') as HTMLInputElement | null;
@@ -456,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
   filterResoSlider?.addEventListener('input', () => {
     const val = parseFloat(filterResoSlider.value);
     if (filterResoVal) filterResoVal.textContent = (val / 127).toFixed(2);
-    WebBridge.setParam(275, val);
+    WebBridge.setParam(ParamIdx.FilterReso, val);
   });
 
   const freqAlgoNames = ['EQ/Comp', 'Distortion', 'RingMod', 'Decimator', 'Sp-Warp'];
@@ -466,9 +467,9 @@ document.addEventListener('DOMContentLoaded', () => {
   btnCycleFreq?.addEventListener('click', () => {
     curFreqAlgoIdx = (curFreqAlgoIdx + 1) % freqAlgoNames.length;
     if (curFreqVal) curFreqVal.textContent = freqAlgoNames[curFreqAlgoIdx];
-    WebBridge.setParam(271, 1); // SilverSwitch
-    WebBridge.setParam(281, 1); // FreqFXSwitch
-    WebBridge.setParam(282, curFreqAlgoIdx);
+    WebBridge.setParam(ParamIdx.SilverSwitch, 1);
+    WebBridge.setParam(ParamIdx.FreqFXSwitch, 1);
+    WebBridge.setParam(ParamIdx.CurFreqFX, curFreqAlgoIdx);
   });
 
   const timeAlgoNames = ['St.Spread', 'L/R Delay', 'Flanger', 'Phaser', 'Chorus'];
@@ -478,19 +479,19 @@ document.addEventListener('DOMContentLoaded', () => {
   btnCycleTime?.addEventListener('click', () => {
     curTimeAlgoIdx = (curTimeAlgoIdx + 1) % timeAlgoNames.length;
     if (curTimeVal) curTimeVal.textContent = timeAlgoNames[curTimeAlgoIdx];
-    WebBridge.setParam(271, 1); // SilverSwitch
-    WebBridge.setParam(327, 1); // TimeFXSwitch
-    WebBridge.setParam(328, curTimeAlgoIdx);
+    WebBridge.setParam(ParamIdx.SilverSwitch, 1);
+    WebBridge.setParam(ParamIdx.TimeFXSwitch, 1);
+    WebBridge.setParam(ParamIdx.CurTimeFX, curTimeAlgoIdx);
   });
 
   const applyAllParamsToUI = (values: number[]) => {
     if (!Array.isArray(values) || values.length === 0) return;
 
-    // R1 Model (param 22) & R2 Model (param 102) + Switches (23, 103)
-    const r1Slot = Math.round(values[22] ?? 511);
-    const r2Slot = Math.round(values[102] ?? 511);
-    updateResySwitchButton(1, (values[23] ?? 1) > 0.5);
-    updateResySwitchButton(2, (values[103] ?? 1) > 0.5);
+    // R1 Model & R2 Model + Switches
+    const r1Slot = Math.round(values[ParamIdx.R1ModellIndex] ?? 511);
+    const r2Slot = Math.round(values[ParamIdx.R2ModellIndex] ?? 511);
+    updateResySwitchButton(1, (values[ParamIdx.R1Switch] ?? 1) > 0.5);
+    updateResySwitchButton(2, (values[ParamIdx.R2Switch] ?? 1) > 0.5);
     const r1Name = getCanonicalModelName(r1Slot);
     const r2Name = getCanonicalModelName(r2Slot);
 
@@ -510,43 +511,43 @@ document.addEventListener('DOMContentLoaded', () => {
     r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
     r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
 
-    // Blender: Algo (param 261), Amount (param 262)
-    const blenderAlgo = Math.round(values[261] ?? 0);
+    // Blender
+    const blenderAlgo = Math.round(values[ParamIdx.BlenderType] ?? 0);
     curBlenderAlgoIdx = Math.max(0, Math.min(BLENDER_ALGORITHMS.length - 1, blenderAlgo));
     if (curBlenderVal) curBlenderVal.textContent = BLENDER_ALGORITHMS[curBlenderAlgoIdx].name;
 
-    const blenderAmount = Math.round(values[262] ?? 0);
+    const blenderAmount = Math.round(values[ParamIdx.BlenderAmount] ?? 0);
     if (blenderSlider) blenderSlider.value = String(blenderAmount);
     if (blenderVal) blenderVal.textContent = String(blenderAmount);
 
-    // Slicer: Mode (param 267), Depth (param 268), Rate (param 269)
-    const slicerMode = Math.round(values[267] ?? 0);
+    // Slicer
+    const slicerMode = Math.round(values[ParamIdx.SlicerSwitchType] ?? 0);
     curSlicerTypeIdx = Math.max(0, Math.min(slicerTypes.length - 1, slicerMode));
     if (curSlicerTypeVal) curSlicerTypeVal.textContent = slicerTypes[curSlicerTypeIdx];
 
-    const slicerDepth = Math.round(values[268] ?? 0);
+    const slicerDepth = Math.round(values[ParamIdx.SlicerDepth] ?? 0);
     if (slicerDepthSlider) slicerDepthSlider.value = String(slicerDepth);
     if (slicerDepthVal) slicerDepthVal.textContent = String(slicerDepth);
 
-    const slicerRate = Math.round(values[269] ?? 66);
+    const slicerRate = Math.round(values[ParamIdx.SlicerRate] ?? 66);
     if (slicerRateSlider) slicerRateSlider.value = String(slicerRate);
     if (slicerRateVal) slicerRateVal.textContent = String(slicerRate);
 
-    // Filter: Cutoff (param 274), Reso (param 275)
-    const filterCut = Math.round(values[274] ?? 100);
+    // Filter
+    const filterCut = Math.round(values[ParamIdx.FilterFreq] ?? 100);
     if (filterCutSlider) filterCutSlider.value = String(filterCut);
     if (filterCutVal) filterCutVal.textContent = String(filterCut);
 
-    const filterReso = Math.round(values[275] ?? 25);
+    const filterReso = Math.round(values[ParamIdx.FilterReso] ?? 25);
     if (filterResoSlider) filterResoSlider.value = String(filterReso);
     if (filterResoVal) filterResoVal.textContent = (filterReso / 127).toFixed(2);
 
-    // Silver FX: Freq FX (param 282), Time FX (param 328)
-    const freqAlgo = Math.round(values[282] ?? 2);
+    // Silver FX
+    const freqAlgo = Math.round(values[ParamIdx.CurFreqFX] ?? 2);
     curFreqAlgoIdx = Math.max(0, Math.min(freqAlgoNames.length - 1, freqAlgo));
     if (curFreqVal) curFreqVal.textContent = freqAlgoNames[curFreqAlgoIdx];
 
-    const timeAlgo = Math.round(values[328] ?? 1);
+    const timeAlgo = Math.round(values[ParamIdx.CurTimeFX] ?? 1);
     curTimeAlgoIdx = Math.max(0, Math.min(timeAlgoNames.length - 1, timeAlgo));
     if (curTimeVal) curTimeVal.textContent = timeAlgoNames[curTimeAlgoIdx];
 
@@ -594,11 +595,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetR === 1) {
         r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
         r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
-        WebBridge.setParam(22, slot);
+        WebBridge.setParam(ParamIdx.R1ModellIndex, slot);
       } else {
         r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
         r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
-        WebBridge.setParam(102, slot);
+        WebBridge.setParam(ParamIdx.R2ModellIndex, slot);
       }
 
       WebBridge.loadModelSlot(slot, targetR);

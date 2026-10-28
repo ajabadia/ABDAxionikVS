@@ -6,6 +6,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "AppLogger.h"
+#include "DSP/AxionikParamIndices.h"
 
 namespace abd::axionik {
 
@@ -77,7 +78,7 @@ bool AxionikProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const 
 }
 
 void AxionikProcessor::parameterChanged(const juce::String& parameterID, float newValue) {
-    if (isSyncingPreset_) return;
+    if (isSyncingPreset_.load(std::memory_order_acquire)) return;
 
     // Búsqueda O(1) en la tabla hash de parámetros
     auto it = paramIdToIndex_.find(parameterID);
@@ -131,7 +132,7 @@ bool AxionikProcessor::loadPresetBySlot(int slot) {
 bool AxionikProcessor::loadModelBySlot(int slot, int modelIndex) {
     bool ok = dspEngine_.loadModelBySlot(slot, modelIndex);
     if (ok) {
-        uint32_t paramIdx = (slot == 0) ? 22 : 102;
+        uint32_t paramIdx = (slot == 0) ? abd::axionik::ParamIdx::R1ModellIndex : abd::axionik::ParamIdx::R2ModellIndex;
         setParameterByIndex(paramIdx, static_cast<float>(modelIndex));
     }
     return ok;
@@ -144,7 +145,7 @@ void AxionikProcessor::initPreset() {
 }
 
 void AxionikProcessor::syncApvtsFromDspEngine() {
-    isSyncingPreset_ = true;
+    isSyncingPreset_.store(true, std::memory_order_release);
     const auto& store = dspEngine_.getStore();
     {
         std::scoped_lock lock(uiParamMutex_);
@@ -160,9 +161,9 @@ void AxionikProcessor::syncApvtsFromDspEngine() {
             pendingUiChanges_.push_back({ i, rawVal });
         }
         const auto& curPreset = dspEngine_.getCurrentPreset();
-        pendingPresetEvent_ = { true, juce::String(curPreset.name), curPreset.r1ModelIndex, curPreset.r2ModelIndex };
-    }
-    isSyncingPreset_ = false;
+        pendingPresetEvent_ = { true, juce::String(curPreset.name), curPreset.r1ModelIndex, curPreset.r2ModelIndex };    }
+
+    isSyncingPreset_.store(false, std::memory_order_release);
 }
 
 void AxionikProcessor::setParameterByIndex(uint32_t index, float rawValue) {
@@ -241,6 +242,7 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
         dspEngine_.noteOff(static_cast<uint8_t>(msg.getNoteNumber()));
     } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
         dspEngine_.allNotesOff();
+        nrpnMsb_ = 0; nrpnLsb_ = 0; dataEntryMsb_ = 0;
     } else if (msg.isController()) {
         int ccNum = msg.getControllerNumber();
         int rawVal = msg.getControllerValue();
