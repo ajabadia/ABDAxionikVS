@@ -10,6 +10,7 @@
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
+import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 
 export interface SettingsDrawerOptions {
   onClose: () => void;
@@ -34,6 +35,45 @@ export class SettingsDrawer {
     const curOracleClip = WebBridge.getUIState<boolean>('oracleClipMode', false);
     const curZoom = options.currentZoom ?? 1.0;
     const curTheme = options.currentTheme ?? 'ms2000';
+
+    const themeItems = [
+      { id: 'ms2000', label: 'MS2000 (Default Dark Cyan)', theme: 'ms2000' },
+      { id: 'audiolab', label: 'AudioLab (Pro Dark Slate)', theme: 'audiolab' },
+      { id: 'audiolab-light', label: 'AudioLab Light (Laboratory)', theme: 'audiolab-light' },
+      { id: 'advanced', label: 'Advanced (Orange Contrast)', theme: 'advanced' },
+      { id: 'cz101', label: 'CZ101 (Classic Teal & Red)', theme: 'cz101' },
+    ];
+    const themePillsHtml = pillSelectorHtml(themeItems, curTheme, {
+      id: 'settings-theme-chips',
+      size: 'sm',
+      attrName: 'data-theme',
+    });
+
+    const zoomItems = [
+      { id: '1', label: '100% (Normal)' },
+      { id: '1.25', label: '125% (Medium)' },
+      { id: '1.5', label: '150% (Large)' },
+    ];
+    const activeZoomId = Math.abs(curZoom - 1.5) < 0.05 ? '1.5' : Math.abs(curZoom - 1.25) < 0.05 ? '1.25' : '1';
+    const zoomPillsHtml = pillSelectorHtml(zoomItems, activeZoomId, {
+      id: 'settings-zoom-chips',
+      size: 'sm',
+      attrName: 'data-zoom',
+    });
+
+    const footswitchItems = [
+      { id: '0', label: '0: Sustain (Damper Pedal)' },
+      { id: '1', label: '1: Hold Active Notes' },
+      { id: '2', label: '2: Slicer LFO On / Off' },
+      { id: '3', label: '3: Silver Rack On / Off' },
+      { id: '4', label: '4: Stick Playback Start / Stop' },
+      { id: '5', label: '5: Tap Tempo Sync' },
+    ];
+    const footswitchPillsHtml = pillSelectorHtml(footswitchItems, String(curFootswitchDest), {
+      id: 'settings-footswitch-chips',
+      size: 'sm',
+      attrName: 'data-dest',
+    });
 
     root.innerHTML = `
       <div class="drawer-header ndb-modal-header">
@@ -77,26 +117,17 @@ export class SettingsDrawer {
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); align-items: center; padding-top: var(--space-2); border-top: 1px solid var(--color-panel-border-dim);">
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span class="hud-label">PITCH BEND RANGE [412]:</span>
-                <span class="hud-value stat-num" id="settings-pb-val">${curPbRange} st</span>
-              </div>
-              <input type="range" id="settings-pb-slider" class="abd-slider" min="0" max="12" value="${curPbRange}" step="1" style="width: 100%;" />
+          <div style="display: flex; flex-direction: column; gap: 4px; padding-top: var(--space-2); border-top: 1px solid var(--color-panel-border-dim);">
+            <div style="display: flex; justify-content: space-between; max-width: 320px;">
+              <span class="hud-label">PITCH BEND RANGE [412]:</span>
+              <span class="hud-value stat-num" id="settings-pb-val">${curPbRange} st</span>
             </div>
+            <input type="range" id="settings-pb-slider" class="abd-slider" min="0" max="12" value="${curPbRange}" step="1" style="max-width: 320px;" />
+          </div>
 
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <span class="hud-label">FOOTSWITCH ASSIGN [411]:</span>
-              <select id="settings-foot-select" class="abd-select__field" style="width: 100%; height: 28px;">
-                <option value="0" ${curFootswitchDest === 0 ? 'selected' : ''}>0: Sustain (Damper Pedal)</option>
-                <option value="1" ${curFootswitchDest === 1 ? 'selected' : ''}>1: Hold Active Notes</option>
-                <option value="2" ${curFootswitchDest === 2 ? 'selected' : ''}>2: Slicer LFO On / Off</option>
-                <option value="3" ${curFootswitchDest === 3 ? 'selected' : ''}>3: Silver Rack On / Off</option>
-                <option value="4" ${curFootswitchDest === 4 ? 'selected' : ''}>4: Stick Playback Start / Stop</option>
-                <option value="5" ${curFootswitchDest === 5 ? 'selected' : ''}>5: Tap Tempo Sync</option>
-              </select>
-            </div>
+          <div style="display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-panel-border-dim);">
+            <span class="hud-label">FOOTSWITCH ASSIGN [411]:</span>
+            ${footswitchPillsHtml}
           </div>
         </div>
 
@@ -132,22 +163,12 @@ export class SettingsDrawer {
 
           <div style="display: flex; flex-direction: column; gap: var(--space-2);">
             <span class="hud-label">COLOR THEME:</span>
-            <div class="ndb-chips-row" style="flex-wrap: wrap; gap: var(--space-2);" id="settings-theme-chips">
-              <button type="button" class="ndb-chip ${curTheme === 'ms2000' ? 'active' : ''}" data-theme="ms2000">MS2000 (Default Dark Cyan)</button>
-              <button type="button" class="ndb-chip ${curTheme === 'audiolab' ? 'active' : ''}" data-theme="audiolab">AudioLab (Pro Dark Slate)</button>
-              <button type="button" class="ndb-chip ${curTheme === 'audiolab-light' ? 'active' : ''}" data-theme="audiolab-light">AudioLab Light (Laboratory)</button>
-              <button type="button" class="ndb-chip ${curTheme === 'advanced' ? 'active' : ''}" data-theme="advanced">Advanced (Orange Contrast)</button>
-              <button type="button" class="ndb-chip ${curTheme === 'cz101' ? 'active' : ''}" data-theme="cz101">CZ101 (Classic Teal & Red)</button>
-            </div>
+            ${themePillsHtml}
           </div>
 
           <div style="display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2);">
             <span class="hud-label">UI ZOOM SCALE:</span>
-            <div class="ndb-chips-row" style="gap: var(--space-2);" id="settings-zoom-chips">
-              <button type="button" class="ndb-chip ${Math.abs(curZoom - 1.0) < 0.05 ? 'active' : ''}" data-zoom="1.0">100% (Normal)</button>
-              <button type="button" class="ndb-chip ${Math.abs(curZoom - 1.25) < 0.05 ? 'active' : ''}" data-zoom="1.25">125% (Medium)</button>
-              <button type="button" class="ndb-chip ${Math.abs(curZoom - 1.5) < 0.05 ? 'active' : ''}" data-zoom="1.5">150% (Large)</button>
-            </div>
+            ${zoomPillsHtml}
           </div>
         </div>
       </div>
@@ -172,10 +193,17 @@ export class SettingsDrawer {
     bindSlider('settings-pankt-slider', 4, 'settings-pankt-val');
     bindSlider('settings-pb-slider', 412, 'settings-pb-val', ' st');
 
-    const footSelect = root.querySelector('#settings-foot-select') as HTMLSelectElement | null;
-    footSelect?.addEventListener('change', () => {
-      WebBridge.setParam(ParamIdx.FootSwitchDest, parseInt(footSelect.value, 10));
-    });
+    const footContainer = root.querySelector('#settings-footswitch-chips') as HTMLElement | null;
+    if (footContainer) {
+      bindPillSelector(footContainer, (destStr, btn) => {
+        if (destStr != null) {
+          const dest = parseInt(destStr, 10);
+          WebBridge.setParam(ParamIdx.FootSwitchDest, dest);
+          footContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((c) => c.classList.remove('active'));
+          btn.classList.add('active');
+        }
+      }, 'data-dest');
+    }
 
     const clipCheck = root.querySelector('#settings-oracle-clip') as HTMLInputElement | null;
     clipCheck?.addEventListener('change', () => {
@@ -186,27 +214,26 @@ export class SettingsDrawer {
       options.onConfigureFolder();
     });
 
-    root.querySelectorAll('#settings-theme-chips [data-theme]').forEach((chip) => {
-      chip.addEventListener('click', (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const theme = target.getAttribute('data-theme');
+    const themeContainer = root.querySelector('#settings-theme-chips') as HTMLElement | null;
+    if (themeContainer) {
+      bindPillSelector(themeContainer, (theme, btn) => {
         if (theme) {
           options.onSelectTheme(theme);
-          root.querySelectorAll('#settings-theme-chips [data-theme]').forEach((c) => c.classList.remove('active'));
-          target.classList.add('active');
+          themeContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((c) => c.classList.remove('active'));
+          btn.classList.add('active');
         }
-      });
-    });
+      }, 'data-theme');
+    }
 
-    root.querySelectorAll('#settings-zoom-chips [data-zoom]').forEach((chip) => {
-      chip.addEventListener('click', (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const zoom = parseFloat(target.getAttribute('data-zoom') || '1.0');
+    const zoomContainer = root.querySelector('#settings-zoom-chips') as HTMLElement | null;
+    if (zoomContainer) {
+      bindPillSelector(zoomContainer, (zoomStr, btn) => {
+        const zoom = parseFloat(zoomStr || '1.0');
         options.onZoom(zoom);
-        root.querySelectorAll('#settings-zoom-chips [data-zoom]').forEach((c) => c.classList.remove('active'));
-        target.classList.add('active');
-      });
-    });
+        zoomContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((c) => c.classList.remove('active'));
+        btn.classList.add('active');
+      }, 'data-zoom');
+    }
 
     return root;
   }

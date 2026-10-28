@@ -8,6 +8,8 @@
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
+import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
+import { Knob } from '@abdsynths/shared/components/knob.js';
 
 export const BLENDER_ALGORITHMS = [
   { id: 0, name: 'Mix', desc: 'Linear volume crossfade between Resynator 1 and 2' },
@@ -50,25 +52,45 @@ export class BlenderDrawer {
     const curSlicerRate = Math.round(WebBridge.getParam(ParamIdx.SlicerRate, 66));
     const curSlicerWave = Math.round(WebBridge.getParam(ParamIdx.SlicerWaveForm, 0));
 
-    let algoButtonsHtml = '';
-    BLENDER_ALGORITHMS.forEach((a) => {
-      const isAct = a.id === curBlenderType;
-      algoButtonsHtml += `
-        <button type="button" class="btn btn-xs ${isAct ? 'btn-primary active' : 'btn-outline'} btn-blender-algo" data-algo="${a.id}" title="${a.desc}">
-          ${a.id}: ${a.name}
-        </button>
-      `;
+    const algoItems = BLENDER_ALGORITHMS.map((a) => ({
+      id: String(a.id),
+      label: `${a.id}: ${a.name}`,
+      title: a.desc,
+    }));
+    const algoPillsHtml = pillSelectorHtml(algoItems, String(curBlenderType), {
+      id: 'blender-algo-group',
+      size: 'xs',
+      attrName: 'data-algo',
     });
 
-    let waveButtonsHtml = '';
-    SLICER_WAVEFORMS.forEach((w, idx) => {
-      const isAct = idx === curSlicerWave;
-      waveButtonsHtml += `
-        <button type="button" class="btn btn-xs ${isAct ? 'btn-primary active' : 'btn-outline'} btn-slicer-wave" data-wave="${idx}">
-          ${w}
-        </button>
-      `;
+    const slicerTypeItems = [
+      { id: '0', label: '0: Off' },
+      { id: '1', label: '1: 2D Vertical' },
+      { id: '2', label: '2: 3D Spatial' },
+    ];
+    const slicerTypeHtml = pillSelectorHtml(slicerTypeItems, String(curSlicerType), {
+      id: 'slicer-type-group',
+      size: 'xs',
+      attrName: 'data-type',
     });
+
+    const waveItems = SLICER_WAVEFORMS.map((w, idx) => ({
+      id: String(idx),
+      label: w,
+    }));
+    const wavePillsHtml = pillSelectorHtml(waveItems, String(curSlicerWave), {
+      id: 'slicer-wave-group',
+      size: 'xs',
+      attrName: 'data-wave',
+    });
+
+    const renderKnobCell = (mountId: string, valId: string, initialVal: number, unit = '', subLabel = '') => `
+      <div class="drawer-knob-cell" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div id="${mountId}"></div>
+        <span class="hud-value stat-num" id="${valId}" style="font-size: 11px;">${initialVal}${unit ? ' ' + unit : ''}</span>
+        ${subLabel ? `<span style="font-size: 8.5px; color: var(--color-text-muted); font-weight: 600; letter-spacing: 0.5px;">${subLabel}</span>` : ''}
+      </div>
+    `;
 
     root.innerHTML = `
       <div class="drawer-header">
@@ -90,41 +112,15 @@ export class BlenderDrawer {
             <span class="hud-pill stat-num">Param 261</span>
           </div>
 
-          <div class="blender-algo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px;">
-            ${algoButtonsHtml}
-          </div>
+          ${algoPillsHtml}
 
-          <!-- Blender Amount Fader -->
-          <div style="display: flex; align-items: center; gap: var(--space-3); background: var(--color-panel-surface); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--color-panel-border);">
-            <span class="hud-label" style="min-width: 90px;">AMOUNT [-64..+63]:</span>
-            <span style="font-size: 10px; color: var(--color-text-muted);">R1</span>
-            <input type="range" id="b-drawer-amount" class="abd-slider" min="-64" max="63" value="${curAmount}" step="1" style="flex: 1;" />
-            <span style="font-size: 10px; color: var(--color-text-muted);">R2</span>
-            <span class="hud-value stat-num" id="b-drawer-amount-val" style="min-width: 44px; text-align: right;">${curAmount}</span>
-          </div>
-
-          <!-- Blender Modulations -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
-            <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
-              <span class="hud-label">LFO DEPTH [263]:</span>
-              <input type="range" id="b-drawer-lfo-depth" class="abd-slider" min="-64" max="63" value="${curLfoDepth}" step="1" style="width: 100px;" />
-              <span class="hud-value stat-num" id="b-drawer-lfo-depth-val">${curLfoDepth}</span>
-            </div>
-            <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
-              <span class="hud-label">FREE ADSR 1 [264]:</span>
-              <input type="range" id="b-drawer-adsr1-depth" class="abd-slider" min="-64" max="63" value="${curAdsr1}" step="1" style="width: 100px;" />
-              <span class="hud-value stat-num" id="b-drawer-adsr1-depth-val">${curAdsr1}</span>
-            </div>
-            <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
-              <span class="hud-label">FREE ADSR 2 [265]:</span>
-              <input type="range" id="b-drawer-adsr2-depth" class="abd-slider" min="-64" max="63" value="${curAdsr2}" step="1" style="width: 100px;" />
-              <span class="hud-value stat-num" id="b-drawer-adsr2-depth-val">${curAdsr2}</span>
-            </div>
-            <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
-              <span class="hud-label">FREE 4L4T [266]:</span>
-              <input type="range" id="b-drawer-4l4t-depth" class="abd-slider" min="0" max="127" value="${cur4l4t}" step="1" style="width: 100px;" />
-              <span class="hud-value stat-num" id="b-drawer-4l4t-depth-val">${cur4l4t}</span>
-            </div>
+          <!-- Blender Amount & Modulations Knobs -->
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-3) 0 var(--space-1) 0; background: var(--color-panel-surface); border-radius: var(--radius-sm); border: 1px solid var(--color-panel-border-dim);">
+            ${renderKnobCell('b-amount-mount', 'b-amount-val', curAmount, '', 'R1 ◀ ▶ R2')}
+            ${renderKnobCell('b-lfo-depth-mount', 'b-lfo-depth-val', curLfoDepth)}
+            ${renderKnobCell('b-adsr1-depth-mount', 'b-adsr1-depth-val', curAdsr1)}
+            ${renderKnobCell('b-adsr2-depth-mount', 'b-adsr2-depth-val', curAdsr2)}
+            ${renderKnobCell('b-4l4t-depth-mount', 'b-4l4t-depth-val', cur4l4t)}
           </div>
         </div>
 
@@ -135,31 +131,18 @@ export class BlenderDrawer {
               <span class="panel-badge">SLICER ENGINE</span>
               <span class="panel-caption">Rhythmic Chopper & Spatial Modulator [267..270]</span>
             </div>
-            <div class="slicer-mode-bar" style="display: flex; gap: 4px;">
-              <button type="button" class="btn btn-xs ${curSlicerType === 0 ? 'btn-primary active' : 'btn-outline'} btn-slicer-type" data-type="0">0: Off</button>
-              <button type="button" class="btn btn-xs ${curSlicerType === 1 ? 'btn-primary active' : 'btn-outline'} btn-slicer-type" data-type="1">1: 2D Vertical</button>
-              <button type="button" class="btn btn-xs ${curSlicerType === 2 ? 'btn-primary active' : 'btn-outline'} btn-slicer-type" data-type="2">2: 3D Spatial</button>
-            </div>
+            ${slicerTypeHtml}
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
-            <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
-              <span class="hud-label">RATE [269]:</span>
-              <input type="range" id="s-drawer-rate" class="abd-slider" min="0" max="200" value="${curSlicerRate}" step="1" style="width: 120px;" />
-              <span class="hud-value stat-num" id="s-drawer-rate-val">${curSlicerRate}</span>
-            </div>
-            <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
-              <span class="hud-label">DEPTH [268]:</span>
-              <input type="range" id="s-drawer-depth" class="abd-slider" min="0" max="127" value="${curSlicerDepth}" step="1" style="width: 120px;" />
-              <span class="hud-value stat-num" id="s-drawer-depth-val">${curSlicerDepth}</span>
-            </div>
+          <!-- Slicer Knobs: Rate [269] y Depth [268] -->
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); justify-items: center; align-items: start; gap: var(--space-4); max-width: 280px; margin: 0 auto; padding: var(--space-3) 0 var(--space-1) 0; background: var(--color-panel-surface); border-radius: var(--radius-sm); border: 1px solid var(--color-panel-border-dim); width: 100%;">
+            ${renderKnobCell('s-rate-mount', 's-rate-val', curSlicerRate)}
+            ${renderKnobCell('s-depth-mount', 's-depth-val', curSlicerDepth)}
           </div>
 
           <div>
             <div class="hud-label" style="margin-bottom: 6px;">LFO WAVEFORM [270]:</div>
-            <div class="slicer-wave-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 4px;">
-              ${waveButtonsHtml}
-            </div>
+            ${wavePillsHtml}
           </div>
         </div>
       </div>
@@ -171,70 +154,81 @@ export class BlenderDrawer {
     });
 
     // Blender algorithm buttons
-    root.querySelectorAll('.btn-blender-algo').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const algo = parseInt(target.getAttribute('data-algo') || '0', 10);
+    const blenderAlgoContainer = root.querySelector('#blender-algo-group') as HTMLElement | null;
+    if (blenderAlgoContainer) {
+      bindPillSelector(blenderAlgoContainer, (algoStr, btn) => {
+        const algo = parseInt(algoStr || '0', 10);
         WebBridge.setParam(ParamIdx.BlenderType, algo);
-        root.querySelectorAll('.btn-blender-algo').forEach((b) => {
-          const isAct = parseInt(b.getAttribute('data-algo') || '0', 10) === algo;
-          b.classList.toggle('active', isAct);
-          b.classList.toggle('btn-primary', isAct);
-          b.classList.toggle('btn-outline', !isAct);
-        });
+        blenderAlgoContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
         const descEl = root.querySelector('#blender-algo-desc');
         if (descEl) descEl.textContent = BLENDER_ALGORITHMS[algo]?.desc || '';
-      });
-    });
+      }, 'data-algo');
+    }
 
     // Slicer mode buttons
-    root.querySelectorAll('.btn-slicer-type').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const type = parseInt(target.getAttribute('data-type') || '0', 10);
+    const slicerTypeContainer = root.querySelector('#slicer-type-group') as HTMLElement | null;
+    if (slicerTypeContainer) {
+      bindPillSelector(slicerTypeContainer, (typeStr, btn) => {
+        const type = parseInt(typeStr || '0', 10);
         WebBridge.setParam(ParamIdx.SlicerSwitchType, type);
-        root.querySelectorAll('.btn-slicer-type').forEach((b) => {
-          const isAct = parseInt(b.getAttribute('data-type') || '0', 10) === type;
-          b.classList.toggle('active', isAct);
-          b.classList.toggle('btn-primary', isAct);
-          b.classList.toggle('btn-outline', !isAct);
-        });
-      });
-    });
+        slicerTypeContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+      }, 'data-type');
+    }
 
     // Slicer wave buttons
-    root.querySelectorAll('.btn-slicer-wave').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const target = e.currentTarget as HTMLElement;
-        const wave = parseInt(target.getAttribute('data-wave') || '0', 10);
+    const slicerWaveContainer = root.querySelector('#slicer-wave-group') as HTMLElement | null;
+    if (slicerWaveContainer) {
+      bindPillSelector(slicerWaveContainer, (waveStr, btn) => {
+        const wave = parseInt(waveStr || '0', 10);
         WebBridge.setParam(ParamIdx.SlicerWaveForm, wave);
-        root.querySelectorAll('.btn-slicer-wave').forEach((b) => {
-          const isAct = parseInt(b.getAttribute('data-wave') || '0', 10) === wave;
-          b.classList.toggle('active', isAct);
-          b.classList.toggle('btn-primary', isAct);
-          b.classList.toggle('btn-outline', !isAct);
-        });
-      });
-    });
+        slicerWaveContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+      }, 'data-wave');
+    }
 
-    // Sliders
-    const bindSlider = (id: string, paramId: number, valId: string) => {
-      const slider = root.querySelector(`#${id}`) as HTMLInputElement | null;
-      const valDisplay = root.querySelector(`#${valId}`);
-      slider?.addEventListener('input', () => {
-        const val = parseFloat(slider.value);
-        if (valDisplay) valDisplay.textContent = String(val);
-        WebBridge.setParam(paramId, val);
+    // Helper para inicialización de Knobs
+    const initKnob = (
+      mountId: string,
+      label: string,
+      initVal: number,
+      min: number,
+      max: number,
+      paramId: number,
+      valId: string,
+      isBipolar = false,
+      unit = ''
+    ) => {
+      const mount = root.querySelector(`#${mountId}`);
+      if (!mount) return;
+      const range = max - min;
+      const normInit = range > 0 ? (initVal - min) / range : 0;
+      const valEl = root.querySelector(`#${valId}`);
+
+      new Knob(mount as HTMLElement, {
+        size: 40,
+        label,
+        value: normInit,
+        bipolar: isBipolar,
+        onChange: (normVal: number) => {
+          const actualVal = Math.round(min + normVal * range);
+          WebBridge.setParam(paramId, actualVal);
+          if (valEl) valEl.textContent = `${actualVal}${unit ? ' ' + unit : ''}`;
+        },
       });
     };
 
-    bindSlider('b-drawer-amount', 262, 'b-drawer-amount-val');
-    bindSlider('b-drawer-lfo-depth', 263, 'b-drawer-lfo-depth-val');
-    bindSlider('b-drawer-adsr1-depth', 264, 'b-drawer-adsr1-depth-val');
-    bindSlider('b-drawer-adsr2-depth', 265, 'b-drawer-adsr2-depth-val');
-    bindSlider('b-drawer-4l4t-depth', 266, 'b-drawer-4l4t-depth-val');
-    bindSlider('s-drawer-rate', 269, 's-drawer-rate-val');
-    bindSlider('s-drawer-depth', 268, 's-drawer-depth-val');
+    // Card 1 Knobs: Blender Fusion
+    initKnob('b-amount-mount', 'AMOUNT [262]', curAmount, -64, 63, ParamIdx.BlenderAmount, 'b-amount-val', true);
+    initKnob('b-lfo-depth-mount', 'LFO DEP [263]', curLfoDepth, -64, 63, ParamIdx.BlenderLfoDepth, 'b-lfo-depth-val', true);
+    initKnob('b-adsr1-depth-mount', 'ADSR 1 [264]', curAdsr1, -64, 63, ParamIdx.BlenderFreeADSR1Depth, 'b-adsr1-depth-val', true);
+    initKnob('b-adsr2-depth-mount', 'ADSR 2 [265]', curAdsr2, -64, 63, ParamIdx.BlenderFreeADSR2Depth, 'b-adsr2-depth-val', true);
+    initKnob('b-4l4t-depth-mount', '4L4T [266]', cur4l4t, 0, 127, ParamIdx.BlenderFree4L4TDepth, 'b-4l4t-depth-val', false);
+
+    // Card 2 Knobs: Slicer Engine
+    initKnob('s-rate-mount', 'RATE [269]', curSlicerRate, 0, 200, ParamIdx.SlicerRate, 's-rate-val', false);
+    initKnob('s-depth-mount', 'DEPTH [268]', curSlicerDepth, 0, 127, ParamIdx.SlicerDepth, 's-depth-val', false);
 
     return root;
   }

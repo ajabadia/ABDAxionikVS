@@ -205,11 +205,11 @@ export class BankDrawer {
       <!-- Target Resynator Selector (visible on Models tab) -->
       <div id="ndb-target-resynator-row" style="display: ${this.activeTab === 'models' ? 'flex' : 'none'}; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: var(--color-panel-surface); border-bottom: 1px solid var(--color-panel-border-dim);">
         <span class="hud-label" id="ndb-target-label" style="font-size: 10px; font-weight: 700; color: var(--color-text-muted);">ASSIGN TARGET:</span>
-        <div class="ndb-chips-row" id="ndb-target-chips" style="gap: var(--space-2); margin: 0; padding: 0;">
-          <button type="button" class="ndb-chip ${this.preferredResynator === 1 ? 'active' : ''}" id="btn-target-r1" style="padding: 2px 10px; font-size: 10px;">
+        <div class="abd-pill-group" id="ndb-target-chips" style="gap: var(--space-2); margin: 0; padding: 0;">
+          <button type="button" class="abd-pill abd-pill--sm ${this.preferredResynator === 1 ? 'active' : ''}" id="btn-target-r1">
             Resynator 1 (R1)
           </button>
-          <button type="button" class="ndb-chip ${this.preferredResynator === 2 ? 'active' : ''}" id="btn-target-r2" style="padding: 2px 10px; font-size: 10px;">
+          <button type="button" class="abd-pill abd-pill--sm ${this.preferredResynator === 2 ? 'active' : ''}" id="btn-target-r2">
             Resynator 2 (R2)
           </button>
         </div>
