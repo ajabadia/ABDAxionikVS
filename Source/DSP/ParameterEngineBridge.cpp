@@ -146,7 +146,7 @@ void ParameterEngineBridge::initModulationRouting() {
         observerMap_[102] = ObserverContext{ 0, -1, -1, 0.00f, 1.00f };
     }
     if (102 < kNumTotalParameters) {
-        observerMap_[102] = ObserverContext{ 0, -1, -1, 0.00f, 1.00f };
+        observerMap_[102] = ObserverContext{ 0, -1, -1, 400.00f, 480.00f };
     }
     if (3 < kNumTotalParameters) {
         observerMap_[3] = ObserverContext{ 0, 0, -1, -1.00f, 1.00f };

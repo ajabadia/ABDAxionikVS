@@ -9,6 +9,16 @@ REM Cerrar instancias en ejecucion para liberar el lock de enlace en disco
 taskkill /F /IM ABDAxionikVS.exe /T 2>nul
 taskkill /F /IM "ABDAxionikVS WebPilot Host.exe" /T 2>nul
 
+REM Asegurar que node y npx estan en PATH si el entorno no los cargo por omision
+where node >nul 2>nul
+if %ERRORLEVEL% neq 0 (
+    if exist "%LOCALAPPDATA%\nvm\v24.21.0\node.exe" (
+        set "PATH=%LOCALAPPDATA%\nvm\v24.21.0;%PATH%"
+    ) else if exist "C:\Program Files\nodejs\node.exe" (
+        set "PATH=C:\Program Files\nodejs;%PATH%"
+    )
+)
+
 echo [1/5] Generando registros y contratos canonicos...
 node Scripts/registry_generator.js
 if %ERRORLEVEL% neq 0 (
@@ -37,8 +47,8 @@ if %ERRORLEVEL% neq 0 (
     goto error_exit
 )
 
-echo [5/5] Compilando Standalone, VST3 y WebPilotHost...
-cmake --build build --config Release --target ABDAxionikVS_Standalone ABDAxionikVS_VST3 ABDAxionikVS_WebPilot --parallel
+echo [5/5] Compilando Standalone, VST3, WebPilotHost y GoldenParityTest...
+cmake --build build --config Release --target ABDAxionikVS_Standalone ABDAxionikVS_VST3 ABDAxionikVS_WebPilot GoldenParityTest --parallel
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Fallo en la compilacion de los binarios nativos.
     goto error_exit
@@ -49,6 +59,7 @@ echo  [EXITO] Compilacion completada con exito!
 echo  Standalone: build\ABDAxionikVS_artefacts\Release\Standalone\ABDAxionikVS.exe
 echo  VST3:       build\ABDAxionikVS_artefacts\Release\VST3\ABDAxionikVS.vst3
 echo  WebPilot:   build\Release\ABDAxionikVS_WebPilot.exe
+echo  GoldenTest: build\Release\GoldenParityTest.exe
 echo =======================================================
 
 if "%1"=="nopause" exit /b 0

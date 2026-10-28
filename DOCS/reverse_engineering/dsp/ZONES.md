@@ -196,6 +196,113 @@ Consecuencia práctica para el porte: **la tabla es estado derivado**. No hay
 que inventariar las 128 entradas de un `.model`, basta con reproducir el
 banco (zona por tecla) y escribir las 128 copias cuando cambie el modelo.
 
+### La condición del relleno (Resolución de los 106 presets vacíos)
+
+Se ha investigado y verificado a nivel de bytes en el PE de `NeuronVS.dll` por qué 320 de los 351 presets dejan las tablas de zonas a cero en el arnés de prueba, incluyendo 106 presets que cuentan con sus dos modelos completos en el banco extraído:
+
+1. **El disparo es incondicional**:
+   El cargador del script `FUN_10013ea0` cierra cada parámetro invocando `FUN_10001170(valor, 6, 0)`. La máscara `6` lleva encendidos el bit 1 (todos los observadores hijos) y el **bit 2**, que en `FUN_10001550` **salta el test de «el valor cambió»**. Por tanto, el observador `0x10013620` se ejecuta incondicionalmente en cada carga de preset, cambie o no `R1ModellIndex` o `R2ModellIndex`. Inmediatamente antes de esto, `FUN_10046ce0` pone a cero (`memset 0`) ambas tablas de zonas.
+
+2. **La guarda del callback (`0x100136D8`)**:
+   ```c
+   piVar8 = FUN_1000a7d0(iVar4);
+   if (piVar8 != 0) { ... }  // je en 0x100136D8
+   ```
+   Si `FUN_1000a7d0` devuelve nulo (`0`), el callback omite por completo la escritura de los 6 registros de control y las 128 notas de esa capa. La capa se queda con los ceros recién escritos por `FUN_10046ce0`.
+
+3. **Causa raíz: Búsqueda del modelo en el registro de Windows de 32 bits**:
+   `NeuronVS.dll` no busca los modelos en `--db` ni en el directorio de trabajo (CWD), sino componiendo la ruta mediante `FUN_10001750` a partir del valor de registro:
+   `HKLM\SOFTWARE\Wow6432Node\Hartmann Music\NeuronVS -> NeuronDB`
+   En la máquina de prueba, este valor apuntaba a `C:\Program Files (x86)\Hartmann Music\NeuronVS\NeuronDB`, donde el instalador original sólo dejó instalado un único modelo: **`511.model`**.
+
+4. **Desglose exacto de los 351 presets en la DLL original**:
+   - **2 presets con 1536 dwords** (768 + 768 dwords, ambas capas rellenas): Presets 176 y 337, donde `R1 = R2 = 511`.
+   - **29 presets con 768 dwords** (exactamente una capa rellena con `root 69`, la otra en 0): Presets donde sólo un resonador usa el modelo 511.
+   - **320 presets con 0 dwords**: Presets cuyos modelos no están presentes en la ruta del registro HKLM del host. De estos 320:
+     - **106 presets** tienen sus dos modelos completos en la biblioteca `NeuronDB` (341 modelos) y se rellenan al 100% cuando el motor lee de la biblioteca correcta.
+     - **214 presets** corresponden a modelos que no venían en la instalación original o faltaban de fábrica.
+
+En **`ABDAxionikVS`**, nuestro motor desacoplado no depende de claves de registro obsoletas de Windows de 32 bits: resuelve los modelos a través de `NeuronBankAdapter` desde el directorio canónico `NeuronDB` o embebido (`511`), rellenando de forma robusta las zonas de teclado para todos los modelos disponibles.
+
+## 4.3 El cambio en caliente y los descriptores
+
+Cambiar de preset o de modelo con notas sonando pasa por dos caminos distintos
+y ninguno de los dos libera ni realoja un descriptor. La cadena de cada uno:
+
+| Camino | Entrada | Lo que corre, en orden |
+|---|---|---|
+| preset | `FUN_100132d0` (`0x1000b7f0`, caso `0xc0`) | `FUN_10046ce0` → `FUN_10013ea0` → `FUN_10013ac0` → `FUN_10040550` |
+| modelo | `callback_10013620` (observador de `R1ModellIndex`/`R2ModellIndex`) | `FUN_10046b70` → 128 × `FUN_100440d0` → `FUN_1003d780` → `FUN_10040550` |
+
+### Lo primero que hacen las dos: el barrido de `+0x40`
+
+`FUN_100440d0`, `FUN_10046b70` y `FUN_10046ce0` empiezan igual: recorren los
+128 slots (`0x70` B de paso, hasta `0x3800`) y escriben **0** en `+0x40`.
+Detrás viene el bloque que apagaría las voces vivas —pone a cero el primer y
+el tercer `undefined4` de `*([R1|R2]+0x150)`, enciende `+0x6835` y desata el
+descriptor (`+0x44`, `+0x40` y `+0x58` a 0)—, pero su condición vuelve a mirar
+`+0x40 != 0`, que el barrido acaba de borrar: **no entra nunca**. Es el mismo
+apagado de voces muerto que aparece en §4 y en §7, y por eso el porte no tiene
+que reproducirlo: basta con el barrido y con apagar `0xD99` mientras se
+escribe la tabla.
+
+### Lo que se mide en proceso
+
+`neuron_golden --translate` imprime el testigo antes y después de cada cambio
+(y lo comprueba: si el array o los dos motores de la voz atada cambiaran, la
+pasada falla). El testigo son el puntero del array, cuántos descriptores están
+atados a este motor y cuál es el primero, su byte `+0x40`, los dos motores
+R1/R2 de ese descriptor con su puerta `+0x6820`, los bytes de estado y cuántos
+dwords de las dos tablas de zonas no son cero. Con el preset 176 (`R1 = R2 =
+511`) y la voz de la nota 60 viva, el cambio de preset a 285 da esto:
+
+```text
+  antes: e[0xD94]=01748F1C atados=1 [slot 0 +0x40=1] (en construccion 1) R1=0174C908 R2=01753A38 puertas 1/1  0xD98=1 0xD99=1 0xDA4=0.628906 0xDAC=1  zonas=1536
+  despues: e[0xD94]=01748F1C atados=1 [slot 0 +0x40=0] (en construccion 0) R1=0174C908 R2=01753A38 puertas 1/1  0xD98=1 0xD99=1 0xDA4=0.5 0xDAC=1  zonas=768
+  el cambio de preset no reasigna e[0xD94] ni los motores de la voz atada
+```
+
+Lo que dice el testigo, pasada por pasada:
+
+- **`e[0xD94]` no se reasigna con el preset ni con el modelo**: el array de 129
+  descriptores es el mismo objeto. Las tres funciones lo leen y ninguna lo
+  escribe, y el camino del preset tampoco (chequeo estático en
+  `verify_zones.py`).
+- **La voz que suena conserva su descriptor y sus dos motores**: el mismo slot,
+  los mismos `+0x68`/`+0x6C` y las puertas `+0x6820` = 1/1 antes y después.
+  Como la tabla de 128 entradas se lee **al construir la voz** (§6.3),
+  reescribirla no cambia lo que ya suena: lo oyen las notas siguientes.
+- **El barrido deja el slot ocupado marcado como libre**: el slot 0 pasa de
+  `+0x40 = 1` a `+0x40 = 0` mientras la voz sigue sonando. Es el precio del
+  barrido; el `en construccion` del testigo cuenta cuántos slots quedan con
+  `+0x40 != 0`.
+- **El preset borra las dos tablas de zonas y el modelo reescribe una**: el
+  cambio de preset las deja a cero (2 × 0x500 dwords) y quien las vuelve a
+  llenar después es el callback del modelo, con los modelos que el motor tenga
+  cargados (768 dwords por capa llena, 1536 las dos; es lo que se ve arriba al
+  pasar a 285). El cambio de modelo reescribe **sólo su capa**, tecla a tecla, y
+  no toca la otra.
+- **El preset reinicia las globales de morph y el modelo no**: `0xDA4` vuelve a
+  0.5 (el bend al centro, y eso sí lo oye la voz que suena), `0xDAC` a 1.0 y
+  los ocho contadores `0x365C..0x3678` a cero; `FUN_10046b70` no escribe
+  ninguna de esas direcciones (chequeo estático).
+- **`0xD99` está apagado durante todo el cambio** y lo vuelve a encender
+  `FUN_10040550` al final, así que ninguna nota entra a media escritura;
+  `0xD98` (la puerta del motor) no se toca.
+
+### `FUN_10013ea0`: el cargador del script
+
+El paso intermedio del camino del preset lee `Sounds/%03d/sound.script` a un
+*buffer* temporal de `count` floats (`soundData+8` = los 445 registros), lo
+suelta y, en medio, escribe cada valor con el único escritor de `+0x1c`
+(`FUN_10001170`): un barrido con máscara 0 —que no avisa a nadie— y otro con
+máscara 6, que sí recorre los observadores del registro (el puntero de origen
+es nulo, así que ninguno queda excluido) aunque el valor no cambie. No toca
+descriptores ni tablas, no llama al traductor y no llama a los observadores
+por su cuenta (chequeos estáticos): de eso se encargan `FUN_10046ce0` antes y
+`FUN_10013ac0` + `FUN_10040550` después. Es la razón de que el porte tenga que
+reproducir la cadena entera y no la función suelta.
+
 ## 5. La entrada de 40 B, campo a campo
 
 Volcado real de `neuron_golden --zones` con el preset 176 (`R1 = R2 = 511`),
@@ -408,6 +515,188 @@ vuelve a comprobar **su propia** puerta al entrar (`0x10032983`), además de
 `params[0] != 0`. Consecuencia: si R1 está apagado y R2 encendido, la nota suena
 sólo por R2 y sin el bloque de modulación; apagar R1 no silencia a R2.
 
+### 6.5 Dónde se suman R1 y R2: `FUN_1002e7a0` y los dos buses
+
+El render del bloque es `FUN_100382b0` («el orquestador», 3.648 B): lo llama el
+bombeo `0x1000bc40` dos veces por vuelta (`0x1000bcfb` y `0x1000bd97`) con los
+dos canales de salida del host y bloques de **128** muestras (`0x1030f6e8` =
+128). La convención es `__thiscall` sobre el **engine**: `0x100382da` hace
+`mov ecx,[ecx]` y guarda el estado en `[ebp-0x140]`; exige `engine+0xD98` y
+`engine+0xD99`, y en la propia entrada **borra 128 dwords (512 B) en cada uno de
+los dos buses** (`0x10038333` y `0x10038342`, dos `mov ecx,0x80; rep stosd`).
+Los dos buses son los argumentos: bus A (`channels[0]`) → `[ebp-0x13c]`
+(`0x1003839a`) y bus B (`channels[1]`) → `[ebp-0xf4]` (`0x10038321`).
+
+Dentro del bucle de voces (`engine+0xDA0` es la cuenta, `engine+0xD94` el array
+de descriptores de `0x70` B) el registro que decide la mezcla es la **voz**, y
+sus cuatro desplazamientos útiles son estos:
+
+| Campo | Quién lo lee | Qué es |
+|---|---|---|
+| `voz+0x18` | `FUN_1003d6e0` (`mov eax,[ecx+0x18]`) | selector de rama: 0 = rama del mezclador, ≠0 = rama sin mezclador |
+| `voz+0x60` | `FUN_1003d6c0` (`fld [ecx+0x60]`) | peso 1 → multiplica a **R2** |
+| `voz+0x64` | `FUN_1003d6d0` (`fld [ecx+0x64]`) | peso 2 → multiplica a **R1** |
+| `voz+0x68` | `0x10038411` `mov esi,[eax+edx+0x68]` | motor **R1** (banco `engine+0x284`) |
+| `voz+0x6C` | `0x10038415` `mov edi,[eax+edx+0x6c]` | motor **R2** (banco `engine+0x80C`) |
+
+(el mismo bloque guarda los dos punteros en `[ebp-0x130]`/`[ebp-0x134]`, que son
+los que viajan a la llamada). Otros dos campos del registro entran también en la
+cuenta: `voz+0x10` es el **morph por voz** (`0x1003a21a`, se multiplica por
+`engine+0x44` y se suma `engine+0x40`) y `voz+0x4C`/`voz+0x54` sólo los usan los
+modos 6…9 como recorte y escala.
+
+El par de pesos va **cruzado** respecto a los motores: el que multiplica la
+salida de R1 (`+0x68`) es `+0x64`, y el que multiplica la de R2 (`+0x6C`) es
+`+0x60`. No es una errata de esta nota: en el caso 0 del mezclador
+(`0x1002effe`…`0x1002f026`) se ve `fld qword [ebp-0x78]` (R1) `fmul qword
+[ebp-0x68]` (peso 2 = `+0x64`) y `fld qword [ebp-0x70]` (R2) `fmul qword
+[ebp-0x60]` (peso 1 = `+0x60`); y en los valores por defecto de un motor muerto
+el peso que cae a 1e-8 es el del motor que falla (§ más abajo).
+
+El sitio de llamada, con los ocho huecos de pila (`add esp,-0x20`) y ECX = engine:
+
+```asm
+1003b43a  fld  qword [ebp-0x110]        ; = FUN_1003d6c0(voz) = voz+0x60
+1003b44c  fstp dword [esp+0x10]         ; arg5: peso 1 (R2)
+1003b450  fld  qword [ebp-0x118]        ; = FUN_1003d6d0(voz) = voz+0x64
+1003b462  fstp dword [esp+0x14]         ; arg6: peso 2 (R1)
+1003b456  mov  eax,[ebp-0x130]          ; motor R1 (voz+0x68)
+1003b46c  mov  [esp+4],eax              ; arg2
+1003b45c  mov  edx,[ebp-0x134]          ; motor R2 (voz+0x6C)
+1003b476  mov  [esp+8],edx              ; arg3
+1003b466  mov  ecx,[ebp-0x144]          ; *engine = modo
+1003b480  mov  [esp+0xc],ecx            ; arg4
+1003b484  mov  ecx,[ebp-0x138]          ; la voz (descriptor)
+1003b48e  mov  [esp],ecx                ; arg1
+1003b491  mov  ecx,[ebp-0x140]          ; this = engine
+1003b49b  call 0x1002e7a0
+```
+
+Los dos acumuladores son locales del render: `[ebp-0x1d4]` (arg7) y `[ebp-0x1d0]`
+(arg8), y el modo es **`*engine`** con una sola indirección (`0x1003a296`
+`mov eax,[eax]` desde el estado).
+
+#### `FUN_1002e7a0`: un caso por modo
+
+El mezclador es `__thiscall` sobre el engine (su primera instrucción útil prueba
+`[ecx+0xD98]`, `0x1002e7ba`) y limpia **0x20 B** (`ret 0x20` en `0x1002e7d8`):
+this + ocho argumentos. Los dos pesos entran como `qword` y se guardan en
+`[ebp-0x60]` = arg5 (`voz+0x60`) y `[ebp-0x68]` = arg6 (`voz+0x64`); los dos
+motores, en `[ebp-0x18]` (arg2 = R1) y `[ebp-0x1a0]` (arg3 = R2). El despacho es
+un salto sobre la tabla de diez entradas de `0x1030bb04`, indexada por arg4:
+
+```asm
+1002e87e  mov  eax,[ebp+0x14]          ; arg4 = *engine
+1002e881  cmp  eax,9
+1002e884  ja   0x1002f1b7             ; fuera de 0..9: sale sin tocar los acumuladores
+1002e896  mov  eax,[eax*4+0x1030bb04]
+1002e8a8  jmp  eax
+```
+
+| Modo | Cuerpo | Qué escribe en los dos acumuladores |
+|---|---|---|
+| 0 | `0x1002e8aa` | `R1×peso2 + R2×peso1` (la suma de los dos motores, en los dos) |
+| 1 | `0x1002f02b` | **reparto**: `R1×peso2` en el 1º y `R2×peso1` en el 2º |
+| 2 | `0x1002f0ea` | una sola cifra (dos lecturas ponderadas y sumadas dentro de la cifra) |
+| 3 | `0x1002f0f8` | suma de dos términos, uno por motor |
+| 4 | `0x1002f106` | una cifra de cruce entre las dos lecturas |
+| 5 | `0x1002f114` | una cifra ponderada más un segundo término |
+| 6 | `0x1002f156` | una cifra, con recorte por `voz+0x4C` |
+| 7 | `0x1002f161` | suma de dos términos |
+| 8 | `0x1002f17b` | como 7, con `peso1 ×= voz+0x54` |
+| 9 | `0x1002f192` | suma de dos términos, con el mismo `voz+0x54` |
+
+En los diez, las **dos asignaciones finales son la misma expresión** salvo en el
+modo 1: el mezclador sólo distingue los dos acumuladores en el reparto. (Ese par
+es la *entrada* de la etapa por voz: el render lo sustituye por el retorno de
+`FUN_1003d6f0` salvo en el modo 1, ver más abajo.) Lo que
+cambia de un modo a otro es el juego de lecturas por motor — `FUN_100317b0`
+(el `CurveReader`: fase en `motor+4`, incremento en `+0x15C`, tabla en `+0x6414`)
+una o dos veces, `FUN_10031950` (el `BandReader`) y el contador `motor+0x16C` —
+siempre contra el par de pesos `+0x60`/`+0x64`. La contribución de cada motor es
+`lector(curva) × volumen del motor` (`[motor+0x150]+0x20`, leído al entrar).
+
+Los dos pesos no son fijos: si a un motor le falta `+0x6834` (par `.scape`/
+`.sphere` compatible) o `+0x6836`, el par se sustituye por los valores por
+defecto de `0x1030bb2c` (1.0) y `0x1030bb30` (**1e-8**) — y **cada motor apaga el
+suyo**, no el del otro: R1 muerto deja `peso1 = 1.0` y `peso2 = 1e-8`; R2 muerto,
+al revés. Ese 1e-8 es el mismo «casi-cero» con el que el render inicializa los
+acumuladores (`DAT_100550d0 = (rand() × 6.1037e-05 − 1.0) × 1e-08`, calculado en
+la entrada del render con `0x10021518` = thunk de `rand`): silencio con dither,
+no un cero.
+
+#### La suma que acaba en los buses
+
+Vuelto de la llamada, el render hace la cuenta que de verdad llega a la salida:
+
+```asm
+1003b4a0  fld  dword [ebp-0x1d0]        ; acumulador 2
+1003b4a6  fadd dword [ebp-0x1d4]        ; + acumulador 1
+1003b4ac  fmul dword [0x1030cef4]       ; × 0.5 = la media
+1003b4cc  call 0x1003d6f0               ; FUN_1003d6f0(voz, engine, media)
+1003b4d4  mov  eax,[ebp-0x144]          ; modo
+1003b4da  cmp  eax,1
+1003b4dd  je   0x1003b4eb              ; modo 1: se conserva el reparto
+1003b4df  fst  dword [ebp-0x1d0]        ; si no: los dos = retorno de la etapa
+1003b4e5  fst  dword [ebp-0x1d4]
+1003b4ed  fld  qword [ebp-0x120]        ; W
+1003b4f3  fmul dword [ebp-0x1d0]
+1003b4f9  fld  qword [ebp-0x128]        ; 1 − W
+1003b4ff  fmul dword [ebp-0x1d4]
+1003b507  fstp dword [ebp-0x1d0]        ; = W × acumulador 2
+1003b50d  fst  dword [ebp-0x1d4]        ; = (1-W) × acumulador 1
+1003b519  fadd dword [eax + esi*4 + 0x200]   ; bus A += (1-W) × acumulador 1
+1003b52d  fld  dword [edi + esi*4 + 0x200]
+1003b534  fadd dword [ebp-0x1d0]             ; bus B += W × acumulador 2
+```
+
+`FUN_1003d6f0` es la etapa por voz colgada de `engine+0x27C` (usa el buffer de
+`0x19` dwords en `voz+0x30` y se salta si `[engine+4] < 0x1030d9f8`); sólo el
+**modo 1** descarta su retorno. Así que, en cifras:
+
+- modo 1: **bus A += (1−W)·R1·peso2** y **bus B += W·R2·peso1**;
+- modos 0 y 2…9: los dos acumuladores se sustituyen por el retorno de la etapa
+  (que recibe la media como argumento), así que los dos buses reciben el
+  **mismo** valor: ×(1−W) en A y ×W en B.
+
+Los dos pesos globales salen del morph: `W = clamp(engine+0x44·voz+0x10 +
+engine+0x40, −1, +1)·0.5 + 0.5`, acotado a 1.0, y `1−W` calculado contra 1.0
+(`0x1030cec0`/`0x1030cec4` = ±1.0, `0x1030cec8`/`0x1030cecc` = 0.5,
+`0x1030ced0` = 1.0, `0x1030ced4`/`0x1030ced8` = 1.0, `0x1030cedc`/`0x1030cee0` =
+1.0). Con `W` y `1−W` complementarios, morphear de un extremo al otro cruza **R1
+(canal A) → R2 (canal B)** en el modo 1, y en los demás modula la misma señal en
+los dos canales.
+
+#### Los buffers: la ranura es la base, no `+0x200`
+
+La instrucción dice `[eax+esi*4+0x200]` y `[edi+esi*4+0x200]`, pero el contador
+del bloque arranca en **−0x80** (`0x1003b380` `mov esi,0xffffff80`, `inc esi` /
+`jne` en `0x1003b546`) y va subiendo hasta −1: el `+0x200` de la codificación
+es un plegado del compilador y la ranura real es `(esi+0x80)`, es decir
+**base + 0…+0x1FF** del objeto — exactamente el bloque de 128 dwords que la
+entrada borra y el que el bombeo lee después para pasarlo a las salidas del host
+(con el saneado de NaN/inf de `0x1000bd31`). No hay un segundo buffer a
+`+0x200`: el «buffer +0x200» que aparecía antes en las notas es esta cuenta.
+
+Con las voces ya sumadas, el cierre del bloque no toca la suma: si alguna voz
+tiene `voz+0x18 == 1` llama a `FUN_10029530(engine+0x3658, 0x80, busA, busB)`
+(`0x1003a3e4`), luego escala **los dos** buses por el doble **24.0**
+(`0x1030cdc0`/`0x1030cdc8`, con un desplazamiento de una muestra en el bus B) y
+pasa el par por `FUN_100295d0` y `FUN_10029e34` (0x80 muestras cada una,
+`0x1003a48e` y `0x1003a4bf`). Esa cadena y el lazo de estado `engine+0x3658`…
+`engine+0x3678` que viene después ya son la etapa de salida, no el mezclador.
+
+#### Lo que esto corrige de lo anterior
+
+1. **Los buffers no están a `+0x200`** (§ arriba): índice de −0x80 a −1.
+2. **Una muestra por motor y por ranura**, no cinco submuestras: el mezclador
+   llama a `FUN_100317b0` una o dos veces por motor y por llamada, y las 128
+   ranuras del bloque son las 128 muestras de salida que verá el host.
+3. **El par `+0x60`/`+0x64` va cruzado** con `+0x68`/`+0x6C`.
+4. El «render por capa» del rango `0x10039xxx` (`FUN_10039100` y compañía) no es
+   el que mezcla: el que mezcla es **`FUN_100382b0`** con `FUN_1002e7a0` dentro.
+   Aquellas funciones recorren el mismo array pero no llaman al mezclador.
+
 ## 7. Lo que queda abierto
 
 - **Pan**: se parsea y se guarda en el registro (`+0x2c`), pero no entra en la
@@ -415,12 +704,20 @@ sólo por R2 y sin el bloque de modulación; apagar R1 no silencia a R2.
 - **`+0x18`**: el consumidor lo usa, pero `FUN_100440d0` siempre lo pone a 0.
   Si en el diseño original existía un "fine tune" por zona, este camino no lo
   rellena.
-- **¿Dónde se suman R1 y R2?** Ya está claro que son dos motores del mismo
-  voice y que cada uno se inicializa con su tabla y su bloque de parámetros
-  (§6.1), pero no se ha trazado todavía la mezcla: el render por capa parece
-  estar en las funciones del rango `0x10039xxx` (`FUN_10039100`,
-  `FUN_10039320`, `FUN_10039540`, `FUN_100396f0`) que recorren el mismo array
-  con `engine+0xDA0` como cuenta. Falta ver dónde acaban las dos salidas.
+- **Quién escribe el modo `*engine`.** El mezclador baraja diez casos con el
+  primer dword del estado (§6.5), pero no se ha trazado qué camino del preset o
+  de la UI lo deja en 0…9, ni qué escena corresponde a cada caso (el 1 es el
+  único que reparte R1/R2 entre los dos canales; los otros nueve escriben la
+  misma cifra en los dos acumuladores).
+- **Quién escribe `voz+0x60`/`+0x64`.** Se leen con `FUN_1003d6c0`/`FUN_1003d6d0`
+  y son los pesos por motor del mezclador, pero no se ha encontrado el escritor:
+  no están en el bloque de 0x588 B ni en la tabla de 128 entradas.
+- **El modo 1 llama igual a `FUN_1003d6f0`** (la etapa por voz de
+  `engine+0x27C`) y luego descarta su retorno (`0x1003b4dd`). No se sabe si la
+  etapa se usa como calentamiento a propósito o es un resto del diseño.
+- **`FUN_10029530` / `FUN_100295d0` / `FUN_10029e34`.** Son el cierre del bloque
+  (0x80 muestras sobre los dos buses) y quedan sin desmenuzar, igual que la
+  escala de 24.0 y el desplazamiento de una muestra del bus B.
 - **Los 5 campos que no siguen la regla +70.** En 42 de los 47 campos con `p[N]`
   literal en las dos capas, R2 usa `p[N+70]`; en 4 la diferencia es +30 y en 1
   es 0. No se ha identificado el criterio de esas excepciones.
@@ -436,6 +733,7 @@ sólo por R2 y sin el bloque de modulación; apagar R1 no silencia a R2.
   voces a medio construir, pero como el flag `+0x40` se limpia antes de
   mirarlo, quedó inerte. No hace falta reproducirlo: el porte sólo necesita
   liberar los slots al cambiar de modelo y apagar `0xD99` mientras escribe.
+  §4.3 cuenta qué implica con notas sonando y cómo se mide.
 
 ## 8. Cómo se comprueba
 
@@ -443,10 +741,60 @@ Estático (no necesita el DLL):
 
 ```text
 python NeuronVS_dsp/tools/verify_zones.py
-101/101 comprobaciones OK
+121/121 comprobaciones OK
+
+python NeuronVS_dsp/tools/verify_r1r2_mix.py
+53/53 comprobaciones OK
 ```
 
-Con `-v` lista las 101. Las que sostienen esta nota:
+El primero cubre el camino modelo → tabla → call site de la voz; el segundo, la
+suma R1/R2 de §6.5 (entrada del render, registro de voz, mezclador, buses). Con
+`-v` los dos listan cada comprobación. Las que sostienen §6.5:
+
+```text
+ok  FUN_100382b0: [ebp-0x140] = [ecx]  (this = engine)
+ok  arg3 (bus B) -> [ebp-0xf4] / arg2 (bus A) -> [ebp-0x13c]
+ok  la entrada borra 128 dwords (512 B) en cada bus
+ok  un solo call a FUN_1002e7a0, en FUN_100382b0 (0x1003b49b)
+ok  arg1 = descriptor y this = ECX = engine
+ok  arg2 = [ebp-0x130] (motor R1) y arg3 = [ebp-0x134] (motor R2)
+ok  voz+0x68 y voz+0x6C (los dos motores) salen del registro a esos locales
+ok  arg5 = voz+0x60 y arg6 = voz+0x64 (los dos pesos)
+ok  FUN_1003d6c0 = fld [ecx+0x60] / FUN_1003d6d0 = fld [ecx+0x64]
+ok  si voz+0x18 == 0 va a la rama del mezclador (0x1003b380)
+ok  switch sobre arg4 = *engine, 10 casos via 0x1030bb04
+ok  la tabla apunta a los diez cuerpos de caso
+ok  los valores por defecto de un motor muerto son (1.0, 1e-8) y (1e-8, 1.0)
+ok  caso 0: R1 x peso2 (+0x64) y R2 x peso1 (+0x60), sumados en los dos
+ok  caso 1: R1 x peso2 en un acumulador y R2 x peso1 en el otro
+ok  cada motor aporta su lectura de curva (FUN_100317b0)
+ok  solo en el modo 1 se conservan los dos valores
+ok  bus A += (1-W)*acumulador1 y bus B += W*acumulador2
+ok  el indice del bloque va de -0x80 a -1: el +0x200 es un plegado
+ok  W = morph*0.5 + 0.5 y 1-W = 1.0 - W, con las constantes del PE
+ok  el cierre: 0x10029530, la escala 24.0 y 0x100295d0 / 0x10029e34
+ok  DAT_100550d0 = (rand * 6.1037e-05 - 1.0) * 1e-08 (dither de silencio)
+ok  el tamano de bloque es 128 y el proceso sanea NaN/inf tras el render
+```
+
+Las que sostienen §4.3 (el cambio en caliente):
+
+```text
+ok  el cambio de preset encadena 46ce0 -> 13ea0 -> 13ac0 -> 40550
+ok  el cargador lee el script a un buffer temporal y lo suelta
+ok  el cargador no llama a los observadores: lo hacen los setters de cada valor
+ok  FUN_10046ce0 borra las dos tablas de zonas (0x500 dwords cada una)
+ok  y resetea 0xDAC = 1.0f / y 0xDA4 = 0.5f (el bend vuelve al centro)
+ok  y los ocho contadores de morph 0x365C..0x3678 / y apaga 0xD99
+ok  FUN_10046b70 no borra las tablas ni toca las globales: eso es solo del preset
+ok  FUN_100440d0, FUN_10046b70 y FUN_10046ce0: el borrado de +0x40 va antes del test
+ok  ninguna de las tres escribe e[0xD94]: el array de descriptores no se reasigna
+ok  ni lo reasigna el camino del preset
+ok  el callback del modelo termina en 0x1003d780 y 0x10040550
+ok  la tabla se reescribe entera con una llamada por tecla a FUN_100440d0
+```
+
+Y las que sostienen §6 (modelo → registro → tabla → call site de la voz):
 
 ```text
 ok  las 7 claves aparecen en FUN_1000af30 / el parser las prueba en orden
@@ -489,60 +837,3 @@ zones OK
 `--zones` comprueba: `engine+0x69C == p[0x12]`, flag 0, root 69 en las dos
 tablas, cuatro buffers no nulos, `csAN`/`psAN` en el par grave, reservados a 0,
 detune 0 y volumen 0 dB = 1.0.
-
----
-
-## 10. Cadena Completa de Renderizado de Voz y Suma R1 + R2 (`FUN_10039D70` / `FUN_1002E7A0`)
-
-Evidencia extraída del volcado de Ghidra (`_voice_dump/`) sobre la topología de mezcla por voz:
-
-### 10.1 Estructura del Registro de Voz (`0x70 B`)
-1. **Poseedor de los motores**: `engine+0xD94` apunta a un array de 129 registros de `0x70 B` (asignados en `FUN_10044884`, `0x10044960`: `operator_new(0x3874) = 4 + 129 × 0x70`, cabecera `0x81`, ctor `FUN_10023074` por registro). La cuenta de voces activas reside en `engine+0xDA0`.
-2. **Filtro de voz en el render**: `rec = [engine+0xD94] + [ebp-0xEC]` con `[ebp-0xEC] += 0x70` por voz. Filtra por `rec+0x34 != 0`, `rec+0x44 >= 1`, `rec+0x40 == 1` y la firma de cuatro bytes `'nSAN'`.
-3. **Instancias de Resonador**:
-   - `rec+0x68`: Instancia de motor Resynator 1 (`[ebp-0x130]`).
-   - `rec+0x6C`: Instancia de motor Resynator 2 (`[ebp-0x134]`).
-   - Ambos motores pertenecen al *mismo registro de voz* (`rec`).
-4. **Pesos de mezcla del Blender**:
-   - `rec+0x60`: Ganancia/peso de Resynator 1 (`p6` / `gainA`).
-   - `rec+0x64`: Ganancia/peso de Resynator 2 (`p7` / `gainB`).
-   - Getters canónicos: `FUN_1003d6c0` (`fld [ecx+0x60]`) y `FUN_1003d6d0` (`fld [ecx+0x64]`), invocados con `ECX = rec`.
-
-### 10.2 Fusión y Suma Ponderada (`FUN_1002E7A0`)
-No existe una función «suma R1+R2» externa o independiente. La suma ponderada ocurre **muestra a muestra** dentro de `FUN_1002E7A0`, llamada desde `FUN_10039D70` en `0x1003B49B`:
-
-```c
-FUN_1002e7a0(engine, rec, rec+0x68, rec+0x6C, modo /* rec+0x18 */,
-             rec->[0x60], rec->[0x64],
-             &tmpA /* [ebp-0x1d4] */, &tmpB /* [ebp-0x1d0] */);
-```
-
-Dentro de `FUN_1002E7A0`, las muestras individuales $v_A$ y $v_B$ se obtienen mediante:
-`*(float*)(*(int*)(rec+0x68|0x6C + 0x150) + 0x20)` (publicados por `FUN_1003b920`, leídos previamente con `FUN_1003b900` en `+0x14`).
-
-La combinación según el modo de Blender (`rec+0x18`):
-- **Modo 0 (`Mix`, 0x1002EFF5)**:
-  `*p8 = v_B · p7 + v_A · p6` (salida `*p9` idéntica).
-- **Modo 1 (`Chromophonic` / Split)**:
-  `*p8 = v_A · p7; *p9 = v_B · p6` — cada motor se enruta a su propio canal estéreo/salida sin sumarse.
-- **Modo 2 (`Transsphere`)**:
-  `f = v_B · p6 + v_A · p7` — fusión a un único bus monoaural.
-- **Modo 3 (`Crossmorph`, 0x1002FDAF)**:
-  `*p8 = *p9 = v_B · gainA · p7 + v_A · gainB · p6`.
-- **Motores desactivados**: Si un motor está apagado (`+0x6836` o `+0x6834 == 0`), los pesos se fuerzan a `(1.0, 1e-9)` o `(1e-9, 1.0)` (`_DAT_1030bb2c/30/34/38`).
-
-### 10.3 Acumulación y Reparto en Buses de 128 Muestras (`0x1003B4A0`–`0x1003B53A`)
-1. **Cálculo de ponderación de morphing complementaria**:
-   $$w = \operatorname{clamp}(\text{engine}[0x44] \cdot \text{rec}[0x10 + idx] + \text{engine}[0x40]) \cdot 0.5 + 0.5$$
-   y su par complementario $(1 - w)$ (`_DAT_1030ced0 = 1.0`).
-2. **Acumulación en buffers**:
-   ```c
-   buf1[0x200 + 4*i] += tmp  * (1 - w);  // Objeto en [ebp-0x13C]
-   buf2[0x200 + 4*i] += tmp' * w;        // Objeto en [ebp-0xF4]
-   ```
-   Ambos buffers de 128 floats (512 bytes) en el offset `+0x200` se reciben como argumentos implícitos del render (a través de la tabla `.data:0x10058D70`).
-3. **Cierre de bloque**: Al completar las 128 muestras, se recombinan mediante `FUN_100295d0` / `FUN_10029e34(..., 0x80)`, se limitan rígidamente a $[-1.0, +1.0]$ (`0x3F7FBE77 / 0xBF800000`) y se avanza el contador de muestras `_DAT_10062298`.
-
-### 10.4 Conclusiones para la Arquitectura de `ABDAxionikVS`
-- Los pesos de mezcla (`rec+0x60`, `rec+0x64`) residen en el array dinámico de voces del heap (`engine+0xD94`), **no en los 13.948 bytes de la tabla de estado estático**. Por ello, el arnés de verificación diferencial del traductor (`FUN_10040550`) no los compara; lo que sí reside en el estado son las coordenadas de morphing (`engine+0x40`, `engine+0x44`) y `rec+0x10`.
-- En nuestro motor C++20 (`NeuronVoice.h`), los 10 modos de Blender implementan exactamente esta misma evaluación por muestra y bloque, pero sustituyendo los `operator_new` dinámicos por el `VoiceMemoryPool` preasignado en tiempo real.

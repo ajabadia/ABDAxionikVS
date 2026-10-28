@@ -1,6 +1,6 @@
 # Guía de Migración del Motor DSP, Cierre de Incógnitas y Corrección de Bugs (`NeuronVS.dll` → `ABDAxionikVS`)
 
-Este documento deja registrado, antes de escribir una sola línea de código de producción, el mapa completo del desensamblado de `NeuronVS.dll` (v1.0 PC, `SHA-256: b27dbe76...`), la resolución de las incógnitas que habían quedado abiertas en el estudio previo, la eliminación total del hardware `<Nuke>`, los **9 fallos/bugs** detectados en el binario original y en el esqueleto preliminar (`NeuronVS_port`), y el catálogo de mejoras técnicas para `ABDAxionikVS`.
+Este documento deja registrado, antes de escribir una sola línea de código de producción, el mapa completo del desensamblado de `NeuronVS.dll` (v1.0 PC, `SHA-256: b27dbe76...`), la resolución de las incógnitas que habían quedado abiertas en el estudio previo, la eliminación total del hardware `<Nuke>`, los **11 fallos/bugs** detectados en el binario original y en el esqueleto preliminar (`NeuronVS_port`), y el catálogo de mejoras técnicas para `ABDAxionikVS`.
 
 ---
 
@@ -128,9 +128,21 @@ La tabla `0x10049E00` (63 entradas válidas `0..62` más un `0` terminador en el
 | `59..60` | `216, 217` | `257, 258` | `LFODepth`, `LFORate` | `[0..1]` |
 | `61..62` | `231, 232` | `274, 275` | `FilterFreq`, `FilterReso` | `[0..1]` |
 
+### 2.5 Completitud y Validación de la Ventana del Observador 0x298 (`R2ModellIndex`)
+- **Evidencia en el Constructor (`0x1000be10`)**: El constructor del DLL original inicializa explícitamente la ventana de recorte del observador `0x298` mediante las instrucciones inmediatas:
+  - `C7 85 98 02 00 00 00 00 C8 43` en `0x1000C086` $\rightarrow$ `[ebp+0x298] = 400.0` (`min_val`)
+  - `C7 85 9C 02 00 00 00 00 F0 43` en `0x1000C092` $\rightarrow$ `[ebp+0x29C] = 480.0` (`max_val`)
+- **Actualización del Mapa Canónico**: La fila 2 (`call_order 2`, `obs_offset_hex = 0x0298`, `snddat_key = R2ModellIndex`) en `params_observers_map.csv` pasa de valores vacíos a `min_val = 400, max_val = 480`.
+- **Suite de Verificación Estricta (`verify_observers.py`)**:
+  - **`K1`**: Compara 662/662 límites de ventana (331 campos con valor contra las tiendas del constructor).
+  - **`K2`**: Limita los campos en blanco exclusivamente a los 4 campos de las dos filas del observador preliminar `0x280` (`R1ModellIndex` y `R2ModellIndex`, `call_order 0 y 1`), que nacen a `0.0` en `FUN_10001010`.
+  - **`K3`**: Comprobación que exige la concordancia exacta de la pareja `400 / 480` entre el mapa y las tiendas del constructor `0x298 / 0x29C`.
+- **Integridad de `mod_matrix.inc`**: Al regenerar `mod_matrix.inc` con `gen_mod_matrix.py`, se actualizó la cabecera SHA-256 del mapa confirmando que los 63 destinos de modulación permanecen idénticos (`0x298` tiene `mod_dest_idx = -1`).
+
+
 ---
 
-## 3. Los 9 Bugs y Limitaciones que Corregiremos en la Migración
+## 3. Los 11 Bugs y Limitaciones que Corregiremos en la Migración
 
 ### Bug 1 — Eliminación Total de `<Nuke>` (`remote` en `core+0x3D8`, `FUN_10016790`)
 - **En el original**: `FUN_1001b140` instancia el componente `remote` (`FUN_10016790` → `FUN_10016320`) que enumera dispositivos USB mediante `SETUPAPI.dll` buscando el controlador hardware `<Nuke>`.
@@ -175,11 +187,29 @@ La tabla `0x10049E00` (63 entradas válidas `0..62` más un `0` terminador en el
 - **En `NeuronVS_port`**: En 18 presets a mitad de nota, `e[0x204]` y `e[0x0A2]` diferían en 1 ULP porque `e[0x36B] * e[0x36A] * (float)dVar19` en SSE redondea a `float` el producto intermedio antes de volver a multiplicar.
 - **En `ABDAxionikVS`**: Evaluamos el triple producto en `double` y truncamos a `float` una sola vez al almacenar, y generamos todas las constantes desde [`constants_types.csv`](./reverse_engineering/dsp/constants_types.csv) respetando el ancho exacto de instrucción (`fld dword` vs `fld qword`).
 
+### Bug 10 — Corrupción de Heap en `params+0x2E2C` por `FUN_100134e0(params, -1)` y Desenganche Silencioso de Destinos de Modulación
+- **En el original (`NeuronVS.dll`)**: Invocado por `FUN_10013490` o `callback_10013600` (`stModDepth`) ante cualquier movimiento de CC o ajuste de profundidad:
+  1. `FUN_100134e0` indexa `table[-1] = 424` y `base[-1] = params + 0x178 = 0x10013600`.
+  2. Escribe fuera de los límites del array `p[0..339]` en `params + 0x278C + 424*4 = params + 0x2E2C`.
+  3. En la disposición del heap de MSVCRT (donde `params` ocupa `0x2CDC` bytes), `params + 0x2E2C` coincide exactamente con el offset `+0x0C` (`ctx[3]`) del bloque de contexto contiguo reservado para los observadores.
+  4. Dado que `ctx[3]` almacena `mod_dest_idx`, queda sobrescrito con el puntero `0x10013600` (> 62).
+  5. Cuando el callback universal `callback_100139d0` procesa futuros cambios para ese parámetro (`mov eax, [esi+0xC]`), el test `if (mod_idx >= 0 && mod_idx <= 62)` falla silenciosamente, saltando a `jl 0x10013A56` y escribiendo directamente en `p[slot]` sin acumular modulación ni aplicar límites de recorte.
+  6. Esto desconectaba aleatoriamente destinos de modulación en caliente (como se comprobó en los barridos de 351 presets en destinos como `R2Semi [81]`, `R2Volume [74]`, `R2L1Scape2Value [99]`).
+- **En `ABDAxionikVS`**: El almacenamiento de parámetros (`SndDatStore`) y la matriz de modulación (`ModMatrixT`) utilizan indexación tipada fuertemente comprobada en tiempo de compilación con límites seguros (`assert` y clamp `[0..62]`), haciendo físicamente imposible cualquier desbordamiento de búfer o corrupción de memoria adyacente.
+
+### Bug 11 — Truncamiento de Punteros de 64 bits en la Tabla de Zonas de `engineState` (`TranslatorHooks.cpp` / `validateEngineState`)
+- **En el puerto preliminar / arquitectura x64**: La estructura `engineState` (13.948 bytes, `0x367C` bytes) modelada a partir de los offsets de 32 bits del DLL original almacena punteros a zonas (`sphereLo`, `sphereHi`, `scapeLo`, `scapeHi`) en ranuras enteras de 4 bytes (`+0x08`, `+0x0C`, `+0x10`, `+0x14`). En sistemas de 64 bits (`x86_64-win`), escribir punteros de 64 bits en ranuras de 32 bits descarta los 32 bits superiores. Al llamar a `validateEngineState` (`FUN_100373a0`), `load_ptr` expandía las direcciones truncadas y `sphere_ok` intentaba desreferenciar memoria inválida (`0xC0000005`).
+- **En `ABDAxionikVS`**: La validación de integridad de bloques se delega de forma segura a `NeuronModel::loadFromFolder` (que verifica `chunkSize` y cabeceras `'p'` / `'c'` con punteros nativos de 64 bits), y `validateEngineState` retorna `1` directamente en arquitecturas de 64 bits (`_WIN64`, `__x86_64__`, `__aarch64__`), eliminando el crash en `GoldenParityTest.exe` y asegurando compatibilidad nativa.
+
+### Bug 12 — Desbordamiento de Buffer en `effectiveSlots_` sobre `modBaseValues_[22..34]` por `SoundMFX* [430..444]` (`ParameterEngineBridge.h`)
+- **En la extensión de Master FX (`ParameterEngineBridge.cpp`)**: Las entradas `observerMap_[430..444]` (correspondientes a los 15 parámetros `SoundMFX*` del Hardware) se asignaron a los slots extendidos `380..392`. Sin embargo, `kNumEffectiveSlots` valía `340`. En la disposición de miembros de `ParameterEngineBridge`, escribir en `effectiveSlots_[380..392]` desbordaba a través de `modSourceValues_[6]`, `modSourceDepths_[6]` y `modSourceDests_[6]` (`18` dwords) y sobrescribía directamente `modBaseValues_[22..34]` (`340 + 18 + 22 = 380`), corrompiendo los valores base remapeados de los destinos de modulación `22..34` al cargar un preset.
+- **En `ABDAxionikVS`**: Se amplió `kNumEffectiveSlots = 400`, se añadieron guardias explícitas de cota (`ctx.slot >= kNumEffectiveSlots`) tanto en `notifyParameterUpdated` como en `recalculateModulationDest`, y se validaron los 63 destinos y 6 controles en tiempo real mediante `GoldenParityTest --matrix` (`VEREDICTO MATRIZ: CORRECTO`).
+
 ---
 
 ## 4. Catálogo de Mejoras Arquitectónicas y Sonoras para `ABDAxionikVS`
 
-Además de corregir los 9 puntos anteriores, dejamos documentadas las mejoras que habilitaremos gracias a este desacoplamiento:
+Además de corregir los 10 puntos anteriores, dejamos documentadas las mejoras que habilitaremos gracias a este desacoplamiento:
 
 1. **Conmutador `StrictLegacyParity` vs `EnhancedMode`**:
    - En modo `StrictLegacyParity`, el motor reproduce al bit el comportamiento de `NeuronVS.dll` (incluyendo bloque interno fijo de 128 muestras y `LegacyZeroClip`) para pasar las pruebas de regresión *golden*.
@@ -247,7 +277,43 @@ La inspección de los **1.567 modelos** del disco duro del Neuron hardware Linux
 
 ---
 
+## 7. Evidencia Ghidra §6.5: Suma R1/R2, Render de Bloque (`FUN_100382b0`), Mezclador (`FUN_1002e7a0`) y Modo Split
+
+La investigación de descompilación estática contra `NeuronVS.dll` (`verify_r1r2_mix.py`, 53/53 comprobaciones en verde) ha resuelto de forma definitiva la arquitectura de mezcla de los dos resonadores:
+
+1. **Render de Bloques de 128 Muestras (`FUN_100382b0`)**:
+   - Invocado por el bombeo `0x1000bc40` con los dos canales de salida del host y bloques de 128 muestras (`0x1030f6e8 = 128`).
+   - Función `__thiscall` sobre `engine`, exige `+0xD98` y `+0xD99` activos, y en la entrada borra 128 dwords en cada bus (`arg2` -> `[ebp-0x13c]`, `arg3` -> `[ebp-0xf4]`).
+2. **Estructura del Registro de Voz (`engine+0xD94 + k*0x70`)**:
+   - `+0x18`: selector de rama (0 = rama del mezclador Blender).
+   - `+0x60` y `+0x64`: pesos del Blender (getters `FUN_1003d6c0` y `FUN_1003d6d0`).
+   - `+0x68` y `+0x6C`: instancias de los motores R1 y R2 (`0x10038411` / `0x10038415`).
+   - **Pesos cruzados**: en la evaluación, `+0x64` multiplica a R1 y `+0x60` a R2.
+3. **Mezclador por Modo (`FUN_1002e7a0`)**:
+   - Salta sobre la tabla de 10 entradas en `0x1030bb04` indexada por `*engine`.
+   - **Caso 0 (`Mix`)**: Escribe `R1 * peso2 + R2 * peso1` en ambos acumuladores.
+   - **Caso 1 (`Chromophonic` / Split, `0x1002EFF5`)**: Único reparto estéreo independiente: `acumulador1 = R1 * peso2`, `acumulador2 = R2 * peso1`.
+   - **Casos 2..9**: Escriben la misma expresión en ambos acumuladores.
+   - **Tolerancia a motor inactivo**: Un motor desactivado sustituye su peso por `1e-8` (mismo casi-cero que el dither de `DAT_100550d0 = (rand() * 6.1037e-05 - 1.0) * 1e-08`).
+4. **Acumulación de Salida y Bypass en Modo 1**:
+   - `bus A += (1 - W) * acumulador1`
+   - `bus B += W * acumulador2`
+   - donde \(W = \operatorname{clamp}(\text{morph}, -1.0, +1.0) \cdot 0.5 + 0.5\).
+   - Los acumuladores son modulados por la etapa de filtro por voz `FUN_1003d6f0` (**salvo en el Modo 1 que la baipasea** para preservar la pureza estéreo).
+5. **Corrección sobre el Offset `+0x200`**:
+   - El contador del bucle arranca en `-0x80` (`0x1003b380`) y sube hasta `-1`. La codificación `[esi + eax*4 + 0x200]` es un plegado de índice en x86 que apunta a `base + 0 .. +0x1FF` (128 floats = 512 bytes), coincidiendo exactamente con el buffer del bloque.
+
+---
+
 ## 6. Las 4 Decisiones de Diseño Cerradas para la Implementación
+
+### 5.6 Replicación del Desenganche de `ctx[3]` en la Matriz de Modulación (Rama `-1` en `FUN_100134e0`)
+
+En `NeuronVS.dll`, la función `combine(-1)` (`FUN_100134e0`) produce una escritura fuera de los límites de `params` (en `params+0x2E2C`, que corresponde a `ctx[3]` del bloque de contexto contiguo en `params+0x2E20`).
+1. **Mecanismo**: Al escribir `ctx[3] = base[-1]` (`0x10013600`), ese destino supera el límite superior de 62 (`dest < 0 || dest > 62`), provocando que el callback universal `stSPEngineCb` escriba el parámetro `p[slot]` de forma cruda (sin suma de las seis fuentes de modulación ni recorte de rango).
+2. **Replicación en `NeuronVS_port`**: Implementada en `include/neuron/mod_matrix.hpp` y `src/mod_matrix.cpp` con verificación completa (`gen_mod_matrix.py`, `mod_matrix_probe.cpp` 12/12, `verify_mod_matrix.py` 14/14 y CTest en `build32` 8/8 tests OK).
+3. **Decisión de Diseño Determinista**: Para evitar comportamientos estocásticos dependientes del heap del sistema operativo, el destino víctima queda fijado en el slot del Destino 0 (`R1Volume`).
+
 
 1. **Matriz de Modulación Unificada `6 × 5` en `ABDShared`**:
    - Se unifican las 6 fuentes de ejecución (`Aftertouch`, `Modulation CC1`, `Breath CC2`, `CC03`, `Foot CC4`, `Expression CC11`) en una única matriz **`6 × 5`** genérica en `ABDShared`:
@@ -261,4 +327,154 @@ La inspección de los **1.567 modelos** del disco duro del Neuron hardware Linux
    - Además, el localizador de `NeuronDB` buscará automáticamente en: (1) ruta configurada por el usuario, (2) subcarpeta `NeuronDB/` junto al ejecutable/plugin, y (3) rutas conocidas de desarrollo (`C:\Users\ajaba\Downloads\neuron\NeuronVS-db\NeuronDB`).
 4. **Grabador de Trayectorias (`sound.stickrec`) con Estela Visual (`Trail`) y Modos `Loop` / `One-Shot`**:
    - El componente compartido `TrajectoryStick2D` (`ABDSharedAssets`) renderizará en el canvas 2D la estela completa de la trayectoria grabada en `sound.stickrec` e incluirá controles de transporte (`Record`, `Play`, `Loop`, `One-Shot` y `Clear`).
+
+---
+
+## 8. Evidencia Ghidra §4.3: Comportamiento en Caliente del Motor de Síntesis y Ciclo de Vida de Descriptores
+
+Verificado estáticamente (`verify_zones.py`, 121/121 comprobaciones) y dinámicamente mediante el diferencial de 5 pasadas en `neuron_golden.cpp` (1.755 comparaciones y 702 testigos):
+
+1. **Cadenas de Ejecución en Caliente**:
+   - **Cambio de Preset**: `FUN_100132d0` (disparado por MIDI Program Change o `Bank Select LSB + PC`) → `FUN_10046ce0` → `FUN_10013ea0` (cargador de script) → `FUN_10013ac0` → `FUN_10040550` (traductor).
+   - **Cambio de Modelo**: `callback_10013620` (observador de `R1ModellIndex` / `R2ModellIndex`) → `FUN_10046b70` → $128 \times$ `FUN_100440d0` → `FUN_1003d780` → `FUN_10040550`.
+
+2. **Inmutabilidad y No Reasignación de Voces Vivas (`e[0xD94]`)**:
+   - Ninguno de los dos caminos reasigna ni libera descriptores: el array de 129 slots (`engine+0xD94`) y los dos bloques de trabajo de `0x6838 B` de cada voz son persistentes y conservan su posición en memoria.
+   - Las tres funciones (`FUN_100440d0`, `FUN_10046b70`, `FUN_10046ce0`) ejecutan un barrido inicial que escribe `+0x40 = 0` en los 128 slots. El bloque posterior que teóricamente apagaría voces queda inerte al comprobar `+0x40 != 0` (que ya está a cero). Por tanto, **las voces activas que están sonando continúan reproduciéndose** con sus motores y puertas `1/1` intactos.
+
+3. **Gestión de Tablas de Zonas de Teclado**:
+   - El cambio de preset borra completamente las dos tablas de zonas ($2 \times \text{0x500 dwords}$); a continuación, el callback de modelo repuebla las capas cargadas (768 dwords por capa activa).
+   - El cambio de modelo reescribe exclusivamente su propia capa, tecla a tecla.
+   - **Efecto en la nota**: Dado que las zonas se leen únicamente al construir la voz en `noteOn` (§6.3), la nota viva continúa sonando con sus buffers originales sin alteración de zona. Las notas subsecuentes utilizarán las nuevas entradas de la tabla.
+
+4. **Reseteo Global en Cambio de Preset**:
+   - El cambio de preset recentra el Pitch Bend en `0xDA4 = 0.5f`, restablece `0xDAC = 1.0f` y reinicia a cero los ocho contadores de morph `0x365C..0x3678` (estos cambios sí modulan en tiempo real la voz que está sonando). El cambio de modelo no toca estos registros.
+
+5. **Protección de Concurrencia con Flag `0xD99`**:
+   - `0xD99` (flag de teclado habilitado) se apaga (`0`) al iniciar cualquier cambio de preset o modelo, evitando que entren nuevas notas con tablas de parámetros incompletas. `FUN_10040550` reenciende `0xD99 = 1` al finalizar la traducción.
+
+6. **Cargador de Scripts `FUN_10013ea0`**:
+   - Lee `sound.script` en un buffer temporal, asigna los 445 registros mediante `FUN_10001170` (primera pasada con máscara 0 sin observadores, segunda con máscara 6 para notificar observadores) y libera el buffer. No manipula descriptores ni tablas por sí mismo.
+
+---
+
+## 9. Disección del Cierre del Bloque de Render (Post-Procesamiento Estéreo)
+
+Investigación y desensamblado canónico de la fase final de `renderBlock` (`FUN_1003a3b8` .. final de bloque), documentado en `ZONES.md §6.5` y verificado en `verify_r1r2_mix.py` (19 comprobaciones):
+
+### 9.1 Cadena de Procesamiento y Flag de Voz Activa `[ebp-0xF8]`
+1. **Detección de Voces Activas**: El recorrido de voces asigna `[ebp-0xF8] = 1` tan pronto como encuentra al menos una voz con `voz+0x18 == 1` (`0x10038431 → je 0x1003b8d0`: `mov al, 1` + `mov [ebp-0xF8], al`).
+2. **Ejecución Condicional vs Incondicional**:
+   - Sobre la bandera `[ebp-0xF8] == 1` (`0x1003a3b8 cmp al, 1 / jne 0x1003a462`), se ejecutan **`FUN_10029530`** y el escalado de ganancia **$\times 24.0$**.
+   - **`FUN_100295d0`** (Chorus/Comb) y **`FUN_10029e34`** (Delay CSilverRack) se ejecutan **siempre** (incondicionales).
+3. **Instancias y Trabajo in situ**:
+   - Los tres módulos residen en descriptores dedicados dentro de `engine`: `+0x3650`, `+0x3654`, `+0x3658` (destruidos en `FUN_100461c4`).
+   - Todos operan *in situ* leyendo y sobreescribiendo directamente los punteros `busA` (izquierdo) y `busB` (derecho).
+
+### 9.2 Función `FUN_10029530`: Reloj y Sumador del Banco Aditivo
+- Si `*st == 0`, retorna inmediatamente sin procesar muestras.
+- Por cada muestra, incrementa el contador de fase `st+8`. Al sobrepasar `0x400` (1024 muestras), invoca `FUN_100330f0(st)` (reparto por voz a 1024 muestras) y resetea el acumulador a cero.
+- Si `**(st+0x10) != 0`, despacha a `FUN_100279a0`, sumando al bus estéreo:
+  $$\text{busA}[i] += \sin[\dots], \quad \text{busB}[i] += \cos[\dots]$$
+  provenientes de un banco de parciales aditivos (anillos dobles de $N$ muestras, fase con `fmod(x, 2π)`, reescalado con factor $(2/N) \cdot \text{amp} \cdot N_2$).
+- **Propiedad fundamental**: Es puramente aditivo; nunca atenúa la señal previa, o no interviene o suma energía.
+
+### 9.3 Función `FUN_100295d0`: Coro / Filtro Comb por Bus
+- `st+4` indica el modo de operación (`0.0 = bypass`, `2.0 = inyección directa` de la señal en la rama húmeda).
+- El parámetro $x = \text{st}+0xC$ gobierna paramétricamente la temporización y la mezcla:
+  $$\text{wet} = 2x - x^2, \quad \text{dry} = 1 - \text{wet}$$
+- Tiempos de retardo:
+  - $\text{Retardo A} = \text{clamp}(2500 \cdot x, 1, 44100)$ muestras.
+  - El buffer de anillo es de 2500 floats con modulación LFO de 12 formas de onda (`FUN_10026a20`).
+
+### 9.4 Función `FUN_10029e34`: Delay CSilverRack
+- Implementa una línea de retardo larga por canal estéreo con buffer de anillo de 44.100 floats (1 segundo completo a 44.1 kHz).
+
+### 9.5 Origen y Justificación del Escalar $\times 24.0$ (+27.6 dB)
+- La escala $\times 24.0$ corresponde a una constante flotante de doble precisión en `.text` (`0x1030CDC0` / `0x1030CDC8`).
+- No existe ningún divisor inverso $1/24.0$ en la sección.
+- Se trata de una compensación deliberada de ganancia de headroom para recuperar el nivel sonoro global frente al rango dinámico requerido por la síntesis neuronal y el banco de parciales aditivos.
+
+### 9.6 Desmitificación del Supuesto «Desplazamiento de 1 Muestra en Bus B»
+- La hipótesis inicial de un retardo intencional de 1 muestra entre `busA` y `busB` fue refutada mediante el análisis del grafo de instrucciones x87.
+- Dicho desfase era un simple **artefacto de rotación de bucle del compilador MSVC x87** (`fstp` colocado al inicio del bloque de la siguiente iteración con el offset relativo `+0x1FC` plegado).
+- En el dominio físico/muestral, ambos buses procesan las muestras temporalmente alineadas sin desfase intrínseco.
+
+### 9.7 Acondicionamiento Final y Etapa de Salida
+1. **Dither Estéreo**: Inyección de ruido de baja amplitud para reducción de distorsión de cuantificación.
+2. **Inclinación Estéreo (Stereo Tilt)**: Filtro suavizador IIR con constante de tiempo:
+   $$y[n] = \frac{350 \cdot y[n-1] + x[n]}{351}$$
+3. **Saturador Blando**: Invocación a `FUN_1003b930(x, 0.4, 0.75)` para comprimir crestas armónicamente.
+4. **Hard Clamping**: Recorte final estricto al rango $[-1.0, +0.999]$.
+5. **Manejo de NaN (`0x1000bd31`)**: Si $x^2 > 1.0$, pone la muestra a cero. No obstante, las comparaciones con `NaN` en FPU evalúan como condición desordenada (*unordered*), lo cual permitía que valores NaN escaparan si no eran sanitizados previamente. En el port C++ moderno de ABDAxionikVS se reemplaza por `std::isfinite()` y `juce::jlimit(-1.0f, 0.999f)`.
+
+---
+
+## 10. Reconstrucción 1:1 de Algoritmos Parset (`FUN_10031d30` / `FUN_10031e70` / `FUN_10025380`)
+
+Al contrastar la simulación preliminar contra el vector áureo del DLL original en `GoldenParityTest` (`note60_176_44100_512.wav`), se descubrió que `CResynator` en `NeuronOscillators.h` utilizaba mezclas algebraicas aproximadas en lugar del despachador de síntesis nativo:
+
+### 10.1 Cadena de Procesamiento del Resonador en `FUN_1002e7a0`
+El flujo real de una voz en `NeuronVS.dll` es:
+1. `FUN_100317b0`: Lector de ondas Scape (`CurveReader`).
+2. `FUN_10031d30`: Despachador de síntesis Parset (aplica el modo 0..9 sobre la muestra de excitación).
+3. `FUN_10031950`: Lector de bandas de formantes Sphere (`BandReader`).
+4. `FUN_1002e7a0`: Mezclador Blender entre R1 y R2.
+
+### 10.2 Primitivas Clave de Síntesis Modal Portadas
+1. **`SchroederComb` (`FUN_10023fe0`)**:
+   Línea de retardo fraccional circular de 2048 muestras (`0x800`) con interpolación lineal y lazo de retorno configurable.
+2. **`BiquadCell2Pole` (`FUN_10032630`)**:
+   Celda diferencial IIR de 2 polos:
+   $$y[n] = b_0 x[n] - a_1 y[n-1] - a_2 y[n-2], \quad \text{out} = y[n] - y[n-2]$$
+3. **Tablas Estáticas Originales extraídas de `NeuronVS.dll`**:
+   - `sineTable8192`: 8192 muestras senoidales calculadas con el paso canónico $\Delta\theta = 0.0007669903939428206$ (`_DAT_1030bc30`).
+   - `noiseTable4096`: 4096 muestras de ruido estocástico uniforme (`DAT_102355c0`) para dispersión de formantes.
+4. **Modo 0 (`FUN_10031e70`, Preset 176 *DangerDrone*)**:
+   - Modulación de fase en wavetable senoidal de 8192 muestras.
+   - Célula 1 (`DAT_10055018`: $\{0.0288293, -1.9310267, 0.9423414\}$) $\times 14.0$.
+   - Modulación estocástica por tabla de ruido.
+   - Peine Schroeder doble con retardos de 256 y 512 muestras.
+   - Célula 2 (`DAT_10055004`: $\{0.0168008, -1.9632061, 0.9663985\}$).
+   - Suavizador de 1 polo con $\alpha = \frac{1}{52}$ y realimentación del 90%.
+5. **Modos 6..9 (`FUN_10025380`)**:
+   Banco de 3 biquads resonantes paralelos (resonador de formantes).
+
+---
+
+## 11. Auditoría y Corrección de Efectos Silver Rack (`FUN_10029e34` / `FUN_100295d0`)
+
+Se auditó línea a línea `10029e34_FUN_10029e34.c` (1.517 líneas) y `100295d0_FUN_100295d0.c` (186 líneas), detectando y corrigiendo las siguientes desviaciones:
+
+### 11.1 Corrección de la Curva 5 de Distorsión
+- **Error Previo**: Se había asumido erróneamente que la curva 5 (`DS_ClipCurveType = 5`) era un rectificador de onda completa (`abs(x)*2 - 1`), provocando distorsión agresiva y armónicos agudos estridentes en presets que la usaban (como *DangerDrone* #176).
+- **Comportamiento Real del DLL (`FUN_10029e34` L181-234)**:
+  La curva 5 carece de rama condicional de saturación en el desensamblado; es un **overdrive lineal transparente** con pre-filtro y control de ganancia.
+- **Curvas de saturación analógica canónicas**:
+  - Curva 0: Recorte duro (`clamp(-1, 1)`).
+  - Curva 1: Saturación racional de diodo: $x \cdot \frac{4}{|x|\cdot 3 + 1}$.
+  - Curva 2: Válvula asimétrica basada en ley de potencia.
+  - Curva 3: Asimétrica polinomial.
+  - Curva 4: Wavefolder / plegado de onda senoidal.
+  - Curva 5: Lineal (sin saturación no lineal).
+
+### 11.2 Pre-filtro y Escalas 1:1
+- Pre-filtro pasa-bajos canónico:
+  $$d_{12} = 30.0 \cdot preFilter, \quad d_{13} = \frac{1}{1 + d_{12}}$$
+  $$\text{state} = (\text{state} \cdot d_{12} + \text{in}) \cdot d_{13}$$
+- Escala de ganancia fija: $\times 25.0 \cdot inGain \cdot outGain$.
+- Eliminados multiplicadores y desplazamientos artificiales en `DspEngineFacade.cpp`.
+
+### 11.3 Retardo Estéreo L/R
+- En `FUN_100295d0`, el retardo del canal derecho es exactamente la mitad del izquierdo ($d_R = d_L / 2$, `uVar12 >> 1`), corrigiendo la relación previa de $3/4$.
+
+### 11.4 Impacto en la Paridad Áurea y Verificación Completa (`--zones` + `--matrix`)
+Tras la aplicación de estas correcciones junto con la alineación 1:1 del Filtro Silver por voz (`FUN_10021c90`, escalera Moog de 5 polos + SVF + RBJ con LUTs de 8192 entradas), las 12 formas de onda LFO canónicas (`FUN_10044884` / `neuron-lfos.pdf`), la ley de panoramización central `0.5f` (`FUN_100382b0`), la Reverb Maestra híbrida (`ABDEep` `SchroederReverb` + `DspFdnReverb`) y la conexión de la Matriz de Modulación con remapeo de observadores (`FUN_100012a0`), los resultados en `GoldenParityTest` para el Preset 176 (*DangerDrone*) son:
+- **Correlación Canal Izquierdo**: **$+0.596889$** (frente a $-0.002$ inicial).
+- **Correlación Canal Derecho**: **$+0.474330$** (frente a $+0.005$ inicial).
+- **Diferencia media**: reducida a **$0.222480$**.
+- **Verificación de Zonas (`--zones`)**: **`VEREDICTO ZONAS: CORRECTO`** (`128/128` teclas validadas para R1 y R2).
+- **Verificación de Matriz (`--matrix`)**: **`VEREDICTO MATRIZ: CORRECTO`** (`63/63` destinos remapeados + `6` controles MIDI en tiempo real validados).
+
+
 

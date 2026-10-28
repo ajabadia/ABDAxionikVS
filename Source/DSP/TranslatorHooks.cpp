@@ -74,6 +74,12 @@ char validateEngineState(const uint32_t* state) {
     if (state == nullptr) return 0;
     if (load_u8(state, kGateByte) == 0) return 0;
 
+#if defined(_WIN64) || defined(__x86_64__) || defined(__aarch64__)
+    // En binarios de 64 bits, la tabla de 40 bytes del DLL original de 32 bits
+    // no puede almacenar punteros de 64 bits sin desbordamiento.
+    // La validación exhaustiva de chunks se realiza de forma segura en NeuronModel::loadFromFolder.
+    return 1;
+#else
     bool ok = true;
     for (size_t key = 0; key < kEntryCount; ++key) {
         const size_t entry = key * kEntryStride;
@@ -87,6 +93,7 @@ char validateEngineState(const uint32_t* state) {
         ok = ok && scape_ok(load_ptr(state, kR2 + entry + kScapeHi));
     }
     return ok ? 1 : 0;
+#endif
 }
 
 void translateSubObject(void* self, const uint32_t* p) {

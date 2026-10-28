@@ -23,8 +23,8 @@ inline constexpr size_t kNumModSources = 6;
 /// Número de destinos de modulación en la matriz rápida (0x10049E00)
 inline constexpr size_t kNumModDests = 63;
 
-/// Número de slots de ejecución en params+0x278C (p[slot], 340 floats)
-inline constexpr size_t kNumEffectiveSlots = 340;
+/// Número de slots de ejecución en params+0x278C (p[slot], 340 en VST + extensión 380..392 para MFX)
+inline constexpr size_t kNumEffectiveSlots = 400;
 
 /// Estructura de contexto de observador (16 bytes = 4 dwords en binario original)
 struct ObserverContext {
@@ -45,6 +45,44 @@ public:
         bindStoreObservers();
     }
 
+    /// FUN_100012a0: remapea `value` del rango [srcLo, srcHi] al [dstLo, dstHi].
+    /// Si ambos rangos cruzan cero, cada mitad se escala contra su propio límite
+    /// (ej. -64..63 -> -1..1 da v/64 para v<0 y v/63 para v>=0); si no, interpolación afín.
+    static float remap(float value, float srcLo, float srcHi, float dstLo, float dstHi) noexcept {
+        const double v = value;
+        const double slo = srcLo;
+        const double shi = srcHi;
+        const double dlo = dstLo;
+        const double dhi = dstHi;
+        constexpr double kZero = 0.0;
+
+        if (slo == dlo && shi == dhi) return value;
+
+        double srcScale = kZero;
+        if (shi <= slo || kZero <= slo || shi <= kZero) {
+            if (shi < slo && shi < kZero && kZero < slo) {
+                srcScale = v < kZero ? shi : slo;
+            }
+        } else {
+            srcScale = v < kZero ? slo : shi;
+        }
+
+        double dstScale = kZero;
+        if (!(dhi <= dlo || kZero <= dlo || dhi <= kZero)) {
+            dstScale = v < kZero ? dlo : dhi;
+        } else if (dlo <= dhi || kZero <= dhi || dlo <= kZero) {
+            dstScale = kZero;
+        } else {
+            dstScale = v < kZero ? dhi : dlo;
+        }
+
+        if (srcScale != kZero && dstScale != kZero) {
+            return static_cast<float>(v / srcScale * dstScale);
+        }
+        if (slo == shi) return static_cast<float>(dlo);
+        return static_cast<float>((dhi - dlo) * ((v - slo) / (shi - slo)) + dlo);
+    }
+
     /// Acceso directo al bloque de 13.948 bytes del motor
     [[nodiscard]] uint32_t* getEngineState() noexcept {
         return engineState_.data();
@@ -59,9 +97,27 @@ public:
         return effectiveSlots_.data();
     }
 
+    /// Consultas de diagnóstico de la matriz de modulación (63 destinos, 6 controles)
+    [[nodiscard]] float getBaseValue(size_t destIdx) const noexcept {
+        return (destIdx < kNumModDests) ? modBaseValues_[destIdx] : 0.0f;
+    }
+    [[nodiscard]] int32_t getControlDestination(size_t sourceIndex) const noexcept {
+        return (sourceIndex < kNumModSources) ? modSourceDests_[sourceIndex] : -1;
+    }
+    [[nodiscard]] float getControlDepth(size_t sourceIndex) const noexcept {
+        return (sourceIndex < kNumModSources) ? modSourceDepths_[sourceIndex] : 0.0f;
+    }
+    [[nodiscard]] float getControlValue(size_t sourceIndex) const noexcept {
+        return (sourceIndex < kNumModSources) ? modSourceValues_[sourceIndex] : 0.0f;
+    }
+    [[nodiscard]] int32_t getDestSlot(size_t destIdx) const noexcept {
+        return (destIdx < kNumModDests) ? kModDestToSlot[destIdx] : -1;
+    }
+
     /// Actualiza una de las 6 fuentes de modulación (CC 1/2/3/4/11, Aftertouch)
-    /// @param sourceIndex 0: Aftertouch, 1: ModWheel, 2: Breath, 3: CC03, 4: Foot, 5: Expression
-    /// @param value       0.0 .. 1.0
+    /// FUN_10013490: escribe el valor y llama a combine(-1)
+    /// @param sourceIndex 0: Aftertouch (0xD0), 1: ModWheel (CC1), 2: Breath (CC2), 3: CC03 (CC3), 4: Foot (CC4), 5: Expression (CC11)
+    /// @param value       0.0 .. 1.0 (byte * 1/127)
     void setModulationSource(size_t sourceIndex, float value) {
         if (sourceIndex >= kNumModSources) return;
         modSourceValues_[sourceIndex] = value;
@@ -69,42 +125,41 @@ public:
     }
 
     /// Configura el destino de una fuente de modulación (0..62)
+    /// stModDest (0x100135D0): escribe el nuevo destino y recombina el destino ANTERIOR y el nuevo
     void setModulationDestination(size_t sourceIndex, int32_t destIdx) {
         if (sourceIndex >= kNumModSources) return;
+        if (destIdx < 0 || destIdx >= static_cast<int32_t>(kNumModDests)) return;
         int32_t oldDest = modSourceDests_[sourceIndex];
-        modSourceDests_[sourceIndex] = std::clamp(destIdx, -1, static_cast<int32_t>(kNumModDests - 1));
-        
-        // Recalcular destino previo y nuevo
+        modSourceDests_[sourceIndex] = destIdx;
+
+        // stModDest recombina el destino que deja el control y el nuevo
         if (oldDest >= 0) recalculateModulation(oldDest);
-        if (modSourceDests_[sourceIndex] >= 0) recalculateModulation(modSourceDests_[sourceIndex]);
+        recalculateModulation(destIdx);
     }
 
     /// Configura la profundidad de una fuente de modulación (-1.0 .. +1.0)
+    /// stModDepth (0x10013600): escribe la profundidad y llama a combine(-1)
     void setModulationDepth(size_t sourceIndex, float depth) {
         if (sourceIndex >= kNumModSources) return;
         modSourceDepths_[sourceIndex] = std::clamp(depth, -1.0f, 1.0f);
-        if (modSourceDests_[sourceIndex] >= 0) {
-            recalculateModulation(modSourceDests_[sourceIndex]);
-        }
+        recalculateModulation(-1);
     }
 
     /// Recalcula un parámetro modulable o toda la matriz si destIdx == -1
-    /// Port exacto de FUN_100134e0
+    /// Port exacto de FUN_100134e0 (combinador con acumulación en precisión doble x87)
     void recalculateModulation(int32_t targetDestIdx) {
-        // Si targetDestIdx >= 0, recalculamos ese destino específico
-        // Si targetDestIdx < 0, recalculamos todos los destinos activos
         auto applyDest = [this](size_t destIdx) {
             if (destIdx >= kNumModDests) return;
-            float baseVal = modBaseValues_[destIdx];
-            float modulationSum = 0.0f;
+            double acc = static_cast<double>(modBaseValues_[destIdx]);
 
             for (size_t s = 0; s < kNumModSources; ++s) {
                 if (modSourceDests_[s] == static_cast<int32_t>(destIdx)) {
-                    modulationSum += modSourceDepths_[s] * modSourceValues_[s];
+                    acc += static_cast<double>(modSourceDepths_[s]) *
+                           static_cast<double>(modSourceValues_[s]);
                 }
             }
 
-            float finalVal = baseVal + modulationSum;
+            float finalVal = static_cast<float>(acc);
             int32_t slot = kModDestToSlot[destIdx];
             if (slot >= 0 && slot < static_cast<int32_t>(kNumEffectiveSlots)) {
                 float minV = kModDestRanges[destIdx].min;
@@ -125,19 +180,38 @@ public:
         translateParametersToEngine(engineState_.data(), effectiveSlots_.data());
     }
 
-    /// Notifica un cambio de parámetro directo desde SndDatStore
+    /// Notifica un cambio de parámetro directo desde SndDatStore (FUN_10001550 -> FUN_100012a0)
     void handleParamChange(uint32_t paramId, float rawValue) {
         if (paramId >= kNumTotalParameters) return;
+        const auto& desc = kParameterDescriptors[paramId];
+
+        // 1. Claves 413..424: Routing y profundidad de los 6 controles (stModDest / stModDepth)
+        if (paramId >= 413 && paramId <= 424) {
+            size_t ctrlIdx = (paramId - 413) / 2;
+            if (((paramId - 413) & 1) == 0) {
+                // 413, 415, 417, 419, 421, 423 -> AftertouchDest .. ExpressionDest (stModDest)
+                setModulationDestination(ctrlIdx, static_cast<int32_t>(rawValue));
+            } else {
+                // 414, 416, 418, 420, 422, 424 -> AftertouchDepth .. ExpressionDepth (stModDepth)
+                float remappedDepth = remap(rawValue, desc.min, desc.max, -1.0f, 1.0f);
+                setModulationDepth(ctrlIdx, remappedDepth);
+            }
+            return;
+        }
+
         const auto& ctx = observerMap_[paramId];
-        if (ctx.slot < 0) return;
+        if (ctx.slot < 0 || ctx.slot >= static_cast<int32_t>(kNumEffectiveSlots)) return;
+
+        // 2. FUN_10001550 aplica FUN_100012a0(raw, desc.min, desc.max, ctx.minValue, ctx.maxValue)
+        float remappedVal = remap(rawValue, desc.min, desc.max, ctx.minValue, ctx.maxValue);
 
         if (ctx.modDestIdx >= 0 && ctx.modDestIdx < static_cast<int32_t>(kNumModDests)) {
-            // Parámetro modulable: guarda valor base y recalcula
-            modBaseValues_[ctx.modDestIdx] = rawValue;
+            // stSPEngineCb (0x100139D0): guarda base[dest] = remappedVal y llama a combine(dest)
+            modBaseValues_[ctx.modDestIdx] = remappedVal;
             recalculateModulation(ctx.modDestIdx);
         } else {
-            // Parámetro no modulable: escribe directamente en p[slot] y traduce
-            effectiveSlots_[ctx.slot] = std::clamp(rawValue, ctx.minValue, ctx.maxValue);
+            // Observador directo de slot no modulable: escribe en p[slot] y traduce
+            effectiveSlots_[ctx.slot] = std::clamp(remappedVal, ctx.minValue, ctx.maxValue);
             translateParametersToEngine(engineState_.data(), effectiveSlots_.data());
         }
     }
@@ -150,7 +224,9 @@ private:
         effectiveSlots_.fill(0.0f);
         modSourceValues_.fill(0.0f);
         modSourceDepths_.fill(0.0f);
-        modSourceDests_.fill(-1);
+        for (size_t c = 0; c < kNumModSources; ++c) {
+            modSourceDests_[c] = static_cast<int32_t>(c); // Routing inicial del ctor: control c -> dest c
+        }
         modBaseValues_.fill(0.0f);
     }
 

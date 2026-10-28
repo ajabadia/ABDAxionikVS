@@ -32,6 +32,7 @@ const ARTEFACTOS = [
   { clave: 'registry_h', rel: 'Source/Generated/ParameterRegistry.gen.h', desc: 'Registro C++ y APVTS' },
   { clave: 'conversion_h', rel: 'Source/Generated/Conversion.gen.h', desc: 'Funciones C++ de conversión 0..1 <-> raw' },
   { clave: 'midi_h', rel: 'Source/Generated/MidiMapping.gen.h', desc: 'Tablas MIDI CC / NRPN / SysEx' },
+  { clave: 'presets_h', rel: 'Source/Generated/FactoryPresets.gen.h', desc: 'Presets de fábrica oficiales' },
   { clave: 'params_ts', rel: 'WebUI/src/generated/parameters.gen.ts', desc: 'Contrato TypeScript WebUI' },
   { clave: 'bridge_json', rel: 'WebUI/src/generated/bridge-protocol.json', desc: 'Esquema de mensajes del bridge' },
 ];
@@ -283,6 +284,7 @@ function generateMidiMappingHeader() {
   lines.push('constexpr uint8_t kMidiCCR2ScapeX     = 35;   // Resynator 2 Scape X (param 132)');
   lines.push('constexpr uint8_t kMidiCCR2ScapeY     = 36;   // Resynator 2 Scape Y (param 133)');
   lines.push('constexpr uint8_t kMidiCCR2SphereX    = 37;   // Resynator 2 Sphere X (param 122)');
+  lines.push('constexpr uint8_t kMidiCCR2SphereY    = 39;   // Resynator 2 Sphere Y (param 123)');
   lines.push('constexpr uint8_t kMidiCCBlender      = 70;   // Blender Amount (param 262)');
   lines.push('constexpr uint8_t kMidiCCFilterReso   = 71;   // Filter Resonance (param 275)');
   lines.push('constexpr uint8_t kMidiCCFilterCutoff = 74;   // Filter Cutoff (param 274)');
@@ -296,6 +298,89 @@ function generateMidiMappingHeader() {
   lines.push('}');
   lines.push('');
   lines.push('} // namespace abd::axionik');
+  return lines.join('\n') + '\n';
+}
+
+// =========================================================================
+// Artefacto: FactoryPresets.gen.h
+// =========================================================================
+function generateFactoryPresetsHeader() {
+  const soundNamesPath = path.join(rootDir, 'NeuronDB', 'SoundNames');
+  const soundsDirPath = path.join(rootDir, 'NeuronDB', 'Sounds');
+  let presets = [];
+
+  if (fs.existsSync(soundsDirPath) && fs.existsSync(soundNamesPath)) {
+    const soundNamesRaw = fs.readFileSync(soundNamesPath, 'utf8').split(/\r?\n/);
+    const nameMap = new Map();
+    soundNamesRaw.forEach(l => {
+      const parts = l.split('\t');
+      if (parts.length >= 2) {
+        nameMap.set(parseInt(parts[0], 10), parts[1].trim());
+      }
+    });
+
+    const files = fs.readdirSync(soundsDirPath).filter(f => f.endsWith('.sound'));
+    presets = files.map(f => {
+      const slot = parseInt(f.replace('.sound', ''), 10);
+      const name = nameMap.get(slot) || (`Sound ${slot}`);
+      return { slot, name };
+    }).sort((a, b) => a.slot - b.slot);
+  }
+
+  const lines = [
+    '// ============================================================================',
+    '// ABDAxionikVS — FactoryPresets.gen.h',
+    '// AUTOGENERADO POR Scripts/registry_generator.js — NO EDITAR MANUALMENTE',
+    `// ${presets.length} Presets de fábrica oficiales de Hartmann Neuron / NeuronVS`,
+    '// ============================================================================',
+    '',
+    '#pragma once',
+    '',
+    '#include <cstdint>',
+    '#include <cstddef>',
+    '#include <array>',
+    '#include <string_view>',
+    '',
+    'namespace abd::axionik {',
+    '',
+    'struct FactoryPresetEntry {',
+    '    int slot;',
+    '    std::string_view name;',
+    '};',
+    '',
+    `constexpr size_t kNumFactoryPresets = ${presets.length};`,
+    '',
+    `constexpr std::array<FactoryPresetEntry, kNumFactoryPresets> kFactoryPresetList = {{`
+  ];
+
+  for (const p of presets) {
+    const safeName = p.name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    lines.push(`    { ${p.slot}, "${safeName}" },`);
+  }
+
+  lines.push(
+    '}};',
+    '',
+    'inline int getSlotForProgramIndex(int programIndex) noexcept {',
+    '    if (programIndex < 0 || programIndex >= static_cast<int>(kNumFactoryPresets)) return 0;',
+    '    return kFactoryPresetList[static_cast<size_t>(programIndex)].slot;',
+    '}',
+    '',
+    'inline std::string_view getProgramNameForIndex(int programIndex) noexcept {',
+    '    if (programIndex < 0 || programIndex >= static_cast<int>(kNumFactoryPresets)) return "Init Sound";',
+    '    return kFactoryPresetList[static_cast<size_t>(programIndex)].name;',
+    '}',
+    '',
+    'inline int getProgramIndexForSlot(int slot) noexcept {',
+    '    for (size_t i = 0; i < kNumFactoryPresets; ++i) {',
+    '        if (kFactoryPresetList[i].slot == slot) return static_cast<int>(i);',
+    '    }',
+    '    return 0;',
+    '}',
+    '',
+    '} // namespace abd::axionik'
+  );
+
   return lines.join('\n') + '\n';
 }
 
@@ -384,6 +469,7 @@ const contentByClave = {
   registry_h: generateParameterRegistryHeader(),
   conversion_h: generateConversionHeader(),
   midi_h: generateMidiMappingHeader(),
+  presets_h: generateFactoryPresetsHeader(),
   params_ts: generateParametersTs(),
   bridge_json: generateBridgeProtocolJson(),
 };

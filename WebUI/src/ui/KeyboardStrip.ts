@@ -12,6 +12,7 @@ export interface KeyboardStripHandlers {
   onNoteRelease: (midiNote: number) => void;
   onPitchBend?: (value: number) => void;
   onModWheel?: (value: number) => void;
+  onAftertouch?: (value: number, note?: number) => void;
   onPanic?: () => void;
   onSustainChange?: (active: boolean) => void;
 }
@@ -85,6 +86,11 @@ export class KeyboardStrip {
       onModWheel: (val: number) => {
         this.handlers.onModWheel?.(val);
       },
+      onAftertouch: (note: number, pressure: number) => {
+        // midi-keyb pasa (note, pressure) donde note=-1 para canal o nota individual
+        const normalized = pressure > 1.0 ? pressure / 127.0 : pressure;
+        this.handlers.onAftertouch?.(normalized, note);
+      },
       onPanic: () => {
         this.handlers.onPanic?.();
       },
@@ -106,6 +112,7 @@ export class KeyboardStrip {
         enableRetrig: true,
         enableSustain: true,
         enableTouch: true,
+        enableAftertouch: true,
         enableResizeObserver: true,
       }
     });

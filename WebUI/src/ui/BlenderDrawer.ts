@@ -2,6 +2,7 @@
  * ABDAxionikVS — BlenderDrawer.ts
  * Dedicated slide-out drawer (50vw) for Blender fusion algorithms & Slicer modulation.
  * 100% tokenized with @abdsynths/shared button and slider components.
+ * Fully hydrated with live state and persistence from WebBridge.
  */
 
 import { ICONS } from './icons.js';
@@ -35,8 +36,18 @@ export class BlenderDrawer {
     root.className = 'drawer-view-content';
     root.style.cssText = 'display: flex; flex-direction: column; gap: var(--space-4); height: 100%;';
 
-    const curBlenderType = 0;
-    const curSlicerWave = 0;
+    // 1. Rehidratar estado real de los parámetros
+    const curBlenderType = Math.round(WebBridge.getParam(261, 0));
+    const curAmount = Math.round(WebBridge.getParam(262, 0));
+    const curLfoDepth = Math.round(WebBridge.getParam(263, 0));
+    const curAdsr1 = Math.round(WebBridge.getParam(264, 0));
+    const curAdsr2 = Math.round(WebBridge.getParam(265, 0));
+    const cur4l4t = Math.round(WebBridge.getParam(266, 0));
+
+    const curSlicerType = Math.round(WebBridge.getParam(267, 0));
+    const curSlicerDepth = Math.round(WebBridge.getParam(268, 64));
+    const curSlicerRate = Math.round(WebBridge.getParam(269, 66));
+    const curSlicerWave = Math.round(WebBridge.getParam(270, 0));
 
     let algoButtonsHtml = '';
     BLENDER_ALGORITHMS.forEach((a) => {
@@ -73,7 +84,7 @@ export class BlenderDrawer {
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: var(--space-2);">
               <span class="panel-badge">FUSION ALGORITHM</span>
-              <span class="panel-caption" id="blender-algo-desc">${BLENDER_ALGORITHMS[0].desc}</span>
+              <span class="panel-caption" id="blender-algo-desc">${BLENDER_ALGORITHMS[curBlenderType]?.desc || ''}</span>
             </div>
             <span class="hud-pill stat-num">Param 261</span>
           </div>
@@ -86,32 +97,32 @@ export class BlenderDrawer {
           <div style="display: flex; align-items: center; gap: var(--space-3); background: var(--color-panel-surface); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--color-panel-border);">
             <span class="hud-label" style="min-width: 90px;">AMOUNT [-64..+63]:</span>
             <span style="font-size: 10px; color: var(--color-text-muted);">R1</span>
-            <input type="range" id="b-drawer-amount" class="abd-slider" min="-64" max="63" value="0" step="1" style="flex: 1;" />
+            <input type="range" id="b-drawer-amount" class="abd-slider" min="-64" max="63" value="${curAmount}" step="1" style="flex: 1;" />
             <span style="font-size: 10px; color: var(--color-text-muted);">R2</span>
-            <span class="hud-value stat-num" id="b-drawer-amount-val" style="min-width: 44px; text-align: right;">0</span>
+            <span class="hud-value stat-num" id="b-drawer-amount-val" style="min-width: 44px; text-align: right;">${curAmount}</span>
           </div>
 
           <!-- Blender Modulations -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
             <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
               <span class="hud-label">LFO DEPTH [263]:</span>
-              <input type="range" id="b-drawer-lfo-depth" class="abd-slider" min="-64" max="63" value="0" step="1" style="width: 100px;" />
-              <span class="hud-value stat-num" id="b-drawer-lfo-depth-val">0</span>
+              <input type="range" id="b-drawer-lfo-depth" class="abd-slider" min="-64" max="63" value="${curLfoDepth}" step="1" style="width: 100px;" />
+              <span class="hud-value stat-num" id="b-drawer-lfo-depth-val">${curLfoDepth}</span>
             </div>
             <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
               <span class="hud-label">FREE ADSR 1 [264]:</span>
-              <input type="range" id="b-drawer-adsr1-depth" class="abd-slider" min="-64" max="63" value="0" step="1" style="width: 100px;" />
-              <span class="hud-value stat-num" id="b-drawer-adsr1-depth-val">0</span>
+              <input type="range" id="b-drawer-adsr1-depth" class="abd-slider" min="-64" max="63" value="${curAdsr1}" step="1" style="width: 100px;" />
+              <span class="hud-value stat-num" id="b-drawer-adsr1-depth-val">${curAdsr1}</span>
             </div>
             <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
               <span class="hud-label">FREE ADSR 2 [265]:</span>
-              <input type="range" id="b-drawer-adsr2-depth" class="abd-slider" min="-64" max="63" value="0" step="1" style="width: 100px;" />
-              <span class="hud-value stat-num" id="b-drawer-adsr2-depth-val">0</span>
+              <input type="range" id="b-drawer-adsr2-depth" class="abd-slider" min="-64" max="63" value="${curAdsr2}" step="1" style="width: 100px;" />
+              <span class="hud-value stat-num" id="b-drawer-adsr2-depth-val">${curAdsr2}</span>
             </div>
             <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
               <span class="hud-label">FREE 4L4T [266]:</span>
-              <input type="range" id="b-drawer-4l4t-depth" class="abd-slider" min="0" max="127" value="0" step="1" style="width: 100px;" />
-              <span class="hud-value stat-num" id="b-drawer-4l4t-depth-val">0</span>
+              <input type="range" id="b-drawer-4l4t-depth" class="abd-slider" min="0" max="127" value="${cur4l4t}" step="1" style="width: 100px;" />
+              <span class="hud-value stat-num" id="b-drawer-4l4t-depth-val">${cur4l4t}</span>
             </div>
           </div>
         </div>
@@ -124,22 +135,22 @@ export class BlenderDrawer {
               <span class="panel-caption">Rhythmic Chopper & Spatial Modulator [267..270]</span>
             </div>
             <div class="slicer-mode-bar" style="display: flex; gap: 4px;">
-              <button type="button" class="btn btn-xs btn-primary active btn-slicer-type" data-type="0">0: Off</button>
-              <button type="button" class="btn btn-xs btn-outline btn-slicer-type" data-type="1">1: 2D Vertical</button>
-              <button type="button" class="btn btn-xs btn-outline btn-slicer-type" data-type="2">2: 3D Spatial</button>
+              <button type="button" class="btn btn-xs ${curSlicerType === 0 ? 'btn-primary active' : 'btn-outline'} btn-slicer-type" data-type="0">0: Off</button>
+              <button type="button" class="btn btn-xs ${curSlicerType === 1 ? 'btn-primary active' : 'btn-outline'} btn-slicer-type" data-type="1">1: 2D Vertical</button>
+              <button type="button" class="btn btn-xs ${curSlicerType === 2 ? 'btn-primary active' : 'btn-outline'} btn-slicer-type" data-type="2">2: 3D Spatial</button>
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
             <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
               <span class="hud-label">RATE [269]:</span>
-              <input type="range" id="s-drawer-rate" class="abd-slider" min="0" max="200" value="66" step="1" style="width: 120px;" />
-              <span class="hud-value stat-num" id="s-drawer-rate-val">66</span>
+              <input type="range" id="s-drawer-rate" class="abd-slider" min="0" max="200" value="${curSlicerRate}" step="1" style="width: 120px;" />
+              <span class="hud-value stat-num" id="s-drawer-rate-val">${curSlicerRate}</span>
             </div>
             <div class="hud-pill" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
               <span class="hud-label">DEPTH [268]:</span>
-              <input type="range" id="s-drawer-depth" class="abd-slider" min="0" max="127" value="64" step="1" style="width: 120px;" />
-              <span class="hud-value stat-num" id="s-drawer-depth-val">64</span>
+              <input type="range" id="s-drawer-depth" class="abd-slider" min="0" max="127" value="${curSlicerDepth}" step="1" style="width: 120px;" />
+              <span class="hud-value stat-num" id="s-drawer-depth-val">${curSlicerDepth}</span>
             </div>
           </div>
 

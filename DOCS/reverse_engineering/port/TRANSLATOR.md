@@ -321,7 +321,9 @@ El objetivo `neuron_golden` sólo existe en Win32 de 32 bits: el DLL es x86 y el
 estado guarda punteros de 32 bits. En una configuración x64 el target y sus dos
 tests (`translator_differential`, `golden_oracle`) no se generan.
 
-Cada preset se compara **dos veces**:
+Cada preset se compara **cinco veces**. Las dos primeras son estado quieto y
+estado con la nota sonando; las tres siguientes cambian el preset o el modelo
+con esa misma voz viva, que es el caso de §4.3 de `ZONES.md`:
 
 1. **tras cargar** — el estado quieto que deja la carga del preset.
 2. **mitad de nota** — el motor con una nota sonando. Se manda `note on 60`,
@@ -336,17 +338,51 @@ Cada preset se compara **dos veces**:
    recortado a `params+0x2B0`) y ha vuelto a llamar al traductor. Es el estado
    en el que el host llama al traductor cuando el usuario gira un mando con la
    nota sonando.
+3. **preset en caliente** — CC 32 + program change a **otro** id con la voz de
+   la pasada 2 viva: el observable del registro del sonido llama a
+   `FUN_100132d0`, que borra las dos tablas de zonas, resetea las globales de
+   morph, recarga el script (`FUN_10013ea0` + `FUN_10013ac0`) y retraduce. El
+   estado que compara esta pasada no lo produce ninguna otra: tablas a cero y
+   `0xDA4` de vuelta al centro con la voz sonando.
+4. **vuelta en caliente** — el program change de vuelta al id de la iteración,
+   para dejar el motor en el preset que le toca (el siguiente ciclo volverá a
+   pedir otro id). No se compara: es preparación.
+5. **modelo en caliente** — el callback `0x10013620` de `R1ModellIndex` con esa
+   misma voz viva: `FUN_10046b70`, 128 × `FUN_100440d0`, `FUN_1003d780` y
+   `FUN_10040550`. Es el otro camino en caliente y el único que reescribe la
+   tabla de zonas sin recargar el script. Como el modelo del registro es el
+   mismo que el motor tiene cargado, el arnés pone a cero la entrada de la tecla
+   60 antes de llamarlo y comprueba que el callback la repone (si no lo hace
+   —le pasa cuando el motor no tiene ese modelo cargado— avisa y la repone él,
+   para no dejar el motor con una zona a medias que el DLL nunca produjo).
+6. **nota nueva tras los cambios** — retrigger de la tecla: el primer estado
+   con una voz construida después de los dos cambios, sobre las tablas que
+   dejaron.
 
-La segunda pasada sólo cuenta si el motor se ha movido: el arnés toma como
-línea base la foto que deja la primera pasada (ya con la puerta y el validador
-escritos, para no contarse a sí mismo) y falla si la nota no cambia nada. Con
-los 351 sonidos instalados cambian entre **10 y 17 dwords del motor y 0..2 de
-`p`**, casi siempre los mismos: `e[0x0A0..0x0A2]`, `e[0x1F0..0x1F3]`,
-`e[0x204]`, los pares de capa `e[0x353]/0x355` y `e[0x369]/0x36A` (salidas del
-traductor para la `p` nueva) y los bytes de estado `e[0xD97]` en adelante. Los
-índices se imprimen en una línea `e: 0x0A0 0x0A2 0x1F0 … | p: 0x013 0x0E4`
-(los ocho primeros de cada lista, con `...` si hay más) para que la foto sea
-auditable.
+Cada una de las pasadas 2 a 6 sólo cuenta si el motor se ha movido desde la
+anterior: el arnés toma como línea base la foto que deja la pasada previa (ya
+con la puerta y el validador escritos, para no contarse a sí mismo) y falla si
+no cambia nada. Con los 351 sonidos instalados, la pasada de mitad de nota
+mueve entre **10 y 17 dwords del motor y 0..2 de `p`**, casi siempre los
+mismos: `e[0x0A0..0x0A2]`, `e[0x1F0..0x1F3]`, `e[0x204]`, los pares de capa
+`e[0x353]/0x355` y `e[0x369]/0x36A` (salidas del traductor para la `p` nueva) y
+los bytes de estado `e[0xD97]` en adelante. Los índices se imprimen en una
+línea `e: 0x0A0 0x0A2 0x1F0 … | p: 0x013 0x0E4` (los ocho primeros de cada
+lista, con `...` si hay más) para que la foto sea auditable.
+
+En las dos pasadas de caliente el arnés imprime además el testigo de los
+descriptores (`ZONES.md` §4.3) —el puntero de `e[0xD94]`, cuántos descriptores
+están atados a este motor y cuál es el primero con su byte `+0x40`, los dos
+motores R1/R2 de ese descriptor y su puerta `+0x6820`, los bytes de estado y
+cuántos dwords de las dos tablas de zonas no son cero— y **falla si esos
+punteros cambian**: en el barrido completo son 702 testigos (351 de preset +
+351 de modelo) y ninguno se movió; 7 de las 351 pasadas de preset corren con
+la voz atada y construida (`atados=1`, `puertas 1/1`) y las otras 344 sin voz
+—en 320 de ellas las dos tablas de zonas están a cero, así que la tecla 60 no
+tiene zona y no se construye descriptor; en las demás sólo hay una capa
+rellena—. Dos de los cuatro presets del test registrado, 176 y 337, están
+entre los 7. El movimiento del motor es de 17 a 1642 dwords con el preset,
+**1 dword** (`e[0x1F0]`) con el modelo y 6 u 8 con la nota nueva.
 
 Barrido completo (`0..350`, los 351 sonidos instalados); sale 1 por los 18 de
 §9.5, cada uno con su ULP:
@@ -361,6 +397,17 @@ preset 176 tras cargar (program_change): 0 / 3487 dwords del motor y 0 / 335 de 
 preset 176 mitad de nota: 16 / 3487 dwords del motor y 2 / 335 de p cambiaron desde el reposo
   e: 0x0A0 0x0A2 0x1F0 0x1F1 0x1F3 0x204 0x369 0x36A ... | p: 0x013 0x0E4
 preset 176 mitad de nota: 0 / 3487 dwords del motor y 0 / 335 de p difieren
+preset 176 cambio de preset en caliente a 285
+  antes: e[0xD94]=01748F1C atados=1 [slot 0 +0x40=1] (en construccion 1) R1=0174C908 R2=01753A38 puertas 1/1  0xD98=1 0xD99=1 0xDA4=0.628906 0xDAC=1  zonas=1536
+  despues: e[0xD94]=01748F1C atados=1 [slot 0 +0x40=0] (en construccion 0) R1=0174C908 R2=01753A38 puertas 1/1  0xD98=1 0xD99=1 0xDA4=0.5 0xDAC=1  zonas=768
+  el cambio de preset no reasigna e[0xD94] ni los motores de la voz atada
+  844 / 3487 dwords del motor y 64 / 335 de p cambiaron con el cambio de preset
+preset 176 preset en caliente: 0 / 3487 dwords del motor y 0 / 335 de p difieren
+preset 176 modelo en caliente: 1 / 3487 dwords del motor y 0 / 335 de p cambiaron con el modelo
+  el cambio de modelo no reasigna e[0xD94] ni los motores de la voz atada
+preset 176 modelo en caliente: 0 / 3487 dwords del motor y 0 / 335 de p difieren
+preset 176 nota nueva tras los cambios: 0 / 3487 dwords del motor y 0 / 335 de p difieren
+traductor identico al DLL
 ```
 
 - **en reposo: 351/351 idénticos**, 3.487 dwords cada uno; el validador devuelve
@@ -376,10 +423,16 @@ preset 176 mitad de nota: 0 / 3487 dwords del motor y 0 / 335 de p difieren
   Nótese que la `p` que llega aquí viene del propio DLL: `setParameter` y los CC
   disparan `FUN_100134e0`, que la recalcula y vuelve a traducir antes de que el
   arnés tome la foto.
+- **con el preset en caliente: 333/351 idénticos, y son los mismos 18 presets y
+  los mismos dwords**: el cambio en caliente vuelve a pasar por la misma
+  escritura (`e[0x204]`/`e[0x0A2]`) con la `p` recalculada, así que hereda la
+  diferencia de ULP de §9.5. Es la única diferencia del barrido: el cambio de
+  modelo (1 dword movido, los 351) y la nota nueva salen **351/351** idénticos.
 
 Los 18 son 003, 025, 046, 053, 055, 075, 079, 101, 103, 116, 140, 171, 179,
 180, 186, 207, 252 y 301. El test registrado usa `000,176,285,337`, que están
-entre los idénticos; el barrido completo sale 1 por esos 18.
+entre los idénticos; el barrido completo sale 1 por esos 18, en las dos pasadas
+(36 líneas).
 
 La prueba de contrato, `tests/translator_probe.cpp` (Win32; en x64 no se compila
 porque el estado guarda punteros de 32 bits), fija el resto del contrato:
@@ -412,9 +465,11 @@ original **salta** los punteros nulos: el validador comprueba lo que hay, no
 exige que haya algo. El canario de 64 B detrás de los 13.948 B confirma que
 ninguna de las 456 escrituras se sale del estado.
 
-Lo que la diferencial **no** cubre todavía: el cambio de modelo o de preset con
-notas sonando (`FUN_100440d0`/`FUN_10013ea0` en caliente) y lo que `FUN_100343e4`
-escribe en su sub-objeto.
+Lo que la diferencial **no** cubre todavía: lo que `FUN_100343e4` escribe en su
+sub-objeto (`e[0xD95]`) y el reparto de `p` entre el host y el motor cuando el
+cambio llega por otras vías. El cambio de modelo o de preset con notas sonando
+sí está cubierto: son las pasadas 3 y 5 de §8, con el testigo de los
+descriptores de `ZONES.md` §4.3 delante y detrás de cada cambio.
 
 ## 9. Dudas abiertas
 
@@ -450,11 +505,19 @@ escribe en su sub-objeto.
 7. **Los campos con nombre pendiente.** El estado se escribe por offsets; no hay
    todavía un mapa `e[N] → nombre/tipo` verificado. La tabla de §5 dice *dónde*
    y *de qué*, no *qué es*.
-8. **Estados intermedios.** La pasada de mitad de nota (§8) ya cubre voces
-   vivas, envolventes, LFO y morph en curso —y es la que destapó la diferencia
-   de 1 ULP de §9.5—. Sigue sin cubrirse el cambio de modelo o de preset con
-   notas sonando (`FUN_100440d0`/`FUN_10013ea0` en caliente), donde el motor
-   libera y realoja descriptores, ni el estado que deja `FUN_100343e4`.
+8. **Estados intermedios.** La pasada de mitad de nota (§8) cubre voces vivas,
+   envolventes, LFO y morph en curso —y es la que destapó la diferencia de 1 ULP
+   de §9.5—; las pasadas 3 y 5 cubren el cambio de preset y de modelo con esa
+   misma voz viva, y la 6 una voz construida después del cambio. Sigue sin
+   cubrirse el estado que deja `FUN_100343e4` (`e[0xD95]`), y en el barrido sólo
+   7 de los 351 sonidos llegan al cambio con un descriptor atado: en los otros
+   344 no hay voz que conservar (en 320 de ellos las dos tablas de zonas están a
+   cero). Que eso pase con 106 presets de modelos completos queda cerrado y explicado
+   en `ZONES.md §4.2`: el observador `0x10013620` se dispara incondicionalmente
+   (máscara 6 en `FUN_10013ea0`), pero la DLL original busca los modelos en la clave
+   del registro HKLM (`C:\Program Files (x86)\...`), donde sólo está instalado el
+   modelo `511`; al fallar `FUN_1000a7d0`, la guarda omite la escritura y la tabla
+   retiene los ceros de `FUN_10046ce0`.
 9. **`p[0x55]` no se lee.** Un hueco en medio de un volcado casi completo; puede
    ser un slot reservado o un parámetro que el motor ignora.
 

@@ -24,9 +24,13 @@ public:
 private:
     void timerCallback() override;
     void handleJsEvent(const juce::var& msg);
+    void sendBankCatalogSync();
 
     AxionikProcessor& processor_;
     std::unique_ptr<abd::webview2::JuceWebView2Component> webComponent_;
+    bool isUiReady_{false};
+    int timerTicks_{0};
+    bool initialCatalogSent_{false};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AxionikEditor)
 };

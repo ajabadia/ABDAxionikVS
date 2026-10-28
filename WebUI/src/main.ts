@@ -18,10 +18,18 @@ import { SilverDrawer } from './ui/SilverDrawer.js';
 import { BlenderDrawer, BLENDER_ALGORITHMS } from './ui/BlenderDrawer.js';
 import { MatrixDrawer } from './ui/MatrixDrawer.js';
 import { MasterFxDrawer } from './ui/MasterFxDrawer.js';
+import { SettingsDrawer } from './ui/SettingsDrawer.js';
 import { DragDropHandler } from './ui/DragDropHandler.js';
 import { WebBridge } from './bridge/WebBridge.js';
 import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
 import { getParameterSetStickLabels } from './ui/ParameterSets.js';
+import {
+  MODEL_METADATA,
+  PRESET_METADATA,
+  getCanonicalModelName,
+  getCanonicalPresetName,
+  getCanonicalPresetInfo,
+} from './ui/NeuronCatalogMetadata.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const app = document.getElementById('app');
@@ -50,12 +58,14 @@ document.addEventListener('DOMContentLoaded', () => {
       <!-- Columna Resynator 1 -->
       <section class="synth-panel-card resynator-column" id="r1-panel">
         <div class="panel-header">
-          <div style="display: flex; align-items: center; gap: var(--space-2);">
-            <span class="panel-badge">RESYNATOR 1</span>
-            <span class="panel-caption">Sphere & Scape Synthesis</span>
+          <div style="display: flex; align-items: center; gap: var(--space-2); min-width: 0;">
+            <button type="button" class="btn btn-xs btn-primary active" id="btn-toggle-r1" title="Enable / Mute Resynator 1 [23]">R1 ON</button>
+            <span class="panel-caption resynator-model-caption" id="r1-model-caption" title="Loaded Model Name">511 sinew</span>
           </div>
           <div class="panel-actions" style="display: flex; align-items: center; gap: var(--space-2);">
-            <span class="hud-pill stat-num">Model: <strong id="r1-model-label">511 sinew</strong></span>
+            <button type="button" class="btn btn-xs btn-outline" id="btn-select-model-r1" title="Select / Change Model for Resynator 1">
+              MODEL: <strong id="r1-model-slot">#511</strong>
+            </button>
             <button type="button" class="btn btn-xs" id="btn-edit-r1" title="Expanded Controls">Edit R1</button>
           </div>
         </div>
@@ -69,12 +79,14 @@ document.addEventListener('DOMContentLoaded', () => {
       <!-- Columna Resynator 2 -->
       <section class="synth-panel-card resynator-column" id="r2-panel">
         <div class="panel-header">
-          <div style="display: flex; align-items: center; gap: var(--space-2);">
-            <span class="panel-badge">RESYNATOR 2</span>
-            <span class="panel-caption">Sphere & Scape Synthesis</span>
+          <div style="display: flex; align-items: center; gap: var(--space-2); min-width: 0;">
+            <button type="button" class="btn btn-xs btn-primary active" id="btn-toggle-r2" title="Enable / Mute Resynator 2 [103]">R2 ON</button>
+            <span class="panel-caption resynator-model-caption" id="r2-model-caption" title="Loaded Model Name">511 sinew</span>
           </div>
           <div class="panel-actions" style="display: flex; align-items: center; gap: var(--space-2);">
-            <span class="hud-pill stat-num">Model: <strong id="r2-model-label">511 sinew</strong></span>
+            <button type="button" class="btn btn-xs btn-outline" id="btn-select-model-r2" title="Select / Change Model for Resynator 2">
+              MODEL: <strong id="r2-model-slot">#511</strong>
+            </button>
             <button type="button" class="btn btn-xs" id="btn-edit-r2" title="Expanded Controls">Edit R2</button>
           </div>
         </div>
@@ -164,6 +176,9 @@ document.addEventListener('DOMContentLoaded', () => {
     onModWheel: (val) => {
       WebBridge.modWheel(val);
     },
+    onAftertouch: (val) => {
+      WebBridge.channelPressure(val);
+    },
     onPanic: () => {
       WebBridge.allNotesOff();
     },
@@ -175,23 +190,60 @@ document.addEventListener('DOMContentLoaded', () => {
   // 4. Gestor universal de paneles deslizantes (Drawers - 50vw desde la derecha)
   const drawerManager = new DrawerManager(app);
 
+  let targetResynatorForModelPick: 1 | 2 = 1;
+  let bankDrawer: BankDrawer;
+
+  const updateResynatorModelUI = (resynator: 1 | 2, slot: number, name?: string) => {
+    const isR1 = resynator === 1;
+    const captionEl = document.getElementById(isR1 ? 'r1-model-caption' : 'r2-model-caption');
+    const slotEl = document.getElementById(isR1 ? 'r1-model-slot' : 'r2-model-slot');
+
+    if (slotEl) {
+      slotEl.textContent = `#${String(slot).padStart(3, '0')}`;
+    }
+
+    let modelName = name;
+    if (!modelName && bankDrawer) {
+      const found = bankDrawer.getBank().models.find((m) => m.slot === slot);
+      if (found && found.name) {
+        modelName = found.name;
+      }
+    }
+    if (!modelName) {
+      modelName = getCanonicalModelName(slot);
+    }
+
+    if (captionEl) {
+      captionEl.textContent = modelName;
+      captionEl.title = `Model #${slot}: ${modelName}`;
+    }
+  };
+
   // Funciones para abrir paneles expandidos (Resynator 1/2 y Silver Rack)
   const openR1Drawer = () => {
-    const modelText = document.getElementById('r1-model-label')?.textContent || '511 sinew';
+    const modelText = document.getElementById('r1-model-caption')?.textContent || '511 sinew';
     const content = ResynatorDrawer.createContent({
       resynator: 1,
       modelName: modelText,
       onClose: () => drawerManager.close(),
+      onSelectModel: (resynator) => {
+        targetResynatorForModelPick = resynator;
+        bankDrawer?.open('models', 'r1');
+      },
     });
     drawerManager.openCustom('r1-expanded', content);
   };
 
   const openR2Drawer = () => {
-    const modelText = document.getElementById('r2-model-label')?.textContent || '511 sinew';
+    const modelText = document.getElementById('r2-model-caption')?.textContent || '511 sinew';
     const content = ResynatorDrawer.createContent({
       resynator: 2,
       modelName: modelText,
       onClose: () => drawerManager.close(),
+      onSelectModel: (resynator) => {
+        targetResynatorForModelPick = resynator;
+        bankDrawer?.open('models', 'r2');
+      },
     });
     drawerManager.openCustom('r2-expanded', content);
   };
@@ -224,6 +276,25 @@ document.addEventListener('DOMContentLoaded', () => {
     drawerManager.openCustom('mfx-expanded', content);
   };
 
+  const openSettingsDrawer = () => {
+    const content = SettingsDrawer.createContent({
+      onClose: () => drawerManager.close(),
+      onConfigureFolder: () => bankDrawer.promptConfigureFolder(),
+      onSelectTheme: (theme) => {
+        const idx = themes.indexOf(theme);
+        if (idx >= 0) {
+          currentThemeIndex = idx;
+          applyTheme(theme);
+        }
+      },
+      onZoom: (zoom) => {
+        document.body.style.zoom = String(zoom);
+      },
+      currentTheme: themes[currentThemeIndex],
+    });
+    drawerManager.openCustom('settings-expanded', content);
+  };
+
   // 5. Instanciar los 4 controladores vectoriales 2D (Trajectory Sticks)
   const r1ScapeMount = document.getElementById('r1-scape-mount');
   const r1SphereMount = document.getElementById('r1-sphere-mount');
@@ -247,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
         WebBridge.setParam(paramX, coord.x);
         WebBridge.setParam(paramY, coord.y);
       },
-      onOpenExpanded: openR1Drawer,
     });
   }
 
@@ -263,7 +333,6 @@ document.addEventListener('DOMContentLoaded', () => {
         WebBridge.setParam(paramX, coord.x);
         WebBridge.setParam(paramY, coord.y);
       },
-      onOpenExpanded: openR1Drawer,
     });
   }
 
@@ -279,7 +348,6 @@ document.addEventListener('DOMContentLoaded', () => {
         WebBridge.setParam(paramX, coord.x);
         WebBridge.setParam(paramY, coord.y);
       },
-      onOpenExpanded: openR2Drawer,
     });
   }
 
@@ -295,13 +363,39 @@ document.addEventListener('DOMContentLoaded', () => {
         WebBridge.setParam(paramX, coord.x);
         WebBridge.setParam(paramY, coord.y);
       },
-      onOpenExpanded: openR2Drawer,
     });
   }
 
-  // Conectar botones Edit R1, Edit R2, Edit Blender y Edit Silver Rack
+  // Conectar botones Edit R1, Edit R2, R1/R2 Switch, Model Selection, Edit Blender y Edit Silver Rack
+  const updateResySwitchButton = (resy: 1 | 2, enabled: boolean) => {
+    const btn = document.getElementById(resy === 1 ? 'btn-toggle-r1' : 'btn-toggle-r2');
+    if (!btn) return;
+    btn.classList.toggle('active', enabled);
+    btn.classList.toggle('btn-primary', enabled);
+    btn.classList.toggle('btn-outline', !enabled);
+    btn.textContent = `R${resy} ${enabled ? 'ON' : 'OFF'}`;
+  };
+
+  document.getElementById('btn-toggle-r1')?.addEventListener('click', () => {
+    const next = WebBridge.getParam(23, 1) < 0.5;
+    updateResySwitchButton(1, next);
+    WebBridge.setParam(23, next ? 1 : 0);
+  });
+  document.getElementById('btn-toggle-r2')?.addEventListener('click', () => {
+    const next = WebBridge.getParam(103, 1) < 0.5;
+    updateResySwitchButton(2, next);
+    WebBridge.setParam(103, next ? 1 : 0);
+  });
   document.getElementById('btn-edit-r1')?.addEventListener('click', openR1Drawer);
   document.getElementById('btn-edit-r2')?.addEventListener('click', openR2Drawer);
+  document.getElementById('btn-select-model-r1')?.addEventListener('click', () => {
+    targetResynatorForModelPick = 1;
+    bankDrawer?.open('models', 'r1');
+  });
+  document.getElementById('btn-select-model-r2')?.addEventListener('click', () => {
+    targetResynatorForModelPick = 2;
+    bankDrawer?.open('models', 'r2');
+  });
   document.getElementById('btn-edit-silver')?.addEventListener('click', openSilverDrawer);
   document.getElementById('btn-edit-blender')?.addEventListener('click', openBlenderDrawer);
 
@@ -365,56 +459,175 @@ document.addEventListener('DOMContentLoaded', () => {
     WebBridge.setParam(275, val);
   });
 
-  const freqAlgoNames = ['Off', 'FreqShift', 'RingMod', 'Distortion', 'Decimator', 'Formant', 'Comb', 'Resonator', 'Treemonster'];
+  const freqAlgoNames = ['EQ/Comp', 'Distortion', 'RingMod', 'Decimator', 'Sp-Warp'];
   let curFreqAlgoIdx = 2; // RingMod
   const btnCycleFreq = document.getElementById('btn-cycle-freqfx');
   const curFreqVal = document.getElementById('cur-freq-fx-val');
   btnCycleFreq?.addEventListener('click', () => {
     curFreqAlgoIdx = (curFreqAlgoIdx + 1) % freqAlgoNames.length;
     if (curFreqVal) curFreqVal.textContent = freqAlgoNames[curFreqAlgoIdx];
-    WebBridge.setParam(281, curFreqAlgoIdx > 0 ? 1 : 0);
+    WebBridge.setParam(271, 1); // SilverSwitch
+    WebBridge.setParam(281, 1); // FreqFXSwitch
     WebBridge.setParam(282, curFreqAlgoIdx);
   });
 
-  const timeAlgoNames = ['Off', 'Chorus', 'Flanger', 'Phaser', 'Delay', 'MultiTap', 'Reverb'];
-  let curTimeAlgoIdx = 1; // Chorus
+  const timeAlgoNames = ['St.Spread', 'L/R Delay', 'Flanger', 'Phaser', 'Chorus'];
+  let curTimeAlgoIdx = 4; // Chorus
   const btnCycleTime = document.getElementById('btn-cycle-timefx');
   const curTimeVal = document.getElementById('cur-time-fx-val');
   btnCycleTime?.addEventListener('click', () => {
     curTimeAlgoIdx = (curTimeAlgoIdx + 1) % timeAlgoNames.length;
     if (curTimeVal) curTimeVal.textContent = timeAlgoNames[curTimeAlgoIdx];
-    WebBridge.setParam(327, curTimeAlgoIdx > 0 ? 1 : 0);
+    WebBridge.setParam(271, 1); // SilverSwitch
+    WebBridge.setParam(327, 1); // TimeFXSwitch
     WebBridge.setParam(328, curTimeAlgoIdx);
   });
 
-  // 7. Gestor de Banco y Modelos NeuronDB (BankDrawer montado en el Drawer universal)
-  let targetResynatorForModelPick: 1 | 2 = 1;
+  const applyAllParamsToUI = (values: number[]) => {
+    if (!Array.isArray(values) || values.length === 0) return;
 
-  const bankDrawer = new BankDrawer(drawerManager, {
+    // R1 Model (param 22) & R2 Model (param 102) + Switches (23, 103)
+    const r1Slot = Math.round(values[22] ?? 511);
+    const r2Slot = Math.round(values[102] ?? 511);
+    updateResySwitchButton(1, (values[23] ?? 1) > 0.5);
+    updateResySwitchButton(2, (values[103] ?? 1) > 0.5);
+    const r1Name = getCanonicalModelName(r1Slot);
+    const r2Name = getCanonicalModelName(r2Slot);
+
+    updateResynatorModelUI(1, r1Slot, r1Name);
+    updateResynatorModelUI(2, r2Slot, r2Name);
+    navbar.setModelName(1, `#${String(r1Slot).padStart(3, '0')} ${r1Name}`);
+    navbar.setModelName(2, `#${String(r2Slot).padStart(3, '0')} ${r2Name}`);
+
+    // Update stick polar labels based on model parameter sets
+    const r1Meta = MODEL_METADATA[r1Slot];
+    const r1ParSet = r1Meta ? r1Meta[0] : (r1Slot % 10);
+    r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'scape'));
+    r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'sphere'));
+
+    const r2Meta = MODEL_METADATA[r2Slot];
+    const r2ParSet = r2Meta ? r2Meta[0] : (r2Slot % 10);
+    r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
+    r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
+
+    // Blender: Algo (param 261), Amount (param 262)
+    const blenderAlgo = Math.round(values[261] ?? 0);
+    curBlenderAlgoIdx = Math.max(0, Math.min(BLENDER_ALGORITHMS.length - 1, blenderAlgo));
+    if (curBlenderVal) curBlenderVal.textContent = BLENDER_ALGORITHMS[curBlenderAlgoIdx].name;
+
+    const blenderAmount = Math.round(values[262] ?? 0);
+    if (blenderSlider) blenderSlider.value = String(blenderAmount);
+    if (blenderVal) blenderVal.textContent = String(blenderAmount);
+
+    // Slicer: Mode (param 267), Depth (param 268), Rate (param 269)
+    const slicerMode = Math.round(values[267] ?? 0);
+    curSlicerTypeIdx = Math.max(0, Math.min(slicerTypes.length - 1, slicerMode));
+    if (curSlicerTypeVal) curSlicerTypeVal.textContent = slicerTypes[curSlicerTypeIdx];
+
+    const slicerDepth = Math.round(values[268] ?? 0);
+    if (slicerDepthSlider) slicerDepthSlider.value = String(slicerDepth);
+    if (slicerDepthVal) slicerDepthVal.textContent = String(slicerDepth);
+
+    const slicerRate = Math.round(values[269] ?? 66);
+    if (slicerRateSlider) slicerRateSlider.value = String(slicerRate);
+    if (slicerRateVal) slicerRateVal.textContent = String(slicerRate);
+
+    // Filter: Cutoff (param 274), Reso (param 275)
+    const filterCut = Math.round(values[274] ?? 100);
+    if (filterCutSlider) filterCutSlider.value = String(filterCut);
+    if (filterCutVal) filterCutVal.textContent = String(filterCut);
+
+    const filterReso = Math.round(values[275] ?? 25);
+    if (filterResoSlider) filterResoSlider.value = String(filterReso);
+    if (filterResoVal) filterResoVal.textContent = (filterReso / 127).toFixed(2);
+
+    // Silver FX: Freq FX (param 282), Time FX (param 328)
+    const freqAlgo = Math.round(values[282] ?? 2);
+    curFreqAlgoIdx = Math.max(0, Math.min(freqAlgoNames.length - 1, freqAlgo));
+    if (curFreqVal) curFreqVal.textContent = freqAlgoNames[curFreqAlgoIdx];
+
+    const timeAlgo = Math.round(values[328] ?? 1);
+    curTimeAlgoIdx = Math.max(0, Math.min(timeAlgoNames.length - 1, timeAlgo));
+    if (curTimeVal) curTimeVal.textContent = timeAlgoNames[curTimeAlgoIdx];
+
+    // Sticks 2D Positions:
+    // R1 Scape (L0: 52/53, L1: 72/73, L2: 92/93)
+    if (r1ScapeStick) {
+      r1ScapeStick.setPosition(0, Math.max(0, Math.min(1, (values[52] ?? 64) / 127)), Math.max(0, Math.min(1, (values[53] ?? 64) / 127)), false);
+      r1ScapeStick.setPosition(1, Math.max(0, Math.min(1, (values[72] ?? 64) / 127)), Math.max(0, Math.min(1, (values[73] ?? 64) / 127)), false);
+      r1ScapeStick.setPosition(2, Math.max(0, Math.min(1, (values[92] ?? 64) / 127)), Math.max(0, Math.min(1, (values[93] ?? 64) / 127)), false);
+    }
+
+    // R1 Sphere (L0: 42/43, L1: 62/63, L2: 82/83)
+    if (r1SphereStick) {
+      r1SphereStick.setPosition(0, Math.max(0, Math.min(1, (values[42] ?? 64) / 127)), Math.max(0, Math.min(1, (values[43] ?? 64) / 127)), false);
+      r1SphereStick.setPosition(1, Math.max(0, Math.min(1, (values[62] ?? 64) / 127)), Math.max(0, Math.min(1, (values[63] ?? 64) / 127)), false);
+      r1SphereStick.setPosition(2, Math.max(0, Math.min(1, (values[82] ?? 64) / 127)), Math.max(0, Math.min(1, (values[83] ?? 64) / 127)), false);
+    }
+
+    // R2 Scape (L0: 132/133, L1: 152/153, L2: 172/173)
+    if (r2ScapeStick) {
+      r2ScapeStick.setPosition(0, Math.max(0, Math.min(1, (values[132] ?? 64) / 127)), Math.max(0, Math.min(1, (values[133] ?? 64) / 127)), false);
+      r2ScapeStick.setPosition(1, Math.max(0, Math.min(1, (values[152] ?? 64) / 127)), Math.max(0, Math.min(1, (values[153] ?? 64) / 127)), false);
+      r2ScapeStick.setPosition(2, Math.max(0, Math.min(1, (values[172] ?? 64) / 127)), Math.max(0, Math.min(1, (values[173] ?? 64) / 127)), false);
+    }
+
+    // R2 Sphere (L0: 122/123, L1: 142/143, L2: 162/163)
+    if (r2SphereStick) {
+      r2SphereStick.setPosition(0, Math.max(0, Math.min(1, (values[122] ?? 64) / 127)), Math.max(0, Math.min(1, (values[123] ?? 64) / 127)), false);
+      r2SphereStick.setPosition(1, Math.max(0, Math.min(1, (values[142] ?? 64) / 127)), Math.max(0, Math.min(1, (values[143] ?? 64) / 127)), false);
+      r2SphereStick.setPosition(2, Math.max(0, Math.min(1, (values[162] ?? 64) / 127)), Math.max(0, Math.min(1, (values[163] ?? 64) / 127)), false);
+    }
+  };
+
+  // 7. Gestor de Banco y Modelos NeuronDB (BankDrawer montado en el Drawer universal)
+  bankDrawer = new BankDrawer(drawerManager, {
     onSelectModel: (slot, resynator) => {
       const targetR = resynator || targetResynatorForModelPick;
       const model = bankDrawer.getBank().models.find((m) => m.slot === slot);
       const modelName = model ? model.name : `Model #${String(slot).padStart(3, '0')}`;
+      updateResynatorModelUI(targetR, slot, modelName);
       navbar.setModelName(targetR, `#${String(slot).padStart(3, '0')} ${modelName}`);
 
-      const labelEl = document.getElementById(targetR === 1 ? 'r1-model-label' : 'r2-model-label');
-      if (labelEl) labelEl.textContent = `${slot} ${modelName}`;
-
       // Actualizar dinámicamente las etiquetas mnAN de los 4 polos según el Parameter Set del modelo
-      const parSet = (slot % 10);
+      const parSet = model ? model.parameterSet : (slot % 10);
       if (targetR === 1) {
         r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
         r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+        WebBridge.setParam(22, slot);
       } else {
         r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
         r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+        WebBridge.setParam(102, slot);
       }
 
+      WebBridge.loadModelSlot(slot, targetR);
       console.log(`[ABDAxionikVS] Assigned Model #${slot} (${modelName}, ParSet ${parSet}) to Resynator ${targetR}`);
     },
     onSelectPreset: (slot, name) => {
-      navbar.setPresetName(`${String(slot).padStart(3, '0')} ${name}`);
-      console.log(`[ABDAxionikVS] Loaded Sound Preset #${slot} "${name}"`);
+      const pInfo = getCanonicalPresetInfo(slot);
+      const displayName = name || pInfo.name;
+      navbar.setPresetName(`${String(slot).padStart(3, '0')} ${displayName}`);
+
+      const r1Name = getCanonicalModelName(pInfo.r1Model);
+      const r2Name = getCanonicalModelName(pInfo.r2Model);
+      updateResynatorModelUI(1, pInfo.r1Model, r1Name);
+      updateResynatorModelUI(2, pInfo.r2Model, r2Name);
+      navbar.setModelName(1, `#${String(pInfo.r1Model).padStart(3, '0')} ${r1Name}`);
+      navbar.setModelName(2, `#${String(pInfo.r2Model).padStart(3, '0')} ${r2Name}`);
+
+      const r1Meta = MODEL_METADATA[pInfo.r1Model];
+      const r1ParSet = r1Meta ? r1Meta[0] : (pInfo.r1Model % 10);
+      r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'scape'));
+      r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'sphere'));
+
+      const r2Meta = MODEL_METADATA[pInfo.r2Model];
+      const r2ParSet = r2Meta ? r2Meta[0] : (pInfo.r2Model % 10);
+      r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
+      r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
+
+      WebBridge.loadPresetSlot(slot);
+      console.log(`[ABDAxionikVS] Loaded Sound Preset #${slot} "${displayName}" (R1: #${pInfo.r1Model} ${r1Name}, R2: #${pInfo.r2Model} ${r2Name})`);
     },
     onConfigureNeuronDbFolder: () => {
       bankDrawer.promptConfigureFolder();
@@ -444,23 +657,22 @@ document.addEventListener('DOMContentLoaded', () => {
       fileInput.click();
     },
     onLoadPreset: () => {
-      bankDrawer.open();
+      bankDrawer.open('presets', 'global');
     },
     onSavePreset: () => {
       alert('Save Preset: Not implemented in preview.');
     },
     onInitPreset: () => {
+      WebBridge.initPreset();
       navbar.setPresetName('000 InitSound');
       navbar.setModelName(1, '511 sinew');
       navbar.setModelName(2, '511 sinew');
-      const r1Lbl = document.getElementById('r1-model-label');
-      const r2Lbl = document.getElementById('r2-model-label');
-      if (r1Lbl) r1Lbl.textContent = '511 sinew';
-      if (r2Lbl) r2Lbl.textContent = '511 sinew';
+      updateResynatorModelUI(1, 511, '511 sinew');
+      updateResynatorModelUI(2, 511, '511 sinew');
       console.log('[ABDAxionikVS] Sound initialized to factory default.');
     },
     onToggleBank: () => {
-      bankDrawer.toggle();
+      bankDrawer.toggle('models', 'global');
     },
     onToggleMatrix: () => {
       openMatrixDrawer();
@@ -468,12 +680,15 @@ document.addEventListener('DOMContentLoaded', () => {
     onToggleMfx: () => {
       openMasterFxDrawer();
     },
+    onToggleSettings: () => {
+      openSettingsDrawer();
+    },
     onSelectPreset: () => {
-      bankDrawer.open();
+      bankDrawer.open('presets', 'global');
     },
     onSelectModel: (resynator) => {
       targetResynatorForModelPick = resynator;
-      bankDrawer.open();
+      bankDrawer.open('models', resynator === 1 ? 'r1' : 'r2');
     },
     onSelectTheme: (theme) => {
       const idx = themes.indexOf(theme);
@@ -498,9 +713,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const slot = match ? parseInt(match[1], 10) : (targetR === 1 ? 42 : 511);
       const cleanName = file.name.replace(/\.[^/.]+$/, '');
       navbar.setModelName(targetR, `#${String(slot).padStart(3, '0')} ${cleanName}`);
-
-      const labelEl = document.getElementById(targetR === 1 ? 'r1-model-label' : 'r2-model-label');
-      if (labelEl) labelEl.textContent = `${slot} ${cleanName}`;
+      updateResynatorModelUI(targetR, slot, cleanName);
 
       const parSet = (slot % 10);
       if (targetR === 1) {
@@ -512,12 +725,14 @@ document.addEventListener('DOMContentLoaded', () => {
         r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
         WebBridge.setParam(102, slot);
       }
+      WebBridge.loadModelSlot(slot, targetR);
       console.log(`[ABDAxionikVS] DragDrop: Loaded model "${file.name}" to R${targetR} (Slot ${slot}, ParSet ${parSet})`);
     },
     onDropPreset: async (file) => {
       let presetName = file.name.replace(/\.[^/.]+$/, '');
       try {
         const text = await file.text();
+        WebBridge.loadPresetScript(text);
         const lines = text.split('\n');
         for (const line of lines.slice(0, 30)) {
           const m = line.match(/(?:soundname|name|preset)\s*[:=]?\s*["']?([^"'\r\n]+)["']?/i);
@@ -543,62 +758,137 @@ document.addEventListener('DOMContentLoaded', () => {
     const isCtrl = e.ctrlKey || e.metaKey;
     if (isCtrl && (e.key === 'b' || e.key === 'B')) {
       e.preventDefault();
-      bankDrawer.toggle();
+      bankDrawer.toggle('models', 'global');
     } else if (isCtrl && (e.key === 'm' || e.key === 'M')) {
       e.preventDefault();
       navbar['callbacks'].onToggleMatrix();
     } else if (isCtrl && (e.key === 'f' || e.key === 'F')) {
       e.preventDefault();
       navbar['callbacks'].onToggleMfx();
+    } else if (isCtrl && e.key === ',') {
+      e.preventDefault();
+      openSettingsDrawer();
     }
   });
 
   // 8. Suscribir telemetría y actualización de parámetros del bridge nativo
   WebBridge.onMessage((msg) => {
-    if (msg.type === 'TELEMETRY') {
+    if (msg.type === 'BANK_CATALOG_SYNC') {
+      bankDrawer.syncCatalogFromHost(msg);
+    } else if (msg.type === 'PRESET_LOADED') {
+      if (typeof msg.name === 'string' && msg.name) {
+        navbar.setPresetName(msg.name);
+      }
+      const r1 = typeof msg.r1Model === 'number' ? msg.r1Model : 511;
+      const r2 = typeof msg.r2Model === 'number' ? msg.r2Model : 511;
+      const r1Name = getCanonicalModelName(r1);
+      const r2Name = getCanonicalModelName(r2);
+      updateResynatorModelUI(1, r1, r1Name);
+      updateResynatorModelUI(2, r2, r2Name);
+      navbar.setModelName(1, `#${String(r1).padStart(3, '0')} ${r1Name}`);
+      navbar.setModelName(2, `#${String(r2).padStart(3, '0')} ${r2Name}`);
+
+      if (Array.isArray(msg.values)) {
+        applyAllParamsToUI(msg.values);
+      }
+    } else if (msg.type === 'TELEMETRY') {
       if (typeof msg.activeVoices === 'number') navbar.setVoices(msg.activeVoices);
       if (typeof msg.cpuUsage === 'number') navbar.setCpuLoad(msg.cpuUsage);
     } else if (msg.type === 'PARAM_UPDATE') {
       const idx = msg.index;
       const val = msg.value;
-      if (idx === 262 && blenderSlider) {
+      if (idx === 23) {
+        updateResySwitchButton(1, val > 0.5);
+      } else if (idx === 103) {
+        updateResySwitchButton(2, val > 0.5);
+      } else if (idx === 22) {
+        const slot = Math.round(val);
+        const name = getCanonicalModelName(slot);
+        updateResynatorModelUI(1, slot, name);
+        navbar.setModelName(1, `#${String(slot).padStart(3, '0')} ${name}`);
+        const meta = MODEL_METADATA[slot];
+        const pSet = meta ? meta[0] : (slot % 10);
+        r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(pSet, 'scape'));
+        r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(pSet, 'sphere'));
+      } else if (idx === 102) {
+        const slot = Math.round(val);
+        const name = getCanonicalModelName(slot);
+        updateResynatorModelUI(2, slot, name);
+        navbar.setModelName(2, `#${String(slot).padStart(3, '0')} ${name}`);
+        const meta = MODEL_METADATA[slot];
+        const pSet = meta ? meta[0] : (slot % 10);
+        r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(pSet, 'scape'));
+        r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(pSet, 'sphere'));
+      } else if (idx === 261) {
+        curBlenderAlgoIdx = Math.max(0, Math.min(BLENDER_ALGORITHMS.length - 1, Math.round(val)));
+        if (curBlenderVal) curBlenderVal.textContent = BLENDER_ALGORITHMS[curBlenderAlgoIdx].name;
+      } else if (idx === 262 && blenderSlider) {
         blenderSlider.value = String(val);
-        if (blenderVal) blenderVal.textContent = ((val + 64) / 127).toFixed(2);
+        if (blenderVal) blenderVal.textContent = String(val);
+      } else if (idx === 267) {
+        curSlicerTypeIdx = Math.max(0, Math.min(slicerTypes.length - 1, Math.round(val)));
+        if (curSlicerTypeVal) curSlicerTypeVal.textContent = slicerTypes[curSlicerTypeIdx];
+      } else if (idx === 268 && slicerDepthSlider) {
+        slicerDepthSlider.value = String(val);
+        if (slicerDepthVal) slicerDepthVal.textContent = String(val);
+      } else if (idx === 269 && slicerRateSlider) {
+        slicerRateSlider.value = String(val);
+        if (slicerRateVal) slicerRateVal.textContent = String(val);
       } else if (idx === 274 && filterCutSlider) {
         filterCutSlider.value = String(val);
         if (filterCutVal) filterCutVal.textContent = String(val);
       } else if (idx === 275 && filterResoSlider) {
         filterResoSlider.value = String(val);
         if (filterResoVal) filterResoVal.textContent = (val / 127).toFixed(2);
+      } else if (idx === 282) {
+        curFreqAlgoIdx = Math.max(0, Math.min(freqAlgoNames.length - 1, Math.round(val)));
+        if (curFreqVal) curFreqVal.textContent = freqAlgoNames[curFreqAlgoIdx];
+      } else if (idx === 328) {
+        curTimeAlgoIdx = Math.max(0, Math.min(timeAlgoNames.length - 1, Math.round(val)));
+        if (curTimeVal) curTimeVal.textContent = timeAlgoNames[curTimeAlgoIdx];
       } else if (r1ScapeStick && (idx === 52 || idx === 72 || idx === 92)) {
         const layer = idx === 52 ? 0 : (idx === 72 ? 1 : 2);
-        r1ScapeStick.setPosition(layer, val, r1ScapeStick.getCoordinates(layer).y, false);
+        const norm = Math.max(0, Math.min(1, val / 127));
+        r1ScapeStick.setPosition(layer, norm, r1ScapeStick.getCoordinates(layer).y, false);
       } else if (r1ScapeStick && (idx === 53 || idx === 73 || idx === 93)) {
         const layer = idx === 53 ? 0 : (idx === 73 ? 1 : 2);
-        r1ScapeStick.setPosition(layer, r1ScapeStick.getCoordinates(layer).x, val, false);
+        const norm = Math.max(0, Math.min(1, val / 127));
+        r1ScapeStick.setPosition(layer, r1ScapeStick.getCoordinates(layer).x, norm, false);
       } else if (r1SphereStick && (idx === 42 || idx === 62 || idx === 82)) {
         const layer = idx === 42 ? 0 : (idx === 62 ? 1 : 2);
-        r1SphereStick.setPosition(layer, val, r1SphereStick.getCoordinates(layer).y, false);
+        const norm = Math.max(0, Math.min(1, val / 127));
+        r1SphereStick.setPosition(layer, norm, r1SphereStick.getCoordinates(layer).y, false);
       } else if (r1SphereStick && (idx === 43 || idx === 63 || idx === 83)) {
         const layer = idx === 43 ? 0 : (idx === 63 ? 1 : 2);
-        r1SphereStick.setPosition(layer, r1SphereStick.getCoordinates(layer).x, val, false);
+        const norm = Math.max(0, Math.min(1, val / 127));
+        r1SphereStick.setPosition(layer, r1SphereStick.getCoordinates(layer).x, norm, false);
       } else if (r2ScapeStick && (idx === 132 || idx === 152 || idx === 172)) {
         const layer = idx === 132 ? 0 : (idx === 152 ? 1 : 2);
-        r2ScapeStick.setPosition(layer, val, r2ScapeStick.getCoordinates(layer).y, false);
+        const norm = Math.max(0, Math.min(1, val / 127));
+        r2ScapeStick.setPosition(layer, norm, r2ScapeStick.getCoordinates(layer).y, false);
       } else if (r2ScapeStick && (idx === 133 || idx === 153 || idx === 173)) {
         const layer = idx === 133 ? 0 : (idx === 153 ? 1 : 2);
-        r2ScapeStick.setPosition(layer, r2ScapeStick.getCoordinates(layer).x, val, false);
+        const norm = Math.max(0, Math.min(1, val / 127));
+        r2ScapeStick.setPosition(layer, r2ScapeStick.getCoordinates(layer).x, norm, false);
       } else if (r2SphereStick && (idx === 122 || idx === 142 || idx === 162)) {
         const layer = idx === 122 ? 0 : (idx === 142 ? 1 : 2);
-        r2SphereStick.setPosition(layer, val, r2SphereStick.getCoordinates(layer).y, false);
+        const norm = Math.max(0, Math.min(1, val / 127));
+        r2SphereStick.setPosition(layer, norm, r2SphereStick.getCoordinates(layer).y, false);
       } else if (r2SphereStick && (idx === 123 || idx === 143 || idx === 163)) {
         const layer = idx === 123 ? 0 : (idx === 143 ? 1 : 2);
-        r2SphereStick.setPosition(layer, r2SphereStick.getCoordinates(layer).x, val, false);
+        const norm = Math.max(0, Math.min(1, val / 127));
+        r2SphereStick.setPosition(layer, r2SphereStick.getCoordinates(layer).x, norm, false);
       }
     }
   });
 
   (window as any).__axionikSticks = { r1ScapeStick, r1SphereStick, r2ScapeStick, r2SphereStick };
+
+  // Notificar al host nativo que la WebUI está montada y lista para recibir telemetría
+  WebBridge.send({ type: 'UI_READY' });
+
+  // Solicitar catálogo en vivo al host nativo C++
+  WebBridge.scanBank();
 
   console.log(`[ABDAxionikVS] Frontend inicializado (${PARAM_DEFINITIONS.length} parámetros, SynthNavBar montado).`);
 });

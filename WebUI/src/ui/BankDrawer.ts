@@ -7,6 +7,14 @@
 
 import { ICONS } from './icons.js';
 import type { DrawerManager } from './Drawers.js';
+import { WebBridge } from '../bridge/WebBridge.js';
+import {
+  MODEL_METADATA,
+  PRESET_METADATA,
+  createCanonicalBank,
+  getCanonicalModelName,
+  getCanonicalPresetName,
+} from './NeuronCatalogMetadata.js';
 import {
   parseMName,
   parseMapScript,
@@ -49,7 +57,7 @@ export interface BankDrawerHandlers {
   onClearModels?: () => void;
 }
 
-const PARAM_SET_NAMES = [
+export const PARAM_SET_NAMES = [
   'Default Set',
   'Stringed / Bowed',
   'Plucked & Bells',
@@ -62,16 +70,36 @@ const PARAM_SET_NAMES = [
   'Multipurpose'
 ];
 
+export const PARAMETER_SETS = [
+  { id: 0, name: 'Default Set', category: 'General' },
+  { id: 1, name: 'Stringed / Bowed', category: 'Strings' },
+  { id: 2, name: 'Plucked & Bells', category: 'Plucked' },
+  { id: 3, name: 'Plucked & Picked', category: 'Plucked' },
+  { id: 4, name: 'Carpet Shop', category: 'Pads' },
+  { id: 5, name: 'Piano etc.', category: 'Keys' },
+  { id: 6, name: 'Woodwinds', category: 'Wind' },
+  { id: 7, name: 'Extreme Pads', category: 'Pads' },
+  { id: 8, name: 'Loop Factory', category: 'Loops' },
+  { id: 9, name: 'Multipurpose', category: 'Multi' }
+];
+
+const STICK_TABLE = [4, 8, 8, 12, 16, 20, 32, 32, 48, 64];
+
+export function stickModesToComplexity(modes: number): number {
+  const idx = STICK_TABLE.indexOf(modes);
+  return idx >= 0 ? idx + 1 : Math.max(1, Math.min(10, Math.round(modes / 6.4)));
+}
+
 export function getPresetCategoryInfo(category: string): { icon: string; catClass: string; paramId: number } {
   const cat = (category || '').toLowerCase();
-  if (cat.includes('string')) return { icon: ICONS.param1, catClass: 'cat-1', paramId: 1 };
-  if (cat.includes('bell')) return { icon: ICONS.param2, catClass: 'cat-2', paramId: 2 };
-  if (cat.includes('bass') || cat.includes('pluck')) return { icon: ICONS.param3, catClass: 'cat-3', paramId: 3 };
-  if (cat.includes('pad')) return { icon: ICONS.param4, catClass: 'cat-4', paramId: 4 };
-  if (cat.includes('key') || cat.includes('piano')) return { icon: ICONS.param5, catClass: 'cat-5', paramId: 5 };
-  if (cat.includes('wind') || cat.includes('vocal') || cat.includes('choir')) return { icon: ICONS.param6, catClass: 'cat-6', paramId: 6 };
-  if (cat.includes('texture') || cat.includes('drone')) return { icon: ICONS.param7, catClass: 'cat-7', paramId: 7 };
-  if (cat.includes('arp') || cat.includes('loop')) return { icon: ICONS.param8, catClass: 'cat-8', paramId: 8 };
+  if (cat.includes('string') || cat.includes('solo') || cat.includes('chord')) return { icon: ICONS.param1, catClass: 'cat-1', paramId: 1 };
+  if (cat.includes('bell') || cat.includes('percussion') || cat.includes('world')) return { icon: ICONS.param2, catClass: 'cat-2', paramId: 2 };
+  if (cat.includes('bass') || cat.includes('pluck') || cat.includes('plugged')) return { icon: ICONS.param3, catClass: 'cat-3', paramId: 3 };
+  if (cat.includes('pad') || cat.includes('showcase')) return { icon: ICONS.param4, catClass: 'cat-4', paramId: 4 };
+  if (cat.includes('key') || cat.includes('piano') || cat.includes('organ')) return { icon: ICONS.param5, catClass: 'cat-5', paramId: 5 };
+  if (cat.includes('wind') || cat.includes('reed') || cat.includes('brass') || cat.includes('vocal') || cat.includes('voice') || cat.includes('choir')) return { icon: ICONS.param6, catClass: 'cat-6', paramId: 6 };
+  if (cat.includes('texture') || cat.includes('drone') || cat.includes('fx')) return { icon: ICONS.param7, catClass: 'cat-7', paramId: 7 };
+  if (cat.includes('arp') || cat.includes('loop') || cat.includes('sequenced')) return { icon: ICONS.param8, catClass: 'cat-8', paramId: 8 };
   if (cat.includes('rhythm') || cat.includes('drum')) return { icon: ICONS.param9, catClass: 'cat-9', paramId: 9 };
   return { icon: ICONS.param0, catClass: 'cat-0', paramId: 0 };
 }
@@ -85,6 +113,10 @@ export class BankDrawer {
   private drawerElement: HTMLElement | null = null;
   private currentBank: BankSummary = { folderName: 'Default Library', models: [], presets: [] };
   private activeTab: 'models' | 'presets' = 'models';
+  private preferredResynator: 1 | 2 = 1;
+  private callerContext: 'r1' | 'r2' | 'global' = 'global';
+  private selectedCategory: number | 'all' = 'all';
+  private selectedPresetCategory: string = 'all';
   private filterQuery: string = '';
 
   constructor(drawerManager: DrawerManager, handlers: BankDrawerHandlers) {
@@ -106,6 +138,7 @@ export class BankDrawer {
           <span class="panel-badge ndb-badge" id="bank-count-badge">0 ITEMS</span>
         </div>
         <div class="drawer-header-actions">
+          <button type="button" class="btn btn-close-drawer ndb-close-btn" id="btn-refresh-bank" title="Refresh & Re-index Library Metadata">${ICONS.refresh}</button>
           <button type="button" class="btn btn-close-drawer ndb-close-btn" id="btn-configure-folder" title="Configure NeuronDB Library Folder">${ICONS.folder}</button>
           <button type="button" class="btn btn-close-drawer ndb-close-btn" id="btn-close-bank" title="Close Drawer (Esc)">${ICONS.close}</button>
         </div>
@@ -139,6 +172,24 @@ export class BankDrawer {
         </button>
       </div>
 
+      <!-- Category Filter Chips Row (Parity with ABDNeuModMakr) -->
+      <div class="ndb-chips-row ndb-cat-chips-row" id="ndb-cat-chips-row" style="display: ${this.activeTab === 'models' ? 'flex' : 'none'}; flex-wrap: wrap; gap: 4px; padding: 4px var(--space-3); background: var(--color-panel-surface); border-bottom: 1px solid var(--color-panel-border-dim);">
+        <!-- Category chips dynamically injected via renderCategoryChips -->
+      </div>
+
+      <!-- Target Resynator Selector (visible on Models tab) -->
+      <div id="ndb-target-resynator-row" style="display: ${this.activeTab === 'models' ? 'flex' : 'none'}; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: var(--color-panel-surface); border-bottom: 1px solid var(--color-panel-border-dim);">
+        <span class="hud-label" id="ndb-target-label" style="font-size: 10px; font-weight: 700; color: var(--color-text-muted);">ASSIGN TARGET:</span>
+        <div class="ndb-chips-row" id="ndb-target-chips" style="gap: var(--space-2); margin: 0; padding: 0;">
+          <button type="button" class="ndb-chip ${this.preferredResynator === 1 ? 'active' : ''}" id="btn-target-r1" style="padding: 2px 10px; font-size: 10px;">
+            Resynator 1 (R1)
+          </button>
+          <button type="button" class="ndb-chip ${this.preferredResynator === 2 ? 'active' : ''}" id="btn-target-r2" style="padding: 2px 10px; font-size: 10px;">
+            Resynator 2 (R2)
+          </button>
+        </div>
+      </div>
+
       <!-- Scrollable Content Wrap -->
       <div class="ndb-content-wrap" id="bank-list-container" tabindex="0" style="flex: 1; overflow-y: auto; padding: var(--space-3);">
         <!-- Model or Preset items rendered dynamically via .ndb-grid -->
@@ -151,11 +202,22 @@ export class BankDrawer {
           <span class="ndb-footer-details" id="bank-foot-status" style="font-size: var(--text-xs); color: var(--color-text-dim);">No folder configured</span>
         </div>
         <div class="neurondb-footer-actions">
+          <button type="button" class="btn btn-xs btn-outline" id="btn-bank-refresh-foot" title="Refresh & re-index library metadata">Refresh</button>
           <button type="button" class="btn btn-xs btn-primary" id="btn-bank-folder-foot">Folder...</button>
           <button type="button" class="btn btn-xs" id="btn-bank-close-foot">Close</button>
         </div>
       </div>
     `;
+
+    this.drawerElement.querySelector('#btn-refresh-bank')?.addEventListener('click', () => {
+      WebBridge.scanBank();
+      this.refreshLibrary();
+    });
+
+    this.drawerElement.querySelector('#btn-bank-refresh-foot')?.addEventListener('click', () => {
+      WebBridge.scanBank();
+      this.refreshLibrary();
+    });
 
     this.drawerElement.querySelector('#btn-configure-folder')?.addEventListener('click', () => {
       this.promptConfigureFolder();
@@ -185,11 +247,14 @@ export class BankDrawer {
 
     const tabModels = this.drawerElement.querySelector('#tab-models');
     const tabPresets = this.drawerElement.querySelector('#tab-presets');
+    const targetRow = this.drawerElement.querySelector('#ndb-target-resynator-row') as HTMLElement | null;
 
     tabModels?.addEventListener('click', () => {
       this.activeTab = 'models';
       tabModels.classList.add('active');
       tabPresets?.classList.remove('active');
+      this.updateTargetRowUI();
+      this.renderCategoryChips();
       this.renderModels();
     });
 
@@ -197,7 +262,19 @@ export class BankDrawer {
       this.activeTab = 'presets';
       tabPresets?.classList.add('active');
       tabModels?.classList.remove('active');
+      this.updateTargetRowUI();
+      this.renderCategoryChips();
       this.renderPresets();
+    });
+
+    this.drawerElement.querySelector('#btn-target-r1')?.addEventListener('click', () => {
+      this.callerContext = 'r1';
+      this.setPreferredResynator(1);
+    });
+
+    this.drawerElement.querySelector('#btn-target-r2')?.addEventListener('click', () => {
+      this.callerContext = 'r2';
+      this.setPreferredResynator(2);
     });
   }
 
@@ -205,6 +282,7 @@ export class BankDrawer {
     this.currentBank = bank;
     this.persistToLocalStorage();
     this.updateCounters();
+    this.renderCategoryChips();
     if (this.activeTab === 'models') {
       this.renderModels();
     } else {
@@ -212,8 +290,114 @@ export class BankDrawer {
     }
   }
 
+  public syncCatalogFromHost(data: {
+    folderName?: string;
+    models?: BankModelEntry[];
+    presets?: BankPresetEntry[];
+  }): void {
+    if (!data || !Array.isArray(data.models) || !Array.isArray(data.presets)) return;
+    if (data.models.length === 0 && data.presets.length === 0) return;
+
+    const presets: BankPresetEntry[] = data.presets.map((p) => {
+      const pMeta = PRESET_METADATA[p.slot];
+      const mIdx = p.modelIndex ?? (pMeta ? pMeta[0] : p.slot);
+      const rawCat = (p.category && p.category !== 'General' && p.category !== 'Sound')
+        ? p.category
+        : (pMeta ? pMeta[1] : (PARAM_SET_NAMES[mIdx % 10] || 'General'));
+      return {
+        ...p,
+        modelIndex: mIdx,
+        category: rawCat,
+      };
+    });
+
+    const models: BankModelEntry[] = data.models.map((m) => {
+      const meta = MODEL_METADATA[m.slot];
+      return {
+        ...m,
+        parameterSet: meta ? meta[0] : (m.parameterSet ?? (m.slot % 10)),
+        complexity: meta ? meta[1] : (m.complexity ?? 5),
+      };
+    });
+
+    this.currentBank = {
+      folderName: data.folderName || 'NeuronDB (Disk Sync)',
+      models,
+      presets,
+    };
+
+    this.persistToLocalStorage();
+    this.updateCounters();
+    this.renderCategoryChips();
+
+    if (this.activeTab === 'models') {
+      this.renderModels();
+    } else {
+      this.renderPresets();
+    }
+
+    const statusEl = this.drawerElement?.querySelector('#bank-foot-status');
+    if (statusEl) {
+      statusEl.textContent = `${this.currentBank.folderName} (${models.length} models, ${presets.length} presets)`;
+    }
+    console.log(`[BankDrawer] Synced ${models.length} models and ${presets.length} presets from native host.`);
+  }
+
   public getBank(): BankSummary {
     return this.currentBank;
+  }
+
+  public refreshLibrary(): void {
+    if (this.currentBank.models.length === 0) {
+      const canonical = createCanonicalBank();
+      this.currentBank = {
+        folderName: canonical.folderName,
+        models: canonical.models,
+        presets: canonical.presets,
+      };
+    }
+
+    const models = this.currentBank.models.map((m) => {
+      const meta = MODEL_METADATA[m.slot];
+      return {
+        ...m,
+        parameterSet: meta ? meta[0] : (m.parameterSet ?? 0),
+        complexity: meta ? meta[1] : (m.complexity ?? 5),
+      };
+    });
+
+    const presets = this.currentBank.presets.map((p) => {
+      const pMeta = PRESET_METADATA[p.slot];
+      const mIdx = pMeta ? pMeta[0] : (p.modelIndex ?? p.slot);
+      const rawCat = pMeta
+        ? pMeta[1]
+        : (p.category && p.category !== 'Sound' && p.category !== 'General'
+            ? p.category
+            : (PARAM_SET_NAMES[mIdx % 10] || 'General'));
+      return {
+        ...p,
+        modelIndex: mIdx,
+        category: rawCat,
+      };
+    });
+
+    this.currentBank.models = models;
+    this.currentBank.presets = presets;
+    this.persistToLocalStorage();
+    this.updateCounters();
+    this.renderCategoryChips();
+
+    if (this.activeTab === 'models') {
+      this.renderModels();
+    } else {
+      this.renderPresets();
+    }
+
+    const statusEl = this.drawerElement?.querySelector('#bank-foot-status');
+    if (statusEl) {
+      statusEl.textContent = `Library refreshed & re-indexed (${models.length} models, ${presets.length} presets)`;
+      setTimeout(() => this.updateCounters(), 3000);
+    }
   }
 
   private updateCounters(): void {
@@ -231,6 +415,190 @@ export class BankDrawer {
     if (footStatusEl) {
       footStatusEl.textContent = `${this.currentBank.folderName} (${mCount} models, ${pCount} presets)`;
     }
+  }
+
+  private updateTargetRowUI(): void {
+    if (!this.drawerElement) return;
+    const targetRow = this.drawerElement.querySelector('#ndb-target-resynator-row') as HTMLElement | null;
+    const label = this.drawerElement.querySelector('#ndb-target-label');
+    const btnR1 = this.drawerElement.querySelector('#btn-target-r1');
+    const btnR2 = this.drawerElement.querySelector('#btn-target-r2');
+
+    if (!targetRow) return;
+    if (this.activeTab !== 'models') {
+      targetRow.style.display = 'none';
+      return;
+    }
+    targetRow.style.display = 'flex';
+
+    if (this.callerContext === 'r1') {
+      if (label) label.textContent = 'TARGET: RESYNATOR 1 (R1)';
+      btnR1?.classList.add('active');
+      btnR2?.classList.remove('active');
+    } else if (this.callerContext === 'r2') {
+      if (label) label.textContent = 'TARGET: RESYNATOR 2 (R2)';
+      btnR2?.classList.add('active');
+      btnR1?.classList.remove('active');
+    } else {
+      if (label) label.textContent = 'ASSIGN TARGET:';
+      if (this.preferredResynator === 1) {
+        btnR1?.classList.add('active');
+        btnR2?.classList.remove('active');
+      } else {
+        btnR2?.classList.add('active');
+        btnR1?.classList.remove('active');
+      }
+    }
+  }
+
+  private renderCategoryChips(): void {
+    if (!this.drawerElement) return;
+    const container = this.drawerElement.querySelector('#ndb-cat-chips-row') as HTMLElement | null;
+    if (!container) return;
+
+    container.style.display = 'flex';
+
+    if (this.activeTab === 'presets') {
+      const catCounts: Record<string, number> = {};
+      for (const p of this.currentBank.presets) {
+        const c = p.category || 'General';
+        catCounts[c] = (catCounts[c] || 0) + 1;
+      }
+      const allActive = this.selectedPresetCategory === 'all';
+      let html = `
+        <button type="button" class="ndb-chip ${allActive ? 'active' : ''}" data-pcat="all" style="padding: 2px 8px; font-size: 10px;">
+          All (${this.currentBank.presets.length})
+        </button>
+      `;
+      const orderedCats = Object.keys(catCounts).sort();
+      for (const cat of orderedCats) {
+        const isAct = this.selectedPresetCategory === cat;
+        const info = getPresetCategoryInfo(cat);
+        html += `
+          <button type="button" class="ndb-chip ${info.catClass} ${isAct ? 'active' : ''}" data-pcat="${cat}" style="padding: 2px 8px; font-size: 10px;">
+            ${cat} (${catCounts[cat]})
+          </button>
+        `;
+      }
+      container.innerHTML = html;
+      container.querySelectorAll<HTMLButtonElement>('.ndb-chip').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          this.selectedPresetCategory = btn.getAttribute('data-pcat') || 'all';
+          this.renderCategoryChips();
+          this.renderPresets();
+        });
+      });
+      return;
+    }
+
+    // Compute live counts per parameterSet (0..9)
+    const counts: Record<number, number> = {};
+    for (const m of this.currentBank.models) {
+      counts[m.parameterSet] = (counts[m.parameterSet] || 0) + 1;
+    }
+
+    const allActive = this.selectedCategory === 'all';
+    let html = `
+      <button type="button" class="ndb-chip ${allActive ? 'active' : ''}" data-cat="all" style="padding: 2px 8px; font-size: 10px;">
+        All (${this.currentBank.models.length})
+      </button>
+    `;
+
+    for (let i = 0; i <= 9; i++) {
+      const count = counts[i] || 0;
+      if (count === 0 && this.currentBank.models.length > 0) continue;
+      const isAct = this.selectedCategory === i;
+      const ps = PARAMETER_SETS[i];
+      const catName = ps ? ps.name : `Set ${i}`;
+      html += `
+        <button type="button" class="ndb-chip cat-${i} ${isAct ? 'active' : ''}" data-cat="${i}" style="padding: 2px 8px; font-size: 10px;" title="${catName}">
+          <span class="cat-${i}" style="font-weight: 700;">${i}:</span> ${ps ? ps.category : catName} (${count})
+        </button>
+      `;
+    }
+
+    container.innerHTML = html;
+
+    container.querySelectorAll<HTMLButtonElement>('.ndb-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cat = btn.getAttribute('data-cat');
+        this.selectedCategory = cat === 'all' ? 'all' : parseInt(cat || '0', 10);
+        this.renderCategoryChips();
+        this.renderModels();
+      });
+    });
+  }
+
+  private showTargetChoiceModal(slot: number, modelName: string): void {
+    if (!this.drawerElement) return;
+    this.drawerElement.querySelector('.ndb-choice-modal-overlay')?.remove();
+
+    const modal = document.createElement('div');
+    modal.className = 'ndb-choice-modal-overlay';
+    modal.innerHTML = `
+      <div class="ndb-choice-modal-card">
+        <div class="ndb-choice-modal-header">
+          <span class="ndb-choice-modal-icon">${ICONS.database}</span>
+          <span class="ndb-choice-modal-title">ASSIGN MODEL #${String(slot).padStart(3, '0')}</span>
+        </div>
+        <div class="ndb-choice-modal-name">${modelName}</div>
+        <div class="ndb-choice-modal-desc">Choose which Resynator to load this model into:</div>
+        <div class="ndb-choice-modal-actions">
+          <button type="button" class="btn btn-sm btn-primary" id="btn-modal-choose-r1">
+            → Load to Resynator 1 (R1)
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-modal-choose-r2">
+            → Load to Resynator 2 (R2)
+          </button>
+        </div>
+        <div class="ndb-choice-modal-footer">
+          <button type="button" class="btn btn-xs btn-outline" id="btn-modal-choose-cancel">Cancel</button>
+        </div>
+      </div>
+    `;
+
+    this.drawerElement.appendChild(modal);
+
+    modal.querySelector('#btn-modal-choose-r1')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      modal.remove();
+      this.handlers.onSelectModel(slot, 1);
+      this.close();
+    });
+
+    modal.querySelector('#btn-modal-choose-r2')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      modal.remove();
+      this.handlers.onSelectModel(slot, 2);
+      this.close();
+    });
+
+    modal.querySelector('#btn-modal-choose-cancel')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      modal.remove();
+    });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+  }
+
+  private handleModelLoadRequest(slot: number, modelName: string): void {
+    if (this.callerContext === 'r1') {
+      this.handlers.onSelectModel(slot, 1);
+      this.close();
+      return;
+    }
+    if (this.callerContext === 'r2') {
+      this.handlers.onSelectModel(slot, 2);
+      this.close();
+      return;
+    }
+
+    // Global caller context: show clean modal dialog
+    this.showTargetChoiceModal(slot, modelName);
   }
 
   private renderModels(): void {
@@ -257,15 +625,19 @@ export class BankDrawer {
       return;
     }
 
-    const filtered = this.filterQuery
-      ? this.currentBank.models.filter(
-          (m) =>
-            m.name.toLowerCase().includes(this.filterQuery) ||
-            String(m.slot).includes(this.filterQuery) ||
-            `#${String(m.slot).padStart(3, '0')}`.includes(this.filterQuery) ||
-            (PARAM_SET_NAMES[m.parameterSet]?.toLowerCase().includes(this.filterQuery) ?? false)
-        )
-      : this.currentBank.models;
+    let filtered = this.currentBank.models;
+    if (this.selectedCategory !== 'all') {
+      filtered = filtered.filter((m) => m.parameterSet === this.selectedCategory);
+    }
+    if (this.filterQuery) {
+      filtered = filtered.filter(
+        (m) =>
+          m.name.toLowerCase().includes(this.filterQuery) ||
+          String(m.slot).includes(this.filterQuery) ||
+          `#${String(m.slot).padStart(3, '0')}`.includes(this.filterQuery) ||
+          (PARAM_SET_NAMES[m.parameterSet]?.toLowerCase().includes(this.filterQuery) ?? false)
+      );
+    }
 
     if (badge) {
       badge.textContent =
@@ -284,6 +656,13 @@ export class BankDrawer {
       return;
     }
 
+    const btnLabel =
+      this.callerContext === 'r1'
+        ? 'Load to R1'
+        : this.callerContext === 'r2'
+        ? 'Load to R2'
+        : 'Load';
+
     container.innerHTML = `
       <div class="ndb-grid">
         ${filtered
@@ -294,7 +673,7 @@ export class BankDrawer {
             const iconSvg = ICONS[iconKey] || ICONS.database;
 
             return `
-              <div class="ndb-card ${catClass}" data-slot="${m.slot}">
+              <div class="ndb-card ${catClass}" data-slot="${m.slot}" id="model-card-${m.slot}">
                 <div class="ndb-card-icon ${catClass}">
                   ${iconSvg}
                 </div>
@@ -310,11 +689,8 @@ export class BankDrawer {
                   </div>
                 </div>
                 <div class="ndb-card-actions">
-                  <button type="button" class="btn btn-xs btn-primary btn-load-r1" data-slot="${m.slot}" title="Load Model #${m.slot} into Resynator 1">
-                    Set R1
-                  </button>
-                  <button type="button" class="btn btn-xs btn-secondary btn-load-r2" data-slot="${m.slot}" title="Load Model #${m.slot} into Resynator 2">
-                    Set R2
+                  <button type="button" class="btn btn-xs btn-primary btn-load-model" data-slot="${m.slot}">
+                    ${btnLabel}
                   </button>
                 </div>
               </div>
@@ -326,24 +702,22 @@ export class BankDrawer {
 
     container.querySelectorAll<HTMLElement>('.ndb-card').forEach((card) => {
       const slot = parseInt(card.getAttribute('data-slot') || '0', 10);
-      card.addEventListener('dblclick', () => {
-        this.handlers.onSelectModel(slot, 1);
+      const name = card.querySelector('.ndb-card-name')?.textContent || `Model #${slot}`;
+      card.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.btn-load-model')) {
+          return;
+        }
+        this.handleModelLoadRequest(slot, name);
       });
     });
 
-    container.querySelectorAll('.btn-load-r1').forEach((btn) => {
+    container.querySelectorAll<HTMLButtonElement>('.btn-load-model').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const slot = parseInt(btn.getAttribute('data-slot') || '0', 10);
-        this.handlers.onSelectModel(slot, 1);
-      });
-    });
-
-    container.querySelectorAll('.btn-load-r2').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const slot = parseInt(btn.getAttribute('data-slot') || '0', 10);
-        this.handlers.onSelectModel(slot, 2);
+        const card = btn.closest('.ndb-card') as HTMLElement;
+        const name = card?.querySelector('.ndb-card-name')?.textContent || `Model #${slot}`;
+        this.handleModelLoadRequest(slot, name);
       });
     });
   }
@@ -373,15 +747,19 @@ export class BankDrawer {
       return;
     }
 
+    const catFiltered = this.selectedPresetCategory === 'all'
+      ? this.currentBank.presets
+      : this.currentBank.presets.filter((p) => p.category === this.selectedPresetCategory);
+
     const filtered = this.filterQuery
-      ? this.currentBank.presets.filter(
+      ? catFiltered.filter(
           (p) =>
             p.name.toLowerCase().includes(this.filterQuery) ||
             p.category.toLowerCase().includes(this.filterQuery) ||
             String(p.slot).includes(this.filterQuery) ||
             String(p.modelIndex).includes(this.filterQuery)
         )
-      : this.currentBank.presets;
+      : catFiltered;
 
     if (badge) {
       badge.textContent =
@@ -438,6 +816,7 @@ export class BankDrawer {
       const name = card.querySelector('.ndb-card-name')?.textContent || 'Preset';
       card.addEventListener('dblclick', () => {
         this.handlers.onSelectPreset(slot, name);
+        this.close();
       });
     });
 
@@ -447,6 +826,7 @@ export class BankDrawer {
         const slot = parseInt(btn.getAttribute('data-slot') || '0', 10);
         const name = btn.getAttribute('data-name') || 'Preset';
         this.handlers.onSelectPreset(slot, name);
+        this.close();
       });
     });
   }
@@ -563,11 +943,40 @@ export class BankDrawer {
               const text = await file.text();
               const mapScript = parseMapScript(text);
               zoneCount = mapScript.activeZones.length || 1;
+            } else if (fileEntry.name.toLowerCase().endsWith('.sphere')) {
+              try {
+                const file = await (fileEntry as FileSystemFileHandle).getFile();
+                if (file.size >= 0x20) {
+                  const buf = await file.slice(0, 32).arrayBuffer();
+                  const view = new DataView(buf);
+                  const tag = String.fromCharCode(
+                    view.getUint8(0),
+                    view.getUint8(1),
+                    view.getUint8(2),
+                    view.getUint8(3)
+                  );
+                  if (tag === 'psAN') {
+                    const pSet = view.getInt32(0x10, true);
+                    const stickModes = view.getInt32(0x1c, true);
+                    if (pSet >= 0 && pSet <= 9) paramSet = pSet;
+                    if (stickModes >= 1 && stickModes <= 64) {
+                      complexity = stickModesToComplexity(stickModes);
+                    }
+                  }
+                }
+              } catch {
+                // ignore individual corrupt sphere header
+              }
             }
           }
         }
       } catch {
         // ignore individual read errors
+      }
+
+      if (paramSet === 0 && MODEL_METADATA[slot]) {
+        paramSet = MODEL_METADATA[slot][0];
+        complexity = MODEL_METADATA[slot][1];
       }
 
       models.push({
@@ -590,7 +999,7 @@ export class BankDrawer {
           const m = /^(\d{3})\.sound$/i.exec(entry.name);
           const slot = m ? parseInt(m[1], 10) : presets.length;
           let soundName = entry.name.replace(/\.sound$/i, '');
-          let cat = 'Sound';
+          let cat = 'General';
           let modelIdx = slot;
 
           try {
@@ -605,6 +1014,14 @@ export class BankDrawer {
             }
           } catch {
             // ignore
+          }
+
+          if (PRESET_METADATA[slot]) {
+            modelIdx = PRESET_METADATA[slot][0];
+            cat = PRESET_METADATA[slot][1];
+          } else {
+            const pSet = MODEL_METADATA[modelIdx] ? MODEL_METADATA[modelIdx][0] : (modelIdx % 10);
+            cat = PARAM_SET_NAMES[pSet] || 'General';
           }
 
           presets.push({
@@ -672,13 +1089,83 @@ export class BankDrawer {
             } catch {
               // ignore
             }
+          } else if (fileName.endsWith('.sphere')) {
+            try {
+              if (file.size >= 0x20) {
+                const buf = await file.slice(0, 32).arrayBuffer();
+                const view = new DataView(buf);
+                const tag = String.fromCharCode(
+                  view.getUint8(0),
+                  view.getUint8(1),
+                  view.getUint8(2),
+                  view.getUint8(3)
+                );
+                if (tag === 'psAN') {
+                  const pSet = view.getInt32(0x10, true);
+                  const stickModes = view.getInt32(0x1c, true);
+                  if (pSet >= 0 && pSet <= 9) entry.parameterSet = pSet;
+                  if (stickModes >= 1 && stickModes <= 64) {
+                    entry.complexity = stickModesToComplexity(stickModes);
+                  }
+                }
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+
+      // Sound preset folder match: .../NNN.sound/file
+      for (let p = 0; p < parts.length - 1; p++) {
+        const sm = /^(\d{3})\.sound$/i.exec(parts[p]);
+        if (sm) {
+          const slot = parseInt(sm[1], 10);
+          if (!presetsMap.has(slot)) {
+            presetsMap.set(slot, {
+              slot,
+              name: `Preset #${String(slot).padStart(3, '0')}`,
+              category: 'General',
+              modelIndex: 511,
+              parameterCount: 445
+            });
+          }
+          const entry = presetsMap.get(slot)!;
+          const fileName = parts[parts.length - 1].toLowerCase();
+          if (fileName === 'sound.script') {
+            try {
+              const text = await file.text();
+              const parsed = parseSoundScript(text);
+              if (parsed) {
+                if (parsed.name) entry.name = parsed.name;
+                if (typeof parsed.r1ModelIndex === 'number') entry.modelIndex = parsed.r1ModelIndex;
+              }
+            } catch {
+              // ignore
+            }
           }
         }
       }
     }
 
-    const models = Array.from(modelsMap.values()).sort((a, b) => a.slot - b.slot);
-    const presets = Array.from(presetsMap.values()).sort((a, b) => a.slot - b.slot);
+    const models = Array.from(modelsMap.values()).map((m) => {
+      if ((m.parameterSet === 0 || m.parameterSet === undefined) && MODEL_METADATA[m.slot]) {
+        m.parameterSet = MODEL_METADATA[m.slot][0];
+        m.complexity = MODEL_METADATA[m.slot][1];
+      }
+      return m;
+    }).sort((a, b) => a.slot - b.slot);
+
+    const presets = Array.from(presetsMap.values()).map((p) => {
+      if (PRESET_METADATA[p.slot]) {
+        p.modelIndex = PRESET_METADATA[p.slot][0];
+        p.category = PRESET_METADATA[p.slot][1];
+      } else {
+        const pSet = MODEL_METADATA[p.modelIndex] ? MODEL_METADATA[p.modelIndex][0] : (p.modelIndex % 10);
+        p.category = PARAM_SET_NAMES[pSet] || 'General';
+      }
+      return p;
+    }).sort((a, b) => a.slot - b.slot);
 
     const folderName = fileList[0]?.webkitRelativePath?.split(/[/\\]/)[0] || 'Selected Folder';
 
@@ -726,16 +1213,55 @@ export class BankDrawer {
       if (rawBank) {
         const parsed = JSON.parse(rawBank);
         if (parsed && Array.isArray(parsed.models)) {
+          const models: BankModelEntry[] = parsed.models.map((m: any) => {
+            const meta = MODEL_METADATA[m.slot];
+            const pSet = meta ? meta[0] : (m.parameterSet ?? 0);
+            const comp = meta ? meta[1] : (m.complexity ?? 5);
+            return {
+              ...m,
+              parameterSet: pSet,
+              complexity: comp,
+            };
+          });
+
+          const presets: BankPresetEntry[] = (Array.isArray(parsed.presets) ? parsed.presets : []).map((p: any) => {
+            const pMeta = PRESET_METADATA[p.slot];
+            const mIdx = pMeta ? pMeta[0] : (p.modelIndex ?? p.slot);
+            const rawCat = pMeta
+              ? pMeta[1]
+              : (p.category && p.category !== 'Sound' && p.category !== 'General'
+                  ? p.category
+                  : (PARAM_SET_NAMES[mIdx % 10] || 'General'));
+            return {
+              ...p,
+              modelIndex: mIdx,
+              category: rawCat,
+            };
+          });
+
           this.currentBank = {
             folderName: parsed.folderName || 'Persisted Library',
-            models: parsed.models,
-            presets: Array.isArray(parsed.presets) ? parsed.presets : []
+            models,
+            presets
           };
+          this.persistToLocalStorage();
           this.updateCounters();
         }
       }
     } catch {
       // ignore
+    }
+
+    if (this.currentBank.models.length === 0) {
+      const canonical = createCanonicalBank();
+      this.currentBank = {
+        folderName: canonical.folderName,
+        models: canonical.models,
+        presets: canonical.presets,
+      };
+      this.persistToLocalStorage();
+      this.updateCounters();
+      this.renderCategoryChips();
     }
   }
 
@@ -743,16 +1269,80 @@ export class BankDrawer {
     return this.drawerManager.getCurrentDrawerId() === 'bank';
   }
 
-  public toggle(): void {
-    if (this.isOpen()) {
-      this.close();
-    } else {
-      this.open();
+  public setPreferredResynator(r: 1 | 2): void {
+    this.preferredResynator = r;
+    if (this.drawerElement) {
+      const btnTargetR1 = this.drawerElement.querySelector('#btn-target-r1');
+      const btnTargetR2 = this.drawerElement.querySelector('#btn-target-r2');
+      if (r === 1) {
+        btnTargetR1?.classList.add('active');
+        btnTargetR2?.classList.remove('active');
+      } else {
+        btnTargetR2?.classList.add('active');
+        btnTargetR1?.classList.remove('active');
+      }
+      if (this.activeTab === 'models') {
+        this.renderModels();
+      }
     }
   }
 
-  public open(): void {
+  public setTab(tab: 'models' | 'presets'): void {
     if (!this.drawerElement) return;
+    this.activeTab = tab;
+    const tabModels = this.drawerElement.querySelector('#tab-models');
+    const tabPresets = this.drawerElement.querySelector('#tab-presets');
+    const targetRow = this.drawerElement.querySelector('#ndb-target-resynator-row') as HTMLElement | null;
+    if (tab === 'models') {
+      tabModels?.classList.add('active');
+      tabPresets?.classList.remove('active');
+      if (targetRow) targetRow.style.display = 'flex';
+      this.renderModels();
+    } else {
+      tabPresets?.classList.add('active');
+      tabModels?.classList.remove('active');
+      if (targetRow) targetRow.style.display = 'none';
+      this.renderPresets();
+    }
+  }
+
+  public toggle(tab?: 'models' | 'presets', context?: 'r1' | 'r2' | 'global' | 1 | 2): void {
+    if (this.isOpen()) {
+      this.close();
+    } else {
+      this.open(tab, context);
+    }
+  }
+
+  public open(tab?: 'models' | 'presets', context?: 'r1' | 'r2' | 'global' | 1 | 2): void {
+    if (!this.drawerElement) return;
+
+    // Trigger async sync of live disk catalog from native host
+    WebBridge.scanBank();
+
+    if (context === 1 || context === 'r1') {
+      this.callerContext = 'r1';
+      this.preferredResynator = 1;
+    } else if (context === 2 || context === 'r2') {
+      this.callerContext = 'r2';
+      this.preferredResynator = 2;
+    } else {
+      this.callerContext = 'global';
+    }
+
+    this.updateTargetRowUI();
+    this.renderCategoryChips();
+
+    if (tab) {
+      this.setTab(tab);
+    } else {
+      if (this.activeTab === 'models') {
+        this.renderModels();
+      } else {
+        this.renderPresets();
+      }
+    }
+
     this.drawerManager.openCustom('bank', this.drawerElement);
     const filterInput = this.drawerElement.querySelector('#bank-filter-input') as HTMLInputElement | null;
     if (filterInput) {

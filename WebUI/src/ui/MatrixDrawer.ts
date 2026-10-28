@@ -1,8 +1,9 @@
 /**
  * ABDAxionikVS — MatrixDrawer.ts
- * Dedicated slide-out drawer (50vw) for the Free Controllers Modulation Matrix (6 × 5)
- * and the 6 Real-Time Performance Controls ([411..424]).
- * 100% tokenized with @abdsynths/shared.
+ * Dedicated slide-out drawer (50vw) for:
+ * 1. The 6 Real-Time MIDI Performance Controls ([413..424]) routed to all 63 modulation destinations (0..62)
+ * 2. The 4 Hardware Macro Knobs ([425..428])
+ * 3. The 6 × 4 Free Controllers Matrix ([363..410])
  */
 
 import { ICONS } from './icons.js';
@@ -10,25 +11,86 @@ import { WebBridge } from '../bridge/WebBridge.js';
 
 export const MOD_SOURCES = [
   { id: 1, name: 'Aftertouch (Channel Pressure)', destParam: 413, depthParam: 414, defaultDest: 61, defaultDepth: 40 },
-  { id: 2, name: 'Modulation Wheel (MIDI CC 1)', destParam: 415, depthParam: 416, defaultDest: 61, defaultDepth: 55 },
-  { id: 3, name: 'Breath Controller (MIDI CC 2)', destParam: 417, depthParam: 418, defaultDest: 27, defaultDepth: 0 },
-  { id: 4, name: 'Continuous Controller 03 (MIDI CC 3)', destParam: 419, depthParam: 420, defaultDest: 56, defaultDepth: 0 },
-  { id: 5, name: 'Foot Pedal (MIDI CC 4)', destParam: 421, depthParam: 422, defaultDest: 59, defaultDepth: 0 },
-  { id: 6, name: 'Expression Pedal (MIDI CC 11)', destParam: 423, depthParam: 424, defaultDest: 27, defaultDepth: 63 },
+  { id: 2, name: 'Modulation Wheel (MIDI CC 1)', destParam: 415, depthParam: 416, defaultDest: 59, defaultDepth: 55 },
+  { id: 3, name: 'Breath Controller (MIDI CC 2)', destParam: 417, depthParam: 418, defaultDest: 56, defaultDepth: 0 },
+  { id: 4, name: 'Continuous Controller 03 (MIDI CC 3)', destParam: 419, depthParam: 420, defaultDest: 57, defaultDepth: 0 },
+  { id: 5, name: 'Foot Pedal (MIDI CC 4)', destParam: 421, depthParam: 422, defaultDest: 14, defaultDepth: 0 },
+  { id: 6, name: 'Expression Pedal (MIDI CC 11)', destParam: 423, depthParam: 424, defaultDest: 0, defaultDepth: 63 },
 ];
 
-export const PRIMARY_MOD_DESTINATIONS = [
-  { id: 0, label: '0: Off' },
-  { id: 1, label: '1: Master Pan' },
-  { id: 27, label: '27: R1 Volume' },
-  { id: 107, label: '107: R2 Volume' },
-  { id: 56, label: '56: Blender Amount' },
-  { id: 57, label: '57: Slicer Depth' },
-  { id: 58, label: '58: Slicer Rate' },
-  { id: 59, label: '59: LFO Depth' },
-  { id: 60, label: '60: LFO Rate' },
-  { id: 61, label: '61: Filter Cutoff' },
-  { id: 62, label: '62: Filter Reso' },
+export const ALL_63_MOD_DESTINATIONS = [
+  { id: 0, label: '0: R1 Volume [27]' },
+  { id: 1, label: '1: R1 Semitones [34]' },
+  { id: 2, label: '2: R1 L1 Scape X [52]' },
+  { id: 3, label: '3: R1 L1 Scape Y [53]' },
+  { id: 4, label: '4: R1 L1 Sphere X [42]' },
+  { id: 5, label: '5: R1 L1 Sphere Y [43]' },
+  { id: 6, label: '6: R1 L2 Scape X [72]' },
+  { id: 7, label: '7: R1 L2 Scape Y [73]' },
+  { id: 8, label: '8: R1 L2 Sphere X [62]' },
+  { id: 9, label: '9: R1 L2 Sphere Y [63]' },
+  { id: 10, label: '10: R1 L3 Scape X [92]' },
+  { id: 11, label: '11: R1 L3 Scape Y [93]' },
+  { id: 12, label: '12: R1 L3 Sphere X [82]' },
+  { id: 13, label: '13: R1 L3 Sphere Y [83]' },
+  { id: 14, label: '14: R2 Volume [107]' },
+  { id: 15, label: '15: R2 Semitones [114]' },
+  { id: 16, label: '16: R2 L1 Scape X [132]' },
+  { id: 17, label: '17: R2 L1 Scape Y [133]' },
+  { id: 18, label: '18: R2 L1 Sphere X [122]' },
+  { id: 19, label: '19: R2 L1 Sphere Y [123]' },
+  { id: 20, label: '20: R2 L2 Scape X [152]' },
+  { id: 21, label: '21: R2 L2 Scape Y [153]' },
+  { id: 22, label: '22: R2 L2 Sphere X [142]' },
+  { id: 23, label: '23: R2 L2 Sphere Y [143]' },
+  { id: 24, label: '24: R2 L3 Scape X [172]' },
+  { id: 25, label: '25: R2 L3 Scape Y [173]' },
+  { id: 26, label: '26: R2 L3 Sphere X [162]' },
+  { id: 27, label: '27: R2 L3 Sphere Y [163]' },
+  { id: 28, label: '28: R1 ResEnv Attack [182]' },
+  { id: 29, label: '29: R1 ResEnv Decay [183]' },
+  { id: 30, label: '30: R1 ResEnv Sustain [184]' },
+  { id: 31, label: '31: R1 ResEnv Release [185]' },
+  { id: 32, label: '32: R1 AmpEnv Attack [200]' },
+  { id: 33, label: '33: R1 AmpEnv Decay [201]' },
+  { id: 34, label: '34: R1 AmpEnv Sustain [202]' },
+  { id: 35, label: '35: R1 AmpEnv Release [203]' },
+  { id: 36, label: '36: R1 FreeEnv Attack [205]' },
+  { id: 37, label: '37: R1 FreeEnv Decay [206]' },
+  { id: 38, label: '38: R1 FreeEnv Sustain [207]' },
+  { id: 39, label: '39: R1 FreeEnv Release [208]' },
+  { id: 40, label: '40: R2 ResEnv Attack [212]' },
+  { id: 41, label: '41: R2 ResEnv Decay [213]' },
+  { id: 42, label: '42: R2 ResEnv Sustain [214]' },
+  { id: 43, label: '43: R2 ResEnv Release [215]' },
+  { id: 44, label: '44: R2 AmpEnv Attack [230]' },
+  { id: 45, label: '45: R2 AmpEnv Decay [231]' },
+  { id: 46, label: '46: R2 AmpEnv Sustain [232]' },
+  { id: 47, label: '47: R2 AmpEnv Release [233]' },
+  { id: 48, label: '48: R2 FreeEnv Attack [235]' },
+  { id: 49, label: '49: R2 FreeEnv Decay [236]' },
+  { id: 50, label: '50: R2 FreeEnv Sustain [237]' },
+  { id: 51, label: '51: R2 FreeEnv Release [238]' },
+  { id: 52, label: '52: FilterEnv Attack [355]' },
+  { id: 53, label: '53: FilterEnv Decay [356]' },
+  { id: 54, label: '54: FilterEnv Sustain [357]' },
+  { id: 55, label: '55: FilterEnv Release [358]' },
+  { id: 56, label: '56: Blender Amount [262]' },
+  { id: 57, label: '57: Slicer Depth [268]' },
+  { id: 58, label: '58: Slicer Rate [269]' },
+  { id: 59, label: '59: LFO Depth [257]' },
+  { id: 60, label: '60: LFO Rate [258]' },
+  { id: 61, label: '61: Filter Cutoff [274]' },
+  { id: 62, label: '62: Filter Resonance [275]' },
+];
+
+export const FREE_CONTROLLER_GROUPS = [
+  { name: 'Aftertouch Free [363..370]', baseDest: 363, baseDepth: 367 },
+  { name: 'Controller 1 Up [371..378]', baseDest: 371, baseDepth: 375 },
+  { name: 'Controller 1 Down [379..386]', baseDest: 379, baseDepth: 383 },
+  { name: 'Controller 2 [387..394]', baseDest: 387, baseDepth: 391 },
+  { name: 'Controller 3 [395..402]', baseDest: 395, baseDepth: 399 },
+  { name: 'Controller 4 [403..410]', baseDest: 403, baseDepth: 407 },
 ];
 
 export interface MatrixDrawerOptions {
@@ -41,13 +103,13 @@ export class MatrixDrawer {
     root.className = 'drawer-view-content';
     root.style.cssText = 'display: flex; flex-direction: column; gap: var(--space-4); height: 100%;';
 
+    const buildDestOptions = (selectedId: number) =>
+      ALL_63_MOD_DESTINATIONS.map((d) => `<option value="${d.id}" ${d.id === selectedId ? 'selected' : ''}>${d.label}</option>`).join('');
+
     let sourcesHtml = '';
     MOD_SOURCES.forEach((src) => {
-      let optionsHtml = '';
-      PRIMARY_MOD_DESTINATIONS.forEach((d) => {
-        const isSel = d.id === src.defaultDest ? 'selected' : '';
-        optionsHtml += `<option value="${d.id}" ${isSel}>${d.label}</option>`;
-      });
+      const curDest = Math.round(WebBridge.getParam(src.destParam, src.defaultDest));
+      const curDepth = Math.round(WebBridge.getParam(src.depthParam, src.defaultDepth));
 
       sourcesHtml += `
         <div class="synth-panel-card" style="padding: var(--space-2) var(--space-3); display: flex; flex-direction: column; gap: 6px;">
@@ -60,15 +122,54 @@ export class MatrixDrawer {
             <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
               <span class="hud-label" style="font-size: 10px;">DESTINATION:</span>
               <select class="btn btn-xs btn-outline src-dest-select" data-param="${src.destParam}" style="flex: 1; height: 22px;">
-                ${optionsHtml}
+                ${buildDestOptions(curDest)}
               </select>
             </div>
 
             <div style="display: flex; align-items: center; gap: 6px; width: 190px;">
               <span class="hud-label" style="font-size: 10px;">DEPTH [-64..+63]:</span>
-              <input type="range" class="abd-slider src-depth-slider" data-param="${src.depthParam}" min="-64" max="63" value="${src.defaultDepth}" step="1" style="flex: 1;" />
-              <span class="hud-value stat-num src-depth-val" style="width: 32px; text-align: right;">${src.defaultDepth}</span>
+              <input type="range" class="abd-slider src-depth-slider" data-param="${src.depthParam}" min="-64" max="63" value="${curDepth}" step="1" style="flex: 1;" />
+              <span class="hud-value stat-num src-depth-val" style="width: 32px; text-align: right;">${curDepth}</span>
             </div>
+          </div>
+        </div>
+      `;
+    });
+
+    // 4 Macro Knobs [425..428]
+    let knobsHtml = '';
+    for (let k = 0; k < 4; ++k) {
+      const paramId = 425 + k;
+      const curTarget = Math.round(WebBridge.getParam(paramId, k === 0 ? 61 : (k === 1 ? 56 : (k === 2 ? 32 : 62))));
+      knobsHtml += `
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span class="hud-label" style="font-size: 10px;">MACRO KNOB ${k + 1} [${paramId}]:</span>
+          <select class="btn btn-xs btn-outline src-dest-select" data-param="${paramId}" style="height: 22px;">
+            ${buildDestOptions(curTarget)}
+          </select>
+        </div>
+      `;
+    }
+
+    // 6x4 Free Controllers [363..410]
+    let freeCtrlHtml = '';
+    FREE_CONTROLLER_GROUPS.forEach((grp) => {
+      let slotsHtml = '';
+      for (let s = 0; s < 4; ++s) {
+        const dpIdx = grp.baseDepth + s;
+        const curDp = Math.round(WebBridge.getParam(dpIdx, 63));
+        slotsHtml += `
+          <div>
+            <span class="hud-label" style="font-size: 9px;">SLOT ${s + 1} DEPTH [${dpIdx}]: <strong class="src-depth-val">${curDp}</strong></span>
+            <input type="range" class="abd-slider src-depth-slider" data-param="${dpIdx}" min="-64" max="63" value="${curDp}" step="1" style="width: 100%;" />
+          </div>
+        `;
+      }
+      freeCtrlHtml += `
+        <div class="synth-panel-card" style="padding: var(--space-2) var(--space-3); display: flex; flex-direction: column; gap: 6px;">
+          <span class="panel-caption" style="font-size: 10px; color: var(--color-accent); font-weight: 700;">${grp.name}</span>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2);">
+            ${slotsHtml}
           </div>
         </div>
       `;
@@ -78,41 +179,32 @@ export class MatrixDrawer {
       <div class="drawer-header">
         <div style="display: flex; align-items: center; gap: var(--space-2);">
           <span class="panel-badge">MODULATION MATRIX</span>
-          <span class="panel-caption">Real-Time Performance Controls & Free Controllers [363..424]</span>
+          <span class="panel-caption">63 Destinations, 6 MIDI Performance Controls & Free Controllers [363..428]</span>
         </div>
         <button type="button" class="btn btn-close-drawer ndb-close-btn" id="btn-close-matrix-drawer" title="Close (Esc)">${ICONS.close}</button>
       </div>
 
       <div class="drawer-scroll-body" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-3); padding-right: 4px;">
-        <!-- Global Controllers Config (FootSwitch & PitchBend) -->
-        <div class="synth-panel-card" style="padding: var(--space-2) var(--space-3); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="hud-label">PITCH BEND RANGE [412]:</span>
-            <input type="range" id="pb-range-slider" class="abd-slider" min="0" max="12" value="2" step="1" style="width: 80px;" />
-            <span class="hud-value stat-num" id="pb-range-val">2 st</span>
-          </div>
+        <!-- 1. The 6 Live MIDI Performance Controllers ([413..424]) -->
+        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+          ${sourcesHtml}
+        </div>
 
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="hud-label">FOOTSWITCH DEST [411]:</span>
-            <select id="footswitch-dest-select" class="btn btn-xs btn-outline" style="height: 22px;">
-              <option value="0">0: Sustain (Pedal)</option>
-              <option value="1">1: Hold Notes</option>
-              <option value="2">2: Slicer On/Off</option>
-              <option value="3">3: Silver On/Off</option>
-              <option value="4">4: Stick Play/Stop</option>
-              <option value="5">5: Tap Tempo</option>
-            </select>
+        <!-- 2. The 4 Hardware Macro Knobs ([425..428]) -->
+        <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">
+          <span class="panel-caption" style="color: var(--color-accent); font-weight: 700;">4 MACRO KNOBS ASSIGNMENT ([425..428])</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+            ${knobsHtml}
           </div>
         </div>
 
-        <!-- The 6 Performance Controllers -->
+        <!-- 3. The 6 × 4 Free Controllers ([363..410]) -->
         <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-          ${sourcesHtml}
+          ${freeCtrlHtml}
         </div>
       </div>
     `;
 
-    // Events
     root.querySelector('#btn-close-matrix-drawer')?.addEventListener('click', () => {
       options.onClose();
     });
@@ -136,20 +228,6 @@ export class MatrixDrawer {
         if (valDisplay) valDisplay.textContent = String(val);
         WebBridge.setParam(paramId, val);
       });
-    });
-
-    // Pitch Bend & FootSwitch
-    const pbSlider = root.querySelector('#pb-range-slider') as HTMLInputElement | null;
-    pbSlider?.addEventListener('input', () => {
-      const val = parseFloat(pbSlider.value);
-      const disp = root.querySelector('#pb-range-val');
-      if (disp) disp.textContent = `${val} st`;
-      WebBridge.setParam(412, val);
-    });
-
-    const footSelect = root.querySelector('#footswitch-dest-select') as HTMLSelectElement | null;
-    footSelect?.addEventListener('change', () => {
-      if (footSelect) WebBridge.setParam(411, parseInt(footSelect.value, 10));
     });
 
     return root;

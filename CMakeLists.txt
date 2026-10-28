@@ -171,3 +171,30 @@ target_link_libraries(ABDAxionikVS_WebPilot PRIVATE
     ABDShared::DspEffects
     ABDShared::WebView2Bridge
 )
+
+# ============================================================================
+# 6. Arnés de Verificación Offline contra Vectores Áureos (Sin GUI / CLI Puro)
+# ============================================================================
+add_executable(GoldenParityTest
+    Tests/GoldenParityTest.cpp
+    ${AXIONIK_DSP_SOURCES}
+)
+
+target_include_directories(GoldenParityTest PRIVATE
+    Source
+    Source/DSP
+    Source/Generated
+    Tests
+)
+
+target_compile_features(GoldenParityTest PRIVATE cxx_std_20)
+
+if(MSVC)
+    target_link_options(GoldenParityTest PRIVATE "/STACK:8388608")
+endif()
+
+target_link_libraries(GoldenParityTest PRIVATE
+    ABDShared::DspCore
+    ABDShared::SynthCore
+    ABDShared::DspEffects
+)

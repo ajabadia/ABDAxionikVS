@@ -19,6 +19,7 @@ export interface NavbarCallbacks {
   onToggleBank: () => void;
   onToggleMatrix: () => void;
   onToggleMfx: () => void;
+  onToggleSettings?: () => void;
   onSelectPreset?: () => void;
   onSelectModel?: (resynator: 1 | 2) => void;
   onSelectTheme: (theme: string) => void;
@@ -73,6 +74,8 @@ export class AxionikNavbar {
           { separator: true },
           { id: 202, label: 'Free Controllers Modulation Matrix (6x5)...', action: 'toggleMatrix', shortcut: 'Ctrl+M' },
           { id: 203, label: 'Master FX & Dynamics Rack...', action: 'toggleMfx', shortcut: 'Ctrl+F' },
+          { separator: true },
+          { id: 204, label: 'Global Synth Settings...', action: 'toggleSettings', shortcut: 'Ctrl+,' },
         ],
       },
       {
@@ -111,21 +114,13 @@ export class AxionikNavbar {
       },
     ];
 
-    // Center HUD Slot: Preset and Resynator Models
+    // Center HUD Slot: Active Preset Name
     const centerSlot = document.createElement('div');
     centerSlot.className = 'nav-hud-center';
     centerSlot.innerHTML = `
-      <div class="hud-pill preset-slot-tag" id="nav-preset-pill" style="cursor: pointer;" title="Active Sound Preset">
+      <div class="hud-pill preset-slot-tag" id="nav-preset-pill" style="cursor: pointer;" title="Active Sound Preset (Click to open Bank Browser)">
         <span class="hud-label">PRESET:</span>
         <span class="hud-value" id="hud-preset-name">000 InitSound</span>
-      </div>
-      <div class="hud-pill model-slot-tag" id="nav-r1-model-pill" style="cursor: pointer;" title="Resynator 1 Model">
-        <span class="hud-label">R1:</span>
-        <span class="hud-value" id="hud-r1-model-name">511 sinew</span>
-      </div>
-      <div class="hud-pill model-slot-tag" id="nav-r2-model-pill" style="cursor: pointer;" title="Resynator 2 Model">
-        <span class="hud-label">R2:</span>
-        <span class="hud-value" id="hud-r2-model-name">511 sinew</span>
       </div>
     `;
 
@@ -149,6 +144,9 @@ export class AxionikNavbar {
       </button>
       <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-bank" title="NeuronDB Bank Browser (Ctrl+B)">
         ${ICONS.database} <span>NeuronDB</span>
+      </button>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-settings" title="Global Synth Settings & Preferences (Ctrl+,)">
+        ${ICONS.settings} <span>Settings</span>
       </button>
       <button type="button" class="btn btn-hud-icon btn-theme-toggle" id="btn-nav-theme" title="Cycle Color Theme">
         <span class="theme-icon">${ICONS.palette}</span>
@@ -180,20 +178,14 @@ export class AxionikNavbar {
     });
 
     this.presetNameEl = centerSlot.querySelector('#hud-preset-name');
-    this.r1ModelNameEl = centerSlot.querySelector('#hud-r1-model-name');
-    this.r2ModelNameEl = centerSlot.querySelector('#hud-r2-model-name');
+    this.r1ModelNameEl = null;
+    this.r2ModelNameEl = null;
     this.activeVoicesEl = rightSlot.querySelector('#hud-active-voices');
     this.cpuLoadEl = rightSlot.querySelector('#hud-cpu-load');
 
     // Click on center HUD tags
     centerSlot.querySelector('#nav-preset-pill')?.addEventListener('click', () => {
       this.callbacks.onSelectPreset?.();
-    });
-    centerSlot.querySelector('#nav-r1-model-pill')?.addEventListener('click', () => {
-      this.callbacks.onSelectModel?.(1);
-    });
-    centerSlot.querySelector('#nav-r2-model-pill')?.addEventListener('click', () => {
-      this.callbacks.onSelectModel?.(2);
     });
 
     // Click on right HUD buttons
@@ -205,6 +197,9 @@ export class AxionikNavbar {
     });
     rightSlot.querySelector('#btn-nav-bank')?.addEventListener('click', () => {
       this.callbacks.onToggleBank();
+    });
+    rightSlot.querySelector('#btn-nav-settings')?.addEventListener('click', () => {
+      this.callbacks.onToggleSettings?.();
     });
     rightSlot.querySelector('#btn-nav-theme')?.addEventListener('click', () => {
       this.callbacks.onToggleTheme();
@@ -239,6 +234,9 @@ export class AxionikNavbar {
         break;
       case 'toggleMfx':
         this.callbacks.onToggleMfx();
+        break;
+      case 'toggleSettings':
+        this.callbacks.onToggleSettings?.();
         break;
       case 'zoom':
         if (typeof value === 'number') {

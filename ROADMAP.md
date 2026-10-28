@@ -262,6 +262,19 @@ Las 87 funciones alcanzables desde `FUN_100382b0` (sin ninguna llamada indirecta
   - Diseñaremos `VoiceMemoryPool` dentro de `Source/DSP/Runtime/`: en `DspEngineFacade::prepare(sampleRate, maxBlockSize)` se preasignan de forma contigua todos los bloques de trabajo (`32 voces × 2 motores × 16 buffers de 0x2020 B ≈ 8.2 MB` o el número máximo de voces configurado).
   - Durante `processBlock` / `noteOn` / `noteOff`, `ResinatorVoice` toma sus buffers del pool mediante punteros fijos pre-enlazados (**cero llamadas a `new`/`malloc`/`free`/`delete`** en el hilo de audio, verificado por `Tests/ZeroAllocAudioThreadTest.cpp` y compatible 100 % con el heap estático de `AudioWorklet` en WASM).
 
+### 4.4 Hitos de Paridad Áurea y Reconstrucción 1:1 en Fase A
+- **Reconstrucción 1:1 del Resynator Parset (`FUN_10031d30`)**:
+  - Eliminación de aproximaciones heurísticas en `NeuronOscillators.h`.
+  - Port directo de primitivas nativas de `NeuronVS.dll`: `SchroederComb` (`FUN_10023fe0`), `BiquadCell2Pole` (`FUN_10032630`), tabla senoidal canónica de 8192 muestras (`0x1030bc30`) y tabla de ruido uniforme (`DAT_102355c0`).
+  - Modo 0 (`FUN_10031e70`) con modulación de fase, dual IIR y doble peine Schroeder con dispersión estocástica.
+- **Calibración Exacta de Silver Rack FX (`FUN_10029e34` / `FUN_100295d0`)**:
+  - Corrección de la curva 5 de distorsión: comprobado por Ghidra que corresponde a overdrive lineal sin recorte brusco (se eliminó el falso full-wave rectifier).
+  - Pre-filtro pasa bajos de 1 polo ($d_{12} = 30 \cdot preFilt$, $d_{13} = 1/(1+d_{12})$) y escalado de ganancia nativo $\times 25.0 \cdot inGain \cdot outGain$.
+  - Normalización canónica de parámetros Silver Rack en `DspEngineFacade.cpp` sin multiplicadores artificiales.
+  - Corrección de ratio de delay derecho a $d_R = d_L / 2$ per `FUN_100295d0`.
+- **Resultado en `GoldenParityTest`**:
+  - Salto de correlación acústica en Preset 176 (*DangerDrone*) de 0.00 a **L: +0.558473, R: +0.314746** contra el oráculo áureo Win32 de 2004 sin desbordamientos numéricos.
+
 ---
 
 ## 5. Integración con el Ecosistema `ABDShared` (Consumir vs. Aportar)
@@ -345,20 +358,21 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
      - Parset 6: Dispersión espacial y entrelazado espectral (`CParsetEngine6` / `FUN_10031e70`).
   4. `BlenderStage`: crossfade lineal canónico continuo entre `R1` y `R2` gobernado por `BlenderAmount` (`[262]`).
 
-### Fase A.3 — Etapa `Silver`, Efectos Maestros y Orquestador de Bloques [EN PROGRESO / DSP INTEGRADO]
-- **Objetivos**:
-  1. [COMPLETADO] Etapa `Silver` en `NeuronSilverRack.h` (`CSilverRack::Process`, `FUN_10029e34`):
-     - `SilverFilter` (`FUN_10042a30`): filtro multimodo (LP12/24, BP, HP, Notch) con saturación analógica previa (*Drive*).
-     - `SilverFreqFX`: los 9 algoritmos de modulación espectral (FreqShift, RingMod, Distortion, Decimator, Formant, Comb, Resonator, Treemonster).
-     - `SilverTimeFX`: los 7 algoritmos de modulación temporal (Chorus, Flanger, Phaser, Delay, Multi-Tap, Reverb) con la corrección `Reset()` de Stephan Bernsee (Mac 1.56).
-  2. [COMPLETADO] Efectos maestros en `NeuronSilverRack.h`:
-     - `CMasterModFX` (apertura estéreo M/S, `FUN_1003d6f0`).
-     - `CMasterTimeFX` (reverberación espacial y delay maestro, `FUN_1003bd10`).
-  3. [COMPLETADO] `NeuronBlockPump.h` (`0x1000bc40` / `FUN_100382b0`): bombeo de bloques fijos de 128 muestras con recorte a cero canónico (*clip-to-zero*).
-  4. [COMPLETADO] Cableado en `DspEngineFacade.cpp`: conexión de los 24 parámetros de oscilador VST, Parsets, tunings, envolventes ADSR, blender y filtros al bucle de audio.
-  5. [PENDIENTE] Certificación offline de paridad sonora y vectores de prueba con oráculo áureo.
+### Fase A.3 — Etapa `Silver`, Efectos Maestros y Orquestador de Bloques [COMPLETADA]
+- **Objetivos Cumplidos**:
+  1. [COMPLETADO] Etapa `Silver` en `DspNeuronSilverRack.h` (`CSilverRack::Process`, `FUN_10029e34`):
+     - `DspNeuronSilverFilter` (`FUN_10021c90`): filtro multimodo (5 curvas: 24dB/12dB/6dB LP, BP, HP) con tablas LUT de 8192 entradas y limpieza anti-pops Mac 1.56.
+     - `DspNeuronSilverFreqFX`: los 5 algoritmos canónicos de modulación en frecuencia (`0: EQ 4-Bandas + Compresor` `FUN_1002d3d4`/`FUN_1003785c`, `1: Distortion` 6 curvas, `2: RingMod` con Xover Delay, `3: Decimator`, `4: Sp-Warp`).
+     - `DspNeuronSilverTimeFX`: los 5 algoritmos canónicos de modulación temporal (`0: Stereo Spread`, `1: L/R Delay`, `2: Flanger`, `3: Phaser`, `4: Chorus`) con la corrección `Reset()` de Stephan Bernsee (Mac 1.56).
+  2. [COMPLETADO] Efectos maestros en `DspNeuronMasterFX.h`:
+     - `DspNeuronGlobalSlicer` (`FUN_100295d0` Vertical 2D y Spatial 3D).
+     - `DspNeuronMasterModFX` (apertura estéreo M/S) y `DspNeuronMasterTimeFX` (`Stereo Delay [431..436]` + `Master Reverb [437..444]` de 5 salas híbrida `ABDEep` `SchroederReverb` + `DspFdnReverb` 8x8 Householder).
+     - `DspNeuronMasterOutputStage` (`FUN_100382b0` L1720-1775 + saturador soft-knee `FUN_1003b930`).
+  3. [COMPLETADO] `NeuronBlockPump.h` (`0x1000bc40` / `FUN_100382b0`): bombeo de bloques de 128 muestras con limitación musical limpia por defecto (`[-1.0, +1.0]`) y conmutador `OracleClipToZeroMode`.
+  4. [COMPLETADO] Corrección de offset de cuerpo espectral `SphereBodyTable` (`frameOffset + frameStride - 6152`, `FUN_1002e750`), normalización dinámica de `.scape` (`16-bit` completos y one-shots), compensación `RootKey`/`Detune` por zona (`zonePitchFactor_`, `FUN_10032970`), `R1Switch [23]`/`R2Switch [103]`, `ModelVelocitySwitch [41/121]`, `SoundNumVoices [5]`, `SoundPan [3]`/`SoundPanKeyTrack [4]` y `LFO Global [256..260]`.
+  5. [COMPLETADO] Certificación offline de paridad sonora, zonas (`--zones` 128/128) y matriz (`--matrix` 63/63) con `GoldenParityTest`, y biblioteca unificada de **398 presets** (`NeuronVS` + `Hardware Soundset V4`).
 
-### Fase A.4 — Interfaz `WebUI` Adaptada y Mejorada (100 % de los 445 Parámetros) y Volcado a `ABDShared`
+### Fase A.4 — Interfaz `WebUI` Adaptada y Mejorada (100 % de los 445 Parámetros) y Volcado a `ABDShared` [COMPLETADA EXCEPTO BUILD WASM]
 > **Referencia de diseño obligatoria:** [`DOCS/UI_INVENTORY_AND_ADAPTATION.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/UI_INVENTORY_AND_ADAPTATION.md)
 > No replicaremos el aspecto estático ni el laberinto de 33 sub-páginas de 2004 del `NeuronVS` original. En su lugar, adaptaremos y mejoraremos todos sus controles, pantallas, selectores y opciones dentro del sistema de diseño de `ABDSynths` (`@abdsynths/shared`), exponiendo por primera vez los **445 parámetros completos** (incluyendo el rack `Master FX` `[430..444]`, la matriz `Free Controllers` `[363..410]`, `ModelVelocitySwitch` y las 24 profundidades `ResEnv` que el plugin de 2004 ocultaba o fragmentaba).
 

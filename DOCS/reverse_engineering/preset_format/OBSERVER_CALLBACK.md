@@ -7,8 +7,10 @@ con `DecompileAt.java` y guardado en
 [`../NeuronVS_decompiled/functions/10013620_callback_10013620.c`](../NeuronVS_decompiled/functions/10013620_callback_10013620.c).
 
 No es el callback de un parámetro cualquiera: es el de **`R1ModellIndex`** (y, por el
-mismo puntero, `R2ModellIndex`). Cuando cambia el número de modelo de un resynator,
-reescribe seis registros de parámetros y reconstruye el estado del motor.
+mismo puntero, `R2ModellIndex`). Se ejecuta incondicionalmente en cada carga de preset
+(porque `FUN_10013ea0` llama a `FUN_10001170` con máscara 6, activando el bit 2 que
+salta el test de paridad de valor). Reescribe seis registros de parámetros y reconstruye
+el estado del motor (si el modelo se encuentra en la ruta de búsqueda configurada).
 
 ## Firma y argumentos
 

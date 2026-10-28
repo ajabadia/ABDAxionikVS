@@ -33,10 +33,22 @@ AxionikProcessor::AxionikProcessor()
       apvts_(*this, nullptr, "Parameters", createParameterLayout())
 {
     AX_LOG("[PROCESSOR] AxionikProcessor constructor starting...");
-    // Escuchar cambios de parámetros para reflejarlos en dspEngine_
+    paramIdToIndex_.reserve(kNumTotalParameters);
+    pendingUiChanges_.reserve(32);
+
+    // Escuchar cambios de parámetros para reflejarlos en dspEngine_ y construir el mapa O(1)
     for (const auto& desc : kParameterDescriptors) {
-        apvts_.addParameterListener(juce::String(desc.key.data(), desc.key.size()), this);
+        auto paramKey = juce::String(desc.key.data(), desc.key.size());
+        paramIdToIndex_.emplace(paramKey, desc.index);
+        apvts_.addParameterListener(paramKey, this);
     }
+
+    // Conectar el despachador de StickPlayer para animar la UI en tiempo real
+    dspEngine_.setOnStickParamChanged([this](uint32_t idx, float rawVal) {
+        std::scoped_lock lock(uiParamMutex_);
+        pendingUiChanges_.push_back({ idx, rawVal });
+    });
+
     AX_LOG("[PROCESSOR] AxionikProcessor constructor finished successfully.");
 }
 
@@ -65,13 +77,92 @@ bool AxionikProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const 
 }
 
 void AxionikProcessor::parameterChanged(const juce::String& parameterID, float newValue) {
-    // Buscar el descriptor
-    for (const auto& desc : kParameterDescriptors) {
-        if (parameterID == juce::String(desc.key.data(), desc.key.size())) {
-            dspEngine_.setParam(desc.index, newValue);
-            break;
-        }
+    if (isSyncingPreset_) return;
+
+    // Búsqueda O(1) en la tabla hash de parámetros
+    auto it = paramIdToIndex_.find(parameterID);
+    if (it != paramIdToIndex_.end()) {
+        uint32_t idx = it->second;
+        dspEngine_.setParam(idx, newValue);
+
+        // Notificar a la capa de abstracción de la WebUI (evita desincronizaciones de DAW/MIDI)
+        std::scoped_lock lock(uiParamMutex_);
+        pendingUiChanges_.push_back({ idx, newValue });
     }
+}
+
+std::vector<AxionikProcessor::ParamChange> AxionikProcessor::drainPendingUiParamChanges() {
+    std::scoped_lock lock(uiParamMutex_);
+    std::vector<ParamChange> changes;
+    changes.swap(pendingUiChanges_);
+    return changes;
+}
+
+AxionikProcessor::PresetEvent AxionikProcessor::drainPendingPresetEvent() {
+    std::scoped_lock lock(uiParamMutex_);
+    PresetEvent evt = pendingPresetEvent_;
+    pendingPresetEvent_.hasEvent = false;
+    return evt;
+}
+
+bool AxionikProcessor::loadPresetFromScript(const std::string& scriptText) {
+    if (!dspEngine_.loadPresetFromScript(scriptText)) {
+        return false;
+    }
+    syncApvtsFromDspEngine();
+    return true;
+}
+
+bool AxionikProcessor::loadPresetBySlot(int slot) {
+    AX_LOG(juce::String("[PRESET] loadPresetBySlot called with slot=") + juce::String(slot));
+    if (!dspEngine_.loadPresetBySlot(slot)) {
+        AX_LOG(juce::String("[PRESET] dspEngine_.loadPresetBySlot FAILED for slot=") + juce::String(slot));
+        return false;
+    }
+    syncApvtsFromDspEngine();
+    currentProgram_ = getProgramIndexForSlot(slot);
+    const auto& cur = dspEngine_.getCurrentPreset();
+    AX_LOG(juce::String("[PRESET] Loaded successfully: '") + juce::String(cur.name) +
+           "' (R1 Model: " + juce::String(cur.r1ModelIndex) +
+           ", R2 Model: " + juce::String(cur.r2ModelIndex) + ")");
+    return true;
+}
+
+bool AxionikProcessor::loadModelBySlot(int slot, int modelIndex) {
+    bool ok = dspEngine_.loadModelBySlot(slot, modelIndex);
+    if (ok) {
+        uint32_t paramIdx = (slot == 0) ? 22 : 102;
+        setParameterByIndex(paramIdx, static_cast<float>(modelIndex));
+    }
+    return ok;
+}
+
+void AxionikProcessor::initPreset() {
+    auto initPreset = NeuronSound::getEmbeddedInitPreset();
+    dspEngine_.applyPreset(initPreset);
+    syncApvtsFromDspEngine();
+}
+
+void AxionikProcessor::syncApvtsFromDspEngine() {
+    isSyncingPreset_ = true;
+    const auto& store = dspEngine_.getStore();
+    {
+        std::scoped_lock lock(uiParamMutex_);
+        pendingUiChanges_.clear();
+        for (uint32_t i = 0; i < kNumTotalParameters; ++i) {
+            float rawVal = store.getRawValue(i);
+            float normVal = rawToNormalized(i, rawVal);
+            const auto& desc = kParameterDescriptors[i];
+            auto paramId = juce::String(desc.key.data(), desc.key.size());
+            if (auto* p = apvts_.getParameter(paramId)) {
+                p->setValueNotifyingHost(normVal);
+            }
+            pendingUiChanges_.push_back({ i, rawVal });
+        }
+        const auto& curPreset = dspEngine_.getCurrentPreset();
+        pendingPresetEvent_ = { true, juce::String(curPreset.name), curPreset.r1ModelIndex, curPreset.r2ModelIndex };
+    }
+    isSyncingPreset_ = false;
 }
 
 void AxionikProcessor::setParameterByIndex(uint32_t index, float rawValue) {
@@ -94,6 +185,55 @@ void AxionikProcessor::setParameterNormalizedByIndex(uint32_t index, float norma
     }
 }
 
+void AxionikProcessor::setMidiPitchBend(float normalizedBipolar) {
+    dspEngine_.setPitchBend(std::clamp(normalizedBipolar, -1.0f, 1.0f));
+}
+
+void AxionikProcessor::setMidiChannelPressure(float normalizedVal) {
+    dspEngine_.setModulationSource(0, std::clamp(normalizedVal, 0.0f, 1.0f)); // Slot 0 = Aftertouch
+}
+
+void AxionikProcessor::setMidiController(int ccNum, float ccVal) {
+    ccVal = std::clamp(ccVal, 0.0f, 1.0f);
+
+    // 1. Los 6 controladores en tiempo real del Hartmann Neuron (params+0x44) -> Matriz de Modulación
+    if (ccNum == kMidiCCModulation) {
+        dspEngine_.setModulationSource(1, ccVal);
+    } else if (ccNum == kMidiCCBreath) {
+        dspEngine_.setModulationSource(2, ccVal);
+    } else if (ccNum == kMidiCCCO3) {
+        dspEngine_.setModulationSource(3, ccVal);
+    } else if (ccNum == kMidiCCFoot) {
+        dspEngine_.setModulationSource(4, ccVal);
+    } else if (ccNum == kMidiCCExpression) {
+        dspEngine_.setModulationSource(5, ccVal);
+    }
+    // 2. Controladores Vectoriales Stick XY canónicos y parámetros primarios
+    else if (ccNum == kMidiCCR1ScapeX) {
+        setParameterNormalizedByIndex(52, ccVal);
+    } else if (ccNum == kMidiCCR1ScapeY) {
+        setParameterNormalizedByIndex(53, ccVal);
+    } else if (ccNum == kMidiCCR1SphereX) {
+        setParameterNormalizedByIndex(42, ccVal);
+    } else if (ccNum == kMidiCCR1SphereY) {
+        setParameterNormalizedByIndex(43, ccVal);
+    } else if (ccNum == kMidiCCR2ScapeX) {
+        setParameterNormalizedByIndex(132, ccVal);
+    } else if (ccNum == kMidiCCR2ScapeY) {
+        setParameterNormalizedByIndex(133, ccVal);
+    } else if (ccNum == kMidiCCR2SphereX) {
+        setParameterNormalizedByIndex(122, ccVal);
+    } else if (ccNum == kMidiCCR2SphereY) {
+        setParameterNormalizedByIndex(123, ccVal);
+    } else if (ccNum == kMidiCCBlender) {
+        setParameterNormalizedByIndex(262, ccVal);
+    } else if (ccNum == kMidiCCFilterReso) {
+        setParameterNormalizedByIndex(275, ccVal);
+    } else if (ccNum == kMidiCCFilterCutoff) {
+        setParameterNormalizedByIndex(274, ccVal);
+    }
+}
+
 void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
     if (msg.isNoteOn()) {
         dspEngine_.noteOn(static_cast<uint8_t>(msg.getNoteNumber()), msg.getFloatVelocity());
@@ -104,7 +244,6 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
     } else if (msg.isController()) {
         int ccNum = msg.getControllerNumber();
         int rawVal = msg.getControllerValue();
-        float ccVal = static_cast<float>(rawVal) / 127.0f;
 
         // 1. Desempacador de 14 bits NRPN (CC 99, 98, 6, 38) -> Capa de Abstracción de Parámetros
         if (ccNum == 99) {
@@ -123,44 +262,23 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
                 uint16_t val14 = (static_cast<uint16_t>(dataEntryMsb_) << 7) | static_cast<uint8_t>(rawVal & 0x7F);
                 setParameterNormalizedByIndex(paramIdx, static_cast<float>(val14) / 16383.0f);
             }
+        } else if (ccNum == kMidiCCBankSelect) {
+            midiBank_ = static_cast<uint8_t>(rawVal & 0x7F);
+        } else {
+            // Controladores CC estándar y Matriz de Modulación
+            setMidiController(ccNum, static_cast<float>(rawVal) / 127.0f);
         }
-        // 2. Los 6 controles en tiempo real del Hartmann Neuron (params+0x44) -> Capa de Abstracción
-        else if (ccNum == kMidiCCModulation) {
-            setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::ModulationDepth), ccVal);
-        } else if (ccNum == kMidiCCBreath) {
-            setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::BreathDepth), ccVal);
-        } else if (ccNum == kMidiCCCO3) {
-            setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::CC03Depth), ccVal);
-        } else if (ccNum == kMidiCCFoot) {
-            setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::FootDepth), ccVal);
-        } else if (ccNum == kMidiCCExpression) {
-            setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::ExpressionDepth), ccVal);
-        }
-        // 3. Controladores Vectoriales Stick XY canónicos y parámetros primarios
-        else if (ccNum == kMidiCCR1ScapeX) {
-            setParameterNormalizedByIndex(52, ccVal);
-        } else if (ccNum == kMidiCCR1ScapeY) {
-            setParameterNormalizedByIndex(53, ccVal);
-        } else if (ccNum == kMidiCCR1SphereX) {
-            setParameterNormalizedByIndex(42, ccVal);
-        } else if (ccNum == kMidiCCR1SphereY) {
-            setParameterNormalizedByIndex(43, ccVal);
-        } else if (ccNum == kMidiCCR2ScapeX) {
-            setParameterNormalizedByIndex(132, ccVal);
-        } else if (ccNum == kMidiCCR2ScapeY) {
-            setParameterNormalizedByIndex(133, ccVal);
-        } else if (ccNum == kMidiCCR2SphereX) {
-            setParameterNormalizedByIndex(122, ccVal);
-        } else if (ccNum == kMidiCCBlender) {
-            setParameterNormalizedByIndex(262, ccVal);
-        } else if (ccNum == kMidiCCFilterReso) {
-            setParameterNormalizedByIndex(275, ccVal);
-        } else if (ccNum == kMidiCCFilterCutoff) {
-            setParameterNormalizedByIndex(274, ccVal);
-        }
+    } else if (msg.isProgramChange()) {
+        int progNum = msg.getProgramChangeNumber();
+        int slot = static_cast<int>(midiBank_) * 100 + progNum;
+        loadPresetBySlot(slot);
     } else if (msg.isChannelPressure()) {
         float atVal = static_cast<float>(msg.getChannelPressureValue()) / 127.0f;
-        setParameterNormalizedByIndex(static_cast<uint32_t>(ParamID::AftertouchDepth), atVal);
+        setMidiChannelPressure(atVal);
+    } else if (msg.isPitchWheel()) {
+        int val14 = msg.getPitchWheelValue(); // 0..16383, 8192 al centro
+        float bendBipolar = static_cast<float>(val14 - 8192) / 8192.0f;
+        setMidiPitchBend(bendBipolar);
     }
 }
 
@@ -193,11 +311,17 @@ juce::AudioProcessorEditor* AxionikProcessor::createEditor() {
 }
 
 void AxionikProcessor::setCurrentProgram(int index) {
-    currentProgram_ = std::clamp(index, 0, 99);
+    currentProgram_ = std::clamp(index, 0, static_cast<int>(kNumFactoryPresets) - 1);
+    int slot = getSlotForProgramIndex(currentProgram_);
+    loadPresetBySlot(slot);
 }
 
 const juce::String AxionikProcessor::getProgramName(int index) {
-    return "Neuron Sound " + juce::String(index);
+    if (index < 0 || index >= static_cast<int>(kNumFactoryPresets)) return "Init Sound";
+    const auto& entry = kFactoryPresetList[static_cast<size_t>(index)];
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "%03d: %.*s", entry.slot, static_cast<int>(entry.name.size()), entry.name.data());
+    return juce::String(buf);
 }
 
 void AxionikProcessor::changeProgramName(int index, const juce::String& newName) {
@@ -215,6 +339,10 @@ void AxionikProcessor::setStateInformation(const void* data, int sizeInBytes) {
     if (xmlState != nullptr && xmlState->hasTagName(apvts_.state.getType())) {
         apvts_.replaceState(juce::ValueTree::fromXml(*xmlState));
     }
+}
+
+juce::String AxionikProcessor::getNeuronDbCatalogJson() {
+    return juce::String(dspEngine_.getBankAdapter().scanCatalogJson());
 }
 
 } // namespace abd::axionik

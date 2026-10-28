@@ -124,20 +124,14 @@ Lo que esta prueba **no** descarta: que alguna función del motor lea un campo d
 `params` al que ya tiene puntero (no hace falta llamar a su código para eso). Para
 cerrarlo hace falta la prueba dinámica de §6.
 
-## 6. Lo que falta por cerrar (y cómo)
+## 6. Resolución Definitiva de las Incógnitas (Cierre de §6)
 
-1. **¿El render lee `params` en caliente?** Diseño de la prueba: dos ejecuciones
-   idénticas en procesos separados, una de ellas con el array `+0x278c` y los seis
-   controles de `+0x44` sobreescritos con un centinela justo después de cargar el
-   preset; si el WAV sale idéntico, el motor no los lee. Necesita una herramienta
-   x86 que exponga los punteros (`core+0x3e0`/`+0x3e8`) y reutilice el arnés del
-   oráculo. No hay Python de 32 bits en la máquina, así que es una herramienta C++
-   pequeña, no un script.
-2. **El mapa `0x10049e00`.** Con 64 entradas válidas y `param_2` libre en una rama,
-   hay dos lecturas: (a) la tabla real es de 64 y el índice siempre está en rango
-   por construcción; (b) el original lee fuera de la tabla en esa rama. Se resuelve
-   mirando los llamadores de `FUN_100134e0` (el callback `LAB_1001b7d0`) y con qué
-   índice llegan.
-3. **Quién llena el resto de `+0x278c`.** `FUN_100134e0` sólo escribe el slot del
-   parámetro que cambia; el resto (hasta 340 slots) tiene que venir del cargador
-   `.sound` o del arranque. Candidato: `FUN_10013ea0` (`SoundData::load`).
+1. **¿El render lee `params` en caliente?** → **RESUELTO: NO.** El render de audio (87 funciones en `0x1002xxxx`..`0x1004xxxx`) opera exclusivamente sobre `engine` (`0x367C` B). `params` solo interactúa al dispararse eventos (cambios de parámetros o CC) empujando valores mediante `FUN_10040550`.
+2. **El mapa `0x10049e00` y la rama `param_2 == -1`.** → **RESUELTO (Bug #10):**
+   - La tabla tiene 63 entradas válidas (`0..62`) que mapean los 63 destinos de modulación a los slots de `p[0..339]`.
+   - Cuando se mueve un control de modulación o cambia su profundidad (`stModDepth`, `0x10013600`), se invoca `FUN_100134e0(params, -1)`.
+   - Al ser `-1`, la lectura `table[-1]` lee `0x10049DFC = 424` y `base[-1] = params + 0x178 = 0x10013600`, escribiendo fuera de rango en `params + 0x278C + 424*4 = params + 0x2E2C`.
+   - En el heap de Windows, `params + 0x2E2C` corresponde al campo `ctx[3]` (`mod_dest_idx`) del contexto de observador contiguo, corrompiéndolo con el puntero `0x10013600`.
+   - Al quedar `mod_dest_idx > 62`, el callback universal `callback_100139d0` desengancha silenciosamente ese parámetro de la matriz de modulación y lo escribe sin modular directamente a `p[slot]`.
+   - En `ABDAxionikVS` esto se corrige blindando la indexación tipada en `ModMatrixT` y protegiendo los límites de destino `[0..62]`.
+3. **Quién llena el resto de `+0x278c`.** → **RESUELTO:** Es el callback universal `callback_100139d0` invocado durante la carga por `FUN_10013ea0` (mediante `FUN_10001170` con máscara de notificación 6), que inicializa los 340 slots efectivos.

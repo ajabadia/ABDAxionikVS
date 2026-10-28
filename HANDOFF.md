@@ -3,7 +3,7 @@
 > **Proyecto:** `ABDAxionikVS` (`D:\desarrollos\ABDSynths\ABDAxionikVS`)
 > **Repositorio GitHub:** `https://github.com/ajabadia/ABDAxionikVS.git`
 > **Familia:** `ABDSynths` (`D:\desarrollos\ABDSynths`)
-> **Estado Actual:** **Fase A (Neuron Clásico 1:1) Completada y Congelada** — Motores DSP desacoplados y probados en harness diferencial (351/351 idénticos en reposo, 333/351 a mitad de nota con 18 variantes de 1 ULP por x87 vs SSE), 10 algoritmos de Blender, Slicer 2D/3D con 12 formas de onda, 4 sticks 2D con grabación y polos mnAN dinámicos, 5 Drawers (Resynator, Silver, Blender, Matrix, MasterFx), BankDrawer NeuronDB, soporte ergonómico Drag & Drop para modelos/presets, y tests TypeScript pasando 5/5. **Fase B en estricta pausa hasta verificación en audio real del baseline clásico.**
+> **Estado Actual:** **Fase A (Neuron Clásico 1:1) Completada en Nativo (Pendiente únicamente empaquetado WASM)** — Tubería completa de carga de presets y modelos operativos en DSP y WebUI, Síntesis aditiva periódica del cuerpo espectral de 1.024 parciales con offset canónico `frameOffset + frameStride - 6152` (`SphereBodyTable` en `NeuronOscillators.h` / `FUN_1002e750`), normalización dinámica de muestras `.scape` de 16 bits y soporte one-shot, compensación de tono por zona (`RootKey`/`Detune`, `FUN_10032970`), Reconstrucción 1:1 de los algoritmos Parset (`FUN_10031d30` / `FUN_10031e70`), Silver Rack completo con los 5 `FreqFX` canónicos (incluyendo `EQ de 4 bandas + Compresor` `[285..305]`, `Distortion`, `RingMod`, `Decimator`, `Sp-Warp`) y los 5 `TimeFX` (`Stereo Spread`, `L/R Delay`, `Flanger`, `Phaser`, `Chorus`), Filtro Silver por voz (`FUN_10021c90`), Reverb Maestra híbrida (`ABDEep` `SchroederReverb` + `DspFdnReverb` de 5 salas en `DspNeuronMasterFX.h`), LFO Global (`[256..260]`), Polifonía `SoundNumVoices [5]`, `SoundPan [3]`/`SoundPanKeyTrack [4]`, conmutadores `R1Switch [23]`/`R2Switch [103]`, `OracleClipToZeroMode` conmutable, Matriz de Modulación conectada 1:1 a los 63 destinos y `Free Controllers [363..410]`, verificación dinámica de zonas (`--zones` 128/128) y matriz (`--matrix` 63/63), biblioteca unificada `NeuronDB` con **398 presets** y **19 categorías oficiales**, `WebUI` completa (`ResynatorDrawer`, `BlenderDrawer`, `SilverDrawer`, `MasterFxDrawer`, `MatrixDrawer`, `SettingsDrawer`, `BankDrawer`), y tests TypeScript pasando 9/9. **Fase B en estricta pausa hasta verificación en audio real del baseline clásico.**
 
 ---
 
@@ -84,18 +84,38 @@
      - `SilverTimeFX`: los 7 algoritmos de modulación temporal (Chorus, Flanger, Phaser, Delay, Multi-Tap, Reverb) con la corrección `Reset()` de Stephan Bernsee (Mac 1.56).
      - `CMasterModFX` (apertura M/S) y `CMasterTimeFX` (reverb espacial).
      - Bombeo de bloques de 128 muestras con recorte canónico *clip-to-zero* (`0x1000bc40`).
-   - **Capa de Abstracción de Parámetros Unificada sobre el Motor DSP**:
-     - Las entradas de control (WebUI PARAM_SET, MIDI CCs, desempacador NRPN de 14 bits y automatización VST3) entran exclusivamente por la capa de abstracción AxionikProcessor::setParameterByIndex / setParameterNormalizedByIndex (APVTS), notificando formalmente al Host DAW (setValueNotifyingHost).
+   - **Capa de Abstracción de Parámetros y Controladores Unificada sobre el Motor DSP**:
+     - Entradas de control convergentes: las entradas de control (WebUI PARAM_SET, MIDI CCs, desempacador NRPN de 14 bits, Pitch Bend, Channel Pressure / Aftertouch y automatización VST3) entran exclusivamente por la capa de abstracción de AxionikProcessor (setParameterByIndex, setParameterNormalizedByIndex, setMidiPitchBend, setMidiChannelPressure, setMidiController), notificando formalmente al Host DAW (setValueNotifyingHost).
      - El motor DSP (DspEngineFacade) opera estrictamente por debajo, aislado del transporte, la UI y el protocolo de control externo, recibiendo actualizaciones mediante listeners de estado y estructuras planas.
-   - **Enrutamiento MIDI Canónico y NRPN de 14 bits**:
-     - PluginProcessor::handleMidiEvent: Enrutador de CCs de hardware para Sticks XY (CC 16..19, 35..37), Blender (CC 70), Filter Reso (CC 71), Filter Cutoff (CC 74) y los 6 controles en tiempo real del Neuron (CC 1, 2, 3, 4, 11 y Channel Pressure).
+     - Despacho bidireccional APVTS -> WebUI a 30 Hz con mapa hash O(1) (drainPendingUiParamChanges()), asegurando sincronización fluida de automatizaciones del DAW.
+   - **Enrutamiento MIDI Canónico, NRPN de 14 bits y Controladores en Tiempo Real**:
+     - PluginProcessor::handleMidiEvent: Enrutador de CCs de hardware para Sticks XY (CC 16..19, 35..37, 39), Blender (CC 70), Filter Reso (CC 71), Filter Cutoff (CC 74) y los 6 controles en tiempo real del Neuron (CC 1, 2, 3, 4, 11 y Channel Pressure).
      - Desempacador NRPN de 14 bits (CC 99/98/6/38) direccionando 1:1 los 445 parámetros autoritativos de snddat a través de la capa de abstracción DspEngineFacade::setParamNormalized.
-   - **Grabador de Trayectorias Vectoriales y Etiquetas mnAN (10 Parameter Sets)**:
-     - Dotado a TrajectoryStick2D de grabador y reproductor de bucle de trayectorias vectoriales (REC / PLAY / CLEAR) con estela SVG reactiva.
+     - Matriz de modulación 6x4 conectada a nivel DSP a los 63 destinos canónicos de modulación (Cutoff, Reso, Blender, Stick XY, Slicer, Volumes) y Pitch Bend dinámico con rango parametrizable (PitchBendRange [412]).
+   - **Reproducción Vectorial en Tiempo Real (sound.stickrec) y Etiquetas mnAN (10 Parameter Sets)**:
+     - Implementado Source/DSP/StickPlayer.h: motor lock-free y RT-safe que reproduce los eventos de joystick de los 103 presets de fábrica (TTTTFCVVV, 74.799 eventos totales) al tocar notas (Note On), interpolando milisegundo a milisegundo los 8 ejes Scape/Sphere de R1/R2.
+     - Dotado a TrajectoryStick2D de grabador y reproductor de bucle de trayectorias vectoriales (REC / PLAY / CLEAR) con estela SVG reactiva y normalización fluida [0.0..1.0].
      - Conectadas las etiquetas dinámicas de los polos cardinales a partir de los 10 Parameter Sets canónicos (schemas/parameter_sets_mnan.json vía ParameterSets.ts).
+   - **Biblioteca Maestra NeuronDB Consolidada y Curada en el Proyecto**:
+     - Directorio centralizado NeuronDB/ con 341 modelos completos (000.model..511.model) y 398 presets (354 de NeuronVS + 44 exclusivos del Hardware Soundset V4 en 351.sound..394.sound), clasificados con las 19 categorías oficiales de soundlist_fact_set_4.pdf y con los ajustes originales SoundMFX* ([430..444]) restaurados del Hardware, además de los 10 archivos sound.stickrec recuperados de la versión Hartmann Music.
+     - Documentación completa de formatos en NeuronDB/README.md (distinción estricta entre Models y Sounds).
+     - Configurado .gitignore para ignorar los 2 GB de binarios de modelos sin ensuciar el repositorio git.
+   - **Topología de Mezcla R1/R2 y Bypass en Modo Split según Evidencia Ghidra (§6.5)**:
+     - Render en bloques de 128 muestras (FUN_100382b0) y mezclador de 10 modos (FUN_1002e7a0).
+     - Pesaje cruzado verificado en el binario: +0x64 multiplica a R1 y +0x60 a R2.
+     - Plegado de índices de buffer x86: memoria real plana en base + 0 .. +0x1FF (128 floats = 512 bytes).
+     - Modo 1 (Chromophonic / Split, 0x1002EFF5) con desacoplo estéreo puro y bypass de la etapa de filtro mono compartida (FUN_1003d6f0).
    - **Controles Universales en ABDShared y Envolvente 4L4T**:
-     - Migrado TrajectoryStick2D a ABDShared/Components/trajectoryStick2D.js y exportado en @abdsynths/shared/components.
-     - Creado MultiStageShaperPad en ABDShared/Components/multiStageShaperPad.js (4L4T con modos Normal/Repeat y niveles bipolares) e integrado en ResynatorDrawer.ts para los shapers [242..253].
+     - Migrado TrajectoryStick2D a ABDShared/Components/trajectoryStick2D.js y exportado en @abdsynths/shared/components. Retirados los botones internos redundantes «Edit» de los 4 sticks en main.ts, centralizando el acceso a los controles ampliados en los botones de cabecera «Edit R1» y «Edit R2».
+     - Creado y optimizado MultiStageShaperPad en ABDShared/Components/multiStageShaperPad.js (4L4T con modos Normal/Repeat, niveles bipolares, DOM inmutable durante el arrastre, monotonicidad temporal estricta y corrección de aspecto con `<ellipse>` y ResizeObserver para evitar deformación o achatamiento de círculos al estirar cajones).
+     - Añadida persistencia y reactividad bidireccional en tiempo real para todos los cajones desplegables (ResynatorDrawer.ts, BlenderDrawer.ts, SilverDrawer.ts, MatrixDrawer.ts) hidratando sus controles directamente desde WebBridge.getParam.
+   - **Correcciones Críticas en DSP Shared y Estabilidad**:
+     - **Envolvente Canónica `DspNeuronEnvelope.h` en `ABDShared/Code/DspCore/`**: creado el componente modular reutilizable `abd::dsp::DspNeuronEnvelope` que reproduce la envolvente analógica `CShaper4T4L` del Neuron (`FUN_10035370`/`FUN_10040550`), con escala cuadrática `samples = norm^2 * (20s * sampleRate)` y descarga exponencial analógica RC en Decay/Release. Integrado de forma transparente en `NeuronVoice.h`.
+     - **Integración Trapezoidal ZDF en `DspNeuronSilverFilter.h`**: corregidos los acumuladores internos de estado del filtro SVF 24dB (`s1 = 2*bp1 - s1; s2 = 2*lp1 - s2; s3 = 2*bp2 - s3; s4 = 2*lp2 - s4`), eliminando la realimentación positiva descontrolada.
+     - **Cálculo de Stride en Búfer de Esferas en `NeuronOscillators.h`**: corregido el cálculo de `bandOffset` eliminando la multiplicación redundante por 4 sobre `bandStride` (que provocaba lecturas de memoria fuera de rango en bloques armónicos de parciales interpretados erróneamente como `NaN`). Añadidos saneadores `std::isfinite`.
+     - **Documentación de Bug #10 (Corrupción de Heap en `NeuronVS.dll`)**: documentada en `DOCS/DSP_MIGRATION_AND_FIXES.md` y `DOCS/reverse_engineering/dsp/STATE_SPLIT.md` la corrupción en `params+0x2E2C` producida por `FUN_100134e0(params, -1)` sobre el contexto adyacente del heap, que desenganchaba destinos de modulación en caliente en la DLL original de 2004.
+     - **Lanzadores CLI Autónomos**: creados `run_standalone.bat` (lanzamiento en primer plano con `start`) y `run_webpilot.bat` con directorio de usuario aislado de WebView2 (`WEBVIEW2_USER_DATA_FOLDER`) para evitar bloqueos por permisos en escritorio Windows.
+     - Añadida persistencia y reactividad en tiempo real en ResynatorDrawer.ts para Parset [24/104], Tuning [33..35/113..115], ADSR de amplitud corregida [200..203/230..233] y los 6 sliders interactivos de 3 CANONICAL LAYERS (L1..L3).
      - Estandarizados los sliders con la clase .abd-slider consumiendo tokens de ABDShared/Assets/styles.
    - **Frontend WebUI & Ecosistema UI**:
      - Drawer deslizante universal (`DrawerManager`): panel lateral desde la derecha ocupando el 50% de la pantalla (`50vw`, `min-width: 460px`), unificado para Banco (`BankDrawer`), Resynator 1/2 expandidos (`ResynatorDrawer`), Silver & Master FX Rack (`SilverDrawer`), Matriz de Modulación 6x5 y Master FX.
@@ -113,9 +133,30 @@
    - Implementación visual de los pads de envolventes multinivel (`MultiStageShaperPad`) y generador de trayectorias automáticas (LFO / Record de stick).
 
 4. **Backlog a Largo Plazo Registrado (Post-Fase B)**:
-   - **Pantalla LCD Superior Fija y Monitor de Telemetría (Fase C)**:
-     - Pantalla panorámica horizontal fija en la cabecera (patrón `Sticky Top Hero Bar` de `ABDMS2000`).
-     - Visor emulador de las 33 sub-páginas/pantallas del hardware original y menús del sistema.
-     - Monitor en vivo de interacción del usuario: nombre legible del parámetro activo, valores en dominio físico (Hz, dB, ms, etc.), código CC asignado, número NRPN de 14 bits (`0..444`) y trama SysEx.
-     - Visualizador continuo de automatizaciones vectoriales grabadas con `REC` y reproducción dinámica de trayectorias en `PLAY`.
-     - Construido sobre los componentes `LcdDisplay` / `LcdScreen` / `LcdPanel` / `lcd.css` de `ABDShared`.
+   > **Nota de Diseño Estético Canónico:** Todos los módulos inspirados en el hardware físico (displays polares, faders híbridos, 5º joystick de Silver, consola Programmer y controladores de mano izquierda) se diseñarán con la **estética moderna propia de ABDSynths** (`@abdsynths/shared`), adaptando su funcionalidad sin replicar el skeuomorfismo plástico retro del año 2002.
+   - **Consola Programmer & Display VFD/LCD en Cápsula Ovalada (Fase C)**:
+     - Módulo superior **Programmer**: Teclado numérico 4x3 (0..9, Up, Down), botones de comando con LED (Snapshot, Play / Compare, 10s Hold con LED ámbar, Store rojo) y selección rápida Sound 1..4.
+     - **Cápsula ovalada con display VFD/LCD**: Marco metálico con matriz de puntos verde fosfórico sobre negro, flanqueado por encoder izquierdo y push-encoder rotatorio derecho (Push O.K.).
+     - **Botonera de sistema inferior**: SetUp, Controllers, Copy / Paste, Load / Dump, Basic Settings, Exit / Panic (rojo).
+     - Visor emulador de las 33 pantallas clásicas del hardware/NeuronVS y menús del sistema.
+     - Monitor en vivo de telemetría de parámetros (nombre legible, valor físico en Hz/dB/ms, CC/NRPN 14-bit y SysEx).
+     - Visualizador continuo de automatizaciones vectoriales grabadas con REC y reproducción dinámica de trayectorias en PLAY.
+     - Construido sobre los componentes LcdDisplay / LcdScreen / LcdPanel / lcd.css de ABDShared.
+   - **Vista Especial de Interpretación Macro («Remote / Nuke») & Soporte USB Opcional (Fase C)**:
+     - Vista conmutable orientada a directo y performance rápida: joystick vectorial central, 4 macro knobs (`Knob1..4Select` [425..428]) asignables a cualquier parámetro, y los 6 slots de modulación en vivo (`Aftertouch`, `CC 1`, `CC 2`, `CC 3`, `CC 4`, `CC 11`) con destino y fader de profundidad `[-64..+63]`.
+     - Estudio de detección Plug & Play en `ABDShared::HardwareDrivers` para el controlador físico USB <NUKE> original de Hartmann Music, con la regla inquebrantable de **cero dependencia** (100 % autónomo en software).
+   - **5º Joystick Vectorial Dedicado para Silver**:
+     - Incorporación interactiva en el panel o cajón de Silver de un TrajectoryStick2D (como existía en el teclado hardware Hartmann Neuron) para gobernar dinámicamente Cutoff/Resonancia en /Y$, FreqFX y TimeFX con grabación/reproducción vectorial sound.stickrec.
+   - **Displays LCD Polares, Blender de Rueda Horizontal & 8 Faders Híbridos de Shaper (Fase C)**:
+     - Recreación en cada Resynator de los 4 displays alfanuméricos verdes en los vértices del stick (North-West, North-East, South-West, South-East) mostrando valor en tiempo real `000..127` y etiqueta dinámica de parámetro de `mnAN` (`Coherent`, `OrangeWs`, `WhiteNoi`, `Smooth`, etc.).
+     - Recreación del Blender central con diseño hardware: módulo metálico con rueda horizontal dentada superior, display acrílico con barra LED graduada amarilla horizontal bipolar (`< [||||||    ] >`) y botón `Type / Menu` para los 10 algoritmos de mezcla.
+     - Recreación de los 8 faders de rueda con escala luminosa graduada de LEDs amarillos y selector triple `Shaper 1/2 Select`:
+       - Modo `Amplifier`: Shaper 1 Amp ADSR (`A, D, S, R`) y Shaper 2 Amp ADSR (`A, D, S, R`).
+       - Modo `Stick Levels`: ADSR de modulación de parámetros para la capa activa.
+       - Modo `Free`: 2x ADSR libres independientes, o envolvente unificada `4L4T` (Niveles 1..4 y Tiempos 1..4 mapeados a lo largo de los 8 faders).
+   - **Panel de Controladores de Rendimiento Físico (Left-Hand Performance Controllers)**:
+     - Recreación visual y funcional en la interfaz (al lateral del teclado MIDI inferior o como dock desplegable) del bloque físico del hardware original:
+       - **Joystick Bipolar de Tono y Modulación (Pitch / Control 1)**: Joystick analógico con cúpula roja translúcida retroiluminada sobre bisel circular con serigrafía de 4 cuadrantes (< Pitch -, > Pitch +, ^ / v Control 1), con recentrado elástico horizontal para Pitch Bend y modulación libre vertical (Control 1 / CC 1).
+       - **Rueda y Barra de Segmentos LED (Control 2)**: Rueda dentada vertical con visor acrílico y escala graduada reactiva de LEDs amarillos (Control 2 / CC 2).
+       - **Potenciómetro Cónico Rojo (Master Volume)**: Knob icónico rojo para ganancia maestra.
+       - **Potenciómetro Cónico Negro (Control 3)**: Knob giratorio continuo para la 3ª fuente de modulación (Control 3 / CC 3).

@@ -15,8 +15,9 @@ su README y su `tools/verify_*.py`.
 | [`NeuronVS_decompiled/`](NeuronVS_decompiled/README.md) | 1.024 funciones descompiladas, una por fichero | — |
 | [`NeuronVS_classes/`](NeuronVS_classes/README.md) | 29 clases, vtables, constructores y destructores | `tools/verify_classes.py` |
 | [`NeuronVS_resolved/`](NeuronVS_resolved/README.md) | llamadas por vtable resueltas a función concreta | `tools/verify_resolved.py` |
-| [`NeuronVS_dsp/`](NeuronVS_dsp/README.md) | el camino de audio: 87 funciones, constantes, frontera con `params`, tablas de tecla | `tools/verify_dsp.py`, `tools/verify_zones.py` |
+| [`NeuronVS_dsp/`](NeuronVS_dsp/README.md) | el camino de audio: 87 funciones, constantes, frontera con `params`, tablas de tecla, la suma R1/R2 del render | `tools/verify_dsp.py`, `tools/verify_zones.py`, `tools/verify_r1r2_mix.py` |
 | [`NeuronVS_preset_format/`](NeuronVS_preset_format/README.md) | `.sound`: 445 claves, el registro de 40 B y sus observadores | `tools/verify_preset.py` |
+| [`NeuronVS_observers/`](observers/README.md) | los 335 enganches de observador de `params`, los 4 callbacks recuperados y la matriz con su defecto | `tools/verify_observers.py`, `tools/verify_matrix.py` |
 | [`NeuronVS_layout/`](NeuronVS_layout/README.md) | el editor GDI: 33 páginas, sprites, enlace knob↔parámetro | `tools/verify_layout.py`, `verify_viewer.py` |
 | [`NeuronVS_bitmaps/`](NeuronVS_bitmaps/README.md) | recursos gráficos y su decodificación | — |
 | [`NeuronVS_filmstrip/`](NeuronVS_filmstrip/README.md) | filmstrips de los knobs (GIF) | `tools/verify_gif.py` |
@@ -100,17 +101,42 @@ expone **26 parámetros**, que son **13 pares**: 12 de `Sphere`/`Scape` por capa
 
 Detalle: [`NeuronVS_vst2/README.md`](NeuronVS_vst2/README.md#midi).
 
+### Los observadores, y la matriz que mueven
+
+[`observers/`](observers/README.md) es el índice que enlaza el
+`.sound` con los valores efectivos: **335 enganches** del ctor `FUN_1000be10` (una
+fila por `call FUN_100010a0`), cada uno con su registro `snddat`, su offset en
+`params` (`0x280+k*0x18`), su ventana `min`/`max` —**662/662** campos iguales a los
+que escribe el ctor, con los únicos blancos de `0x280` y la pareja `400`/`480` de
+`0x298`— y su callback (5 distintos, **4** recuperados aquí: `stModDest`,
+`stModDepth`, `stGPEngineCb` y el universal `stSPEngineCb`). Cada slot `p[0..316]`
+tiene exactamente un observador; las 5 filas especiales y 13 `SoundMFX` se quedan
+sin slot en el DLL original (y en `ABDAxionikVS` se extienden a los slots `380..392`).
+
+De ahí sale la matriz de modulación y su defecto: `FUN_100134e0` copia
+`clip(base + profundidad·valor)` en `p[tabla[dest]]`, y su rama del índice `-1`
+—la que cierran los seis controles MIDI— escribe 0x150 B más allá del objeto
+`params`, en el `ctx[3]` del bloque de contexto que el heap deja contiguo: ese
+destino queda **desenganchado** y pasa a escribir `p[slot]` sin recorte ni
+modulación (0 o 1 por corrida, según el heap; 13 presets con el evento en el log
+del arnés). Esto cierra de «Abierto» la entrada del mapa `0x10049E00` (63 destinos
++ terminador `0`; el único índice libre alcanzable es `-1`) y el mecanismo de «quién
+llena `+0x278C`».
+
+Saldo completo de preguntas cerradas y abiertas: [`observers/HANDOFF.md`](observers/HANDOFF.md).
+
 ## Abierto
 
 - **¿El render lee `params` en caliente?** Está descartado que llame a su código;
   falta la prueba con centinela sobre `+0x278C`.
-- **El mapa `0x10049E00`**: 64 entradas válidas; `FUN_100134E0` lo indexa con
-  `param_2` libre en una rama.
-- **Quién llena el resto de `+0x278C`**: `FUN_100134E0` sólo escribe el slot que
-  cambia.
+- **Quién llena los slots sin enganche**: el mecanismo ya está resuelto (el
+  callback del observador escribe `base[dest]`, `FUN_100134E0` los seis routeados y
+  el destino caído escribe `p[slot]` a pelo), pero de los 340 dwords de `+0x278C`
+  los de `0..316` tienen su observador en el mapa
+  ([`observers/`](observers/README.md)) y los **317..339** son cola sin fila (`FUN_10040550` lee `p[0..244]` y `FUN_100343e4` lee `p[245..313]`).
 - **722 constantes sin ancho medible** (se pasan por dirección).
 - **Las cuatro funciones grandes del render** (`FUN_100382b0`, `FUN_10040550`,
-  `FUN_10029e34`, `FUN_1002e7a0`) no están traducidas línea a línea.
+  `FUN_10029e34`, `FUN_1002e7a0`) — ya portadas en `ABDAxionikVS`.
 
 ## Verificar todo
 

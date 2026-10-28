@@ -32,3 +32,7 @@ Thumbs.db
 coverage/
 tmp/
 temp/
+
+# Large binary libraries (>2GB)
+NeuronDB/
+neurondb/
