@@ -20,6 +20,7 @@
 #include <cstdlib>
 
 #include "DSP/DspEngineFacade.h"
+#include "DSP/AxionikParamIndices.h"
 #include "Generated/FactoryPresets.gen.h"
 
 namespace fs = std::filesystem;
@@ -354,6 +355,38 @@ bool verifyModMatrix(abd::axionik::DspEngineFacade* engine) {
     return failures == 0;
 }
 
+// Renderiza una nota desde el estado actual del motor y devuelve la captura estéreo
+AudioCapture renderNote(abd::axionik::DspEngineFacade& engine, uint8_t note, float velocity,
+                        size_t totalFrames, size_t blockSize, double sampleRate) {
+    AudioCapture out;
+    out.sampleRate = static_cast<uint32_t>(sampleRate);
+    out.channels = 2;
+    out.left.resize(totalFrames, 0.0f);
+    out.right.resize(totalFrames, 0.0f);
+
+    engine.noteOn(note, velocity);
+
+    size_t framesRendered = 0;
+    std::vector<float> blockBufL(blockSize, 0.0f);
+    std::vector<float> blockBufR(blockSize, 0.0f);
+
+    while (framesRendered < totalFrames) {
+        size_t currentBlock = std::min(blockSize, totalFrames - framesRendered);
+        std::fill(blockBufL.begin(), blockBufL.end(), 0.0f);
+        std::fill(blockBufR.begin(), blockBufR.end(), 0.0f);
+
+        engine.process(blockBufL.data(), blockBufR.data(), currentBlock);
+
+        for (size_t i = 0; i < currentBlock; ++i) {
+            out.left[framesRendered + i]  = blockBufL[i];
+            out.right[framesRendered + i] = blockBufR[i];
+        }
+
+        framesRendered += currentBlock;
+    }
+    return out;
+}
+
 int main(int argc, char* argv[]) {
     std::cout << "=======================================================\n";
     std::cout << "  ABDAxionikVS — Arnés de Verificación Offline (Golden)\n";
@@ -472,32 +505,8 @@ int main(int argc, char* argv[]) {
 
     // 3. Renderizar audio
     std::cout << "[3/3] Renderizando " << totalFrames << " frames de audio...\n" << std::flush;
-    AudioCapture rendered;
-    rendered.sampleRate = static_cast<uint32_t>(sampleRate);
-    rendered.channels = 2;
-    rendered.left.resize(totalFrames, 0.0f);
-    rendered.right.resize(totalFrames, 0.0f);
-
-    engine->noteOn(static_cast<uint8_t>(noteNumber), velocity);
-
-    size_t framesRendered = 0;
-    std::vector<float> blockBufL(blockSize, 0.0f);
-    std::vector<float> blockBufR(blockSize, 0.0f);
-
-    while (framesRendered < totalFrames) {
-        size_t currentBlock = std::min(blockSize, totalFrames - framesRendered);
-        std::fill(blockBufL.begin(), blockBufL.end(), 0.0f);
-        std::fill(blockBufR.begin(), blockBufR.end(), 0.0f);
-
-        engine->process(blockBufL.data(), blockBufR.data(), currentBlock);
-
-        for (size_t i = 0; i < currentBlock; ++i) {
-            rendered.left[framesRendered + i]  = blockBufL[i];
-            rendered.right[framesRendered + i] = blockBufR[i];
-        }
-
-        framesRendered += currentBlock;
-    }
+    AudioCapture rendered = renderNote(*engine, static_cast<uint8_t>(noteNumber), velocity,
+                                       totalFrames, blockSize, sampleRate);
 
     // Estadísticas de salida
     AudioStats stats = computeStats(rendered.left, rendered.right);
@@ -559,6 +568,71 @@ int main(int argc, char* argv[]) {
         std::cerr << "\n[FALLO CRÍTICO] La salida es completamente silenciosa.\n";
         return 1;
     }
+
+    // 4. Paridad diferencial de la rama EQ (CurFreqFX=0)
+    //    Dos corridas con idéntico escenario EQ donde solo cambia la ganancia del
+    //    LowShelf (recorte -48 vs realce +48 en unidades crudas = ∓/±12 dB):
+    //    el realce debe multiplicar claramente la energía. Si los argumentos de
+    //    setEQParams volvieran a invertirse (freq/gain), la ganancia no llegaría
+    //    al filtro y esta aserción fallaría. Umbral calibrado con mutación: código
+    //    correcto → 11.3x; argumentos invertidos → 4.3x (con 1.5x la mutación pasaba).
+    std::cout << "\n=======================================================\n";
+    std::cout << "  Paridad Diferencial — Rama EQ (CurFreqFX=0)\n";
+    std::cout << "=======================================================\n";
+
+    using namespace abd::axionik;
+    auto configureEqScenario = [&](float shelfGainDb) {
+        engine->reset();
+        engine->setParam(ParamIdx::SilverSwitch, 1.0f);
+        engine->setParam(ParamIdx::FreqFXSwitch, 1.0f);
+        engine->setParam(ParamIdx::CurFreqFX, 0.0f); // 0 = EQ 4-Band & Compressor
+        engine->setParam(ParamIdx::EQ_Switch, 1.0f);
+        engine->setParam(ParamIdx::EQ_LowShelfSwitch, 1.0f);
+        engine->setParam(ParamIdx::EQ_LowShelfFreq, 100.0f); // ~500 Hz
+        engine->setParam(ParamIdx::EQ_LowShelfSlope, 50.0f);
+        engine->setParam(ParamIdx::EQ_LowShelfGain, shelfGainDb);
+    };
+
+    configureEqScenario(-48.0f); // recorte de −12 dB en el shelf
+    AudioCapture eqCut = renderNote(*engine, static_cast<uint8_t>(noteNumber), velocity,
+                                    totalFrames, blockSize, sampleRate);
+    configureEqScenario(+48.0f); // realce de +12 dB en el shelf
+    AudioCapture eqBoost = renderNote(*engine, static_cast<uint8_t>(noteNumber), velocity,
+                                      totalFrames, blockSize, sampleRate);
+
+    AudioStats eqCutStats = computeStats(eqCut.left, eqCut.right);
+    AudioStats eqBoostStats = computeStats(eqBoost.left, eqBoost.right);
+
+    double eqDiffSum = 0.0;
+    size_t eqN = std::min(eqCut.left.size(), eqBoost.left.size());
+    for (size_t i = 0; i < eqN; ++i) {
+        eqDiffSum += std::abs(eqCut.left[i] - eqBoost.left[i]);
+        eqDiffSum += std::abs(eqCut.right[i] - eqBoost.right[i]);
+    }
+    double eqMeanDiff = (eqN > 0) ? eqDiffSum / (eqN * 2.0) : 0.0;
+    double eqRmsRatio = (eqCutStats.rms > 1e-9f) ? eqBoostStats.rms / eqCutStats.rms : 0.0;
+
+    std::cout << "CurFreqFX:            0 (EQ 4-Band & Compressor), nota " << noteNumber << "\n";
+    std::cout << "EQ Cut   — Peak: " << std::fixed << std::setprecision(6) << eqCutStats.peak
+              << " | RMS: " << eqCutStats.rms << " | finito: " << (eqCutStats.finite ? "sí" : "NO") << "\n";
+    std::cout << "EQ Boost — Peak: " << eqBoostStats.peak
+              << " | RMS: " << eqBoostStats.rms << " | finito: " << (eqBoostStats.finite ? "sí" : "NO") << "\n";
+    std::cout << "Ratio Boost/Cut:      " << eqRmsRatio << "x (mínimo requerido: 6.0x)\n";
+    std::cout << "Diferencia Media A/B: " << eqMeanDiff << "\n";
+
+    bool eqFinite = eqCutStats.finite && eqBoostStats.finite;
+    bool eqNonSilent = eqCutStats.rms > 1e-6f && eqBoostStats.rms > 1e-6f;
+    bool eqBoostDominant = eqBoostStats.rms > eqCutStats.rms * 6.0f;
+
+    if (!eqFinite || !eqNonSilent || !eqBoostDominant) {
+        std::cerr << "\n[FALLO] Rama EQ no verificada:"
+                  << " finito=" << (eqFinite ? "ok" : "NO")
+                  << " señal=" << (eqNonSilent ? "ok" : "SILENCIO")
+                  << " realce=" << (eqBoostDominant ? "ok" : "INSUFICIENTE") << "\n";
+        return 1;
+    }
+    std::cout << "  VEREDICTO EQ: CORRECTO (ganancia del LowShelf llega al filtro de 4 bandas)\n";
+    std::cout << "=======================================================\n";
 
     std::cout << "\n=======================================================\n";
     std::cout << "  RESULTADO: EXIT 0 (Motor DSP Verificado con Éxito)\n";
