@@ -16,6 +16,7 @@
 #include "Generated/MidiMapping.gen.h"
 #include "Generated/BuildVersion.gen.h"
 #include "Generated/FactoryPresets.gen.h"
+#include <HardwareDrivers/MidiLearnManager.h>
 
 namespace abd::axionik {
 
@@ -87,6 +88,8 @@ public:
 
     DspEngineFacade& getDspEngine() noexcept { return dspEngine_; }
     juce::AudioProcessorValueTreeState& getAPVTS() noexcept { return apvts_; }
+    abd::hw::MidiLearnManager& getMidiLearnManager() noexcept { return midiLearnManager_; }
+    const abd::hw::MidiLearnManager& getMidiLearnManager() const noexcept { return midiLearnManager_; }
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
@@ -113,6 +116,7 @@ private:
     int nrpnChannel_{-1};
     uint32_t lastNrpnTimestampMs_{0};
     uint8_t midiBank_{0}; // MIDI Bank Select LSB (CC 32)
+    abd::hw::MidiLearnManager midiLearnManager_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AxionikProcessor)
 };

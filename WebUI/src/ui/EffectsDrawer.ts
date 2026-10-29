@@ -14,7 +14,8 @@ import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
-import { Knob } from '@abdsynths/shared/components/knob.js';
+import { Knob } from '@abdsynths/shared/components';
+import { MultiStageShaperPad } from './MultiStageShaperPad.js';
 
 export const REVERB_ROOMS = [
   { id: 0, name: 'Hall' },
@@ -24,9 +25,11 @@ export const REVERB_ROOMS = [
   { id: 4, name: 'Ambience' },
 ];
 
+export type EffectsDrawerBlock = 'filter' | 'silver' | 'master' | 'all';
+
 export interface EffectsDrawerOptions {
   onClose: () => void;
-  initialBlock?: 'all' | 'silver' | 'master';
+  initialBlock?: EffectsDrawerBlock;
 }
 
 export class EffectsDrawer {
@@ -40,11 +43,13 @@ export class EffectsDrawer {
     const curFilterKt = Math.round(WebBridge.getParam(ParamIdx.FilterKeyTrack, 0));
     const curFilterVel = Math.round(WebBridge.getParam(ParamIdx.FilterCutoffVelocityDepth, 0));
 
-    const curFEnvA = Math.round(WebBridge.getParam(ParamIdx.FilterEnvA, 10));
-    const curFEnvD = Math.round(WebBridge.getParam(ParamIdx.FilterEnvD, 40));
-    const curFEnvS = Math.round(WebBridge.getParam(ParamIdx.FilterEnvS, 64));
-    const curFEnvR = Math.round(WebBridge.getParam(ParamIdx.FilterEnvR, 30));
+    let curFEnvA = Math.round(WebBridge.getParam(ParamIdx.FilterEnvA, 10));
+    let curFEnvD = Math.round(WebBridge.getParam(ParamIdx.FilterEnvD, 40));
+    let curFEnvS = Math.round(WebBridge.getParam(ParamIdx.FilterEnvS, 64));
+    let curFEnvR = Math.round(WebBridge.getParam(ParamIdx.FilterEnvR, 30));
+    const curFEnvMode = Math.round(WebBridge.getParam(ParamIdx.FilterEnvMode, 0));
     const curFEnvDepth = Math.round(WebBridge.getParam(ParamIdx.FilterEnvDepth, 0));
+    const curFEnvTrigVel = Math.round(WebBridge.getParam(ParamIdx.FilterEnvTrigVelo, 0));
 
     const curFreqEnable = Math.round(WebBridge.getParam(ParamIdx.FreqFXSwitch, 0)) !== 0;
     const curFreqAlgo = Math.max(0, Math.min(4, Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0))));
@@ -81,15 +86,25 @@ export class EffectsDrawer {
     });
 
     const viewSectionItems = [
+      { id: 'filter', label: '1. Filter & Filter Env' },
+      { id: 'silver', label: '2. Silver Insert FX (Freq & Time)' },
+      { id: 'master', label: '3. Master Spatial FX (Delay & Reverb)' },
       { id: 'all', label: 'All Effects' },
-      { id: 'silver', label: '1. Silver Multi-FX & Filter' },
-      { id: 'master', label: '2. Master Spatial FX' },
     ];
-    const viewSectionHtml = pillSelectorHtml(viewSectionItems, options.initialBlock || 'all', {
+    const viewSectionHtml = pillSelectorHtml(viewSectionItems, options.initialBlock || 'filter', {
       id: 'effects-view-section-pills',
       size: 'sm',
       attrName: 'data-view',
     });
+
+    const filterEnvModeHtml = pillSelectorHtml(
+      [
+        { id: '0', label: 'Normal (One-Shot)' },
+        { id: '1', label: 'Repeat (Loop)' },
+      ],
+      String(curFEnvMode),
+      { id: 'fenv-mode-pills', size: 'xs', attrName: 'data-fenvmode' }
+    );
 
     const filterTypeItems = [
       { id: '0', label: '0: LP 24dB' },
@@ -131,9 +146,10 @@ export class EffectsDrawer {
     });
 
     const renderKnobCell = (mountId: string, valId: string, initialVal: number, unit = '') => `
-      <div class="mfx-knob-cell" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <div class="synth-knob-cell">
         <div id="${mountId}"></div>
-        <span class="hud-value stat-num" id="${valId}" style="font-size: 11px;">${initialVal}${unit ? ' ' + unit : ''}</span>
+        <span class="synth-knob-num stat-num" id="${valId}">${initialVal}${unit ? ' ' + unit : ''}</span>
+        <span class="synth-knob-title" data-knob-title-for="${mountId}"></span>
       </div>
     `;
 
@@ -167,23 +183,22 @@ export class EffectsDrawer {
 
       <div class="drawer-scrollable-content" id="effects-scroll-body" style="flex: 1; overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4);">
         <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- BLOQUE 1: SILVER MULTIEFFECTS & FILTER RACK [271..362]  -->
+        <!-- BLOQUE 1: MULTIMODE FILTER & FILTER ADSR [273..278, 355..361] -->
         <!-- ═══════════════════════════════════════════════════════ -->
-        <div id="block-silver-fx" style="display: flex; flex-direction: column; gap: var(--space-3);">
+        <div id="block-filter-fx" style="display: flex; flex-direction: column; gap: var(--space-3);">
           <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-accent-dim); padding-bottom: var(--space-1);">
             <div style="display: flex; align-items: center; gap: var(--space-2);">
-              <span class="panel-badge" style="background: var(--color-accent); color: var(--color-bg-base);">BLOQUE 1</span>
-              <span class="panel-caption" style="font-weight: 700; color: var(--color-accent); font-size: var(--text-sm);">SILVER MULTIEFFECTS & FILTER RACK ([271..362])</span>
+              <span class="panel-badge" style="background: var(--color-accent); color: var(--color-bg-base);">SHAPER 3 / FILTER</span>
+              <span class="panel-caption" style="font-weight: 700; color: var(--color-accent); font-size: var(--text-sm);">SILVER 24dB MULTIMODE FILTER & ENVELOPE ([273..278, 355..361])</span>
             </div>
-            <span class="hud-label" style="font-size: 11px;">INSERT FX CHAIN</span>
+            <span class="hud-label" style="font-size: 11px;">FILTER STAGE</span>
           </div>
 
-          <!-- L1: Multimode Filter & ADSR ([273..278, 355..361]) -->
           <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
               <div style="display: flex; align-items: center; gap: var(--space-2);">
                 <span class="panel-badge">MULTIMODE FILTER</span>
-                <span class="panel-caption" style="color: var(--color-accent); font-weight: 700;">L1: MULTIMODE FILTER & ADSR ([273..278, 355..361])</span>
+                <span class="panel-caption" style="color: var(--color-accent); font-weight: 700;">FILTER CUTOFF, RESONANCE & MODULATION ([273..278, 360])</span>
               </div>
               ${filterTypeHtml}
             </div>
@@ -197,17 +212,43 @@ export class EffectsDrawer {
               ${renderKnobCell('silver-kt-mount', 'silver-kt-val', curFilterKt)}
               ${renderKnobCell('silver-vel-mount', 'silver-vel-val', curFilterVel)}
             </div>
+          </div>
 
-            <!-- Fila 2: Envolvente de Filtro ADSR (4 Knobs) -->
-            <div style="display: flex; flex-direction: column; gap: var(--space-1); padding-top: var(--space-2); border-top: 1px solid var(--color-panel-border-dim);">
-              <span class="hud-label" style="font-size: 10px; font-weight: 700; color: var(--color-accent); letter-spacing: 0.5px;">FILTER ENVELOPE (ADSR)</span>
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
-                ${renderKnobCell('fenv-a-mount', 'fenv-a-val', curFEnvA)}
-                ${renderKnobCell('fenv-d-mount', 'fenv-d-val', curFEnvD)}
-                ${renderKnobCell('fenv-s-mount', 'fenv-s-val', curFEnvS)}
-                ${renderKnobCell('fenv-r-mount', 'fenv-r-val', curFEnvR)}
+          <!-- Envolvente de Filtro ADSR (Curva ABDShared + 5 Knobs) -->
+          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+              <div>
+                <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">SHAPER 3 — FILTER CUTOFF ENVELOPE ([355..361])</div>
+                <div style="font-size: 11px; color: var(--color-text-muted);">Dedicated ADSR contour for Silver Filter Cutoff when SHAPER 3 is in FILTER mode.</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="hud-label" style="font-size: 9px;">CYCLE:</span>
+                ${filterEnvModeHtml}
               </div>
             </div>
+
+            <div id="fenv-adsr-curve-mount"></div>
+
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
+              ${renderKnobCell('fenv-a-mount', 'fenv-a-val', curFEnvA)}
+              ${renderKnobCell('fenv-d-mount', 'fenv-d-val', curFEnvD)}
+              ${renderKnobCell('fenv-s-mount', 'fenv-s-val', curFEnvS)}
+              ${renderKnobCell('fenv-r-mount', 'fenv-r-val', curFEnvR)}
+              ${renderKnobCell('fenv-tvel-mount', 'fenv-tvel-val', curFEnvTrigVel)}
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- BLOQUE 2: SILVER INSERT MULTI-FX RACK [281..354]        -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div id="block-silver-fx" style="display: flex; flex-direction: column; gap: var(--space-3);">
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-accent-dim); padding-bottom: var(--space-1);">
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+              <span class="panel-badge" style="background: var(--color-accent); color: var(--color-bg-base);">SILVER RACK</span>
+              <span class="panel-caption" style="font-weight: 700; color: var(--color-accent); font-size: var(--text-sm);">SILVER INSERT MULTI-EFFECTS ([281..354])</span>
+            </div>
+            <span class="hud-label" style="font-size: 11px;">INSERT FX CHAIN</span>
           </div>
 
           <!-- L2: Frequency FX ([281..326]) -->
@@ -314,16 +355,22 @@ export class EffectsDrawer {
       paramId: number,
       valId: string,
       isBipolar = false,
-      unit = ''
+      unit = '',
+      onAfterChange?: (val: number) => void
     ) => {
       const mount = container.querySelector(`#${mountId}`);
       if (!mount) return;
+      (mount as HTMLElement).setAttribute('data-param-index', String(paramId));
       const range = max - min;
       const normInit = range > 0 ? (initVal - min) / range : 0;
       const valEl = container.querySelector(`#${valId}`);
+      const titleEl = container.querySelector(`[data-knob-title-for="${mountId}"]`);
+      if (titleEl) {
+        titleEl.textContent = label;
+      }
 
       new Knob(mount as HTMLElement, {
-        size: 40,
+        size: 38,
         label,
         value: normInit,
         bipolar: isBipolar,
@@ -331,6 +378,7 @@ export class EffectsDrawer {
           const actualVal = Math.round(min + normVal * range);
           WebBridge.setParam(paramId, actualVal);
           if (valEl) valEl.textContent = `${actualVal}${unit ? ' ' + unit : ''}`;
+          onAfterChange?.(actualVal);
         },
       });
     };
@@ -344,8 +392,9 @@ export class EffectsDrawer {
       paramId: number,
       valId: string,
       isBipolar = false,
-      unit = ''
-    ) => initKnob(root, mountId, label, initVal, min, max, paramId, valId, isBipolar, unit);
+      unit = '',
+      onAfterChange?: (val: number) => void
+    ) => initKnob(root, mountId, label, initVal, min, max, paramId, valId, isBipolar, unit, onAfterChange);
 
     const bindParamToggleButtons = (container: ParentNode) => {
       container.querySelectorAll('button[data-param-toggle]').forEach((btnEl) => {
@@ -718,11 +767,45 @@ export class EffectsDrawer {
     initMfxKnob('silver-kt-mount', 'KEYTRACK [277]', curFilterKt, -64, 63, ParamIdx.FilterKeyTrack, 'silver-kt-val', true);
     initMfxKnob('silver-vel-mount', 'VEL DEPTH [278]', curFilterVel, -64, 63, ParamIdx.FilterCutoffVelocityDepth, 'silver-vel-val', true);
 
+    // Curva canónica ADSR de Filtro (MultiStageShaperPad de ABDShared)
+    const fenvCurveMount = root.querySelector('#fenv-adsr-curve-mount') as HTMLElement | null;
+    let fenvPad: MultiStageShaperPad | null = null;
+    const fenvToPadState = () => ({
+      times: [
+        Math.max(0.04, curFEnvA / 127),
+        Math.max(0.04, curFEnvD / 127),
+        0.25,
+        Math.max(0.04, curFEnvR / 127),
+      ],
+      levels: [1.0, curFEnvS / 127, curFEnvS / 127, 0.0],
+    });
+    if (fenvCurveMount) {
+      fenvPad = new MultiStageShaperPad(fenvCurveMount, {
+        bipolar: false,
+        bare: true,
+        editable: false,
+        viewBoxHeight: 96,
+        stageLabels: ['START', 'ATTACK', 'DECAY', 'SUSTAIN', 'RELEASE'],
+        ...fenvToPadState(),
+      });
+    }
+    const syncFenvCurve = () => fenvPad?.setValue(fenvToPadState(), false);
+
     // Fila 2: Filter ADSR
-    initMfxKnob('fenv-a-mount', 'FILT A [355]', curFEnvA, 0, 127, ParamIdx.FilterEnvA, 'fenv-a-val');
-    initMfxKnob('fenv-d-mount', 'FILT D [356]', curFEnvD, 0, 127, ParamIdx.FilterEnvD, 'fenv-d-val');
-    initMfxKnob('fenv-s-mount', 'FILT S [357]', curFEnvS, 0, 127, ParamIdx.FilterEnvS, 'fenv-s-val');
-    initMfxKnob('fenv-r-mount', 'FILT R [358]', curFEnvR, 0, 127, ParamIdx.FilterEnvR, 'fenv-r-val');
+    initMfxKnob('fenv-a-mount', 'FILT A [355]', curFEnvA, 0, 127, ParamIdx.FilterEnvA, 'fenv-a-val', false, '', (v) => { curFEnvA = v; syncFenvCurve(); });
+    initMfxKnob('fenv-d-mount', 'FILT D [356]', curFEnvD, 0, 127, ParamIdx.FilterEnvD, 'fenv-d-val', false, '', (v) => { curFEnvD = v; syncFenvCurve(); });
+    initMfxKnob('fenv-s-mount', 'FILT S [357]', curFEnvS, 0, 127, ParamIdx.FilterEnvS, 'fenv-s-val', false, '', (v) => { curFEnvS = v; syncFenvCurve(); });
+    initMfxKnob('fenv-r-mount', 'FILT R [358]', curFEnvR, 0, 127, ParamIdx.FilterEnvR, 'fenv-r-val', false, '', (v) => { curFEnvR = v; syncFenvCurve(); });
+    initMfxKnob('fenv-tvel-mount', 'TRIG VELO [361]', curFEnvTrigVel, 0, 127, ParamIdx.FilterEnvTrigVelo, 'fenv-tvel-val');
+
+    const fenvModeContainer = root.querySelector('#fenv-mode-pills') as HTMLElement | null;
+    if (fenvModeContainer) {
+      bindPillSelector(fenvModeContainer, (modeStr, btn) => {
+        fenvModeContainer.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        WebBridge.setParam(ParamIdx.FilterEnvMode, parseInt(modeStr || '0', 10));
+      }, 'data-fenvmode');
+    }
 
     // ── Eventos Bloque 2 (Master FX) ────────────────────────
     const bindBypass = (btnId: string, paramId: number) => {
@@ -773,22 +856,30 @@ export class EffectsDrawer {
 
 
     // ── Filtro / Navegación rápida entre bloques ────────────
+    const blockFilter = root.querySelector('#block-filter-fx') as HTMLElement | null;
     const blockSilver = root.querySelector('#block-silver-fx') as HTMLElement | null;
     const blockMaster = root.querySelector('#block-master-fx') as HTMLElement | null;
     const viewSectionContainer = root.querySelector('#effects-view-section-pills') as HTMLElement | null;
     const scrollContainer = root.querySelector('#effects-scroll-body') as HTMLElement | null;
 
-    const setFilter = (mode: 'all' | 'silver' | 'master', doScroll = false) => {
+    const setFilter = (mode: EffectsDrawerBlock, doScroll = false) => {
       const viewPills = viewSectionContainer?.querySelectorAll('[data-view]');
       viewPills?.forEach((p) => p.classList.toggle('active', p.getAttribute('data-view') === mode));
 
       if (mode === 'all') {
+        if (blockFilter) blockFilter.style.display = 'flex';
         if (blockSilver) blockSilver.style.display = 'flex';
         if (blockMaster) blockMaster.style.display = 'flex';
+      } else if (mode === 'filter') {
+        if (blockFilter) blockFilter.style.display = 'flex';
+        if (blockSilver) blockSilver.style.display = 'none';
+        if (blockMaster) blockMaster.style.display = 'none';
       } else if (mode === 'silver') {
+        if (blockFilter) blockFilter.style.display = 'none';
         if (blockSilver) blockSilver.style.display = 'flex';
         if (blockMaster) blockMaster.style.display = 'none';
       } else if (mode === 'master') {
+        if (blockFilter) blockFilter.style.display = 'none';
         if (blockSilver) blockSilver.style.display = 'none';
         if (blockMaster) blockMaster.style.display = 'flex';
       }
@@ -800,14 +891,12 @@ export class EffectsDrawer {
 
     if (viewSectionContainer) {
       bindPillSelector(viewSectionContainer, (viewId) => {
-        setFilter(viewId as 'all' | 'silver' | 'master', viewId !== 'all');
+        setFilter((viewId as EffectsDrawerBlock) || 'filter', viewId !== 'all');
       }, 'data-view');
     }
 
-    // Si se especifica bloque inicial, activar chip y vista correspondiente
-    if (options.initialBlock) {
-      setFilter(options.initialBlock, true);
-    }
+    // Activar vista inicial enfocada
+    setFilter(options.initialBlock || 'filter', true);
 
     return root;
   }

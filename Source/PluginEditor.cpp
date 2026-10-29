@@ -156,8 +156,8 @@ AxionikEditor::AxionikEditor(AxionikProcessor& p)
     }
 
     setResizable(true, true);
-    setResizeLimits(800, 560, 2400, 1680);
-    setSize(1000, 700);
+    setResizeLimits(960, 600, 2560, 1800);
+    setSize(1340, 740);
 
     // Arrancar timer de telemetría a 30 Hz
     startTimerHz(30);
@@ -183,11 +183,14 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
     } else if (type == "NOTE_ON") {
         int note = static_cast<int>(obj->getProperty("note"));
         float vel = static_cast<float>(obj->getProperty("velocity"));
+        const juce::ScopedLock sl(processor_.getCallbackLock());
         processor_.getDspEngine().noteOn(static_cast<uint8_t>(note), vel > 0.0f ? vel : 0.8f);
     } else if (type == "NOTE_OFF") {
         int note = static_cast<int>(obj->getProperty("note"));
+        const juce::ScopedLock sl(processor_.getCallbackLock());
         processor_.getDspEngine().noteOff(static_cast<uint8_t>(note));
     } else if (type == "ALL_NOTES_OFF") {
+        const juce::ScopedLock sl(processor_.getCallbackLock());
         processor_.getDspEngine().allNotesOff();
     } else if (type == "LOAD_PRESET_SCRIPT") {
         juce::String script = obj->getProperty("script").toString();
@@ -215,14 +218,62 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
         float val = static_cast<float>(obj->getProperty("value"));
         float normVal = val > 1.0f ? (val / 127.0f) : val;
         processor_.setMidiController(cc, normVal);
+    } else if (type == "SET_MASTER_VOLUME") {
+        float vol = static_cast<float>(obj->getProperty("volume"));
+        processor_.getDspEngine().setMasterVolume(vol);
     } else if (type == "SET_ORACLE_CLIP_MODE") {
         bool enabled = static_cast<bool>(obj->getProperty("enabled"));
         processor_.getDspEngine().setOracleClipToZeroMode(enabled);
+    } else if (type == "MIDI_LEARN_SYNC") {
+        processor_.getMidiLearnManager().loadFromVar(msg, false);
+    } else if (type == "MIDI_LEARN_START") {
+        int targetIdx = static_cast<int>(obj->getProperty("targetIndex"));
+        juce::String targetKey = obj->getProperty("targetKey").toString();
+        juce::String modeStr = obj->getProperty("mode").toString();
+        auto mode = (modeStr == "add") ? abd::hw::MidiLearnManager::LearnMode::Add
+                                       : abd::hw::MidiLearnManager::LearnMode::Replace;
+        processor_.getMidiLearnManager().startLearning(targetIdx, targetKey, mode);
+    } else if (type == "MIDI_LEARN_CANCEL") {
+        processor_.getMidiLearnManager().cancelLearning();
+    } else if (type == "HARDWARE_GET_PORT_STATUS") {
+        if (webComponent_ != nullptr) {
+            juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { "
+                              "  window.WebBridge.notify({ type: 'HARDWARE_PORT_STATUS', status: { connected: true, name: 'Host DAW / JUCE MIDI Bus', deviceId: 0 } }); }";
+            webComponent_->getWebBrowser().evaluateJavascript(js);
+        }
+    } else if (type == "HARDWARE_SET_DEVICE_ID" || type == "HARDWARE_TX_DUMP_REQUEST" || type == "HARDWARE_RX_DUMP_SEND_REQUEST" || type == "HARDWARE_DUMP_DISCARD" || type == "HARDWARE_FLUSH_ACTIVE_XFERS") {
+        AX_LOG(juce::String("[SYSEX BRIDGE] Handled hardware request: ") + type);
+    } else if (type == "CALIBRATION_SET") {
+        juce::String paramId = obj->getProperty("id").toString();
+        float val = static_cast<float>(obj->getProperty("value"));
+        const juce::ScopedLock sl(processor_.getCallbackLock());
+        processor_.getDspEngine().setCalibrationParam(paramId.toStdString(), val);
+    } else if (type == "CALIBRATION_RESET") {
+        juce::String paramId = obj->getProperty("id").toString();
+        const juce::ScopedLock sl(processor_.getCallbackLock());
+        processor_.getDspEngine().resetCalibrationParam(paramId.toStdString());
+    } else if (type == "CALIBRATION_RESET_ALL") {
+        const juce::ScopedLock sl(processor_.getCallbackLock());
+        processor_.getDspEngine().resetAllCalibrationParams();
+    } else if (type == "CALIBRATION_SYNC") {
+        if (auto* valuesObj = obj->getProperty("values").getDynamicObject()) {
+            const juce::ScopedLock sl(processor_.getCallbackLock());
+            for (const auto& prop : valuesObj->getProperties()) {
+                processor_.getDspEngine().setCalibrationParam(
+                    prop.name.toString().toStdString(),
+                    static_cast<float>(prop.value));
+            }
+        }
     } else if (type == "SCAN_BANK" || type == "REFRESH_BANK") {
+        if (!isUiReady_) {
+            isUiReady_ = true;
+            processor_.syncApvtsFromDspEngine();
+        }
         sendBankCatalogSync();
     } else if (type == "UI_READY") {
         isUiReady_ = true;
         AX_LOG("[EDITOR] WebUI reported UI_READY!");
+        processor_.syncApvtsFromDspEngine();
         sendBankCatalogSync();
     }
 }
@@ -260,6 +311,7 @@ void AxionikEditor::timerCallback() {
         // Evita saturación de la cola IPC de WebView2 y el parpadeo del cursor del ratón.
         if (++timerTicks_ > 90) { // Fallback de seguridad tras ~3 segundos
             isUiReady_ = true;
+            processor_.syncApvtsFromDspEngine();
             sendBankCatalogSync();
         } else {
             return;
@@ -277,6 +329,7 @@ void AxionikEditor::timerCallback() {
     // 3. Notificación de carga de preset / modelo
     auto presetEvt = processor_.drainPendingPresetEvent();
     if (presetEvt.hasEvent) {
+        (void)processor_.drainPendingUiParamChanges();
         AX_LOG(juce::String("[BRIDGE OUT] Sending PRESET_LOADED: '") + presetEvt.name +
                "' (R1: " + juce::String(presetEvt.r1Model) + ", R2: " + juce::String(presetEvt.r2Model) + ")");
 
@@ -299,6 +352,22 @@ void AxionikEditor::timerCallback() {
             js += "  window.WebBridge.notify({ type: 'PARAM_UPDATE', index: " + juce::String(change.index) +
                   ", value: " + juce::String(change.value) + " }); ";
         }
+    }
+
+    // 4. Sincronización de estado de MIDI Learn (cuando el usuario mueve un CC físico en modo Learn o carga estado DAW)
+    if (processor_.getMidiLearnManager().drainStateChangedFlag()) {
+        js += "  window.WebBridge.notify(" + processor_.getMidiLearnManager().toJson() + "); ";
+    }
+
+    // 5. Telemetría del último mensaje MIDI entrante (para el monitor en vivo del MidiLearnDrawer)
+    abd::hw::MidiLearnManager::LastMidiActivity midiAct;
+    if (processor_.getMidiLearnManager().drainLastMidiActivity(midiAct)) {
+        js += "  window.WebBridge.notify({ type: 'MIDI_ACTIVITY', sourceType: " +
+              juce::String(static_cast<int>(midiAct.sourceType)) +
+              ", channel: " + juce::String(midiAct.channel) +
+              ", number: " + juce::String(midiAct.number) +
+              ", rawValue: " + juce::String(midiAct.rawValue) +
+              ", normalizedValue: " + juce::String(midiAct.normalizedValue, 4) + " }); ";
     }
 
     js += "}";

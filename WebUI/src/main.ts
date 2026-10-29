@@ -18,14 +18,19 @@ import { MasterOutputPanel } from './ui/MasterOutputPanel.js';
 import { DrawerManager } from './ui/Drawers.js';
 import { TrajectoryStick2D } from './ui/TrajectoryStick2D.js';
 import { ResynatorDrawer } from './ui/ResynatorDrawer.js';
-import { EffectsDrawer } from './ui/EffectsDrawer.js';
+import { EffectsDrawer, type EffectsDrawerBlock } from './ui/EffectsDrawer.js';
 import { BlenderDrawer } from './ui/BlenderDrawer.js';
 import { BlenderPanel } from './ui/BlenderPanel.js';
 import { FilterPanel } from './ui/FilterPanel.js';
 import { EnvelopeMasterPanel } from './ui/EnvelopeMasterPanel.js';
-import { EnvelopeDrawer } from './ui/EnvelopeDrawer.js';
+import { EnvelopeDrawer, type EnvelopeDrawerTab } from './ui/EnvelopeDrawer.js';
 import { MatrixDrawer } from './ui/MatrixDrawer.js';
+import { NukeDrawer } from './ui/NukeDrawer.js';
+import { TopLcdBar } from './ui/TopLcdBar.js';
 import { SettingsDrawer } from './ui/SettingsDrawer.js';
+import { HardwareDumpsDrawer } from './ui/HardwareDumpsDrawer.js';
+import { type HardwareHostEvent } from './ui/hardwareDumpsContracts.js';
+import { CalibrationDrawer } from './ui/CalibrationDrawer.js';
 import { DragDropHandler } from './ui/DragDropHandler.js';
 import { WebBridge } from './bridge/WebBridge.js';
 import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
@@ -36,10 +41,16 @@ import {
   getCanonicalModelName,
   getCanonicalPresetInfo,
 } from './ui/NeuronCatalogMetadata.js';
+import { setupKeyboardShortcuts } from './app/keyboardShortcuts.js';
 import { ThemeManager } from './utils/themeManager.js';
 import { handleParamUpdate, type ParamUpdateCtx } from './app/paramUpdate.js';
+import {
+  createMidiLearnStore,
+  attachMidiLearnUI,
+  createMidiLearnDrawerContent,
+} from '@abdsynths/shared/components';
 
-document.addEventListener('DOMContentLoaded', async () => {
+const bootstrapAxionikApp = async () => {
   const app = document.getElementById('app');
   if (!app) return;
 
@@ -51,7 +62,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const navContainer = document.createElement('header');
   app.appendChild(navContainer);
 
-  // 2. Canvas principal del sintetizador
+  // 1b. Franja fija superior de consolas LCD (Fase C: central + laterales, no colapsable, fija bajo la Navbar)
+  const lcdBarContainer = document.createElement('section');
+  lcdBarContainer.id = 'top-lcd-bar';
+  app.appendChild(lcdBarContainer);
+
+  // 2. Canvas principal del sintetizador (hace scroll por debajo del LCD superior fijo)
   const workspace = document.createElement('main');
   workspace.className = 'workspace-canvas';
   workspace.innerHTML = `
@@ -113,13 +129,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div id="shapers-mount" style="grid-column: 1 / -1; display: contents;"></div>
       </div>
 
-      <!-- 3. Fila Inferior: Controllers (2), Blender (1), Filter (1), Reserved/Hueco (1), Master (1) = 6 unidades -->
+      <!-- 3. Fila Inferior (12/12): Filter (1/12), Env Master (1/12), Blender (5/12), Controllers (4/12), Master (1/12) -->
       <div class="synth-row" id="row-bottom" data-row-id="row-bottom">
+        <div id="filter-mount" class="col-span-half"></div>
+        <div id="envelope-master-mount" class="col-span-half"></div>
+        <div id="blender-mount" class="col-span-blender"></div>
         <div id="controllers-mount" class="col-span-2"></div>
-        <div id="blender-mount" class="col-span-1"></div>
-        <div id="filter-mount" class="col-span-1"></div>
-        <div id="envelope-master-mount" class="col-span-1"></div>
-        <div id="master-mount" class="col-span-1"></div>
+        <div id="master-mount" class="col-span-half"></div>
       </div>
     </div>
   `;
@@ -130,12 +146,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   keyboardSection.className = 'keyboard-container keyboard-section';
   app.appendChild(keyboardSection);
 
+  let controllersPanel: ControllersPanel | null = null;
+
   new KeyboardStrip(keyboardSection, {
     onNotePress: (midiNote, velocity) => {
       WebBridge.noteOn(midiNote, velocity ?? 0.85);
     },
     onNoteRelease: (midiNote) => {
       WebBridge.noteOff(midiNote);
+      controllersPanel?.setAftertouchLevel(0);
     },
     onPitchBend: (val) => {
       WebBridge.pitchBend(val);
@@ -144,13 +163,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       WebBridge.modWheel(val);
     },
     onAftertouch: (val) => {
-      WebBridge.channelPressure(val);
+      const norm = val > 1.0 ? val / 127.0 : val;
+      controllersPanel?.setAftertouchLevel(norm);
+      WebBridge.channelPressure(Math.round(norm * 127));
     },
     onPanic: () => {
+      controllersPanel?.setAftertouchLevel(0);
       WebBridge.allNotesOff();
     },
     onSustainChange: (active) => {
-      WebBridge.sendMidiCC(64, active ? 127 : 0);
+      const raw = active ? 127 : 0;
+      controllersPanel?.setPedalLevel(active ? 1.0 : 0.0);
+      WebBridge.sendMidiCC(64, raw);
+      WebBridge.sendMidiCC(4, raw);
     },
   });
 
@@ -160,7 +185,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   let targetResynatorForModelPick: 1 | 2 = 1;
   let bankDrawer: BankDrawer;
   let navbar: AxionikNavbar | null = null;
+  let nukeDrawer: NukeDrawer | null = null;
+  let hardwareDumpsDrawer: HardwareDumpsDrawer | null = null;
+  let calibrationDrawer: CalibrationDrawer | null = null;
+  let topLcdBar: TopLcdBar | null = null;
   let currentZoom = parseFloat(document.body.style.zoom) || 1.0;
+  let currentPresetName = '000 InitSound';
   let currentR1ModelName = '511 sinew';
   let currentR2ModelName = '511 sinew';
 
@@ -205,6 +235,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       captionEl.textContent = modelName;
       captionEl.title = `Model #${slot}: ${modelName}`;
     }
+    topLcdBar?.setModelInfo(resynator, slot, modelName);
   };
 
   // Funciones para abrir paneles expandidos (Resynator 1/2 y Silver Rack)
@@ -234,7 +265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerManager.openCustom('r2-expanded', content);
   };
 
-  const openEffectsDrawer = (initialBlock: 'all' | 'silver' | 'master' = 'all') => {
+  const openEffectsDrawer = (initialBlock: EffectsDrawerBlock = 'filter') => {
     const content = EffectsDrawer.createContent({
       initialBlock,
       onClose: () => drawerManager.close(),
@@ -242,6 +273,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerManager.openCustom('effects-rack', content);
   };
 
+  const openFilterDrawer = () => openEffectsDrawer('filter');
   const openSilverDrawer = () => openEffectsDrawer('silver');
   const openMasterFxDrawer = () => openEffectsDrawer('master');
 
@@ -252,7 +284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerManager.openCustom('blender-expanded', content);
   };
 
-  const openMatrixDrawer = (initialTab: 'all' | 'midi' | 'controllers' = 'all') => {
+  const openMatrixDrawer = (initialTab: 'all' | 'controllers' | 'macros' | 'free' = 'all') => {
     const content = MatrixDrawer.createContent({
       initialTab,
       onClose: () => drawerManager.close(),
@@ -260,8 +292,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerManager.openCustom('matrix-expanded', content);
   };
 
-  const openEnvelopeDrawer = (initialTab: 'all' | '4l4t' | 'adsr' | 'routing' = 'all') => {
+  const openEnvelopeDrawer = (initialTab: EnvelopeDrawerTab = '4l4t', initialShaper: 1 | 2 = 1) => {
     const content = EnvelopeDrawer.createContent({
+      initialShaper,
       initialTab,
       onClose: () => drawerManager.close(),
     });
@@ -284,6 +317,86 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerManager.openCustom('settings-expanded', content);
   };
 
+  // 4b. Sistema canónico N:M de MIDI Learn & CC/NRPN Mapping Matrix (ABDShared)
+  const midiLearnParameters = PARAM_DEFINITIONS.map((p) => ({
+    index: p.index,
+    name: p.vstDisplay || p.key,
+    group: p.group,
+    key: p.key,
+  }));
+
+  const midiLearnStore = createMidiLearnStore({
+    storageKey: 'abd.axionik.midiLearn.v1',
+    onSyncToHost: (payload) => {
+      WebBridge.send({
+        type: 'MIDI_LEARN_SYNC',
+        mappings: payload.mappings,
+        learningTargetIndex: payload.learningTargetIndex,
+        learningTargetKey: payload.learningTargetKey,
+        learnMode: payload.learnMode,
+      });
+    },
+    onApplyParam: (targetIndex, _targetKey, normVal) => {
+      const def = PARAM_DEFINITIONS[targetIndex];
+      const min = def ? def.min : 0;
+      const max = def ? def.max : 127;
+      const rawVal = Math.round(min + normVal * (max - min));
+      WebBridge.setParam(targetIndex, rawVal);
+    },
+  });
+
+  const openMidiLearnDrawer = (focusParamIndex = -1) => {
+    const content = createMidiLearnDrawerContent({
+      store: midiLearnStore,
+      parameters: midiLearnParameters,
+      focusParamIndex,
+      synthName: 'ABDAxionikVS',
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('midi-learn-matrix', content);
+  };
+
+  hardwareDumpsDrawer = new HardwareDumpsDrawer(
+    app,
+    {
+      getPresetName: () => currentPresetName,
+      onApplyDecodedParams: (params, presetName) => {
+        if (presetName) {
+          currentPresetName = presetName;
+          navbar?.setPresetName(presetName);
+          topLcdBar?.setPresetInfo(0, presetName);
+        }
+        applyAllParamsToUI(params);
+        controllersPanel?.updateLabels();
+        silverPanel?.updateSilver();
+        shapersPanel?.syncAll();
+        nukeDrawer?.syncAll();
+        topLcdBar?.refreshAll();
+      },
+    },
+    drawerManager,
+  );
+
+  calibrationDrawer = new CalibrationDrawer(app, drawerManager);
+
+  attachMidiLearnUI({
+    store: midiLearnStore,
+    root: app,
+    getParamMeta: (idx) => {
+      const def = PARAM_DEFINITIONS[idx];
+      return def
+        ? { name: def.vstDisplay || def.key, group: def.group, key: def.key }
+        : { name: `Parameter #${idx}`, group: 'Synth', key: `param_${idx}` };
+    },
+    onOpenDrawer: (focusIdx) => {
+      openMidiLearnDrawer(focusIdx ?? -1);
+    },
+  });
+
+  midiLearnStore.subscribe((st: any) => {
+    navbar?.setMidiLearnState(Boolean(st.isLearning), st.mappings?.length ?? 0, st.learnRemainingSeconds ?? 0);
+  });
+
   // 5. Instanciar los 4 controladores vectoriales 2D (Trajectory Sticks)
   const r1ScapeMount = document.getElementById('r1-scape-mount');
   const r1SphereMount = document.getElementById('r1-sphere-mount');
@@ -296,67 +409,98 @@ document.addEventListener('DOMContentLoaded', async () => {
   let r2SphereStick: TrajectoryStick2D | null = null;
 
   if (r1ScapeMount) {
+    r1ScapeMount.setAttribute('data-param-x', String(ParamIdx.R1L1Scape1Value));
+    r1ScapeMount.setAttribute('data-param-y', String(ParamIdx.R1L1Scape2Value));
     r1ScapeStick = new TrajectoryStick2D(r1ScapeMount, {
       label: 'SCAPE 1',
       resynator: 1,
       domain: 'scape',
       labelsPerLayer: getParameterSetStickLabels(0, 'scape'),
+      onLayerChange: (layerIdx) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R1L1Scape1Value : (layerIdx === 1 ? ParamIdx.R1L2Scape1Value : ParamIdx.R1L3Scape1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R1L1Scape2Value : (layerIdx === 1 ? ParamIdx.R1L2Scape2Value : ParamIdx.R1L3Scape2Value);
+        r1ScapeMount.setAttribute('data-param-x', String(paramX));
+        r1ScapeMount.setAttribute('data-param-y', String(paramY));
+      },
       onPositionChange: (layerIdx, coord) => {
         const paramX = layerIdx === 0 ? ParamIdx.R1L1Scape1Value : (layerIdx === 1 ? ParamIdx.R1L2Scape1Value : ParamIdx.R1L3Scape1Value);
         const paramY = layerIdx === 0 ? ParamIdx.R1L1Scape2Value : (layerIdx === 1 ? ParamIdx.R1L2Scape2Value : ParamIdx.R1L3Scape2Value);
-        WebBridge.setParam(paramX, coord.x);
-        WebBridge.setParam(paramY, coord.y);
+        WebBridge.setParam(paramX, Math.round(coord.x * 127));
+        WebBridge.setParam(paramY, Math.round(coord.y * 127));
       },
     });
   }
 
   if (r1SphereMount) {
+    r1SphereMount.setAttribute('data-param-x', String(ParamIdx.R1L1Sphere1Value));
+    r1SphereMount.setAttribute('data-param-y', String(ParamIdx.R1L1Sphere2Value));
     r1SphereStick = new TrajectoryStick2D(r1SphereMount, {
       label: 'SPHERE 1',
       resynator: 1,
       domain: 'sphere',
       labelsPerLayer: getParameterSetStickLabels(0, 'sphere'),
+      onLayerChange: (layerIdx) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R1L1Sphere1Value : (layerIdx === 1 ? ParamIdx.R1L2Sphere1Value : ParamIdx.R1L3Sphere1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R1L1Sphere2Value : (layerIdx === 1 ? ParamIdx.R1L2Sphere2Value : ParamIdx.R1L3Sphere2Value);
+        r1SphereMount.setAttribute('data-param-x', String(paramX));
+        r1SphereMount.setAttribute('data-param-y', String(paramY));
+      },
       onPositionChange: (layerIdx, coord) => {
         const paramX = layerIdx === 0 ? ParamIdx.R1L1Sphere1Value : (layerIdx === 1 ? ParamIdx.R1L2Sphere1Value : ParamIdx.R1L3Sphere1Value);
         const paramY = layerIdx === 0 ? ParamIdx.R1L1Sphere2Value : (layerIdx === 1 ? ParamIdx.R1L2Sphere2Value : ParamIdx.R1L3Sphere2Value);
-        WebBridge.setParam(paramX, coord.x);
-        WebBridge.setParam(paramY, coord.y);
+        WebBridge.setParam(paramX, Math.round(coord.x * 127));
+        WebBridge.setParam(paramY, Math.round(coord.y * 127));
       },
     });
   }
 
   if (r2ScapeMount) {
+    r2ScapeMount.setAttribute('data-param-x', String(ParamIdx.R2L1Scape1Value));
+    r2ScapeMount.setAttribute('data-param-y', String(ParamIdx.R2L1Scape2Value));
     r2ScapeStick = new TrajectoryStick2D(r2ScapeMount, {
       label: 'SCAPE 2',
       resynator: 2,
       domain: 'scape',
       labelsPerLayer: getParameterSetStickLabels(0, 'scape'),
+      onLayerChange: (layerIdx) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R2L1Scape1Value : (layerIdx === 1 ? ParamIdx.R2L2Scape1Value : ParamIdx.R2L3Scape1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R2L1Scape2Value : (layerIdx === 1 ? ParamIdx.R2L2Scape2Value : ParamIdx.R2L3Scape2Value);
+        r2ScapeMount.setAttribute('data-param-x', String(paramX));
+        r2ScapeMount.setAttribute('data-param-y', String(paramY));
+      },
       onPositionChange: (layerIdx, coord) => {
         const paramX = layerIdx === 0 ? ParamIdx.R2L1Scape1Value : (layerIdx === 1 ? ParamIdx.R2L2Scape1Value : ParamIdx.R2L3Scape1Value);
         const paramY = layerIdx === 0 ? ParamIdx.R2L1Scape2Value : (layerIdx === 1 ? ParamIdx.R2L2Scape2Value : ParamIdx.R2L3Scape2Value);
-        WebBridge.setParam(paramX, coord.x);
-        WebBridge.setParam(paramY, coord.y);
+        WebBridge.setParam(paramX, Math.round(coord.x * 127));
+        WebBridge.setParam(paramY, Math.round(coord.y * 127));
       },
     });
   }
 
   if (r2SphereMount) {
+    r2SphereMount.setAttribute('data-param-x', String(ParamIdx.R2L1Sphere1Value));
+    r2SphereMount.setAttribute('data-param-y', String(ParamIdx.R2L1Sphere2Value));
     r2SphereStick = new TrajectoryStick2D(r2SphereMount, {
       label: 'SPHERE 2',
       resynator: 2,
       domain: 'sphere',
       labelsPerLayer: getParameterSetStickLabels(0, 'sphere'),
+      onLayerChange: (layerIdx) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R2L1Sphere1Value : (layerIdx === 1 ? ParamIdx.R2L2Sphere1Value : ParamIdx.R2L3Sphere1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R2L1Sphere2Value : (layerIdx === 1 ? ParamIdx.R2L2Sphere2Value : ParamIdx.R2L3Sphere2Value);
+        r2SphereMount.setAttribute('data-param-x', String(paramX));
+        r2SphereMount.setAttribute('data-param-y', String(paramY));
+      },
       onPositionChange: (layerIdx, coord) => {
         const paramX = layerIdx === 0 ? ParamIdx.R2L1Sphere1Value : (layerIdx === 1 ? ParamIdx.R2L2Sphere1Value : ParamIdx.R2L3Sphere1Value);
         const paramY = layerIdx === 0 ? ParamIdx.R2L1Sphere2Value : (layerIdx === 1 ? ParamIdx.R2L2Sphere2Value : ParamIdx.R2L3Sphere2Value);
-        WebBridge.setParam(paramX, coord.x);
-        WebBridge.setParam(paramY, coord.y);
+        WebBridge.setParam(paramX, Math.round(coord.x * 127));
+        WebBridge.setParam(paramY, Math.round(coord.y * 127));
       },
     });
   }
 
   // 6. Instanciar el bloque frontal de Controladores Hardware («Controllers»), Silver y Master Output
-  let controllersPanel: ControllersPanel | null = null;
   const controllersMount = document.getElementById('controllers-mount');
   if (controllersMount) {
     controllersPanel = new ControllersPanel(controllersMount, {
@@ -385,7 +529,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const filterMount = document.getElementById('filter-mount');
   if (filterMount) {
     filterPanel = new FilterPanel(filterMount, {
-      onEdit: () => openEffectsDrawer('silver'),
+      onEdit: () => openFilterDrawer(),
     });
   }
 
@@ -393,7 +537,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const envelopeMasterMount = document.getElementById('envelope-master-mount');
   if (envelopeMasterMount) {
     envelopeMasterPanel = new EnvelopeMasterPanel(envelopeMasterMount, {
-      onEdit: () => openEnvelopeDrawer(),
+      onEdit: () => openEnvelopeDrawer('4l4t', 1),
     });
   }
 
@@ -410,6 +554,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       onEditR1: openR1Drawer,
       onEditR2: openR2Drawer,
       onEditSilver: openSilverDrawer,
+      onEditFreeEnv: () => openEnvelopeDrawer('free', 1),
+      onEditShaper: (shaper, mode) => openEnvelopeDrawer(mode, shaper),
+      onEditShaper3: (mode) => openEffectsDrawer(mode === 'efx' ? 'master' : 'filter'),
     });
   }
 
@@ -535,6 +682,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       r2SphereStick.setPosition(1, Math.max(0, Math.min(1, (values[ParamIdx.R2L2Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L2Sphere2Value] ?? 64) / 127)), false);
       r2SphereStick.setPosition(2, Math.max(0, Math.min(1, (values[ParamIdx.R2L3Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L3Sphere2Value] ?? 64) / 127)), false);
     }
+
+    nukeDrawer?.syncAll();
+    topLcdBar?.refreshAll();
   };
 
   // 7. Gestor de Banco y Modelos NeuronDB (BankDrawer montado en el Drawer universal)
@@ -559,6 +709,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       WebBridge.loadModelSlot(slot, targetR);
+      nukeDrawer?.syncAll();
       console.log(`[ABDAxionikVS] Assigned Model #${slot} (${modelName}, ParSet ${parSet}) to Resynator ${targetR}`);
     },
     onSelectPreset: (slot, name) => {
@@ -583,11 +734,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
       r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
 
+      WebBridge.seedPresetSlotEnvelopes(slot);
       WebBridge.loadPresetSlot(slot);
+      shapersPanel?.syncAll();
+      nukeDrawer?.syncAll();
+      topLcdBar?.setPresetInfo(slot, `${String(slot).padStart(3, '0')} ${displayName}`);
+      topLcdBar?.refreshAll();
       console.log(`[ABDAxionikVS] Loaded Sound Preset #${slot} "${displayName}" (R1: #${pInfo.r1Model} ${r1Name}, R2: #${pInfo.r2Model} ${r2Name})`);
     },
     onConfigureNeuronDbFolder: () => {
       bankDrawer.promptConfigureFolder();
+    },
+  });
+
+  // 5b. Inicializar cajón superior deslizable <NUKE> Remote Control Unit
+  nukeDrawer = new NukeDrawer(app, {
+    onToggleOpen: (open) => {
+      if (open) {
+        drawerManager.close();
+      }
+      navbar?.setNukeActive(open);
+    },
+    onEdit: () => {
+      openMatrixDrawer('macros');
+    },
+    onLocalParamChange: (idx, val) => {
+      handleParamUpdate(idx, val, paramUpdateCtx);
+      if (idx >= 363 && idx <= 428) {
+        controllersPanel?.updateLabels();
+      }
+      if ((idx >= 271 && idx <= 278) || idx === 281 || idx === 282 || idx === 327 || idx === 328) {
+        silverPanel?.updateSilver(idx);
+      }
     },
   });
 
@@ -620,19 +798,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.log('[ABDAxionikVS] Save Preset: Custom preset export available via bank manager.');
     },
     onInitPreset: () => {
+      WebBridge.clearCache();
       WebBridge.initPreset();
       navbar?.setPresetName('000 InitSound');
       navbar?.setModelName(1, '511 sinew');
       navbar?.setModelName(2, '511 sinew');
       updateResynatorModelUI(1, 511, '511 sinew');
       updateResynatorModelUI(2, 511, '511 sinew');
+      topLcdBar?.setPresetInfo(0, '000 InitSound');
+      shapersPanel?.syncAll();
+      nukeDrawer?.syncAll();
+      topLcdBar?.refreshAll();
       console.log('[ABDAxionikVS] Sound initialized to factory default.');
     },
     onToggleBank: () => {
       bankDrawer.toggle('models', 'global');
     },
+    onToggleNuke: () => {
+      nukeDrawer?.toggle();
+    },
     onToggleMatrix: () => {
       openMatrixDrawer();
+    },
+    onToggleMidiLearn: () => {
+      openMidiLearnDrawer();
+    },
+    onToggleHardwareDumps: () => {
+      hardwareDumpsDrawer?.toggle();
+    },
+    onToggleCalibration: () => {
+      calibrationDrawer?.toggle();
     },
     onToggleMfx: () => {
       openMasterFxDrawer();
@@ -662,6 +857,53 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Sincronizar estado inicial de tema y zoom en la Navbar
   navbar.setTheme(themeManager.getCurrentTheme());
   navbar.setZoom(currentZoom);
+
+  // 6b. Inicializar Consola LCD Panorámica Superior Fija (Fase C)
+  topLcdBar = new TopLcdBar(lcdBarContainer, {
+    onOpenBankPresets: () => bankDrawer.open('presets', 'global'),
+    onOpenBankModels: (resynator) => {
+      targetResynatorForModelPick = resynator;
+      bankDrawer.open('models', resynator === 1 ? 'r1' : 'r2');
+    },
+    onOpenR1Drawer: openR1Drawer,
+    onOpenR2Drawer: openR2Drawer,
+    onOpenBlenderDrawer: openBlenderDrawer,
+    onOpenSilverDrawer: openSilverDrawer,
+    onOpenEnvelopeDrawer: () => openEnvelopeDrawer(),
+    onOpenMatrixDrawer: () => openMatrixDrawer(),
+    onSelectPresetSlot: (slot) => {
+      const pInfo = getCanonicalPresetInfo(slot);
+      navbar?.setPresetName(`${String(slot).padStart(3, '0')} ${pInfo.name}`);
+      topLcdBar?.setPresetInfo(slot, `${String(slot).padStart(3, '0')} ${pInfo.name}`);
+      const r1Name = getCanonicalModelName(pInfo.r1Model);
+      const r2Name = getCanonicalModelName(pInfo.r2Model);
+      updateResynatorModelUI(1, pInfo.r1Model, r1Name);
+      updateResynatorModelUI(2, pInfo.r2Model, r2Name);
+      navbar?.setModelName(1, `#${String(pInfo.r1Model).padStart(3, '0')} ${r1Name}`);
+      navbar?.setModelName(2, `#${String(pInfo.r2Model).padStart(3, '0')} ${r2Name}`);
+      WebBridge.seedPresetSlotEnvelopes(slot);
+      WebBridge.loadPresetSlot(slot);
+      shapersPanel?.syncAll();
+      nukeDrawer?.syncAll();
+      topLcdBar?.refreshAll();
+    },
+    onInitSound: () => {
+      WebBridge.clearCache();
+      WebBridge.initPreset();
+      navbar?.setPresetName('000 InitSound');
+      navbar?.setModelName(1, '511 sinew');
+      navbar?.setModelName(2, '511 sinew');
+      updateResynatorModelUI(1, 511, '511 sinew');
+      updateResynatorModelUI(2, 511, '511 sinew');
+      topLcdBar?.setPresetInfo(0, '000 InitSound');
+      shapersPanel?.syncAll();
+      nukeDrawer?.syncAll();
+      topLcdBar?.refreshAll();
+    },
+    onSelectAdsrTarget: (shaper, mode) => {
+      shapersPanel?.selectEnvelopeTarget(shaper, mode);
+    },
+  });
 
   // 7. Gestor Drag & Drop para modelos, presets y paquetes zip
   new DragDropHandler({
@@ -710,7 +952,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 8. Atajos globales de teclado
-  const { setupKeyboardShortcuts } = await import('./app/keyboardShortcuts.js');
   setupKeyboardShortcuts(bankDrawer, navbar, openSettingsDrawer);
 
   // Contexto para el manejador PARAM_UPDATE (módulo app/paramUpdate.ts)
@@ -759,16 +1000,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     blenderPanel,
     filterPanel,
     envelopeMasterPanel,
+    nukeDrawer,
   };
 
-  // 8. Suscribir telemetría y actualización de parámetros del bridge nativo
+  // 8. Suscribir cambios locales de parámetros (cualquier knob/stick/selector o edición desde el propio LCD)
+  WebBridge.onLocalParamSet((idx, val) => {
+    handleParamUpdate(idx, val, paramUpdateCtx);
+    topLcdBar?.onParamUpdated(idx, val, true);
+    hardwareDumpsDrawer?.onParamUpdated();
+    if (idx >= 363 && idx <= 428) {
+      controllersPanel?.updateLabels();
+    }
+  });
+
+  // 9. Suscribir telemetría y actualización de parámetros del bridge nativo
   WebBridge.onMessage((msg) => {
     if (msg.type === 'BANK_CATALOG_SYNC') {
       // El payload viaja sin tipar por el bridge; se adapta a la forma que espera BankDrawer.
       bankDrawer.syncCatalogFromHost(msg as Parameters<BankDrawer['syncCatalogFromHost']>[0]);
     } else if (msg.type === 'PRESET_LOADED') {
       if (typeof msg.name === 'string' && msg.name) {
+        currentPresetName = msg.name;
         navbar.setPresetName(msg.name);
+        topLcdBar?.setPresetInfo(0, msg.name);
       }
       const r1 = typeof msg.r1Model === 'number' ? msg.r1Model : 511;
       const r2 = typeof msg.r2Model === 'number' ? msg.r2Model : 511;
@@ -785,11 +1039,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       controllersPanel?.updateLabels();
       silverPanel?.updateSilver();
       shapersPanel?.syncAll();
+      nukeDrawer?.syncAll();
+      topLcdBar?.refreshAll();
+      hardwareDumpsDrawer?.refreshLiveInspector();
+      navbar?.setHardwareDumpsUnread(hardwareDumpsDrawer?.getUnreadCount() ?? 0);
     } else if (msg.type === 'TELEMETRY') {
-      if (typeof msg.activeVoices === 'number') navbar.setVoices(msg.activeVoices);
+      if (typeof msg.activeVoices === 'number') {
+        navbar.setVoices(msg.activeVoices);
+        topLcdBar?.setVoices(msg.activeVoices);
+      }
       if (typeof msg.cpuUsage === 'number') navbar.setCpuLoad(msg.cpuUsage);
     } else if (msg.type === 'PARAM_UPDATE') {
       handleParamUpdate(msg.index, msg.value, paramUpdateCtx);
+      topLcdBar?.onParamUpdated(msg.index, msg.value, true);
+      hardwareDumpsDrawer?.onParamUpdated();
       if (msg.index >= 363 && msg.index <= 428) {
         controllersPanel?.updateLabels();
       }
@@ -798,6 +1061,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (msg.index === 271) {
           silverPanel?.updateSilverToggle(msg.value > 0.5);
         }
+      }
+    } else if (msg.type === 'MIDI_LEARN_STATE') {
+      midiLearnStore.syncFromHost(msg as any);
+    } else if (msg.type === 'MIDI_ACTIVITY') {
+      midiLearnStore.recordActivity(msg as any);
+    } else if (typeof msg.type === 'string' && msg.type.startsWith('HARDWARE_')) {
+      hardwareDumpsDrawer?.onMessage(msg as unknown as HardwareHostEvent);
+      if (msg.type === 'HARDWARE_RX_COMPLETE' && msg.count != null && typeof msg.count === 'number') {
+        navbar?.setHardwareDumpsUnread(msg.count);
       }
     }
   });
@@ -808,9 +1080,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Notificar al host nativo que la WebUI está montada y lista para recibir telemetría
   WebBridge.send({ type: 'UI_READY' });
+  const initMlState = midiLearnStore.getState();
+  if (initMlState.mappings.length > 0 || initMlState.isLearning) {
+    WebBridge.send({
+      type: 'MIDI_LEARN_SYNC',
+      mappings: initMlState.mappings,
+      learningTargetIndex: initMlState.learningTargetIndex,
+      learningTargetKey: initMlState.learningTargetKey,
+      learnMode: initMlState.learnMode,
+    });
+  }
 
   // Solicitar catálogo en vivo al host nativo C++
   WebBridge.scanBank();
 
   console.log(`[ABDAxionikVS] Frontend inicializado (${PARAM_DEFINITIONS.length} parámetros, SynthNavBar montado).`);
-});
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrapAxionikApp);
+} else {
+  bootstrapAxionikApp();
+}

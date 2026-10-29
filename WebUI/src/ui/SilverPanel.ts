@@ -78,7 +78,7 @@ export class SilverPanel {
         </aside>
 
         <!-- Columna 2: Sub-caja TrajectoryStick2D Vectorial -->
-        <div id="silver-stick-mount"></div>
+        <div id="silver-stick-mount" data-param-x="${ParamIdx.FilterFreq}" data-param-y="${ParamIdx.FilterReso}"></div>
 
         <!-- Columna 3: Algoritmos TIME FX -->
         <aside class="silver-fx-column silver-time-col">
@@ -111,15 +111,17 @@ export class SilverPanel {
           </div>
 
           <!-- Knob 1: Depth / Spread -->
-          <div class="slicer-knob-wrapper">
-            <div id="slicer-depth-mount" style="display: flex; justify-content: center;"></div>
-            <span class="slicer-knob-sublabel" id="slicer-depth-sublabel">0</span>
+          <div class="synth-knob-cell">
+            <div id="slicer-depth-mount" data-param-index="${ParamIdx.SlicerDepth}"></div>
+            <span class="synth-knob-num stat-num" id="slicer-depth-sublabel">0</span>
+            <span class="synth-knob-title" id="slicer-depth-title">${this.curSlicerMode === 2 ? 'SPREAD' : 'DEPTH'}</span>
           </div>
 
           <!-- Knob 2: Rate -->
-          <div class="slicer-knob-wrapper">
-            <div id="slicer-rate-mount" style="display: flex; justify-content: center;"></div>
-            <span class="slicer-knob-sublabel" id="slicer-rate-sublabel">6.6 Hz</span>
+          <div class="synth-knob-cell">
+            <div id="slicer-rate-mount" data-param-index="${ParamIdx.SlicerRate}"></div>
+            <span class="synth-knob-num stat-num" id="slicer-rate-sublabel">6.6 Hz</span>
+            <span class="synth-knob-title">RATE</span>
           </div>
         </aside>
       </div>
@@ -369,13 +371,16 @@ export class SilverPanel {
     this.updateFreqAlgoUi(curFreqIdx);
     this.updateTimeAlgoUi(curTimeIdx);
 
+    const stickMount = this.rootEl?.querySelector('#silver-stick-mount');
     if (this.currentSilverLevel === 0) {
+      stickMount?.setAttribute('data-param-x', String(ParamIdx.FilterFreq));
+      stickMount?.setAttribute('data-param-y', String(ParamIdx.FilterReso));
       const cut = Math.round(WebBridge.getParam(ParamIdx.FilterFreq, 100));
       const res = Math.round(WebBridge.getParam(ParamIdx.FilterReso, 25));
       const normX = cut / 127.0;
       const normY = res / 127.0;
       this.silverStick?.setReadout(`X: ${normX.toFixed(2)} | Y: ${normY.toFixed(2)}`);
-      if (this.silverStick && !this.silverStick.isRecording) {
+      if (this.silverStick && !this.silverStick.isRecording && !(this.silverStick as any).isDragging) {
         this.silverStick.setPosition(0, normX, normY, false);
       }
     } else if (this.currentSilverLevel === 1) {
@@ -383,12 +388,18 @@ export class SilverPanel {
       let valY = 64;
 
       if (curFreqIdx === 2) {
+        stickMount?.setAttribute('data-param-x', '314');
+        stickMount?.setAttribute('data-param-y', '310');
         valX = Math.round(WebBridge.getParam(314, 64));
         valY = Math.round(WebBridge.getParam(310, 64));
       } else if (curFreqIdx === 1) {
+        stickMount?.setAttribute('data-param-x', '306');
+        stickMount?.setAttribute('data-param-y', '307');
         valX = Math.round(WebBridge.getParam(306, 64));
         valY = Math.round(WebBridge.getParam(307, 64));
       } else if (curFreqIdx === 3) {
+        stickMount?.setAttribute('data-param-x', '325');
+        stickMount?.setAttribute('data-param-y', '324');
         valX = Math.round(WebBridge.getParam(325, 16));
         valY = Math.round(WebBridge.getParam(324, 64));
       }
@@ -396,7 +407,7 @@ export class SilverPanel {
       const normX = valX / 127.0;
       const normY = valY / 127.0;
       this.silverStick?.setReadout(`X: ${normX.toFixed(2)} | Y: ${normY.toFixed(2)}`);
-      if (this.silverStick && !this.silverStick.isRecording) {
+      if (this.silverStick && !this.silverStick.isRecording && !(this.silverStick as any).isDragging) {
         this.silverStick.setPosition(1, normX, normY, false);
       }
     } else if (this.currentSilverLevel === 2) {
@@ -404,9 +415,13 @@ export class SilverPanel {
       let valY = 64;
 
       if (curTimeIdx === 1) {
+        stickMount?.setAttribute('data-param-x', '333');
+        stickMount?.setAttribute('data-param-y', '336');
         valX = Math.round(WebBridge.getParam(333, 50));
         valY = Math.round(WebBridge.getParam(336, 40));
       } else if (curTimeIdx === 4) {
+        stickMount?.setAttribute('data-param-x', '352');
+        stickMount?.setAttribute('data-param-y', '353');
         valX = Math.round(WebBridge.getParam(352, 64));
         valY = Math.round(WebBridge.getParam(353, 64));
       }
@@ -414,7 +429,7 @@ export class SilverPanel {
       const normX = valX / 127.0;
       const normY = valY / 127.0;
       this.silverStick?.setReadout(`X: ${normX.toFixed(2)} | Y: ${normY.toFixed(2)}`);
-      if (this.silverStick && !this.silverStick.isRecording) {
+      if (this.silverStick && !this.silverStick.isRecording && !(this.silverStick as any).isDragging) {
         this.silverStick.setPosition(2, normX, normY, false);
       }
     }
@@ -439,7 +454,7 @@ export class SilverPanel {
     const initDepth = Math.round(WebBridge.getParam(ParamIdx.SlicerDepth, 0));
     if (depthMount) {
       this.depthKnob = new Knob(depthMount, {
-        size: 34,
+        size: 38,
         value: initDepth / 127.0,
         label: this.curSlicerMode === 2 ? 'SPREAD' : 'DEPTH',
         onChange: (normVal: number) => {
@@ -457,7 +472,7 @@ export class SilverPanel {
     const initRate = Math.round(WebBridge.getParam(ParamIdx.SlicerRate, 66));
     if (rateMount) {
       this.rateKnob = new Knob(rateMount, {
-        size: 34,
+        size: 38,
         value: initRate / 200.0,
         label: 'RATE',
         onChange: (normVal: number) => {
@@ -480,10 +495,12 @@ export class SilverPanel {
     const led1d = this.rootEl?.querySelector('#slicer-led-1d');
     const led3d = this.rootEl?.querySelector('#slicer-led-3d');
     const modeBtn = this.rootEl?.querySelector('#btn-slicer-mode');
+    const depthTitle = this.rootEl?.querySelector('#slicer-depth-title');
 
     if (dot) dot.classList.toggle('active', this.curSlicerMode > 0);
     if (led1d) led1d.classList.toggle('active-1d', this.curSlicerMode === 1);
     if (led3d) led3d.classList.toggle('active-3d', this.curSlicerMode === 2);
+    if (depthTitle) depthTitle.textContent = this.curSlicerMode === 2 ? 'SPREAD' : 'DEPTH';
 
     if (modeBtn) {
       modeBtn.textContent = this.curSlicerMode === 0 ? 'OFF' : (this.curSlicerMode === 1 ? '1D' : '3D');

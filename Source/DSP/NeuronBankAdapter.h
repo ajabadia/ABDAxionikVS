@@ -29,6 +29,9 @@ public:
 
     /// Busca automáticamente la carpeta NeuronDB en rutas estándar y locales
     std::filesystem::path discoverNeuronDbPath() {
+#ifdef __EMSCRIPTEN__
+        return {};
+#else
         if (!cachedNeuronDbPath_.empty() && std::filesystem::exists(cachedNeuronDbPath_)) {
             return cachedNeuronDbPath_;
         }
@@ -55,6 +58,7 @@ public:
         }
 
         return {};
+#endif
     }
 
     /// Permite asignar o sobrescribir la ruta de la librería NeuronDB
@@ -223,18 +227,41 @@ public:
         return ss.str();
     }
 
-    /// Carga un modelo por número de slot (000..511) buscando en la librería NeuronDB
+    /// Carga un modelo por número de slot (000..511) buscando en la librería NeuronDB (con fallback sintético en WASM/sin disco)
     bool loadModelBySlot(int resynatorSlot, int modelSlotNumber, uint32_t* engineState) {
         if (cachedNeuronDbPath_.empty()) {
             discoverNeuronDbPath();
         }
-        if (cachedNeuronDbPath_.empty()) return false;
+        if (!cachedNeuronDbPath_.empty()) {
+            char folderName[32];
+            std::snprintf(folderName, sizeof(folderName), "%03d.model", modelSlotNumber);
+            auto modelPath = cachedNeuronDbPath_ / "Models" / folderName;
+            if (loadModel(resynatorSlot, modelPath, engineState)) {
+                return true;
+            }
+        }
 
-        char folderName[32];
-        std::snprintf(folderName, sizeof(folderName), "%03d.model", modelSlotNumber);
-        auto modelPath = cachedNeuronDbPath_ / "Models" / folderName;
+        return loadEmbeddedSyntheticModel(resynatorSlot, modelSlotNumber, engineState);
+    }
 
-        return loadModel(resynatorSlot, modelPath, engineState);
+    /// Genera e instala un modelo neuronal sintético en memoria (usado en WASM o cuando no existe NeuronDB en disco)
+    bool loadEmbeddedSyntheticModel(int slot, int modelSlotNumber, uint32_t* engineState) {
+        if (slot < 0 || slot > 1 || engineState == nullptr) return false;
+
+        auto model = std::make_unique<NeuronModel>();
+        if (!model->loadEmbeddedSyntheticModel(modelSlotNumber)) {
+            return false;
+        }
+
+        if (slot == 0) {
+            r1Model_ = std::move(model);
+            applyModelToEngine(0, *r1Model_, engineState);
+        } else {
+            r2Model_ = std::move(model);
+            applyModelToEngine(1, *r2Model_, engineState);
+        }
+
+        return true;
     }
 
     /// Carga un preset de sonido (.sound) por número de slot (000..999)
@@ -271,9 +298,9 @@ public:
             store.setRawValue(static_cast<uint32_t>(i), preset.values[i], false);
         }
 
-        // 2. Cargar modelo 511 en R1 y R2
-        loadModelBySlot(0, preset.r1ModelIndex > 0 ? preset.r1ModelIndex : 511, engineState);
-        loadModelBySlot(1, preset.r2ModelIndex > 0 ? preset.r2ModelIndex : 511, engineState);
+        // 2. Cargar modelo en R1 y R2 (fallback 511 si no está definido)
+        loadModelBySlot(0, preset.r1ModelIndex >= 0 ? preset.r1ModelIndex : 511, engineState);
+        loadModelBySlot(1, preset.r2ModelIndex >= 0 ? preset.r2ModelIndex : 511, engineState);
     }
 
     /// Carga un modelo en el resonador R1 (slot 0) o R2 (slot 1)

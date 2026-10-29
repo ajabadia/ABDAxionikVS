@@ -97,15 +97,21 @@ char validateEngineState(const uint32_t* state) {
 }
 
 void translateSubObject(void* self, const uint32_t* p) {
-    (void)self;
-    (void)p;
-    // Port de 0x100343E4 (501 líneas): opera sobre el sub-objeto en estado[0xD95] (CSilverRack / Delay largo, 541.640 B)
-    // Vuelca 64 campos de p sobre la cabecera: st+0x0C .. st+0x110 (54 copias directas de p[249]..p[316] + 10 calculados).
-    // Campos principales leídos por DSP FUN_10029e34:
-    //   - st+0x20 / st+0x28 <- p[277] / p[279] (objetivos de tiempo de delay)
-    //   - st+0xB8          <- p[294] (realimentación 0.99 * x)
-    //   - st+0x34          <- forma de interpolación calculada
-    //   - st+0xC8          <- retenido intacto
+    if (self == nullptr || p == nullptr) return;
+    // Port de 0x100343E4 (CSilverRack::UpdateParams, 501 líneas): opera sobre el sub-objeto en estado[0xD95]
+    // Vuelca los 64 campos de Silver Rack (p[248]..p[316]) sobre la cabecera st+0x0C .. st+0x110
+    uint32_t* st = static_cast<uint32_t*>(self);
+    for (size_t i = 0; i < 64; ++i) {
+        const size_t srcSlot = 248 + i;
+        if (srcSlot <= 316) {
+            st[3 + i] = p[srcSlot]; // st+0x0C (dword 3) .. st+0x108 (dword 66)
+        }
+    }
+    // Campos específicos de tiempo y realimentación leídos por DSP FUN_10029e34:
+    st[0x20 / 4] = p[277]; // RM_ModFreq / Delay target L
+    st[0x28 / 4] = p[279]; // RM_XoverTime / Delay target R
+    const float fb = f32_bits(p[294]) * 0.99f; // SS_Feedback * 0.99
+    st[0xB8 / 4] = f32_raw(fb);
 }
 
 } // namespace abd::axionik

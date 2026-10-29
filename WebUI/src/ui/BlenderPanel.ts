@@ -15,8 +15,8 @@ export interface BlenderPanelOptions {
 }
 
 const ALGO_SHORT_NAMES = [
-  'Mix', 'Chromo', 'Trans', 'Cross', 'Inter',
-  'DynTrn', 'DynCrx', 'VelCrx', 'VelChr', 'Ring'
+  'Mix', 'Chromo', 'Trans', 'Crossfade', 'Interfere',
+  'Dyn Trans', 'Dyn Cross', 'Vel Cross', 'Vel Chromo', 'Ring Mod'
 ];
 
 export class BlenderPanel {
@@ -57,14 +57,14 @@ export class BlenderPanel {
     const col1Html = BLENDER_ALGORITHMS.slice(0, 5).map((algo) => {
       const isCur = algo.id === this.curAlgoIdx;
       const shortName = ALGO_SHORT_NAMES[algo.id] || algo.name;
-      return `<button type="button" class="btn btn-xs blender-algo-pill ${isCur ? 'btn-primary active' : 'btn-outline'}" data-algo-id="${algo.id}" title="${algo.name}: ${algo.desc}">${shortName}</button>`;
+      return `<button type="button" class="btn btn-xs ${isCur ? 'btn-primary active' : 'btn-outline'}" data-algo-id="${algo.id}" title="${algo.name}: ${algo.desc}">${shortName}</button>`;
     }).join('');
 
     // Columna 2 de algoritmos (5..9)
     const col2Html = BLENDER_ALGORITHMS.slice(5, 10).map((algo) => {
       const isCur = algo.id === this.curAlgoIdx;
       const shortName = ALGO_SHORT_NAMES[algo.id] || algo.name;
-      return `<button type="button" class="btn btn-xs blender-algo-pill ${isCur ? 'btn-primary active' : 'btn-outline'}" data-algo-id="${algo.id}" title="${algo.name}: ${algo.desc}">${shortName}</button>`;
+      return `<button type="button" class="btn btn-xs ${isCur ? 'btn-primary active' : 'btn-outline'}" data-algo-id="${algo.id}" title="${algo.name}: ${algo.desc}">${shortName}</button>`;
     }).join('');
 
     this.rootEl = document.createElement('section');
@@ -73,7 +73,7 @@ export class BlenderPanel {
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08));">
         <div style="display: flex; align-items: center; gap: var(--space-2);">
           <span class="stick-label">BLENDER</span>
-          <span class="hud-pill" style="font-size: 8px; opacity: 0.7;">FUSION</span>
+          <span class="panel-caption" style="font-size: 9.5px;">Resynator 1 &amp; 2 Spectral Fusion Engine</span>
         </div>
         <div class="panel-actions" style="display: flex; align-items: center; gap: 4px;">
           <button type="button" class="btn btn-xs btn-outline" id="btn-edit-blender-panel" title="Open Expanded Blender & Slicer [261..270]">Edit</button>
@@ -82,52 +82,55 @@ export class BlenderPanel {
       </div>
 
       <div class="panel-body blender-panel-body" data-collapse-body>
-        <!-- Columnas verticales de selección de algoritmos (sin literales superiores) -->
-        <div class="blender-columns-wrapper">
-          <div class="blender-pills-col">
-            ${col1Html}
-          </div>
-          <div class="blender-pills-col">
-            ${col2Html}
-          </div>
-        </div>
-
-        <!-- Panel lateral derecho: Crossfade R1/R2 y 4 Knobs de modulación -->
-        <div class="blender-right-controls">
+        <!-- Bloque izquierdo: Barra de Crossfade R1/R2 arriba + Fila de 4 Knobs de modulación abajo -->
+        <div class="blender-left-controls">
           <!-- Bipolar Crossfade R1 ◄► R2 -->
           <div class="blender-crossfade-box">
             <span class="blender-xfade-label">R1</span>
-            <div class="blender-slider-wrapper">
+            <div class="blender-slider-wrapper" data-param-index="${ParamIdx.BlenderAmount}">
               <input type="range" id="blender-crossfade-slider" class="abd-slider blender-crossfade-slider" min="-64" max="63" value="${initAmount}" step="1" title="Blender Amount: R1 (-64) to R2 (+63) [262]" />
             </div>
             <span class="blender-xfade-label">R2</span>
-            <span class="hud-value stat-num blender-amount-num" id="blender-amount-display">${initAmount}</span>
+            <span class="hud-pill stat-num blender-amount-num" id="blender-amount-display">${initAmount > 0 ? '+' + initAmount : initAmount}</span>
           </div>
 
-          <!-- 4 Knobs de modulación (2x2 grid) -->
-          <div class="blender-knobs-2x2">
-            <div class="blender-knob-cell">
-              <div id="blender-knob-lfo"></div>
-              <span class="blender-knob-val stat-num" id="blender-val-lfo">${initLfo}</span>
-              <span class="blender-knob-lbl">LFO</span>
+          <!-- 4 Knobs de modulación en fila horizontal (1x4) -->
+          <div class="blender-knobs-row">
+            <div class="synth-knob-cell">
+              <div id="blender-knob-lfo" data-param-index="${ParamIdx.BlenderLfoDepth}"></div>
+              <span class="synth-knob-num stat-num" id="blender-val-lfo">${initLfo}</span>
+              <span class="synth-knob-title">LFO DEPTH</span>
             </div>
-            <div class="blender-knob-cell">
-              <div id="blender-knob-adsr1"></div>
-              <span class="blender-knob-val stat-num" id="blender-val-adsr1">${initAdsr1}</span>
-              <span class="blender-knob-lbl">ADSR1</span>
+            <div class="synth-knob-cell">
+              <div id="blender-knob-adsr1" data-param-index="${ParamIdx.BlenderFreeADSR1Depth}"></div>
+              <span class="synth-knob-num stat-num" id="blender-val-adsr1">${initAdsr1}</span>
+              <span class="synth-knob-title">ADSR 1</span>
             </div>
-            <div class="blender-knob-cell">
-              <div id="blender-knob-adsr2"></div>
-              <span class="blender-knob-val stat-num" id="blender-val-adsr2">${initAdsr2}</span>
-              <span class="blender-knob-lbl">ADSR2</span>
+            <div class="synth-knob-cell">
+              <div id="blender-knob-adsr2" data-param-index="${ParamIdx.BlenderFreeADSR2Depth}"></div>
+              <span class="synth-knob-num stat-num" id="blender-val-adsr2">${initAdsr2}</span>
+              <span class="synth-knob-title">ADSR 2</span>
             </div>
-            <div class="blender-knob-cell">
-              <div id="blender-knob-4l4t"></div>
-              <span class="blender-knob-val stat-num" id="blender-val-4l4t">${init4L4T}</span>
-              <span class="blender-knob-lbl">4L4T</span>
+            <div class="synth-knob-cell">
+              <div id="blender-knob-4l4t" data-param-index="${ParamIdx.BlenderFree4L4TDepth}"></div>
+              <span class="synth-knob-num stat-num" id="blender-val-4l4t">${init4L4T}</span>
+              <span class="synth-knob-title">4L / 4T</span>
             </div>
           </div>
         </div>
+
+        <!-- Bloque derecho: Matriz 2x5 de algoritmos de fusión (mismos estilos que Silver) -->
+        <aside class="silver-fx-column blender-fusion-col">
+          <span class="silver-fx-col-title">FUSION MODE</span>
+          <div class="blender-columns-wrapper">
+            <div class="silver-pills-stack">
+              ${col1Html}
+            </div>
+            <div class="silver-pills-stack">
+              ${col2Html}
+            </div>
+          </div>
+        </aside>
       </div>
     `;
 
@@ -160,7 +163,7 @@ export class BlenderPanel {
       if (!this.amountSlider) return;
       const val = parseInt(this.amountSlider.value, 10);
       WebBridge.setParam(ParamIdx.BlenderAmount, val);
-      if (this.amountDisplay) this.amountDisplay.textContent = String(val);
+      if (this.amountDisplay) this.amountDisplay.textContent = val > 0 ? `+${val}` : String(val);
     });
 
     // Init Knobs
@@ -172,7 +175,7 @@ export class BlenderPanel {
     const lfoMount = this.rootEl?.querySelector('#blender-knob-lfo') as HTMLElement | null;
     if (lfoMount) {
       this.lfoDepthKnob = new Knob(lfoMount, {
-        size: 26,
+        size: 38,
         value: initLfo / 127.0,
         label: 'LFO',
         onChange: (normVal: number) => {
@@ -187,7 +190,7 @@ export class BlenderPanel {
     const adsr1Mount = this.rootEl?.querySelector('#blender-knob-adsr1') as HTMLElement | null;
     if (adsr1Mount) {
       this.adsr1DepthKnob = new Knob(adsr1Mount, {
-        size: 26,
+        size: 38,
         value: initAdsr1 / 127.0,
         label: 'ADSR1',
         onChange: (normVal: number) => {
@@ -202,7 +205,7 @@ export class BlenderPanel {
     const adsr2Mount = this.rootEl?.querySelector('#blender-knob-adsr2') as HTMLElement | null;
     if (adsr2Mount) {
       this.adsr2DepthKnob = new Knob(adsr2Mount, {
-        size: 26,
+        size: 38,
         value: initAdsr2 / 127.0,
         label: 'ADSR2',
         onChange: (normVal: number) => {
@@ -217,7 +220,7 @@ export class BlenderPanel {
     const fourL4TMount = this.rootEl?.querySelector('#blender-knob-4l4t') as HTMLElement | null;
     if (fourL4TMount) {
       this.fourL4TDepthKnob = new Knob(fourL4TMount, {
-        size: 26,
+        size: 38,
         value: init4L4T / 127.0,
         label: '4L4T',
         onChange: (normVal: number) => {
@@ -254,7 +257,7 @@ export class BlenderPanel {
     if (idx === ParamIdx.BlenderAmount) {
       const rounded = Math.round(val);
       if (this.amountSlider) this.amountSlider.value = String(rounded);
-      if (this.amountDisplay) this.amountDisplay.textContent = String(rounded);
+      if (this.amountDisplay) this.amountDisplay.textContent = rounded > 0 ? `+${rounded}` : String(rounded);
       return;
     }
     if (idx === ParamIdx.BlenderLfoDepth) {

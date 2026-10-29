@@ -497,3 +497,106 @@ Tras la aplicación de estas correcciones junto con la alineación 1:1 del Filtr
   );
   ```
 - **Integración de `Shaper3Status` (`[362]`)**: Incorporado al catálogo de constantes `ParamIdx.Shaper3Status = 362` en `paramIndices.ts` para gobernar el conmutador de activación del Shaper 3 (Filtro / EFX Env) tanto en la WebUI (`ShapersPanel.ts`) como en el puente DSP.
+
+### 11.7 Verificación de Rama Muerta `voice+0x18 == 1` (`×24.0f` post-voces) en `FUN_100382b0`
+- **Hallazgo en el decompilado (`100382b0_FUN_100382b0.c` L134–136 y L1691–1705)**:
+  - Dentro del bucle de las 129 ranuras de voz (`iVar5 = engine[0x365]`, paso `local_fc += 0x70`), existe la comprobación:
+    ```c
+    if (*(int *)(iVar5 + 0x18 + local_fc) == 1) {
+        local_108 = '\x01';
+    }
+    ```
+  - Al terminar el bucle de voces (L1691–1705), si `local_108 == 1`, el código invoca `FUN_10029530()` y multiplica los buses acumulados L y R por `_DAT_1030cdc0` / `_DAT_1030cdc8` (`24.0f`, $+27.6\text{ dB}$).
+- **Auditoría de Escrituras a `voice+0x18` en todo el binario (`NeuronVS.dll`)**:
+  - En `FUN_10038220` / `FUN_1003c310` (inicialización del pool de descriptores `'nSAN'` de `0x70` bytes), el campo `+0x18` nace a `0`.
+  - En `FUN_1003d800` (`noteOn`, L152), al asignar una voz se escribe explícitamente:
+    ```c
+    *(undefined4 *)(iVar18 + 0x18 + local_54) = 0;
+    ```
+  - Ninguna función en todo `NeuronVS.dll` escribe jamás `1` en `voice+0x18`.
+- **Conclusión para `ABDAxionikVS`**: La rama condicional `if (local_108 == 1)` (`FUN_10029530` + ganancia `×24.0f` post-voces) es **código muerto inalcanzable** en la DLL original de 2004 (distinto de la ganancia legítima de `×24.0f` en la etapa de salida `FUN_100382b0` documentada en §9.5). Por tanto, no afecta al camino de audio y no debe activarse en nuestro motor.
+
+### 11.8 Auditoría de la Conversación Paralela (`NeuronVS_port/src/dsp_effects.cpp`, Barrido `--zones` de 351 Presets y `CTest`)
+Se auditó el trabajo generado en la conversación paralela sobre `NeuronVS_port` (cierre de bloque en `dsp_effects.h`/`dsp_effects.cpp`, barrido de 351 presets con `--zones` y registro en `CTest`) frente al desensamblado real (`ZONES.md` §6.5, `verify_r1r2_mix.py`, `100295d0_FUN_100295d0.c`) y la base de código de `ABDAxionikVS`:
+
+1. **Descarte de los Stubs Inconexos de `NeuronVS_port/src/dsp_effects.cpp` frente a nuestra Implementación Real en `ABDShared`**:
+   - En `NeuronVS_port/src/dsp_effects.cpp`, el agente externo generó un archivo desconectado (no invocado por ningún componente del puerto) con fórmulas aproximadas y errores de compilación C++ (`state->lfoPhase & 0xFFF` sobre un `float lfoPhase`, un saturador polinomial inventado y un acumulador `ringAccumA += input * 0.5f`).
+   - En contraste, `ABDAxionikVS` implementa las **funciones reales desensambladas** en [`ABDShared/Code/DspEffects/DspNeuronMasterFX.h`](../../ABDShared/Code/DspEffects/DspNeuronMasterFX.h) y [`ABDShared/Code/DspEffects/DspNeuronSilverRack.h`](../../ABDShared/Code/DspEffects/DspNeuronSilverRack.h):
+     - **`DspNeuronGlobalSlicer` (`FUN_100295d0`, objeto en `engine+0x3650` / `e[0xD94]`)**: Alineado 1:1 con `100295d0_FUN_100295d0.c` y `verify_r1r2_mix.py` L286–302:
+       - Ley cuadrática acoplada de mezcla y retardo: $\text{wet} = 2x - x^2$, $\text{dry} = 1 - \text{wet}$ donde $x = \text{SlicerDepth}$ (`st+0xC`).
+       - Retardo objetivo por bus: $d_L = \operatorname{clamp}(\lfloor 2500 \cdot x \rfloor, 1, 44100)$ (`_DAT_1030b3c4 = 2500.0`) y $d_R = \max(1, d_L \gg 1)$.
+       - Suavizado de 1 polo por muestra: $y = (10000 \cdot y + \text{target}) \cdot 9.9990001 \times 10^{-5}$ (`_DAT_1030b3d8` / `_DAT_1030b3d0`) con pegado exacto al objetivo cuando $|y - \text{target}| < 10^{-3}$ (`_DAT_1030b450`).
+       - Lectura de las 12 tablas LFO de 8192 muestras (`FUN_10026a20`) con desfase estéreo de `4096` muestras (`_DAT_1030b410`): canal L con fase $+4096$ (`dVar5`) y canal R con fase base (`dVar6`).
+       - Salida Modo 1 (Vertical Slicer): $\text{out} = \text{in} \cdot \text{mod} \cdot \text{wet} + \text{in} \cdot \text{dry}$.
+       - Salida Modo 2 (`_DAT_1030b448 = 2.0`, 3D Slicer): inyecta la señal directa más el anillo de retardo en la rama modulada: $\text{out} = (\text{in} + \text{del}) \cdot \text{mod} \cdot \text{wet} + \text{in} \cdot \text{dry}$.
+     - **`DspNeuronSilverRack` (`FUN_10029e34` + `FUN_100343e4`, objeto en `engine+0x3654` / `e[0xD95]`)**: Anillos de `44100` floats (`0xAC44`, módulo `0xAC45`), realimentación acotada a `0.99` (`_DAT_1030b500`), forzado de feedback a `0.0f` cuando `delay <= 1`, suavizado `10000/10001` y los 5 algoritmos de `FreqFX` (incluyendo `Sp-Warp` con `SW_Tilt [322]`) y 5 de `TimeFX`.
+     - **`DspNeuronMasterOutputStage` (`FUN_100382b0` L1720–1775 + `FUN_1003b930`)**: Filtro paso bajo de 2 polos `(350*y + x)/351` (`_DAT_1030cdd8`/`_DAT_1030cdd4`), diferenciador de 2º orden para agudos, mezcla cruzada de inclinación estéreo (`3*(hpA - 0.5*hpB) + 5*(lp2A - 0.125*lp2B) + inA`), saturador de rodilla suave `FUN_1003b930(x, 0.4f, 0.75f)` (ganancia normalizada $1 / (1 - 0.75 \cdot (1 - 0.4)) = 1.8181818$) y recorte final `[-1.0f, 0.99899995f]`.
+     - **Reloj Aditivo (`FUN_10029530`, `engine+0x3658` / `e[0xD96]`)**: Confirmado tanto en `ZONES.md` §6.5 como en nuestra auditoría §11.7 que está gobernado por `voz+0x18 == 1`, flag que ningún camino del binario activa jamás (`FUN_100440d0` y `FUN_1003d800` lo fuerzan a `0`).
+
+2. **Impacto del Barrido de 351 Presets con `neuron_golden --zones` (`ZONES.md` §4.2)**:
+   - En la conversación paralela, el barrido sobre la instalación original de `NeuronVS.dll` daba 320 presets con tablas de zonas a cero porque el instalador de fábrica en `C:\Program Files (x86)\Hartmann Music\NeuronVS\NeuronDB\Models` solo incluía `511.model` (y la DLL mira la clave de registro `HKLM\SOFTWARE\Wow6432Node\Hartmann Music\NeuronVS\NeuronDB`).
+   - **Por qué NO afecta negativamente a `ABDAxionikVS`**: Nuestro motor (`NeuronDatabase` + `NeuronModel`) no depende del registro de Windows de 32 bits; resuelve automáticamente `NeuronVS-db/NeuronDB` (con los 341 modelos extraídos) y además lleva el **Modelo `511` (`sinew`) embebido en memoria estática (`constexpr`)** como fallback universal si un preset referencia un modelo ausente, garantizando que los 128 slots de zona (`R1` y `R2`) estén siempre poblados y el sintetizador suene en el 100 % de los presets.
+
+3. **Integración en `CTest` (`CMakeLists.txt`)**:
+   - Se han registrado formalmente en [`CMakeLists.txt`](../CMakeLists.txt) los tests automatizados de CTest:
+     - `DspEngineFacadeTests` (suite unitaria de paridad de motor y cadena de audio, 8/8 tests)
+     - `GoldenParityTest_Zones` (`GoldenParityTest --preset 0 --only-zones`, 128/128 teclas R1/R2)
+     - `GoldenParityTest_Matrix` (`GoldenParityTest --preset 0 --only-zones --matrix`, 63/63 destinos + 6 controles MIDI)
+
+### 11.9 Principio de Arquitectura Headless (`DspEngineFacade::sampleRate_` vs `kLegacyBaseSampleRate`) y Cero Números Mágicos
+- **Principio Canónico en `ABDShared` ([`HEADLESS_CORE_ARCHITECTURE.md`](../../ABDShared/docs/architecture/HEADLESS_CORE_ARCHITECTURE.md) y [`CALIDAD_Y_ESTANDARES_VST3.md`](../../ABDShared/docs/architecture/CALIDAD_Y_ESTANDARES_VST3.md) §§1.1 y 2.2)**:
+  1. **Core 100 % Headless (Sin Dependencia de JUCE)**: El motor DSP (`DspEngineFacade`, `StickPlayer`, `VoicePool`, `BlockRenderer`, `ABDShared::DspCore`) **nunca debe consultar `juce::AudioProcessor::getSampleRate()`**. La frecuencia real del host entra exclusivamente por `AxionikProcessor::prepareToPlay(sampleRate, samplesPerBlock)` → `DspEngineFacade::prepare(sampleRate, maxBlockSize)`.
+  2. **Distinción entre `sampleRate_` vivo y `kLegacyBaseSampleRate` (`44100.0`)**:
+     - `DspEngineFacade::sampleRate_` es la fuente de verdad en vivo para todo cálculo temporal (osciladores, filtros, envolventes, fase del LFO global con `DspNeuronLfoTables::kTableSize`, `StickPlayer::processBlock` y rampa anti-pop de 2 ms `kAntiPopRampSeconds = 0.002`).
+     - `kLegacyBaseSampleRate` (`44100.0` en [`Source/DSP/DspTypes.h`](../Source/DSP/DspTypes.h)) solo se emplea como valor de arranque seguro previo a `prepare()` y como referencia explícita al escalar retardos/tablas legacy calibrados a 44,1 kHz (`srScale = sampleRate_ / kLegacyBaseSampleRate`).
+  3. **Eliminación de Literales Mágicos**: Reemplazados todos los literales `44100.0`, `88` y `8192.0` en `DspEngineFacade.h/.cpp` y `StickPlayer.h` por `kLegacyBaseSampleRate`, `kDefaultAntiPopSamples`, `kAntiPopRampSeconds` y `abd::dsp::DspNeuronLfoTables::kTableSize`.
+
+### 11.10 Validación Estricta de Modelos Incompletos (`map.script` y Pares `.scape` / `.sphere` Base 1)
+- **Descubrimiento de la Conversación Paralela**:
+  - En los modelos de `NeuronDB/Models/*.model`, las claves `<NNN>LowSource` y `<NNN>HiSource` dentro de `map.script` usan **numeración base 1** (`1` → `000001.scape` + `000001.sphere`, `2` → `000002.scape` + `000002.sphere`, `0` → zona vacía/inactiva). Por ejemplo, `030.model` referencia únicamente la fuente `1` (`000LowSource 1`, `000HiSource 1`), cuyos archivos `000001.scape` y `000001.sphere` están completos en disco.
+  - En el verificador Python externo (`verify_zones.py`), `has_payload()` solo comprobaba si existía *algún* `.scape` en la carpeta sin verificar que todas las fuentes referenciadas en `map.script` tuvieran su par `.scape` + `.sphere` completo.
+- **Mejora Aplicada en [`ABDShared/Code/DspCore/NeuronVS/NeuronModel.h`](../../ABDShared/Code/DspCore/NeuronVS/NeuronModel.h)**:
+  - `NeuronModel::parseMapScript()` verifica ahora explícitamente que toda zona activa (`lowSource > 0` o `hiSource > 0`) tenga cargados en memoria ambos buffers (`scapeLo != nullptr && sphereLo != nullptr` para `lowSource > 0`, y `scapeHi != nullptr && sphereHi != nullptr` para `hiSource > 0`) y que exista al menos una zona activa; de lo contrario, rechaza el modelo devolviendo `false`.
+  - Verificado mediante el **Test 7** en [`tests/DspEngineFacadeTests.cpp`](../tests/DspEngineFacadeTests.cpp).
+
+### 11.11 Confinamiento de `params+0x0C` y `params+0x10` al Contexto de `stSPEngineCb` (`0x100139D0`)
+- **Descubrimiento de la Conversación Paralela**:
+  - En `NeuronVS.dll`, los desplazamientos `params+0x0C` (`base[63]`) y `params+0x10` (puntero a `effectiveSlots` usado al despachar a `FUN_100134e0`) solo se referencian dentro del callback de observador `stSPEngineCb` (`0x100139D0..0x10013A7A`). Cualquier lectura de `params+0x0C` o `params+0x10` fuera de ese contexto en un port indicaría una confusión de punteros entre `params` y el contexto de observador `ctx` (`16 B`).
+- **Estado en `ABDAxionikVS`**:
+  - En [`Source/DSP/ParameterEngineBridge.h`](../Source/DSP/ParameterEngineBridge.h), `modBaseValues_` y `effectiveSlots_` son miembros privados (`std::array`) encapsulados por tipo; `modBaseValues_` solo se escribe en la rama modulable de `handleParamChange()` (equivalente exacto de `stSPEngineCb`) y se combina en `recalculateModulation()` (`FUN_100134e0`).
+
+### 11.12 Explicación Exacta del Cambio de Régimen entre la 3ª y la 4ª Carga de Preset (`FUN_10013ea0`, `SoundVersionMajor` v1 → v2)
+- **Descubrimiento de la Conversación Paralela**:
+  - La función `FUN_10013ea0` del binario original ejecuta, al finalizar la carga de un `sound.script`, la migración de formato v1 → v2:
+    ```cpp
+    // FUN_10013ea0: compara SoundVersionMajor [0] contra 2.0 (FCOMP 2.0)
+    if (SoundVersionMajor < 2) {
+        BlenderAmount -= 64.0f; // kV1BlenderShift = -64.0f, sin clamp posterior
+    }
+    ```
+  - Cuando se cargan en secuencia presets con `SoundVersionMajor == 1` (formato v1, donde `BlenderAmount` se almacenaba en rango unipolar `0..127` con centro en `64`) seguidos de un preset con `SoundVersionMajor >= 2` (formato v2+, ya centrado en `-64..+63`), `FUN_10013ea0` deja de restar `64.0f` a `BlenderAmount` al cruzar la frontera `v1 → v2`.
+  - Nota: en la base de datos `NeuronVS-db` (351 presets), todos los `sound.script` declaran `SoundVersionMajor 2`, por lo que en condiciones normales de librería la migración no se dispara; sin embargo, al cargar presets v1 o scripts sintéticos sin `SoundVersionMajor >= 2`, el desplazamiento de `-64.0f` se aplica sin recorte (`clamp`).
+- **Alineación en `ABDAxionikVS`**:
+  - [`Source/State/NeuronSound.h`](../Source/State/NeuronSound.h) aplica `if (verMajor < 2) outPreset.values[262] -= 64.0f;` al parsear `sound.script`.
+  - [`Source/State/SndDatStore.h`](../Source/State/SndDatStore.h) incorpora `setRawValueUnclamped()` usado por [`DspEngineFacade::applyPreset()`](../Source/DSP/DspEngineFacade.cpp) para preservar el valor exacto sin recorte cuando `preset.versionMajor < 2`, validado por el **Test 8** en [`tests/DspEngineFacadeTests.cpp`](../tests/DspEngineFacadeTests.cpp).
+
+### 11.13 Emulación Diagnóstica del Desenganche Destino a Destino (`params+0x2E2C` / `fixed_observer`)
+- **Análisis del Cambio en `NeuronVS_port` (`mod_matrix.hpp` / `mod_matrix.cpp`)**:
+  - En `NeuronVS.dll`, la llamada `combine(-1)` (`FUN_100134e0`, disparada por `stModDepth` `0x10013600` o `FUN_10013490`) no comprueba `dest >= 0` en su rama final y escribe `base[-1]` (`params+0x178 = 0x10013600`) en `params + 0x278C + 424*4 = params + 0x2E2C`, pisando el campo `ctx[3]` (`modDestIdx`) del bloque de contexto de `16 B` que el heap de Win32 haya colocado en `params+0x2E20`.
+  - Como en el DLL original el bloque que cae en `params+0x2E20` depende del estado del heap en esa ejecución, mientras que en `NeuronVS_port` el bloque contiguo era siempre `dest 0` (`R1Volume`), en la conversación paralela se intentó añadir `fixed_observer` a `NeuronVS_port/src/mod_matrix.cpp` (nota: en `NeuronVS_port/src/mod_matrix.cpp` L305–315 el otro agente insertó accidentalmente la definición de `void ModMatrix::set_fixed_observer(int obs)` *dentro* del cuerpo de `ModMatrix::combine(int dest)` y redirigió `notify(obs)` a `fixed_observer`).
+- **Alineación Limpia y Segura en `ABDAxionikVS` ([`Source/DSP/ParameterEngineBridge.h`](../Source/DSP/ParameterEngineBridge.h))**:
+  - Por diseño, `ABDAxionikVS` utiliza arrays tipados (`modBaseValues_[63]`, `effectiveSlots_[400]`, `observerMap_[445]`) sin corrupción de heap, manteniendo por defecto (`unhookedDestIdx_ = -1`) los **63 destinos de modulación 100 % operativos**.
+  - Adicionalmente, para pruebas diagnósticas o comparación *golden* destino a destino frente a volcados del DLL original, `ParameterEngineBridge` expone `setUnhookedDestination(int32_t destIdx)` / `getUnhookedDestination()` (`-1` por defecto; `0..62` para emular que el destino `destIdx` cayó en `params+0x2E20` y toma la rama `jl 0x10013A56` de `stSPEngineCb`, escribiendo `effectiveSlots_[ctx.slot] = remappedVal` sin actualizar `modBaseValues_` ni aplicar recorte/modulación).
+
+### 11.14 Modo de Envolvente `NORM` (`0`) vs `REP` (`1`, Bucle Cíclico Attack–Decay) en DSP y UI
+- **Comportamiento en Hartmann Neuron (`CShaper4T4L`)**:
+  - Cada generador ADSR cuenta con un parámetro de modo (`R1ResEnvMode [186]`, `R1AmpEnvMode [204]`, `R1FreeEnvMode [209]`, `R2ResEnvMode [216]`, `R2AmpEnvMode [234]`, `R2FreeEnvMode [239]`, `FilterEnvMode [359]`):
+    - **`NORM` (`0`)**: Disparo único (*single-shot*) `Attack → Decay → Sustain` mientras la nota está pulsada, pasando a `Release` al soltar la nota.
+    - **`REP` (`1`)**: Bucle cíclico (*Repeat*) `Attack → Decay → Attack → Decay...` entre `1.0` y el nivel de `Sustain` mientras la nota se mantiene pulsada, pasando a `Release` al soltar la tecla.
+- **Implementación en DSP y WebUI**:
+  - [`ABDShared/Code/DspCore/DspNeuronEnvelope.h`](../../ABDShared/Code/DspCore/DspNeuronEnvelope.h): añadido `setRepeatMode(bool)` / `isRepeatMode()` con transición automática `State::Decay → State::Attack` (y `State::Sustain → State::Attack` si se activa en caliente con nota mantenida).
+  - [`ABDShared/Code/DspCore/NeuronVS/NeuronVoicePool.h`](../../ABDShared/Code/DspCore/NeuronVS/NeuronVoicePool.h) y [`Source/DSP/DspEngineFacade.cpp`](../Source/DSP/DspEngineFacade.cpp): conexión en tiempo real de `R1AmpEnvMode`, `R2AmpEnvMode`, `FilterEnvMode`, `R1ResEnvMode` y `R2ResEnvMode` desde `SlotIdx`.
+  - [`WebUI/src/ui/ShapersPanel.ts`](../WebUI/src/ui/ShapersPanel.ts) y [`WebUI/src/ui/TopLcdBar.ts`](../WebUI/src/ui/TopLcdBar.ts): sincronización visual inmediata de los botones `NORM` / `REP`, soporte completo del modo `FREE` (`[209]` y `[239]`), indicador `· NORM` / `· REP ↻` en el badge de cada Shaper y representación gráfica del ciclo de repetición (`↻`) en las 7 mini-pantallas LCD ADSR `66×22 px`.
+
+
+

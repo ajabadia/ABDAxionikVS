@@ -174,6 +174,61 @@ int main() {
     engine.allNotesOff();
     engine.reset();
 
-    std::cout << "[DspEngineFacadeTests] All 6 tests passed successfully!\n";
+    // Test 7: Incomplete model detection (map.script referencing missing .scape/.sphere pair)
+    {
+        auto tempDir = std::filesystem::temp_directory_path() / "axionik_incomplete_model_test.model";
+        std::filesystem::create_directories(tempDir);
+        {
+            std::ofstream mapOut(tempDir / "map.script");
+            mapOut << "MapVersionMajor\t1\n"
+                   << "000LowKey\t0\n"
+                   << "000HiKey\t127\n"
+                   << "000RootKey\t60\n"
+                   << "000LowSource\t1\n"
+                   << "000HiSource\t2\n" // Source 2 does not exist on disk
+                   << "000Detune\t0\n"
+                   << "000Volume\t0\n"
+                   << "000Pan\t0\n";
+        }
+        bool loadedMissingAll = engine.loadModel(0, tempDir);
+        std::filesystem::remove_all(tempDir);
+        if (loadedMissingAll) {
+            std::cerr << "[FAIL] Test 7: Incomplete model with missing .scape/.sphere pair should be rejected!\n";
+            return 7;
+        }
+        std::cout << "  [PASS] Test 7: Incomplete model (missing referenced source pair) rejected as not loadable.\n";
+    }
+
+    // Test 8: Preset v1 -> v2 regime migration (FUN_10013ea0: SoundVersionMajor < 2 shifts BlenderAmount by -64)
+    {
+        SoundPreset v1Preset = NeuronSound::getEmbeddedInitPreset();
+        v1Preset.versionMajor = 1;
+        v1Preset.values[ParamIdx::SoundVersionMajor] = 1.0f;
+        std::string v1Script = NeuronSound::serializeSoundScript(v1Preset);
+
+        SoundPreset parsedV1;
+        NeuronSound::parseSoundScript(v1Script, parsedV1);
+        if (std::abs(parsedV1.values[ParamIdx::BlenderAmount] - (-64.0f)) > 1e-4f) {
+            std::cerr << "[FAIL] Test 8: Expected v1 preset BlenderAmount=-64 after FUN_10013ea0 migration, got "
+                      << parsedV1.values[ParamIdx::BlenderAmount] << "\n";
+            return 8;
+        }
+
+        SoundPreset v2Preset = NeuronSound::getEmbeddedInitPreset();
+        v2Preset.versionMajor = 2;
+        v2Preset.values[ParamIdx::SoundVersionMajor] = 2.0f;
+        std::string v2Script = NeuronSound::serializeSoundScript(v2Preset);
+
+        SoundPreset parsedV2;
+        NeuronSound::parseSoundScript(v2Script, parsedV2);
+        if (std::abs(parsedV2.values[ParamIdx::BlenderAmount] - 0.0f) > 1e-4f) {
+            std::cerr << "[FAIL] Test 8: Expected v2 preset BlenderAmount=0 (no migration), got "
+                      << parsedV2.values[ParamIdx::BlenderAmount] << "\n";
+            return 8;
+        }
+        std::cout << "  [PASS] Test 8: Preset v1->v2 migration regime (FUN_10013ea0) verified.\n";
+    }
+
+    std::cout << "[DspEngineFacadeTests] All 8 tests passed successfully!\n";
     return 0;
 }

@@ -1,609 +1,729 @@
-/**
- * ABDAxionikVS — EnvelopeDrawer.ts
- * Dedicated slide-out drawer (50vw) for the comprehensive Envelope & Shaper System
- * of the Hartmann Neuron architecture (Hardware Manual pages 103–110).
- *
- * Implements:
- * 1. 4L/4T Multilevel Shaper Envelope ([242..255])
- *    - Real-time dynamic SVG curve visualizer
- *    - Levels 1..4 (-64..+63) & Times 1..4 (0..127)
- *    - Mode (NORM / REP), Free Type (2-ADSR / 4L4T), Master Depth & Velo Depth
- * 2. Free ADSR 1 & 2 Envelopes ([205..211, 235..241])
- *    - Dedicated ADSR knobs, modes, depths, and velocity depths
- * 3. Routing Matrix & Layer Status ([253, 255])
- *    - Shaper Status (AMP / RES / FREE)
- *    - Free Modulation Destinations: R1 Scape, R1 Sphere, R2 Scape, R2 Sphere, Blender, Filter
- *
- * 100% tokenized with @abdsynths/shared components and design tokens.
- */
+// ─────────────────────────────────────────────────────────
+// ABDAxionikVS — EnvelopeDrawer.ts
+// Cajón dedicado de Envolventes y Shapers ([180..266]):
+// Organizado en 4 vistas enfocadas (una sola activa a la vez) y por Shaper (R1 / R2):
+//   1. AMP (Volume & Velo): ADSR de Amplitud [200..204 / 230..234] + Vol, Velo, KeyTrack, LFO Depth
+//   2. RES (Scape & Sphere Depths): ADSR de Resonador [182..187 / 212..217] + 12 profundidades L1..L3 [188..199 / 218..229]
+//   3. FREE (Assign Destinations): ADSR Libre [205..211 / 235..241] + Destino primario [255] + Envíos a Pitch R1/R2 y Blender
+//   4. 4L/4T Master Curve: Curva interactiva 4-Level / 4-Time [242..252] + Envíos dedicados 4L/4T
+// Usa el componente canónico MultiStageShaperPad de ABDShared en todas las vistas.
+// ─────────────────────────────────────────────────────────
 
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
-import { Knob } from '@abdsynths/shared/components/knob.js';
+import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
+import { Knob } from '@abdsynths/shared/components';
+import { MultiStageShaperPad } from './MultiStageShaperPad.js';
+
+export type EnvelopeDrawerTab = 'amp' | 'res' | 'free' | '4l4t';
 
 export interface EnvelopeDrawerOptions {
   onClose: () => void;
-  initialTab?: 'all' | '4l4t' | 'adsr' | 'routing';
+  initialShaper?: 1 | 2;
+  initialTab?: EnvelopeDrawerTab | 'all' | 'adsr' | 'routing';
 }
 
-const DEST_TARGETS = [
-  { id: 0, name: '0: R1 Scape', desc: 'Resynator 1 Scape Contour envelope modulation' },
-  { id: 1, name: '1: R1 Sphere', desc: 'Resynator 1 Sphere Contour envelope modulation' },
-  { id: 2, name: '2: R2 Scape', desc: 'Resynator 2 Scape Contour envelope modulation' },
-  { id: 3, name: '3: R2 Sphere', desc: 'Resynator 2 Sphere Contour envelope modulation' },
-  { id: 4, name: '4: Blender', desc: 'Resynator 1 & 2 Fusion crossfade amount modulation' },
-  { id: 5, name: '5: Filter', desc: 'Silver 24dB multimode filter cutoff frequency' },
+const PRIMARY_FREE_DESTINATIONS = [
+  { id: 0, name: 'R1 Scape', desc: 'Modulates Resynator 1 Scape Contour' },
+  { id: 1, name: 'R1 Sphere', desc: 'Modulates Resynator 1 Sphere Contour' },
+  { id: 2, name: 'R2 Scape', desc: 'Modulates Resynator 2 Scape Contour' },
+  { id: 3, name: 'R2 Sphere', desc: 'Modulates Resynator 2 Sphere Contour' },
+  { id: 4, name: 'Blender', desc: 'Modulates R1/R2 Blender Crossfade Amount' },
+  { id: 5, name: 'Silver Filter Cutoff', desc: 'Modulates Silver 24dB Filter Cutoff Frequency' },
 ];
 
 export class EnvelopeDrawer {
   public static createContent(options: EnvelopeDrawerOptions): HTMLElement {
+    const g = (idx: number, def: number) => Math.round(WebBridge.getParam(idx, def));
+
+    let activeShaper: 1 | 2 = options.initialShaper ?? 1;
+    let activeTab: EnvelopeDrawerTab =
+      options.initialTab === 'amp' || options.initialTab === 'res' || options.initialTab === 'free' || options.initialTab === '4l4t'
+        ? options.initialTab
+        : '4l4t';
+
+    const shaperSelectorHtml = pillSelectorHtml(
+      [
+        { id: '1', label: 'SHAPER 1 (R1)' },
+        { id: '2', label: 'SHAPER 2 (R2)' },
+      ],
+      String(activeShaper),
+      { id: 'env-drawer-shaper-pills', size: 'sm', attrName: 'data-shaper' }
+    );
+
+    const tabSelectorHtml = pillSelectorHtml(
+      [
+        { id: 'amp', label: '1. AMP (Volume & Velo)' },
+        { id: 'res', label: '2. RES (Scape & Sphere Depths)' },
+        { id: 'free', label: '3. FREE (Assign Destinations)' },
+        { id: '4l4t', label: '4. 4L/4T Master Curve' },
+      ],
+      activeTab,
+      { id: 'env-drawer-tab-pills', size: 'sm', attrName: 'data-tab' }
+    );
+
+    const renderKnobCell = (mountId: string, valId: string, initialVal: number, label: string, unit = '') => `
+      <div class="synth-knob-cell">
+        <div id="${mountId}"></div>
+        <span class="synth-knob-num stat-num" id="${valId}">${initialVal}${unit ? ' ' + unit : ''}</span>
+        <span class="synth-knob-title">${label}</span>
+      </div>
+    `;
+
     const root = document.createElement('div');
-    root.className = 'drawer-view-content';
-    root.style.cssText = 'display: flex; flex-direction: column; gap: var(--space-4); height: 100%;';
-
-    // ── Rehidratar parámetros 4L/4T ─────────────────────────────────
-    let curType = Math.round(WebBridge.getParam(ParamIdx.FreeEnvType, 0));
-    let curMode4L = Math.round(WebBridge.getParam(ParamIdx.TLFreeEnvMode, 0));
-    const curDepth4L = Math.round(WebBridge.getParam(ParamIdx.TLFreeEnvDepth, 127));
-    const curVelo4L = Math.round(WebBridge.getParam(ParamIdx.Free4Level4TimeVelocityDepth, 0));
-
-    const curL1 = Math.round(WebBridge.getParam(ParamIdx.FreeEnvLevel1, 63));
-    const curL2 = Math.round(WebBridge.getParam(ParamIdx.FreeEnvLevel2, 30));
-    const curL3 = Math.round(WebBridge.getParam(ParamIdx.FreeEnvLevel3, 10));
-    const curL4 = Math.round(WebBridge.getParam(ParamIdx.FreeEnvLevel4, 0));
-
-    const curT1 = Math.round(WebBridge.getParam(ParamIdx.FreeEnvTime1, 20));
-    const curT2 = Math.round(WebBridge.getParam(ParamIdx.FreeEnvTime2, 40));
-    const curT3 = Math.round(WebBridge.getParam(ParamIdx.FreeEnvTime3, 60));
-    const curT4 = Math.round(WebBridge.getParam(ParamIdx.FreeEnvTime4, 80));
-
-    // ── Rehidratar parámetros Free ADSR 1 & 2 ──────────────────────
-    const curS1A = Math.round(WebBridge.getParam(ParamIdx.R1FreeEnvA, 15));
-    const curS1D = Math.round(WebBridge.getParam(ParamIdx.R1FreeEnvD, 45));
-    const curS1S = Math.round(WebBridge.getParam(ParamIdx.R1FreeEnvS, 64));
-    const curS1R = Math.round(WebBridge.getParam(ParamIdx.R1FreeEnvR, 30));
-    const curS1Depth = Math.round(WebBridge.getParam(ParamIdx.R1FreeEnvDepth, 64));
-    const curS1Velo = Math.round(WebBridge.getParam(ParamIdx.FreeADSR1VelocityDepth, 0));
-
-    const curS2A = Math.round(WebBridge.getParam(ParamIdx.R2FreeEnvA, 25));
-    const curS2D = Math.round(WebBridge.getParam(ParamIdx.R2FreeEnvD, 50));
-    const curS2S = Math.round(WebBridge.getParam(ParamIdx.R2FreeEnvS, 50));
-    const curS2R = Math.round(WebBridge.getParam(ParamIdx.R2FreeEnvR, 40));
-    const curS2Depth = Math.round(WebBridge.getParam(ParamIdx.R2FreeEnvDepth, 64));
-    const curS2Velo = Math.round(WebBridge.getParam(ParamIdx.FreeADSR2VelocityDepth, 0));
-
-    // ── Rehidratar Routing & Status ────────────────────────────────
-    let curStatus = Math.round(WebBridge.getParam(ParamIdx.Shaper12Status, 1));
-    let curDest = Math.round(WebBridge.getParam(ParamIdx.ShaperResySelect, 1));
-
-    // Status Pills HTML
-    const statusItems = [
-      { id: 0, label: 'AMP (Volume)' },
-      { id: 1, label: 'RES (Par.Levels)' },
-      { id: 2, label: 'FREE (Modulation)' },
-    ];
-    const statusPillsHtml = statusItems.map((s) => `
-      <button type="button" class="btn btn-xs env-status-btn ${curStatus === s.id ? 'btn-primary active' : 'btn-outline'}" data-status-id="${s.id}">${s.label}</button>
-    `).join('');
-
-    // Type Pills HTML
-    const typePillsHtml = `
-      <div style="display: flex; gap: 2px;">
-        <button type="button" class="btn btn-xs env-type-btn ${curType === 0 ? 'btn-primary active' : 'btn-outline'}" data-type-id="0">2 Independent ADSRs</button>
-        <button type="button" class="btn btn-xs env-type-btn ${curType === 1 ? 'btn-primary active' : 'btn-outline'}" data-type-id="1">Combined 4 Levels / 4 Times</button>
-      </div>
-    `;
-
-    // Cycle Mode Pills HTML
-    const modePillsHtml = `
-      <div style="display: flex; gap: 2px;">
-        <button type="button" class="btn btn-xs env-mode-btn ${curMode4L === 0 ? 'btn-primary active' : 'btn-outline'}" data-mode-id="0">Normal (One-Shot)</button>
-        <button type="button" class="btn btn-xs env-mode-btn ${curMode4L === 1 ? 'btn-primary active' : 'btn-outline'}" data-mode-id="1">Repeat (Loop LFO)</button>
-      </div>
-    `;
-
-    // Destination Cards HTML
-    const destItemsHtml = DEST_TARGETS.map((t) => {
-      const active = t.id === curDest ? 'active' : '';
-      return `
-        <button type="button" class="btn btn-sm env-dest-card-btn ${active}" data-dest-id="${t.id}">
-          <div style="font-weight: 700; font-size: 11px;">${t.name}</div>
-          <div style="font-size: 9px; opacity: 0.75; font-weight: normal; margin-top: 2px;">${t.desc}</div>
-        </button>
-      `;
-    }).join('');
+    root.className = 'envelope-drawer-view';
+    root.style.cssText = 'display: flex; flex-direction: column; height: 100%; box-sizing: border-box;';
 
     root.innerHTML = `
-      <!-- Header -->
-      <div class="drawer-header ndb-modal-header">
-        <div class="drawer-title ndb-header-title">
+      <div class="drawer-header ndb-modal-header" style="flex-wrap: wrap; gap: var(--space-2);">
+        <div class="drawer-title ndb-header-title" style="flex: 1; min-width: 240px;">
           <span class="drawer-icon">${ICONS.layers}</span>
-          <h2 style="font-size: 14px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Envelopes & Shapers Master</h2>
-          <span class="hud-pill ndb-badge">4L/4T & MATRIX [205..255]</span>
+          <span class="ndb-title-text" id="env-drawer-main-title">SHAPER ${activeShaper} (R${activeShaper}) — ENVELOPE EDITOR</span>
+          <span class="panel-badge ndb-badge" id="env-drawer-badge">R${activeShaper}</span>
         </div>
-        <div class="drawer-header-actions">
+        <div class="drawer-header-actions" style="display: flex; align-items: center; gap: var(--space-2);">
+          ${shaperSelectorHtml}
           <button type="button" class="btn btn-close-drawer ndb-close-btn" id="btn-close-env-drawer" title="Close (Esc)">${ICONS.close}</button>
         </div>
       </div>
 
-      <!-- Navigation tabs bar -->
-      <div class="ndb-browser-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08)); padding-bottom: var(--space-2);">
-        <div class="env-tabs-bar" style="display: flex; align-items: center; gap: var(--space-2);">
-          <button type="button" class="btn btn-sm btn-primary active env-tab-btn" data-env-tab="all">All Controls</button>
-          <button type="button" class="btn btn-sm btn-outline env-tab-btn" data-env-tab="4l4t">1. 4L/4T Curve</button>
-          <button type="button" class="btn btn-sm btn-outline env-tab-btn" data-env-tab="adsr">2. Free ADSR 1 & 2</button>
-          <button type="button" class="btn btn-sm btn-outline env-tab-btn" data-env-tab="routing">3. Matrix Routing</button>
+      <!-- Focused View Selector Bar -->
+      <div style="display: flex; gap: var(--space-2); padding: var(--space-2) var(--space-4); background: var(--color-panel-header); border-bottom: 1px solid var(--color-panel-border-dim); align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+          <span class="hud-label" style="font-size: 10px; margin-right: 4px;">ENVELOPE MODE:</span>
+          ${tabSelectorHtml}
         </div>
-        <span class="hud-pill" style="font-size: 9px; color: var(--color-accent, #00c3ff);">Hartmann Neuron Architecture</span>
       </div>
 
-      <!-- Scrollable content -->
-      <div class="drawer-scroll-body" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-4); padding-right: 4px;">
-
-        <!-- ── BLOQUE 1: 4L/4T MULTILEVEL ENVELOPE ─────────────────────── -->
-        <section class="synth-panel-card" id="env-sec-4l4t" style="display: flex; flex-direction: column; gap: var(--space-3);">
-          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-            <div style="display: flex; align-items: center; gap: var(--space-2);">
-              <span class="stick-label">4L/4T SHAPER CONTOUR</span>
-              <span class="hud-pill" style="font-size: 8px;">LEVEL 1..4 & TIME 1..4</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: var(--space-3);">
-              <div style="display: flex; align-items: center; gap: var(--space-1);">
-                <span style="font-size: 9px; color: var(--color-text-muted);">TYPE:</span>
-                ${typePillsHtml}
-              </div>
-              <div style="display: flex; align-items: center; gap: var(--space-1);">
-                <span style="font-size: 9px; color: var(--color-text-muted);">CYCLE:</span>
-                ${modePillsHtml}
-              </div>
-            </div>
-          </div>
-
-          <!-- SVG Real-time Curve Visualizer -->
-          <div style="background: rgba(0,0,0,0.4); border-radius: var(--radius-sm, 4px); padding: 8px; border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 4px;">
-            <div style="display: flex; justify-content: space-between; font-size: 8.5px; color: var(--color-text-muted);">
-              <span>START (L:0)</span>
-              <span>STAGE 1</span>
-              <span>STAGE 2</span>
-              <span>STAGE 3</span>
-              <span>RELEASE (STAGE 4)</span>
-            </div>
-            <svg id="env-4l4t-svg" width="100%" height="80" style="overflow: visible;">
-              <defs>
-                <linearGradient id="envGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stop-color="var(--color-accent, #00c3ff)" stop-opacity="0.35"/>
-                  <stop offset="100%" stop-color="var(--color-accent, #00c3ff)" stop-opacity="0.02"/>
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="40" x2="100%" y2="40" stroke="rgba(255,255,255,0.1)" stroke-dasharray="3,3"/>
-              <path id="env-4l4t-fill" d="" fill="url(#envGrad)"/>
-              <path id="env-4l4t-stroke" d="" fill="none" stroke="var(--color-accent, #00c3ff)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle id="pt-1" cx="0" cy="40" r="4" fill="var(--color-accent-amber, #f59e0b)"/>
-              <circle id="pt-2" cx="0" cy="40" r="4" fill="var(--color-accent-amber, #f59e0b)"/>
-              <circle id="pt-3" cx="0" cy="40" r="4" fill="var(--color-accent-amber, #f59e0b)"/>
-              <circle id="pt-4" cx="0" cy="40" r="4" fill="var(--color-accent-amber, #f59e0b)"/>
-            </svg>
-          </div>
-
-          <!-- 4 Stages Grid -->
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-sm, 4px);">
-            <!-- Stage 1 -->
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid rgba(255,255,255,0.06);">
-              <span style="font-size: 8.5px; font-weight: 700; color: var(--color-accent);">STAGE 1</span>
-              <div style="display: flex; gap: 8px; justify-content: center; width: 100%;">
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-l1"></div>
-                  <span class="stat-num" id="val-l1" style="font-size: 9px; color: var(--color-accent);">${curL1}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">LEVEL 1</span>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-t1"></div>
-                  <span class="stat-num" id="val-t1" style="font-size: 9px; color: var(--color-accent);">${curT1}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">TIME 1</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Stage 2 -->
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid rgba(255,255,255,0.06);">
-              <span style="font-size: 8.5px; font-weight: 700; color: var(--color-accent);">STAGE 2</span>
-              <div style="display: flex; gap: 8px; justify-content: center; width: 100%;">
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-l2"></div>
-                  <span class="stat-num" id="val-l2" style="font-size: 9px; color: var(--color-accent);">${curL2}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">LEVEL 2</span>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-t2"></div>
-                  <span class="stat-num" id="val-t2" style="font-size: 9px; color: var(--color-accent);">${curT2}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">TIME 2</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Stage 3 -->
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid rgba(255,255,255,0.06);">
-              <span style="font-size: 8.5px; font-weight: 700; color: var(--color-accent);">STAGE 3</span>
-              <div style="display: flex; gap: 8px; justify-content: center; width: 100%;">
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-l3"></div>
-                  <span class="stat-num" id="val-l3" style="font-size: 9px; color: var(--color-accent);">${curL3}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">LEVEL 3</span>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-t3"></div>
-                  <span class="stat-num" id="val-t3" style="font-size: 9px; color: var(--color-accent);">${curT3}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">TIME 3</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Stage 4 -->
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
-              <span style="font-size: 8.5px; font-weight: 700; color: var(--color-accent);">STAGE 4 (REL)</span>
-              <div style="display: flex; gap: 8px; justify-content: center; width: 100%;">
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-l4"></div>
-                  <span class="stat-num" id="val-l4" style="font-size: 9px; color: var(--color-accent);">${curL4}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">LEVEL 4</span>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-t4"></div>
-                  <span class="stat-num" id="val-t4" style="font-size: 9px; color: var(--color-accent);">${curT4}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">TIME 4</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Master Depth & Velocity for 4L4T -->
-          <div style="display: flex; justify-content: space-around; align-items: center; padding: 6px 12px; background: rgba(0,0,0,0.15); border-radius: var(--radius-sm, 4px);">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <div id="mount-depth-4l"></div>
-              <div style="display: flex; flex-direction: column;">
-                <span class="stat-num" id="val-depth-4l" style="font-size: 11px; color: var(--color-accent); font-weight: 700;">${curDepth4L}</span>
-                <span style="font-size: 8px; color: var(--color-text-muted); font-weight: 700;">MASTER 4L4T DEPTH [251]</span>
-              </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <div id="mount-velo-4l"></div>
-              <div style="display: flex; flex-direction: column;">
-                <span class="stat-num" id="val-velo-4l" style="font-size: 11px; color: var(--color-accent); font-weight: 700;">${curVelo4L > 0 ? '+' + curVelo4L : curVelo4L}</span>
-                <span style="font-size: 8px; color: var(--color-text-muted); font-weight: 700;">VELOCITY SENSITIVITY [252]</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ── BLOQUE 2: FREE ADSR 1 & 2 ENVELOPES ─────────────────────── -->
-        <section class="synth-panel-card" id="env-sec-adsr" style="display: flex; flex-direction: column; gap: var(--space-3);">
-          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: var(--space-2);">
-              <span class="stick-label">FREE ADSR 1 & 2</span>
-              <span class="hud-pill" style="font-size: 8px;">TWO INDEPENDENT CURVES</span>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
-            <!-- Free ADSR 1 -->
-            <div style="background: rgba(0,0,0,0.25); border-radius: var(--radius-sm, 4px); padding: 8px; display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(255,255,255,0.06);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 10px; font-weight: 700; color: var(--color-accent);">SHAPER 1 FREE ADSR [205..211]</span>
-                <span class="hud-pill" style="font-size: 8px;">R1 TARGETS</span>
-              </div>
-              <div style="display: flex; justify-content: space-around; align-items: center;">
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-s1-a"></div>
-                  <span class="stat-num" id="val-s1-a" style="font-size: 8.5px; color: var(--color-accent);">${curS1A}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">ATTACK</span>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-s1-d"></div>
-                  <span class="stat-num" id="val-s1-d" style="font-size: 8.5px; color: var(--color-accent);">${curS1D}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">DECAY</span>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-s1-s"></div>
-                  <span class="stat-num" id="val-s1-s" style="font-size: 8.5px; color: var(--color-accent);">${curS1S}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">SUSTAIN</span>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-s1-r"></div>
-                  <span class="stat-num" id="val-s1-r" style="font-size: 8.5px; color: var(--color-accent);">${curS1R}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">RELEASE</span>
-                </div>
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06);">
-                <div style="display: flex; align-items: center; gap: 4px;">
-                  <div id="mount-s1-depth"></div>
-                  <span class="stat-num" id="val-s1-depth" style="font-size: 9px; color: var(--color-accent);">${curS1Depth}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">DEPTH</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                  <div id="mount-s1-velo"></div>
-                  <span class="stat-num" id="val-s1-velo" style="font-size: 9px; color: var(--color-accent);">${curS1Velo > 0 ? '+' + curS1Velo : curS1Velo}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">VELO</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Free ADSR 2 -->
-            <div style="background: rgba(0,0,0,0.25); border-radius: var(--radius-sm, 4px); padding: 8px; display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(255,255,255,0.06);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 10px; font-weight: 700; color: var(--color-accent);">SHAPER 2 FREE ADSR [235..241]</span>
-                <span class="hud-pill" style="font-size: 8px;">R2 TARGETS</span>
-              </div>
-              <div style="display: flex; justify-content: space-around; align-items: center;">
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-s2-a"></div>
-                  <span class="stat-num" id="val-s2-a" style="font-size: 8.5px; color: var(--color-accent);">${curS2A}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">ATTACK</span>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-s2-d"></div>
-                  <span class="stat-num" id="val-s2-d" style="font-size: 8.5px; color: var(--color-accent);">${curS2D}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">DECAY</span>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-s2-s"></div>
-                  <span class="stat-num" id="val-s2-s" style="font-size: 8.5px; color: var(--color-accent);">${curS2S}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">SUSTAIN</span>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
-                  <div id="mount-s2-r"></div>
-                  <span class="stat-num" id="val-s2-r" style="font-size: 8.5px; color: var(--color-accent);">${curS2R}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">RELEASE</span>
-                </div>
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06);">
-                <div style="display: align-items: center; gap: 4px; display: flex;">
-                  <div id="mount-s2-depth"></div>
-                  <span class="stat-num" id="val-s2-depth" style="font-size: 9px; color: var(--color-accent);">${curS2Depth}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">DEPTH</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                  <div id="mount-s2-velo"></div>
-                  <span class="stat-num" id="val-s2-velo" style="font-size: 9px; color: var(--color-accent);">${curS2Velo > 0 ? '+' + curS2Velo : curS2Velo}</span>
-                  <span style="font-size: 7.5px; color: var(--color-text-muted);">VELO</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ── BLOQUE 3: SHAPER STATUS & MODULATION ROUTING MATRIX ───── -->
-        <section class="synth-panel-card" id="env-sec-routing" style="display: flex; flex-direction: column; gap: var(--space-3);">
-          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: var(--space-2);">
-              <span class="stick-label">MODULATION ROUTING & STATUS</span>
-              <span class="hud-pill" style="font-size: 8px;">DESTINATION MATRIX [253, 255]</span>
-            </div>
-          </div>
-
-          <!-- Shaper Status -->
-          <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-sm, 4px); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-              <span style="font-size: 10px; font-weight: 700; color: var(--color-accent);">GLOBAL SHAPER LAYER STATUS [253]</span>
-              <span style="font-size: 8.5px; color: var(--color-text-muted);">Determines which envelope level is addressed by the physical console wheels</span>
-            </div>
-            <div style="display: flex; gap: 4px;">
-              ${statusPillsHtml}
-            </div>
-          </div>
-
-          <!-- Destination Target Buttons -->
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            <span style="font-size: 9.5px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase;">Free Envelope Modulation Destination [255]:</span>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2);">
-              ${destItemsHtml}
-            </div>
-          </div>
-        </section>
-
+      <div class="drawer-scrollable-content" id="env-scroll-body" style="flex: 1; overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4);">
+        <div id="env-focused-stage" style="display: flex; flex-direction: column; gap: var(--space-4);"></div>
       </div>
     `;
 
-    // ── Bind close button ──────────────────────────────────────────
-    root.querySelector('#btn-close-env-drawer')?.addEventListener('click', () => {
-      options.onClose();
-    });
-
-    // ── Direct Tab Switching ───────────────────────────────────────
-    const showTab = (tabId: string) => {
-      root.querySelectorAll<HTMLButtonElement>('.env-tab-btn').forEach((btn) => {
-        const isActive = btn.dataset.envTab === tabId;
-        btn.classList.toggle('active', isActive);
-        btn.classList.toggle('btn-primary', isActive);
-        btn.classList.toggle('btn-outline', !isActive);
-      });
-
-      const sec4l4t = root.querySelector('#env-sec-4l4t') as HTMLElement | null;
-      const secAdsr = root.querySelector('#env-sec-adsr') as HTMLElement | null;
-      const secRouting = root.querySelector('#env-sec-routing') as HTMLElement | null;
-
-      if (sec4l4t) sec4l4t.style.display = (tabId === 'all' || tabId === '4l4t') ? 'flex' : 'none';
-      if (secAdsr) secAdsr.style.display = (tabId === 'all' || tabId === 'adsr') ? 'flex' : 'none';
-      if (secRouting) secRouting.style.display = (tabId === 'all' || tabId === 'routing') ? 'flex' : 'none';
-    };
-
-    root.querySelectorAll<HTMLButtonElement>('.env-tab-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const tabId = btn.dataset.envTab || 'all';
-        showTab(tabId);
-      });
-    });
-
-    // Set initial tab
-    showTab(options.initialTab || 'all');
-
-    // ── Function to redraw SVG curve ───────────────────────────────
-    let l1 = curL1, l2 = curL2, l3 = curL3, l4 = curL4;
-    let t1 = curT1, t2 = curT2, t3 = curT3, t4 = curT4;
-
-    const updateSvgCurve = () => {
-      const svg = root.querySelector('#env-4l4t-svg') as SVGSVGElement | null;
-      const strokePath = root.querySelector('#env-4l4t-stroke') as SVGPathElement | null;
-      const fillPath = root.querySelector('#env-4l4t-fill') as SVGPathElement | null;
-      if (!svg || !strokePath || !fillPath) return;
-
-      const width = svg.clientWidth || 400;
-      const height = 80;
-      const midY = height / 2;
-
-      // Normalize times so they sum to width
-      const sumT = Math.max(1, t1 + t2 + t3 + t4);
-      const x0 = 10;
-      const availW = width - 20;
-      const x1 = x0 + (t1 / sumT) * availW;
-      const x2 = x1 + (t2 / sumT) * availW;
-      const x3 = x2 + (t3 / sumT) * availW;
-      const x4 = x3 + (t4 / sumT) * availW;
-
-      // Levels (-64..+63 mapped to 0..height)
-      const toY = (lvl: number) => midY - (lvl / 64) * (midY - 6);
-      const y0 = midY;
-      const y1 = toY(l1);
-      const y2 = toY(l2);
-      const y3 = toY(l3);
-      const y4 = toY(l4);
-
-      const d = `M ${x0} ${y0} L ${x1} ${y1} L ${x2} ${y2} L ${x3} ${y3} L ${x4} ${y4}`;
-      const dFill = `${d} L ${x4} ${height} L ${x0} ${height} Z`;
-
-      strokePath.setAttribute('d', d);
-      fillPath.setAttribute('d', dFill);
-
-      const pt1 = root.querySelector('#pt-1');
-      const pt2 = root.querySelector('#pt-2');
-      const pt3 = root.querySelector('#pt-3');
-      const pt4 = root.querySelector('#pt-4');
-      pt1?.setAttribute('cx', String(x1)); pt1?.setAttribute('cy', String(y1));
-      pt2?.setAttribute('cx', String(x2)); pt2?.setAttribute('cy', String(y2));
-      pt3?.setAttribute('cx', String(x3)); pt3?.setAttribute('cy', String(y3));
-      pt4?.setAttribute('cx', String(x4)); pt4?.setAttribute('cy', String(y4));
-    };
-
-    setTimeout(updateSvgCurve, 50);
-
-    // ── Helper to mount a knob ─────────────────────────────────────
-    const mountKnob = (
+    const initKnob = (
+      container: ParentNode,
       mountId: string,
-      valId: string,
-      initialVal: number,
+      label: string,
+      initVal: number,
       min: number,
       max: number,
-      paramIdx: number,
-      onValChange?: (v: number) => void
-    ) => {
-      const mount = root.querySelector(mountId) as HTMLElement | null;
-      const valEl = root.querySelector(valId);
+      paramId: number,
+      valId: string,
+      isBipolar = false,
+      onAfterChange?: (val: number) => void,
+      size = 42
+    ): Knob | null => {
+      const mount = container.querySelector(`#${mountId}`) as HTMLElement | null;
       if (!mount) return null;
+      mount.innerHTML = '';
+      mount.setAttribute('data-param-index', String(paramId));
+      const range = max - min;
+      const normInit = range > 0 ? (initVal - min) / range : 0;
+      const valEl = container.querySelector(`#${valId}`);
 
-      const normInit = (initialVal - min) / (max - min);
       return new Knob(mount, {
-        size: 34,
-        value: Math.max(0, Math.min(1, normInit)),
+        size,
+        label,
+        value: normInit,
+        bipolar: isBipolar,
         onChange: (normVal: number) => {
-          const raw = Math.round(min + normVal * (max - min));
-          WebBridge.setParam(paramIdx, raw);
+          const actualVal = Math.round(min + normVal * range);
+          WebBridge.setParam(paramId, actualVal);
           if (valEl) {
-            valEl.textContent = raw > 0 && min < 0 ? `+${raw}` : String(raw);
+            valEl.textContent = isBipolar && actualVal > 0 ? `+${actualVal}` : String(actualVal);
           }
-          onValChange?.(raw);
+          onAfterChange?.(actualVal);
         },
       });
     };
 
-    // ── Mount 4L4T Knobs ───────────────────────────────────────────
-    mountKnob('#mount-l1', '#val-l1', curL1, -64, 63, ParamIdx.FreeEnvLevel1, (v) => { l1 = v; updateSvgCurve(); });
-    mountKnob('#mount-t1', '#val-t1', curT1, 0, 127, ParamIdx.FreeEnvTime1, (v) => { t1 = v; updateSvgCurve(); });
-
-    mountKnob('#mount-l2', '#val-l2', curL2, -64, 63, ParamIdx.FreeEnvLevel2, (v) => { l2 = v; updateSvgCurve(); });
-    mountKnob('#mount-t2', '#val-t2', curT2, 0, 127, ParamIdx.FreeEnvTime2, (v) => { t2 = v; updateSvgCurve(); });
-
-    mountKnob('#mount-l3', '#val-l3', curL3, -64, 63, ParamIdx.FreeEnvLevel3, (v) => { l3 = v; updateSvgCurve(); });
-    mountKnob('#mount-t3', '#val-t3', curT3, 0, 127, ParamIdx.FreeEnvTime3, (v) => { t3 = v; updateSvgCurve(); });
-
-    mountKnob('#mount-l4', '#val-l4', curL4, -64, 63, ParamIdx.FreeEnvLevel4, (v) => { l4 = v; updateSvgCurve(); });
-    mountKnob('#mount-t4', '#val-t4', curT4, 0, 127, ParamIdx.FreeEnvTime4, (v) => { t4 = v; updateSvgCurve(); });
-
-    mountKnob('#mount-depth-4l', '#val-depth-4l', curDepth4L, 0, 127, ParamIdx.TLFreeEnvDepth);
-    mountKnob('#mount-velo-4l', '#val-velo-4l', curVelo4L, -64, 63, ParamIdx.Free4Level4TimeVelocityDepth);
-
-    // ── Mount Free ADSR 1 Knobs ────────────────────────────────────
-    mountKnob('#mount-s1-a', '#val-s1-a', curS1A, 0, 127, ParamIdx.R1FreeEnvA);
-    mountKnob('#mount-s1-d', '#val-s1-d', curS1D, 0, 127, ParamIdx.R1FreeEnvD);
-    mountKnob('#mount-s1-s', '#val-s1-s', curS1S, 0, 127, ParamIdx.R1FreeEnvS);
-    mountKnob('#mount-s1-r', '#val-s1-r', curS1R, 0, 127, ParamIdx.R1FreeEnvR);
-    mountKnob('#mount-s1-depth', '#val-s1-depth', curS1Depth, 0, 127, ParamIdx.R1FreeEnvDepth);
-    mountKnob('#mount-s1-velo', '#val-s1-velo', curS1Velo, -64, 63, ParamIdx.FreeADSR1VelocityDepth);
-
-    // ── Mount Free ADSR 2 Knobs ────────────────────────────────────
-    mountKnob('#mount-s2-a', '#val-s2-a', curS2A, 0, 127, ParamIdx.R2FreeEnvA);
-    mountKnob('#mount-s2-d', '#val-s2-d', curS2D, 0, 127, ParamIdx.R2FreeEnvD);
-    mountKnob('#mount-s2-s', '#val-s2-s', curS2S, 0, 127, ParamIdx.R2FreeEnvS);
-    mountKnob('#mount-s2-r', '#val-s2-r', curS2R, 0, 127, ParamIdx.R2FreeEnvR);
-    mountKnob('#mount-s2-depth', '#val-s2-depth', curS2Depth, 0, 127, ParamIdx.R2FreeEnvDepth);
-    mountKnob('#mount-s2-velo', '#val-s2-velo', curS2Velo, -64, 63, ParamIdx.FreeADSR2VelocityDepth);
-
-    // ── Layer Status Buttons ───────────────────────────────────────
-    root.querySelectorAll<HTMLButtonElement>('.env-status-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = Number(btn.dataset.statusId);
-        curStatus = id;
-        WebBridge.setParam(ParamIdx.Shaper12Status, id);
-        root.querySelectorAll('.env-status-btn').forEach((b) => {
-          const isAct = Number((b as HTMLButtonElement).dataset.statusId) === id;
-          b.classList.toggle('active', isAct);
-          b.classList.toggle('btn-primary', isAct);
-          b.classList.toggle('btn-outline', !isAct);
-        });
-      });
+    const adsrToShaperState = (a: number, d: number, s: number, r: number) => ({
+      times: [
+        Math.max(0.04, a / 127),
+        Math.max(0.04, d / 127),
+        0.25,
+        Math.max(0.04, r / 127),
+      ],
+      levels: [1.0, s / 127, s / 127, 0.0],
     });
 
-    // ── Type Buttons ───────────────────────────────────────────────
-    root.querySelectorAll<HTMLButtonElement>('.env-type-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = Number(btn.dataset.typeId);
-        curType = id;
-        WebBridge.setParam(ParamIdx.FreeEnvType, id);
-        root.querySelectorAll('.env-type-btn').forEach((b) => {
-          const isAct = Number((b as HTMLButtonElement).dataset.typeId) === id;
-          b.classList.toggle('active', isAct);
-          b.classList.toggle('btn-primary', isAct);
-          b.classList.toggle('btn-outline', !isAct);
-        });
-      });
-    });
+    const stageHost = root.querySelector('#env-focused-stage') as HTMLElement;
+    const titleEl = root.querySelector('#env-drawer-main-title') as HTMLElement;
+    const badgeEl = root.querySelector('#env-drawer-badge') as HTMLElement;
 
-    // ── Cycle Mode Buttons ─────────────────────────────────────────
-    root.querySelectorAll<HTMLButtonElement>('.env-mode-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = Number(btn.dataset.modeId);
-        curMode4L = id;
-        WebBridge.setParam(ParamIdx.TLFreeEnvMode, id);
-        root.querySelectorAll('.env-mode-btn').forEach((b) => {
-          const isAct = Number((b as HTMLButtonElement).dataset.modeId) === id;
-          b.classList.toggle('active', isAct);
-          b.classList.toggle('btn-primary', isAct);
-          b.classList.toggle('btn-outline', !isAct);
-        });
-      });
-    });
+    const renderFocusedView = () => {
+      if (!stageHost) return;
+      const isR1 = activeShaper === 1;
+      const rLabel = isR1 ? 'R1' : 'R2';
 
-    // ── Destination Card Buttons Click ─────────────────────────────
-    root.querySelectorAll<HTMLButtonElement>('.env-dest-card-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = Number(btn.dataset.destId);
-        curDest = id;
-        WebBridge.setParam(ParamIdx.ShaperResySelect, id);
-        root.querySelectorAll('.env-dest-card-btn').forEach((b) => b.classList.remove('active'));
+      if (titleEl) {
+        if (activeTab === '4l4t') {
+          titleEl.textContent = 'ENVELOPES & SHAPERS MASTER — 4L/4T CONTOUR';
+        } else {
+          const modeLabel = activeTab === 'amp' ? 'AMP ENVELOPE' : activeTab === 'res' ? 'RES CONTOUR ENVELOPE' : 'FREE MODULATION ENVELOPE';
+          titleEl.textContent = `SHAPER ${activeShaper} (${rLabel}) — ${modeLabel}`;
+        }
+      }
+      if (badgeEl) {
+        badgeEl.textContent = activeTab === '4l4t' ? '4L/4T [242..252]' : `${rLabel} ${activeTab.toUpperCase()}`;
+      }
+
+      // ─────────────────────────────────────────────────────────
+      // TAB 1: AMP (Volume Envelope & Dynamics)
+      // ─────────────────────────────────────────────────────────
+      if (activeTab === 'amp') {
+        const pA = isR1 ? ParamIdx.R1AmpEnvA : ParamIdx.R2AmpEnvA;
+        const pD = isR1 ? ParamIdx.R1AmpEnvD : ParamIdx.R2AmpEnvD;
+        const pS = isR1 ? ParamIdx.R1AmpEnvS : ParamIdx.R2AmpEnvS;
+        const pR = isR1 ? ParamIdx.R1AmpEnvR : ParamIdx.R2AmpEnvR;
+        const pMode = isR1 ? ParamIdx.R1AmpEnvMode : ParamIdx.R2AmpEnvMode;
+        const pVelo = isR1 ? ParamIdx.R1AmpVeloDepth : ParamIdx.R2AmpVeloDepth;
+        const pKeyT = isR1 ? ParamIdx.R1AmpKeyTrack : ParamIdx.R2AmpKeyTrack;
+        const pVol = isR1 ? ParamIdx.R1Volume : ParamIdx.R2Volume;
+        const pLfo = isR1 ? ParamIdx.R1AmpLfoDepth : ParamIdx.R2AmpLfoDepth;
+
+        let vA = g(pA, 10);
+        let vD = g(pD, 45);
+        let vS = g(pS, 100);
+        let vR = g(pR, 35);
+        const curMode = g(pMode, 0);
+        const modeHtml = pillSelectorHtml(
+          [
+            { id: '0', label: 'Normal (One-Shot)' },
+            { id: '1', label: 'Repeat (Loop)' },
+          ],
+          String(curMode),
+          { id: 'amp-mode-pills', size: 'xs', attrName: 'data-mode' }
+        );
+
+        stageHost.innerHTML = `
+          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+              <div>
+                <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${rLabel} AMPLIFIER ADSR ENVELOPE ([${pA}..${pMode}])</div>
+                <div style="font-size: 11px; color: var(--color-text-muted);">Shapes the output volume contour of Resynator ${activeShaper} on every note trigger.</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="hud-label" style="font-size: 9px;">CYCLE:</span>
+                ${modeHtml}
+              </div>
+            </div>
+
+            <div id="amp-adsr-curve-mount"></div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); justify-items: center; padding: var(--space-2) 0;">
+              ${renderKnobCell('amp-a-m', 'amp-a-v', vA, 'ATTACK')}
+              ${renderKnobCell('amp-d-m', 'amp-d-v', vD, 'DECAY')}
+              ${renderKnobCell('amp-s-m', 'amp-s-v', vS, 'SUSTAIN')}
+              ${renderKnobCell('amp-r-m', 'amp-r-v', vR, 'RELEASE')}
+            </div>
+          </div>
+
+          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
+            <div>
+              <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${rLabel} AMPLIFIER LEVEL & VELOCITY DYNAMICS</div>
+              <div style="font-size: 11px; color: var(--color-text-muted);">Controls how keyboard velocity, note pitch (keytrack), and the global LFO modulate ${rLabel} volume.</div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); justify-items: center; padding: var(--space-2) 0;">
+              ${renderKnobCell('amp-vol-m', 'amp-vol-v', g(pVol, 100), `MASTER VOL [${pVol}]`)}
+              ${renderKnobCell('amp-vel-m', 'amp-vel-v', g(pVelo, 0), `VELOCITY SENS [${pVelo}]`)}
+              ${renderKnobCell('amp-kt-m', 'amp-kt-v', g(pKeyT, 0), `AMP KEYTRACK [${pKeyT}]`)}
+              ${renderKnobCell('amp-lfo-m', 'amp-lfo-v', g(pLfo, 0), `AMP LFO DEPTH [${pLfo}]`)}
+            </div>
+          </div>
+        `;
+
+        const curveMount = stageHost.querySelector('#amp-adsr-curve-mount') as HTMLElement | null;
+        let adsrPad: MultiStageShaperPad | null = null;
+        if (curveMount) {
+          adsrPad = new MultiStageShaperPad(curveMount, {
+            bipolar: false,
+            bare: true,
+            editable: false,
+            viewBoxHeight: 96,
+            stageLabels: ['START', 'ATTACK', 'DECAY', 'SUSTAIN', 'RELEASE'],
+            ...adsrToShaperState(vA, vD, vS, vR),
+          });
+        }
+        const syncAdsrCurve = () => adsrPad?.setValue(adsrToShaperState(vA, vD, vS, vR), false);
+
+        initKnob(stageHost, 'amp-a-m', 'ATTACK', vA, 0, 127, pA, 'amp-a-v', false, (v) => { vA = v; syncAdsrCurve(); }, 46);
+        initKnob(stageHost, 'amp-d-m', 'DECAY', vD, 0, 127, pD, 'amp-d-v', false, (v) => { vD = v; syncAdsrCurve(); }, 46);
+        initKnob(stageHost, 'amp-s-m', 'SUSTAIN', vS, 0, 127, pS, 'amp-s-v', false, (v) => { vS = v; syncAdsrCurve(); }, 46);
+        initKnob(stageHost, 'amp-r-m', 'RELEASE', vR, 0, 127, pR, 'amp-r-v', false, (v) => { vR = v; syncAdsrCurve(); }, 46);
+
+        initKnob(stageHost, 'amp-vol-m', 'VOLUME', g(pVol, 100), 0, 127, pVol, 'amp-vol-v', false, undefined, 42);
+        initKnob(stageHost, 'amp-vel-m', 'VELOCITY', g(pVelo, 0), -64, 63, pVelo, 'amp-vel-v', true, undefined, 42);
+        initKnob(stageHost, 'amp-kt-m', 'KEYTRACK', g(pKeyT, 0), -64, 63, pKeyT, 'amp-kt-v', true, undefined, 42);
+        initKnob(stageHost, 'amp-lfo-m', 'LFO DEPTH', g(pLfo, 0), -64, 63, pLfo, 'amp-lfo-v', true, undefined, 42);
+
+        const modeEl = stageHost.querySelector('#amp-mode-pills') as HTMLElement | null;
+        if (modeEl) {
+          bindPillSelector(modeEl, (id, btn) => {
+            modeEl.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            WebBridge.setParam(pMode, parseInt(id || '0', 10));
+          }, 'data-mode');
+        }
+        return;
+      }
+
+      // ─────────────────────────────────────────────────────────
+      // TAB 2: RES (Resynator Contour ADSR + 12 Scape/Sphere Env Depths)
+      // ─────────────────────────────────────────────────────────
+      if (activeTab === 'res') {
+        const pA = isR1 ? ParamIdx.R1ResEnvA : ParamIdx.R2ResEnvA;
+        const pD = isR1 ? ParamIdx.R1ResEnvD : ParamIdx.R2ResEnvD;
+        const pS = isR1 ? ParamIdx.R1ResEnvS : ParamIdx.R2ResEnvS;
+        const pR = isR1 ? ParamIdx.R1ResEnvR : ParamIdx.R2ResEnvR;
+        const pMode = isR1 ? ParamIdx.R1ResEnvMode : ParamIdx.R2ResEnvMode;
+        const pVelo = isR1 ? ParamIdx.R1ResEnvVel : ParamIdx.R2ResEnvVel;
+        const baseDepth = isR1 ? ParamIdx.R1L1Sphere1EnvDepth : ParamIdx.R2L1Sphere1EnvDepth; // [188..199] or [218..229]
+
+        let vA = g(pA, 20);
+        let vD = g(pD, 50);
+        let vS = g(pS, 64);
+        let vR = g(pR, 40);
+        const curMode = g(pMode, 0);
+        const modeHtml = pillSelectorHtml(
+          [
+            { id: '0', label: 'Normal (One-Shot)' },
+            { id: '1', label: 'Repeat (Loop)' },
+          ],
+          String(curMode),
+          { id: 'res-mode-pills', size: 'xs', attrName: 'data-mode' }
+        );
+
+        stageHost.innerHTML = `
+          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+              <div>
+                <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${rLabel} RESYNATOR CONTOUR ADSR ([${pA}..${pVelo}])</div>
+                <div style="font-size: 11px; color: var(--color-text-muted);">Dedicated envelope that animates ${rLabel} Scape & Sphere X/Y axes over time.</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="hud-label" style="font-size: 9px;">CYCLE:</span>
+                ${modeHtml}
+              </div>
+            </div>
+
+            <div id="res-adsr-curve-mount"></div>
+
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-2); justify-items: center; padding: var(--space-2) 0;">
+              ${renderKnobCell('res-a-m', 'res-a-v', vA, 'ATTACK')}
+              ${renderKnobCell('res-d-m', 'res-d-v', vD, 'DECAY')}
+              ${renderKnobCell('res-s-m', 'res-s-v', vS, 'SUSTAIN')}
+              ${renderKnobCell('res-r-m', 'res-r-v', vR, 'RELEASE')}
+              ${renderKnobCell('res-vel-m', 'res-vel-v', g(pVelo, 0), 'VELOCITY SENS')}
+            </div>
+          </div>
+
+          <!-- 12 Scape & Sphere Envelope Modulation Depths (L1, L2, L3) -->
+          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
+            <div>
+              <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${rLabel} SCAPE & SPHERE ENVELOPE DEPTHS ([${baseDepth}..${baseDepth + 11}])</div>
+              <div style="font-size: 11px; color: var(--color-text-muted);">Sets how much the ${rLabel} RES Envelope sweeps each X/Y axis of Sphere and Scape across Levels 1, 2, and 3.</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3);">
+              ${[1, 2, 3].map((lvl) => {
+                const off = baseDepth + (lvl - 1) * 4;
+                return `
+                  <div style="background: rgba(0,0,0,0.22); border: 1px solid var(--color-panel-border-dim); border-radius: var(--radius-sm); padding: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2);">
+                    <div class="hud-label" style="color: var(--color-accent); font-weight: 700; text-align: center; border-bottom: 1px solid var(--color-panel-border-dim); padding-bottom: 4px;">LEVEL ${lvl} (L${lvl})</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); justify-items: center;">
+                      ${renderKnobCell(`res-l${lvl}-sph1-m`, `res-l${lvl}-sph1-v`, g(off, 0), `SPHERE X [${off}]`)}
+                      ${renderKnobCell(`res-l${lvl}-sph2-m`, `res-l${lvl}-sph2-v`, g(off + 1, 0), `SPHERE Y [${off + 1}]`)}
+                      ${renderKnobCell(`res-l${lvl}-scp1-m`, `res-l${lvl}-scp1-v`, g(off + 2, 0), `SCAPE X [${off + 2}]`)}
+                      ${renderKnobCell(`res-l${lvl}-scp2-m`, `res-l${lvl}-scp2-v`, g(off + 3, 0), `SCAPE Y [${off + 3}]`)}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+
+        const curveMount = stageHost.querySelector('#res-adsr-curve-mount') as HTMLElement | null;
+        let adsrPad: MultiStageShaperPad | null = null;
+        if (curveMount) {
+          adsrPad = new MultiStageShaperPad(curveMount, {
+            bipolar: false,
+            bare: true,
+            editable: false,
+            viewBoxHeight: 96,
+            stageLabels: ['START', 'ATTACK', 'DECAY', 'SUSTAIN', 'RELEASE'],
+            ...adsrToShaperState(vA, vD, vS, vR),
+          });
+        }
+        const syncAdsrCurve = () => adsrPad?.setValue(adsrToShaperState(vA, vD, vS, vR), false);
+
+        initKnob(stageHost, 'res-a-m', 'ATTACK', vA, 0, 127, pA, 'res-a-v', false, (v) => { vA = v; syncAdsrCurve(); }, 44);
+        initKnob(stageHost, 'res-d-m', 'DECAY', vD, 0, 127, pD, 'res-d-v', false, (v) => { vD = v; syncAdsrCurve(); }, 44);
+        initKnob(stageHost, 'res-s-m', 'SUSTAIN', vS, 0, 127, pS, 'res-s-v', false, (v) => { vS = v; syncAdsrCurve(); }, 44);
+        initKnob(stageHost, 'res-r-m', 'RELEASE', vR, 0, 127, pR, 'res-r-v', false, (v) => { vR = v; syncAdsrCurve(); }, 44);
+        initKnob(stageHost, 'res-vel-m', 'VELOCITY', g(pVelo, 0), 0, 127, pVelo, 'res-vel-v', false, undefined, 44);
+
+        for (let lvl = 1; lvl <= 3; lvl++) {
+          const off = baseDepth + (lvl - 1) * 4;
+          initKnob(stageHost, `res-l${lvl}-sph1-m`, `L${lvl} SPH X`, g(off, 0), -64, 63, off, `res-l${lvl}-sph1-v`, true, undefined, 36);
+          initKnob(stageHost, `res-l${lvl}-sph2-m`, `L${lvl} SPH Y`, g(off + 1, 0), -64, 63, off + 1, `res-l${lvl}-sph2-v`, true, undefined, 36);
+          initKnob(stageHost, `res-l${lvl}-scp1-m`, `L${lvl} SCP X`, g(off + 2, 0), -64, 63, off + 2, `res-l${lvl}-scp1-v`, true, undefined, 36);
+          initKnob(stageHost, `res-l${lvl}-scp2-m`, `L${lvl} SCP Y`, g(off + 3, 0), -64, 63, off + 3, `res-l${lvl}-scp2-v`, true, undefined, 36);
+        }
+
+        const modeEl = stageHost.querySelector('#res-mode-pills') as HTMLElement | null;
+        if (modeEl) {
+          bindPillSelector(modeEl, (id, btn) => {
+            modeEl.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            WebBridge.setParam(pMode, parseInt(id || '0', 10));
+          }, 'data-mode');
+        }
+        return;
+      }
+
+      // ─────────────────────────────────────────────────────────
+      // TAB 3: FREE (Free ADSR + Easy Destination Assignment)
+      // ─────────────────────────────────────────────────────────
+      if (activeTab === 'free') {
+        const pA = isR1 ? ParamIdx.Shaper1FreeA : ParamIdx.Shaper2FreeA;
+        const pD = isR1 ? ParamIdx.Shaper1FreeD : ParamIdx.Shaper2FreeD;
+        const pS = isR1 ? ParamIdx.Shaper1FreeS : ParamIdx.Shaper2FreeS;
+        const pR = isR1 ? ParamIdx.Shaper1FreeR : ParamIdx.Shaper2FreeR;
+        const pMode = isR1 ? ParamIdx.Shaper1FreeMode : ParamIdx.Shaper2FreeMode;
+        const pDepth = isR1 ? ParamIdx.Shaper1FreeDepth : ParamIdx.Shaper2FreeDepth;
+        const pVel = isR1 ? ParamIdx.Shaper1FreeVelocity : ParamIdx.Shaper2FreeVelocity;
+
+        const pR1Pitch = isR1 ? ParamIdx.R1PitchShaper1FreeDepth : ParamIdx.R1PitchShaper2FreeDepth;
+        const pR2Pitch = isR1 ? ParamIdx.R2PitchShaper1FreeDepth : ParamIdx.R2PitchShaper2FreeDepth;
+        const pBlender = isR1 ? ParamIdx.BlenderShaper1FreeDepth : ParamIdx.BlenderShaper2FreeDepth;
+
+        let vA = g(pA, 32);
+        let vD = g(pD, 68);
+        let vS = g(pS, 54);
+        let vR = g(pR, 72);
+        const curMode = g(pMode, 0);
+        const curDest = Math.max(0, Math.min(5, g(ParamIdx.CurFreeEnvDest, 0)));
+
+        const modeHtml = pillSelectorHtml(
+          [
+            { id: '0', label: 'Normal (One-Shot)' },
+            { id: '1', label: 'Repeat (Loop)' },
+          ],
+          String(curMode),
+          { id: 'free-mode-pills', size: 'xs', attrName: 'data-mode' }
+        );
+
+        stageHost.innerHTML = `
+          <!-- Step 1: Free ADSR Curve -->
+          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+              <div>
+                <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">1. SHAPER ${activeShaper} FREE ADSR CURVE ([${pA}..${pVel}])</div>
+                <div style="font-size: 11px; color: var(--color-text-muted);">Assignable auxiliary envelope controlled when SHAPER ${activeShaper} is in FREE mode.</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="hud-label" style="font-size: 9px;">CYCLE:</span>
+                ${modeHtml}
+              </div>
+            </div>
+
+            <div id="free-adsr-curve-mount"></div>
+
+            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-2); justify-items: center; padding: var(--space-2) 0;">
+              ${renderKnobCell('free-a-m', 'free-a-v', vA, 'ATTACK')}
+              ${renderKnobCell('free-d-m', 'free-d-v', vD, 'DECAY')}
+              ${renderKnobCell('free-s-m', 'free-s-v', vS, 'SUSTAIN')}
+              ${renderKnobCell('free-r-m', 'free-r-v', vR, 'RELEASE')}
+              ${renderKnobCell('free-dep-m', 'free-dep-v', g(pDepth, 64), `MASTER DEPTH [${pDepth}]`)}
+              ${renderKnobCell('free-vel-m', 'free-vel-v', g(pVel, 0), `VELOCITY [${pVel}]`)}
+            </div>
+          </div>
+
+          <!-- Step 2: Primary Target Assignment -->
+          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
+            <div>
+              <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">2. PRIMARY TARGET DESTINATION ([255])</div>
+              <div style="font-size: 11px; color: var(--color-text-muted);">Choose which synth section receives modulation from MASTER DEPTH [${pDepth}]:</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2);" id="free-dest-grid">
+              ${PRIMARY_FREE_DESTINATIONS.map((d) => `
+                <button type="button" class="btn ${curDest === d.id ? 'btn-primary active' : 'btn-outline'}" data-free-dest="${d.id}" style="display: flex; flex-direction: column; align-items: flex-start; padding: 8px 10px; height: auto; text-align: left; gap: 3px;">
+                  <span style="font-weight: 700; font-size: 11px;">${d.id + 1}. ${d.name}</span>
+                  <span style="font-size: 9.5px; opacity: 0.78; white-space: normal; line-height: 1.2;">${d.desc}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- Step 3: Direct Send Depths for this Shaper's Free Envelope -->
+          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
+            <div>
+              <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">3. DIRECT PITCH & BLENDER SENDS (SHAPER ${activeShaper} FREE ENV)</div>
+              <div style="font-size: 11px; color: var(--color-text-muted);">Independent bipolar modulation sends from Shaper ${activeShaper} Free ADSR to Pitch and Blender (active simultaneously with Primary Target):</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); justify-items: center; padding: var(--space-2) 0;">
+              ${renderKnobCell('free-r1p-m', 'free-r1p-v', g(pR1Pitch, 0), `R1 PITCH DEPTH [${pR1Pitch}]`)}
+              ${renderKnobCell('free-r2p-m', 'free-r2p-v', g(pR2Pitch, 0), `R2 PITCH DEPTH [${pR2Pitch}]`)}
+              ${renderKnobCell('free-bld-m', 'free-bld-v', g(pBlender, 0), `BLENDER DEPTH [${pBlender}]`)}
+            </div>
+          </div>
+        `;
+
+        const curveMount = stageHost.querySelector('#free-adsr-curve-mount') as HTMLElement | null;
+        let adsrPad: MultiStageShaperPad | null = null;
+        if (curveMount) {
+          adsrPad = new MultiStageShaperPad(curveMount, {
+            bipolar: false,
+            bare: true,
+            editable: false,
+            viewBoxHeight: 96,
+            stageLabels: ['START', 'ATTACK', 'DECAY', 'SUSTAIN', 'RELEASE'],
+            ...adsrToShaperState(vA, vD, vS, vR),
+          });
+        }
+        const syncAdsrCurve = () => adsrPad?.setValue(adsrToShaperState(vA, vD, vS, vR), false);
+
+        initKnob(stageHost, 'free-a-m', 'ATTACK', vA, 0, 127, pA, 'free-a-v', false, (v) => { vA = v; syncAdsrCurve(); }, 42);
+        initKnob(stageHost, 'free-d-m', 'DECAY', vD, 0, 127, pD, 'free-d-v', false, (v) => { vD = v; syncAdsrCurve(); }, 42);
+        initKnob(stageHost, 'free-s-m', 'SUSTAIN', vS, 0, 127, pS, 'free-s-v', false, (v) => { vS = v; syncAdsrCurve(); }, 42);
+        initKnob(stageHost, 'free-r-m', 'RELEASE', vR, 0, 127, pR, 'free-r-v', false, (v) => { vR = v; syncAdsrCurve(); }, 42);
+        initKnob(stageHost, 'free-dep-m', 'DEPTH', g(pDepth, 64), -64, 63, pDepth, 'free-dep-v', true, undefined, 42);
+        initKnob(stageHost, 'free-vel-m', 'VELOCITY', g(pVel, 0), 0, 127, pVel, 'free-vel-v', false, undefined, 42);
+
+        initKnob(stageHost, 'free-r1p-m', 'R1 PITCH', g(pR1Pitch, 0), -64, 63, pR1Pitch, 'free-r1p-v', true, undefined, 42);
+        initKnob(stageHost, 'free-r2p-m', 'R2 PITCH', g(pR2Pitch, 0), -64, 63, pR2Pitch, 'free-r2p-v', true, undefined, 42);
+        initKnob(stageHost, 'free-bld-m', 'BLENDER', g(pBlender, 0), -64, 63, pBlender, 'free-bld-v', true, undefined, 42);
+
+        const modeEl = stageHost.querySelector('#free-mode-pills') as HTMLElement | null;
+        if (modeEl) {
+          bindPillSelector(modeEl, (id, btn) => {
+            modeEl.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            WebBridge.setParam(pMode, parseInt(id || '0', 10));
+          }, 'data-mode');
+        }
+
+        stageHost.querySelectorAll('button[data-free-dest]').forEach((btnEl) => {
+          const btn = btnEl as HTMLButtonElement;
+          btn.addEventListener('click', () => {
+            const destId = parseInt(btn.getAttribute('data-free-dest') || '0', 10);
+            WebBridge.setParam(ParamIdx.CurFreeEnvDest, destId);
+            stageHost.querySelectorAll('button[data-free-dest]').forEach((b) => {
+              const active = b === btn;
+              b.classList.toggle('btn-primary', active);
+              b.classList.toggle('active', active);
+              b.classList.toggle('btn-outline', !active);
+            });
+          });
+        });
+        return;
+      }
+
+      // ─────────────────────────────────────────────────────────
+      // TAB 4: 4L/4T Master Multi-Segment Envelope ([242..252])
+      // ─────────────────────────────────────────────────────────
+      let l1 = g(ParamIdx.FreeEnvLevel1, 63);
+      let t1 = g(ParamIdx.FreeEnvTime1, 20);
+      let l2 = g(ParamIdx.FreeEnvLevel2, 30);
+      let t2 = g(ParamIdx.FreeEnvTime2, 40);
+      let l3 = g(ParamIdx.FreeEnvLevel3, 10);
+      let t3 = g(ParamIdx.FreeEnvTime3, 60);
+      let l4 = g(ParamIdx.FreeEnvLevel4, 0);
+      let t4 = g(ParamIdx.FreeEnvTime4, 80);
+
+      const curType = g(ParamIdx.FreeEnvType, 0);
+      const curMode = g(ParamIdx.FreeEnvMode, 0);
+
+      const typeHtml = pillSelectorHtml(
+        [
+          { id: '0', label: '2× Free ADSR' },
+          { id: '1', label: 'Combined 4L/4T' },
+        ],
+        String(curType),
+        { id: 'env4l4t-type-pills', size: 'xs', attrName: 'data-type' }
+      );
+
+      const modeHtml = pillSelectorHtml(
+        [
+          { id: '0', label: 'Normal' },
+          { id: '1', label: 'Repeat' },
+        ],
+        String(curMode),
+        { id: 'env4l4t-mode-pills', size: 'xs', attrName: 'data-mode' }
+      );
+
+      stageHost.innerHTML = `
+        <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+            <div>
+              <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">4-LEVEL / 4-TIME (4L/4T) BIPOLAR ENVELOPE</div>
+              <div style="font-size: 11px; color: var(--color-text-muted);">Multi-segment bipolar contour ([242..252]) controlled from the ENV MST panel. Drag nodes or turn knobs.</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-2);">
+              ${typeHtml}
+              ${modeHtml}
+            </div>
+          </div>
+
+          <div id="env-4l4t-pad-mount"></div>
+
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); background: rgba(0,0,0,0.18); padding: var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--color-panel-border-dim);">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid var(--color-panel-border-dim);">
+              <span class="hud-label" style="color: var(--color-accent); font-weight: 700;">STAGE 1</span>
+              <div style="display: flex; gap: var(--space-2);">
+                ${renderKnobCell('m-l1', 'v-l1', l1, 'LEVEL 1')}
+                ${renderKnobCell('m-t1', 'v-t1', t1, 'TIME 1')}
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid var(--color-panel-border-dim);">
+              <span class="hud-label" style="color: var(--color-accent); font-weight: 700;">STAGE 2</span>
+              <div style="display: flex; gap: var(--space-2);">
+                ${renderKnobCell('m-l2', 'v-l2', l2, 'LEVEL 2')}
+                ${renderKnobCell('m-t2', 'v-t2', t2, 'TIME 2')}
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; border-right: 1px solid var(--color-panel-border-dim);">
+              <span class="hud-label" style="color: var(--color-accent); font-weight: 700;">STAGE 3</span>
+              <div style="display: flex; gap: var(--space-2);">
+                ${renderKnobCell('m-l3', 'v-l3', l3, 'LEVEL 3')}
+                ${renderKnobCell('m-t3', 'v-t3', t3, 'TIME 3')}
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+              <span class="hud-label" style="color: var(--color-accent); font-weight: 700;">STAGE 4 (REL)</span>
+              <div style="display: flex; gap: var(--space-2);">
+                ${renderKnobCell('m-l4', 'v-l4', l4, 'LEVEL 4')}
+                ${renderKnobCell('m-t4', 'v-t4', t4, 'TIME 4')}
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-2); justify-items: center; padding-top: var(--space-2); border-top: 1px solid var(--color-panel-border-dim);">
+            ${renderKnobCell('m-4l-dep', 'v-4l-dep', g(ParamIdx.FreeEnvDepth, 127), 'MASTER DEPTH [251]')}
+            ${renderKnobCell('m-4l-vel', 'v-4l-vel', g(ParamIdx.FreeEnvVelocity, 0), 'VELOCITY [252]')}
+            ${renderKnobCell('m-4l-r1p', 'v-4l-r1p', g(ParamIdx.R1PitchFreeEnvDepth, 0), 'R1 PITCH [40]')}
+            ${renderKnobCell('m-4l-r2p', 'v-4l-r2p', g(ParamIdx.R2PitchFreeEnvDepth, 0), 'R2 PITCH [120]')}
+            ${renderKnobCell('m-4l-bld', 'v-4l-bld', g(ParamIdx.BlenderFreeEnvDepth, 0), 'BLENDER [266]')}
+          </div>
+        </div>
+      `;
+
+      let shaperPad: MultiStageShaperPad | null = null;
+      const syncPadFromKnobs = () => {
+        shaperPad?.setValue({
+          times: [t1 / 127, t2 / 127, t3 / 127, t4 / 127],
+          levels: [l1 / 64, l2 / 64, l3 / 64, l4 / 64],
+        }, false);
+      };
+
+      const kL1 = initKnob(stageHost, 'm-l1', 'LEVEL 1', l1, -64, 63, ParamIdx.FreeEnvLevel1, 'v-l1', true, (v) => { l1 = v; syncPadFromKnobs(); }, 38);
+      const kT1 = initKnob(stageHost, 'm-t1', 'TIME 1', t1, 0, 127, ParamIdx.FreeEnvTime1, 'v-t1', false, (v) => { t1 = v; syncPadFromKnobs(); }, 38);
+      const kL2 = initKnob(stageHost, 'm-l2', 'LEVEL 2', l2, -64, 63, ParamIdx.FreeEnvLevel2, 'v-l2', true, (v) => { l2 = v; syncPadFromKnobs(); }, 38);
+      const kT2 = initKnob(stageHost, 'm-t2', 'TIME 2', t2, 0, 127, ParamIdx.FreeEnvTime2, 'v-t2', false, (v) => { t2 = v; syncPadFromKnobs(); }, 38);
+      const kL3 = initKnob(stageHost, 'm-l3', 'LEVEL 3', l3, -64, 63, ParamIdx.FreeEnvLevel3, 'v-l3', true, (v) => { l3 = v; syncPadFromKnobs(); }, 38);
+      const kT3 = initKnob(stageHost, 'm-t3', 'TIME 3', t3, 0, 127, ParamIdx.FreeEnvTime3, 'v-t3', false, (v) => { t3 = v; syncPadFromKnobs(); }, 38);
+      const kL4 = initKnob(stageHost, 'm-l4', 'LEVEL 4', l4, -64, 63, ParamIdx.FreeEnvLevel4, 'v-l4', true, (v) => { l4 = v; syncPadFromKnobs(); }, 38);
+      const kT4 = initKnob(stageHost, 'm-t4', 'TIME 4', t4, 0, 127, ParamIdx.FreeEnvTime4, 'v-t4', false, (v) => { t4 = v; syncPadFromKnobs(); }, 38);
+
+      const padMount = stageHost.querySelector('#env-4l4t-pad-mount') as HTMLElement | null;
+      if (padMount) {
+        shaperPad = new MultiStageShaperPad(padMount, {
+          bipolar: true,
+          bare: true,
+          editable: true,
+          viewBoxHeight: 130,
+          times: [t1 / 127, t2 / 127, t3 / 127, t4 / 127],
+          levels: [l1 / 64, l2 / 64, l3 / 64, l4 / 64],
+          mode: curMode + 1,
+          onChange: (st) => {
+            const nextT = st.times.map((t) => Math.round(Math.max(0, Math.min(1, t)) * 127));
+            const nextL = st.levels.map((l) => Math.round(Math.max(-64, Math.min(63, l * 63))));
+            [t1, t2, t3, t4] = nextT;
+            [l1, l2, l3, l4] = nextL;
+
+            WebBridge.setParam(ParamIdx.FreeEnvTime1, t1);
+            WebBridge.setParam(ParamIdx.FreeEnvTime2, t2);
+            WebBridge.setParam(ParamIdx.FreeEnvTime3, t3);
+            WebBridge.setParam(ParamIdx.FreeEnvTime4, t4);
+            WebBridge.setParam(ParamIdx.FreeEnvLevel1, l1);
+            WebBridge.setParam(ParamIdx.FreeEnvLevel2, l2);
+            WebBridge.setParam(ParamIdx.FreeEnvLevel3, l3);
+            WebBridge.setParam(ParamIdx.FreeEnvLevel4, l4);
+
+            kT1?.setValue(t1 / 127);
+            kT2?.setValue(t2 / 127);
+            kT3?.setValue(t3 / 127);
+            kT4?.setValue(t4 / 127);
+            kL1?.setValue((l1 + 64) / 127);
+            kL2?.setValue((l2 + 64) / 127);
+            kL3?.setValue((l3 + 64) / 127);
+            kL4?.setValue((l4 + 64) / 127);
+
+            const setTxt = (id: string, val: number, bip = false) => {
+              const el = stageHost.querySelector(`#${id}`);
+              if (el) el.textContent = bip && val > 0 ? `+${val}` : String(val);
+            };
+            setTxt('v-t1', t1); setTxt('v-t2', t2); setTxt('v-t3', t3); setTxt('v-t4', t4);
+            setTxt('v-l1', l1, true); setTxt('v-l2', l2, true); setTxt('v-l3', l3, true); setTxt('v-l4', l4, true);
+          },
+        });
+      }
+
+      initKnob(stageHost, 'm-4l-dep', 'DEPTH', g(ParamIdx.FreeEnvDepth, 127), -64, 63, ParamIdx.FreeEnvDepth, 'v-4l-dep', true, undefined, 40);
+      initKnob(stageHost, 'm-4l-vel', 'VELOCITY', g(ParamIdx.FreeEnvVelocity, 0), 0, 127, ParamIdx.FreeEnvVelocity, 'v-4l-vel', false, undefined, 40);
+      initKnob(stageHost, 'm-4l-r1p', 'R1 PITCH', g(ParamIdx.R1PitchFreeEnvDepth, 0), -64, 63, ParamIdx.R1PitchFreeEnvDepth, 'v-4l-r1p', true, undefined, 40);
+      initKnob(stageHost, 'm-4l-r2p', 'R2 PITCH', g(ParamIdx.R2PitchFreeEnvDepth, 0), -64, 63, ParamIdx.R2PitchFreeEnvDepth, 'v-4l-r2p', true, undefined, 40);
+      initKnob(stageHost, 'm-4l-bld', 'BLENDER', g(ParamIdx.BlenderFreeEnvDepth, 0), -64, 63, ParamIdx.BlenderFreeEnvDepth, 'v-4l-bld', true, undefined, 40);
+
+      const typeEl = stageHost.querySelector('#env4l4t-type-pills') as HTMLElement | null;
+      if (typeEl) {
+        bindPillSelector(typeEl, (id, btn) => {
+          typeEl.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          WebBridge.setParam(ParamIdx.FreeEnvType, parseInt(id || '0', 10));
+        }, 'data-type');
+      }
+
+      const modeEl = stageHost.querySelector('#env4l4t-mode-pills') as HTMLElement | null;
+      if (modeEl) {
+        bindPillSelector(modeEl, (id, btn) => {
+          modeEl.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          WebBridge.setParam(ParamIdx.FreeEnvMode, parseInt(id || '0', 10));
+        }, 'data-mode');
+      }
+    };
+
+    // Bind Header Shaper Switcher (R1 / R2)
+    const shaperPills = root.querySelector('#env-drawer-shaper-pills') as HTMLElement | null;
+    if (shaperPills) {
+      bindPillSelector(shaperPills, (shaperStr, btn) => {
+        shaperPills.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
-      });
-    });
+        activeShaper = parseInt(shaperStr || '1', 10) === 2 ? 2 : 1;
+        renderFocusedView();
+      }, 'data-shaper');
+    }
+
+    // Bind Tab Switcher (AMP / RES / FREE / 4L4T)
+    const tabPills = root.querySelector('#env-drawer-tab-pills') as HTMLElement | null;
+    if (tabPills) {
+      bindPillSelector(tabPills, (tabId, btn) => {
+        tabPills.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeTab = (tabId as EnvelopeDrawerTab) || 'amp';
+        renderFocusedView();
+      }, 'data-tab');
+    }
+
+    root.querySelector('#btn-close-env-drawer')?.addEventListener('click', () => options.onClose());
+
+    renderFocusedView();
 
     return root;
   }

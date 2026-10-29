@@ -48,30 +48,26 @@ export class EnvelopeMasterPanel {
     this.rootEl = document.createElement('section');
     this.rootEl.className = 'synth-panel-card env-master-card';
     this.rootEl.innerHTML = `
-      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08));">
-        <div style="display: flex; align-items: center; gap: var(--space-2);">
-          <span class="stick-label">ENV MASTER</span>
-          <span class="hud-pill" style="font-size: 8px; opacity: 0.7;">SHAPER</span>
-        </div>
-        <div class="panel-actions" style="display: flex; align-items: center; gap: 4px;">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08)); gap: 2px;">
+        <span class="stick-label" title="Envelope Master (4L/4T Shaper)">ENV MST</span>
+        <div class="panel-actions" style="display: flex; align-items: center; gap: 2px;">
           <button type="button" class="btn btn-xs btn-outline" id="btn-edit-env-panel" title="Open Envelopes & Shapers Drawer">Edit</button>
-          <button type="button" class="btn btn-xs btn-outline btn-collapse-row" data-row="row-bottom" title="Colapsar / Descolapsar fila">▾</button>
         </div>
       </div>
 
       <div class="panel-body env-master-body" data-collapse-body>
         <!-- Master Depth Knob (0..127) -->
-        <div class="env-knob-wrapper">
-          <div id="env-depth-knob-mount"></div>
-          <span class="env-knob-num stat-num" id="env-depth-val">${initDepth}</span>
-          <span class="env-knob-title">DEPTH</span>
+        <div class="synth-knob-cell">
+          <div id="env-depth-knob-mount" data-param-index="${ParamIdx.TLFreeEnvDepth}"></div>
+          <span class="synth-knob-num stat-num" id="env-depth-val">${initDepth}</span>
+          <span class="synth-knob-title">DEPTH</span>
         </div>
 
         <!-- Velocity Sensitivity Knob (-64..+63) -->
-        <div class="env-knob-wrapper">
-          <div id="env-velo-knob-mount"></div>
-          <span class="env-knob-num stat-num" id="env-velo-val">${initVelo > 0 ? '+' + initVelo : initVelo}</span>
-          <span class="env-knob-title">VELO</span>
+        <div class="synth-knob-cell">
+          <div id="env-velo-knob-mount" data-param-index="${ParamIdx.Free4Level4TimeVelocityDepth}"></div>
+          <span class="synth-knob-num stat-num" id="env-velo-val">${initVelo > 0 ? '+' + initVelo : initVelo}</span>
+          <span class="synth-knob-title">VELO</span>
         </div>
       </div>
     `;
@@ -81,11 +77,11 @@ export class EnvelopeMasterPanel {
     this.depthValEl = this.rootEl.querySelector('#env-depth-val');
     this.veloValEl = this.rootEl.querySelector('#env-velo-val');
 
-    // Mount Knobs (Size 42px matching FilterPanel for perfect visual symmetry)
+    // Mount Knobs (Size 38px matching FilterPanel for visual symmetry in 1/12 column)
     const depthMount = this.rootEl.querySelector('#env-depth-knob-mount') as HTMLElement | null;
     if (depthMount) {
       this.depthKnob = new Knob(depthMount, {
-        size: 42,
+        size: 38,
         value: initDepth / 127.0,
         label: 'DEPTH',
         onChange: (normVal: number) => {
@@ -101,7 +97,7 @@ export class EnvelopeMasterPanel {
       // Bipolar (-64..+63) mapped to 0..1
       const normVelo = (initVelo + 64) / 127.0;
       this.veloKnob = new Knob(veloMount, {
-        size: 42,
+        size: 38,
         value: Math.max(0, Math.min(1, normVelo)),
         label: 'VELO',
         onChange: (normVal: number) => {

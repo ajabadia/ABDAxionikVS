@@ -26,6 +26,7 @@
 import { Wheel } from '@abdsynths/shared/components/wheel.js';
 import { LedLadder } from '@abdsynths/shared/components/ledLadder.js';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
+import { CONTROL_ICONS } from '@abdsynths/shared/components/icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 
@@ -33,7 +34,12 @@ export interface ShapersPanelOptions {
   onEditR1?: () => void;
   onEditR2?: () => void;
   onEditSilver?: () => void;
+  onEditFreeEnv?: () => void;
+  onEditShaper?: (shaper: 1 | 2, mode: 'amp' | 'res' | 'free') => void;
+  onEditShaper3?: (mode: 'filter' | 'efx') => void;
 }
+
+const FREE_DEST_NAMES = ['R1 Scape', 'R1 Sphere', 'R2 Scape', 'R2 Sphere', 'Blender', 'Filter'];
 
 interface WheelSlot {
   wheel: Wheel;
@@ -91,17 +97,17 @@ export class ShapersPanel {
     // Mode toggles (Norm / Repeat)
     const s1EnvModeHtml = pillSelectorHtml([
       { id: '0', label: 'NORM', title: 'Single trigger envelope' },
-      { id: '1', label: 'REP', title: 'Repeating envelope cycle' },
+      { id: '1', label: 'REP', iconHtml: CONTROL_ICONS.loop, title: 'Repeating envelope cycle (Loop)' },
     ], '0', { id: 's1-env-mode-pills', size: 'xs', dense: true });
 
     const s2EnvModeHtml = pillSelectorHtml([
       { id: '0', label: 'NORM', title: 'Single trigger envelope' },
-      { id: '1', label: 'REP', title: 'Repeating envelope cycle' },
+      { id: '1', label: 'REP', iconHtml: CONTROL_ICONS.loop, title: 'Repeating envelope cycle (Loop)' },
     ], '0', { id: 's2-env-mode-pills', size: 'xs', dense: true });
 
     const s3EnvModeHtml = pillSelectorHtml([
       { id: '0', label: 'NORM', title: 'Single trigger envelope' },
-      { id: '1', label: 'REP', title: 'Repeating envelope cycle' },
+      { id: '1', label: 'REP', iconHtml: CONTROL_ICONS.loop, title: 'Repeating envelope cycle (Loop)' },
     ], '0', { id: 's3-env-mode-pills', size: 'xs', dense: true });
 
     this.rootEl.innerHTML = `
@@ -203,10 +209,58 @@ export class ShapersPanel {
     // Enlazar selectores de píldoras
     this.bindPillSelectors();
 
-    // Botones Edit Drawer
-    this.rootEl.querySelector('#btn-edit-shaper1')?.addEventListener('click', () => this.options.onEditR1?.());
-    this.rootEl.querySelector('#btn-edit-shaper2')?.addEventListener('click', () => this.options.onEditR2?.());
-    this.rootEl.querySelector('#btn-edit-shaper3')?.addEventListener('click', () => this.options.onEditSilver?.());
+    // Botones Edit Drawer: abre directamente la pestaña activa (AMP, RES o FREE) del Shaper pulsado (1 o 2)
+    this.rootEl.querySelector('#btn-edit-shaper1')?.addEventListener('click', () => {
+      if (this.options.onEditShaper) {
+        this.options.onEditShaper(1, this.s1Mode);
+      } else if (this.s1Mode === 'free' && this.options.onEditFreeEnv) {
+        this.options.onEditFreeEnv();
+      } else {
+        this.options.onEditR1?.();
+      }
+    });
+    this.rootEl.querySelector('#btn-edit-shaper2')?.addEventListener('click', () => {
+      if (this.options.onEditShaper) {
+        this.options.onEditShaper(2, this.s2Mode);
+      } else if (this.s2Mode === 'free' && this.options.onEditFreeEnv) {
+        this.options.onEditFreeEnv();
+      } else {
+        this.options.onEditR2?.();
+      }
+    });
+    this.rootEl.querySelector('#btn-edit-shaper3')?.addEventListener('click', () => {
+      if (this.options.onEditShaper3) {
+        this.options.onEditShaper3(this.s3Mode);
+      } else {
+        this.options.onEditSilver?.();
+      }
+    });
+
+    this.rootEl.querySelector('#s1-target-badge')?.addEventListener('click', () => {
+      if (this.options.onEditShaper) {
+        this.options.onEditShaper(1, this.s1Mode);
+      } else if (this.s1Mode === 'free' && this.options.onEditFreeEnv) {
+        this.options.onEditFreeEnv();
+      } else {
+        this.options.onEditR1?.();
+      }
+    });
+    this.rootEl.querySelector('#s2-target-badge')?.addEventListener('click', () => {
+      if (this.options.onEditShaper) {
+        this.options.onEditShaper(2, this.s2Mode);
+      } else if (this.s2Mode === 'free' && this.options.onEditFreeEnv) {
+        this.options.onEditFreeEnv();
+      } else {
+        this.options.onEditR2?.();
+      }
+    });
+    this.rootEl.querySelector('#s3-target-badge')?.addEventListener('click', () => {
+      if (this.options.onEditShaper3) {
+        this.options.onEditShaper3(this.s3Mode);
+      } else {
+        this.options.onEditSilver?.();
+      }
+    });
 
     // Sincronizar todos los valores iniciales
     this.syncAll();
@@ -355,24 +409,20 @@ export class ShapersPanel {
   private bindPillSelectors(): void {
     if (!this.rootEl) return;
 
-    // Shaper 1 Mode
+    // Shaper 1 Mode (independiente de Shaper 2)
     const s1ModeEl = this.rootEl.querySelector<HTMLElement>('#s1-mode-pills');
     if (s1ModeEl) {
       bindPillSelector(s1ModeEl, (id) => {
         this.s1Mode = id as 'amp' | 'res' | 'free';
-        const statusIdx = this.s1Mode === 'res' ? 0 : (this.s1Mode === 'amp' ? 1 : 2);
-        WebBridge.setParam(ParamIdx.Shaper12Status, statusIdx);
         this.updateS1LabelsAndSync();
       });
     }
 
-    // Shaper 2 Mode
+    // Shaper 2 Mode (independiente de Shaper 1)
     const s2ModeEl = this.rootEl.querySelector<HTMLElement>('#s2-mode-pills');
     if (s2ModeEl) {
       bindPillSelector(s2ModeEl, (id) => {
         this.s2Mode = id as 'amp' | 'res' | 'free';
-        const statusIdx = this.s2Mode === 'res' ? 0 : (this.s2Mode === 'amp' ? 1 : 2);
-        WebBridge.setParam(ParamIdx.Shaper12Status, statusIdx);
         this.updateS2LabelsAndSync();
       });
     }
@@ -392,8 +442,8 @@ export class ShapersPanel {
     if (s1EnvModeEl) {
       bindPillSelector(s1EnvModeEl, (id) => {
         const modeVal = Number(id);
-        const targetParam = this.s1Mode === 'res' ? ParamIdx.R1ResEnvMode : ParamIdx.R1AmpEnvMode;
-        WebBridge.setParam(targetParam, modeVal);
+        WebBridge.setParam(this.getActiveEnvModeParamForS1(), modeVal);
+        this.updateS1LabelsAndSync();
       });
     }
 
@@ -402,8 +452,8 @@ export class ShapersPanel {
     if (s2EnvModeEl) {
       bindPillSelector(s2EnvModeEl, (id) => {
         const modeVal = Number(id);
-        const targetParam = this.s2Mode === 'res' ? ParamIdx.R2ResEnvMode : ParamIdx.R2AmpEnvMode;
-        WebBridge.setParam(targetParam, modeVal);
+        WebBridge.setParam(this.getActiveEnvModeParamForS2(), modeVal);
+        this.updateS2LabelsAndSync();
       });
     }
 
@@ -412,8 +462,21 @@ export class ShapersPanel {
     if (s3EnvModeEl) {
       bindPillSelector(s3EnvModeEl, (id) => {
         WebBridge.setParam(ParamIdx.FilterEnvMode, Number(id));
+        this.updateS3LabelsAndSync();
       });
     }
+  }
+
+  private getActiveEnvModeParamForS1(): number {
+    if (this.s1Mode === 'res') return ParamIdx.R1ResEnvMode;
+    if (this.s1Mode === 'free') return ParamIdx.R1FreeEnvMode;
+    return ParamIdx.R1AmpEnvMode;
+  }
+
+  private getActiveEnvModeParamForS2(): number {
+    if (this.s2Mode === 'res') return ParamIdx.R2ResEnvMode;
+    if (this.s2Mode === 'free') return ParamIdx.R2FreeEnvMode;
+    return ParamIdx.R2AmpEnvMode;
   }
 
   private getActiveParamForS1(slotIdx: number): number {
@@ -467,17 +530,13 @@ export class ShapersPanel {
     const targetBadge = this.rootEl?.querySelector('#s1-target-badge');
     const subLabels = this.s1Mode === 'amp' ? ['Amp', 'Amp', 'Amp', 'Amp']
                     : (this.s1Mode === 'res' ? ['Res', 'Res', 'Res', 'Res'] : ['Free', 'Free', 'Free', 'Free']);
-    
-    if (targetBadge) {
-      targetBadge.textContent = this.s1Mode === 'amp' ? 'R1 Amp Env'
-                              : (this.s1Mode === 'res' ? 'R1 ResEnv Contour' : 'Free ADSR 1 Matrix');
-    }
 
     for (let i = 0; i < 4; i++) {
       const slot = this.s1Slots[i];
       if (!slot) continue;
       slot.subPillEl.textContent = subLabels[i];
       const paramId = this.getActiveParamForS1(i);
+      slot.wheel.container?.setAttribute('data-param-index', String(paramId));
       const val = WebBridge.getParam(paramId, i === 2 ? 127 : 0);
       const norm = Math.max(0, Math.min(1, val / 127.0));
       slot.wheel.setValue(val, false);
@@ -486,14 +545,27 @@ export class ShapersPanel {
     }
 
     // Sincronizar píldoras de Env Mode (Norm / Rep)
-    const envModeParam = this.s1Mode === 'res' ? ParamIdx.R1ResEnvMode : ParamIdx.R1AmpEnvMode;
-    const envVal = String(Math.round(WebBridge.getParam(envModeParam, 0)));
+    const envModeParam = this.getActiveEnvModeParamForS1();
+    const isRep = Math.round(WebBridge.getParam(envModeParam, 0)) === 1;
+    const envVal = isRep ? '1' : '0';
     const envPills = this.rootEl?.querySelectorAll<HTMLButtonElement>('#s1-env-mode-pills [data-pill]');
     envPills?.forEach((btn) => {
       const isActive = btn.getAttribute('data-pill') === envVal;
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
+
+    if (targetBadge) {
+      const destIdx = Math.max(0, Math.min(5, Math.round(WebBridge.getParam(ParamIdx.ShaperResySelect, 1))));
+      const destName = FREE_DEST_NAMES[destIdx] || 'R1 Sphere';
+      const baseLabel = this.s1Mode === 'amp' ? 'R1 Amp Env'
+                      : (this.s1Mode === 'res' ? 'R1 ResEnv Contour' : `Free ADSR 1 → ${destName}`);
+      targetBadge.textContent = `${baseLabel} · ${isRep ? 'REP' : 'NORM'}`;
+      (targetBadge as HTMLElement).style.cursor = 'pointer';
+      (targetBadge as HTMLElement).title = this.s1Mode === 'free'
+        ? 'Click to assign Free ADSR 1 destination (R1/R2 Scape, Sphere, Pitch, Blender, Filter)'
+        : 'Click to open Resynator 1 Envelope Editor';
+    }
   }
 
   private updateS2LabelsAndSync(): void {
@@ -508,17 +580,13 @@ export class ShapersPanel {
     const targetBadge = this.rootEl?.querySelector('#s2-target-badge');
     const subLabels = this.s2Mode === 'amp' ? ['Amp', 'Amp', 'Amp', 'Amp']
                     : (this.s2Mode === 'res' ? ['Res', 'Res', 'Res', 'Res'] : ['Free', 'Free', 'Free', 'Free']);
-    
-    if (targetBadge) {
-      targetBadge.textContent = this.s2Mode === 'amp' ? 'R2 Amp Env'
-                              : (this.s2Mode === 'res' ? 'R2 ResEnv Contour' : 'Free ADSR 2 Matrix');
-    }
 
     for (let i = 0; i < 4; i++) {
       const slot = this.s2Slots[i];
       if (!slot) continue;
       slot.subPillEl.textContent = subLabels[i];
       const paramId = this.getActiveParamForS2(i);
+      slot.wheel.container?.setAttribute('data-param-index', String(paramId));
       const val = WebBridge.getParam(paramId, i === 2 ? 127 : 0);
       const norm = Math.max(0, Math.min(1, val / 127.0));
       slot.wheel.setValue(val, false);
@@ -527,14 +595,27 @@ export class ShapersPanel {
     }
 
     // Sincronizar píldoras de Env Mode (Norm / Rep)
-    const envModeParam = this.s2Mode === 'res' ? ParamIdx.R2ResEnvMode : ParamIdx.R2AmpEnvMode;
-    const envVal = String(Math.round(WebBridge.getParam(envModeParam, 0)));
+    const envModeParam = this.getActiveEnvModeParamForS2();
+    const isRep = Math.round(WebBridge.getParam(envModeParam, 0)) === 1;
+    const envVal = isRep ? '1' : '0';
     const envPills = this.rootEl?.querySelectorAll<HTMLButtonElement>('#s2-env-mode-pills [data-pill]');
     envPills?.forEach((btn) => {
       const isActive = btn.getAttribute('data-pill') === envVal;
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
+
+    if (targetBadge) {
+      const destIdx = Math.max(0, Math.min(5, Math.round(WebBridge.getParam(ParamIdx.ShaperResySelect, 1))));
+      const destName = FREE_DEST_NAMES[destIdx] || 'R1 Sphere';
+      const baseLabel = this.s2Mode === 'amp' ? 'R2 Amp Env'
+                      : (this.s2Mode === 'res' ? 'R2 ResEnv Contour' : `Free ADSR 2 → ${destName}`);
+      targetBadge.textContent = `${baseLabel} · ${isRep ? 'REP' : 'NORM'}`;
+      (targetBadge as HTMLElement).style.cursor = 'pointer';
+      (targetBadge as HTMLElement).title = this.s2Mode === 'free'
+        ? 'Click to assign Free ADSR 2 destination (R1/R2 Scape, Sphere, Pitch, Blender, Filter)'
+        : 'Click to open Resynator 2 Envelope Editor';
+    }
   }
 
   private updateS3LabelsAndSync(): void {
@@ -548,9 +629,12 @@ export class ShapersPanel {
 
     const targetBadge = this.rootEl?.querySelector('#s3-target-badge');
     const isFilter = this.s3Mode === 'filter';
+    const isRep = Math.round(WebBridge.getParam(ParamIdx.FilterEnvMode, 0)) === 1;
     
     if (targetBadge) {
-      targetBadge.textContent = isFilter ? 'Filter Cutoff Env' : 'Master Delay & Reverb';
+      targetBadge.textContent = isFilter
+        ? `Filter Cutoff Env · ${isRep ? 'REP' : 'NORM'}`
+        : 'Master Delay & Reverb';
     }
 
     for (let i = 0; i < 4; i++) {
@@ -562,6 +646,7 @@ export class ShapersPanel {
       slot.subPillEl.classList.toggle('active-mode', !isFilter);
 
       const paramId = this.getActiveParamForS3(i);
+      slot.wheel.container?.setAttribute('data-param-index', String(paramId));
       const defaultVal = isFilter ? (i === 2 ? 127 : 0) : (i < 2 ? 20 : 50);
       const maxVal = !isFilter && (i === 0 || i === 1 || i === 2) ? 100 : 127;
       const val = WebBridge.getParam(paramId, defaultVal);
@@ -573,7 +658,12 @@ export class ShapersPanel {
     }
 
     // Sincronizar píldoras de Env Mode (Norm / Rep)
-    const envVal = String(Math.round(WebBridge.getParam(ParamIdx.FilterEnvMode, 0)));
+    const envVal = isRep ? '1' : '0';
+    const s3EnvModeWrap = this.rootEl?.querySelector<HTMLElement>('#s3-env-mode-pills');
+    if (s3EnvModeWrap) {
+      s3EnvModeWrap.style.opacity = isFilter ? '1' : '0.4';
+      s3EnvModeWrap.style.pointerEvents = isFilter ? 'auto' : 'none';
+    }
     const envPills = this.rootEl?.querySelectorAll<HTMLButtonElement>('#s3-env-mode-pills [data-pill]');
     envPills?.forEach((btn) => {
       const isActive = btn.getAttribute('data-pill') === envVal;
@@ -598,6 +688,22 @@ export class ShapersPanel {
   }
 
   /**
+   * Selecciona directamente la envolvente activa de un Shaper (al pulsar una de las 7 C_DisplayButton en TopLcdBar).
+   */
+  public selectEnvelopeTarget(shaper: 1 | 2 | 3, mode: 'amp' | 'res' | 'free' | 'filter'): void {
+    if (shaper === 1 && (mode === 'amp' || mode === 'res' || mode === 'free')) {
+      this.s1Mode = mode;
+      this.updateS1LabelsAndSync();
+    } else if (shaper === 2 && (mode === 'amp' || mode === 'res' || mode === 'free')) {
+      this.s2Mode = mode;
+      this.updateS2LabelsAndSync();
+    } else if (shaper === 3) {
+      this.s3Mode = 'filter';
+      this.updateS3LabelsAndSync();
+    }
+  }
+
+  /**
    * Actualiza en tiempo real cualquier parámetro afectado si coincide con alguno de los activos.
    */
   public updateParam(idx: number, val: number): void {
@@ -609,16 +715,21 @@ export class ShapersPanel {
       this.updateS2LabelsAndSync();
       return;
     }
+    if (idx === ParamIdx.ShaperResySelect) {
+      this.updateS1LabelsAndSync();
+      this.updateS2LabelsAndSync();
+      return;
+    }
     if (idx === ParamIdx.Shaper3Status) {
       this.s3Mode = val === 0 ? 'efx' : 'filter';
       this.updateS3LabelsAndSync();
       return;
     }
-    if (idx === ParamIdx.R1AmpEnvMode || idx === ParamIdx.R1ResEnvMode) {
+    if (idx === ParamIdx.R1AmpEnvMode || idx === ParamIdx.R1ResEnvMode || idx === ParamIdx.R1FreeEnvMode) {
       this.updateS1LabelsAndSync();
       return;
     }
-    if (idx === ParamIdx.R2AmpEnvMode || idx === ParamIdx.R2ResEnvMode) {
+    if (idx === ParamIdx.R2AmpEnvMode || idx === ParamIdx.R2ResEnvMode || idx === ParamIdx.R2FreeEnvMode) {
       this.updateS2LabelsAndSync();
       return;
     }

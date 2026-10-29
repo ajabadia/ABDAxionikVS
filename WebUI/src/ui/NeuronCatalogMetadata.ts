@@ -46,6 +46,7 @@ export function createCanonicalBank(): {
     name: string;
     category: string;
     modelIndex: number;
+    r2ModelIndex: number;
     parameterCount: number;
   }>;
 } {
@@ -60,13 +61,14 @@ export function createCanonicalBank(): {
   }> = [];
 
   for (let slot = 0; slot <= 511; slot++) {
-    if (MODEL_NAMES[slot] !== undefined) {
+    const modelName = MODEL_NAMES[slot];
+    if (modelName !== undefined && modelName !== '--<empty>--') {
       const meta = MODEL_METADATA[slot];
       const pSet = meta ? meta[0] : (slot % 10);
       const comp = meta ? meta[1] : 5;
       models.push({
         slot,
-        name: MODEL_NAMES[slot],
+        name: modelName,
         folderName: `${String(slot).padStart(3, '0')}.model`,
         zoneCount: 1,
         parameterSet: pSet,
@@ -81,6 +83,7 @@ export function createCanonicalBank(): {
     name: string;
     category: string;
     modelIndex: number;
+    r2ModelIndex: number;
     parameterCount: number;
   }> = [];
 
@@ -89,11 +92,13 @@ export function createCanonicalBank(): {
     const meta = PRESET_METADATA[slot];
     const cat = meta ? meta[1] : 'General';
     const mIdx = meta ? meta[0] : slot;
+    const r2Idx = PRESET_R2_MODELS[slot] ?? 511;
     presets.push({
       slot,
       name: PRESET_NAMES[slot],
       category: cat,
       modelIndex: mIdx,
+      r2ModelIndex: r2Idx,
       parameterCount: 445
     });
   }

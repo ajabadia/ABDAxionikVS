@@ -20,6 +20,10 @@ namespace abd::axionik {
 /// Número de fuentes de modulación en tiempo real (CC 1, 2, 3, 4, 11 y presión)
 inline constexpr size_t kNumModSources = 6;
 
+/// Número de grupos de Free Controllers (Aftertouch, Ctrl 1 Up, Ctrl 1 Down, Ctrl 2, Ctrl 3, Ctrl 4) y slots por grupo ([363..410])
+inline constexpr size_t kNumFreeGroups = 6;
+inline constexpr size_t kNumFreeSlotsPerGroup = 4;
+
 /// Número de destinos de modulación en la matriz rápida (0x10049E00)
 inline constexpr size_t kNumModDests = 63;
 
@@ -114,6 +118,16 @@ public:
         return (destIdx < kNumModDests) ? kModDestToSlot[destIdx] : -1;
     }
 
+    /// Emulación diagnóstica opcional del desenganche de un destino (0..62) por el write fuera
+    /// de rango de combine(-1) en params+0x2E2C del DLL original (jl 0x10013A56 en stSPEngineCb).
+    /// Por defecto es -1 (todos los 63 destinos enganchados y operativos sin corrupción de heap).
+    void setUnhookedDestination(int32_t destIdx) noexcept {
+        unhookedDestIdx_ = (destIdx >= 0 && destIdx < static_cast<int32_t>(kNumModDests)) ? destIdx : -1;
+    }
+    [[nodiscard]] int32_t getUnhookedDestination() const noexcept {
+        return unhookedDestIdx_;
+    }
+
     /// Actualiza una de las 6 fuentes de modulación (CC 1/2/3/4/11, Aftertouch)
     /// FUN_10013490: escribe el valor y llama a combine(-1)
     /// @param sourceIndex 0: Aftertouch (0xD0), 1: ModWheel (CC1), 2: Breath (CC2), 3: CC03 (CC3), 4: Foot (CC4), 5: Expression (CC11)
@@ -146,9 +160,21 @@ public:
     }
 
     /// Recalcula un parámetro modulable o toda la matriz si destIdx == -1
-    /// Port exacto de FUN_100134e0 (combinador con acumulación en precisión doble x87)
+    /// Port exacto de FUN_100134e0 (combinador con acumulación en precisión doble x87) + extensión 6×4 Free Controllers [363..410]
     void recalculateModulation(int32_t targetDestIdx) {
-        auto applyDest = [this](size_t destIdx) {
+        auto getFreeGroupSourceValue = [this](size_t group) noexcept -> float {
+            switch (group) {
+                case 0: return modSourceValues_[0]; // Aftertouch Free [363..370]
+                case 1: return std::max(0.0f, modSourceValues_[1]); // Controller 1 Up [371..378]
+                case 2: return modSourceValues_[1] < 0.0f ? -modSourceValues_[1] : modSourceValues_[1]; // Controller 1 Down [379..386]
+                case 3: return modSourceValues_[2]; // Controller 2 [387..394]
+                case 4: return modSourceValues_[3]; // Controller 3 [395..402]
+                case 5: return modSourceValues_[4]; // Controller 4 / Foot [403..410]
+                default: return 0.0f;
+            }
+        };
+
+        auto applyDest = [this, &getFreeGroupSourceValue](size_t destIdx) {
             if (destIdx >= kNumModDests) return;
             double acc = static_cast<double>(modBaseValues_[destIdx]);
 
@@ -156,6 +182,16 @@ public:
                 if (modSourceDests_[s] == static_cast<int32_t>(destIdx)) {
                     acc += static_cast<double>(modSourceDepths_[s]) *
                            static_cast<double>(modSourceValues_[s]);
+                }
+            }
+
+            // 6 × 4 Free Controllers Matrix ([363..410])
+            for (size_t g = 0; g < kNumFreeGroups; ++g) {
+                const double srcVal = static_cast<double>(getFreeGroupSourceValue(g));
+                for (size_t slot = 0; slot < kNumFreeSlotsPerGroup; ++slot) {
+                    if (freeSlotDests_[g][slot] == static_cast<int32_t>(destIdx)) {
+                        acc += static_cast<double>(freeSlotDepths_[g][slot]) * srcVal;
+                    }
                 }
             }
 
@@ -199,6 +235,34 @@ public:
             return;
         }
 
+        // 1b. Claves 363..410: Matriz 6 × 4 de Free Controllers (4 destinos [3000=Off, 3001..3063=0..62] + 4 profundidades [-64..+63] por grupo)
+        if (paramId >= 363 && paramId <= 410) {
+            size_t rel = paramId - 363;
+            size_t group = rel / 8;
+            size_t offset = rel % 8;
+            if (group < kNumFreeGroups) {
+                if (offset < kNumFreeSlotsPerGroup) {
+                    int32_t rawInt = static_cast<int32_t>(std::lround(rawValue));
+                    int32_t newDest = -1;
+                    if (rawInt >= 3001 && rawInt < 3001 + static_cast<int32_t>(kNumModDests)) {
+                        newDest = rawInt - 3001;
+                    } else if (rawInt >= 0 && rawInt < static_cast<int32_t>(kNumModDests)) {
+                        newDest = rawInt;
+                    }
+                    int32_t oldDest = freeSlotDests_[group][offset];
+                    freeSlotDests_[group][offset] = newDest;
+                    if (oldDest >= 0) recalculateModulation(oldDest);
+                    if (newDest >= 0) recalculateModulation(newDest);
+                } else {
+                    size_t slot = offset - kNumFreeSlotsPerGroup;
+                    float remappedDepth = remap(rawValue, desc.min, desc.max, -1.0f, 1.0f);
+                    freeSlotDepths_[group][slot] = std::clamp(remappedDepth, -1.0f, 1.0f);
+                    recalculateModulation(-1);
+                }
+            }
+            return;
+        }
+
         const auto& ctx = observerMap_[paramId];
         if (ctx.slot < 0 || ctx.slot >= static_cast<int32_t>(kNumEffectiveSlots)) return;
 
@@ -206,9 +270,16 @@ public:
         float remappedVal = remap(rawValue, desc.min, desc.max, ctx.minValue, ctx.maxValue);
 
         if (ctx.modDestIdx >= 0 && ctx.modDestIdx < static_cast<int32_t>(kNumModDests)) {
-            // stSPEngineCb (0x100139D0): guarda base[dest] = remappedVal y llama a combine(dest)
-            modBaseValues_[ctx.modDestIdx] = remappedVal;
-            recalculateModulation(ctx.modDestIdx);
+            if (ctx.modDestIdx == unhookedDestIdx_) {
+                // Rama jl 0x10013A56 del DLL original cuando ctx[3] fue pisado en params+0x2E2C:
+                // escribe p[slot] directamente sin actualizar base[dest] ni recortar/modular
+                effectiveSlots_[ctx.slot] = remappedVal;
+                translateParametersToEngine(engineState_.data(), effectiveSlots_.data());
+            } else {
+                // stSPEngineCb (0x100139D0): guarda base[dest] = remappedVal y llama a combine(dest)
+                modBaseValues_[ctx.modDestIdx] = remappedVal;
+                recalculateModulation(ctx.modDestIdx);
+            }
         } else {
             // Observador directo de slot no modulable: escribe en p[slot] y traduce
             effectiveSlots_[ctx.slot] = std::clamp(remappedVal, ctx.minValue, ctx.maxValue);
@@ -227,6 +298,12 @@ private:
         for (size_t c = 0; c < kNumModSources; ++c) {
             modSourceDests_[c] = static_cast<int32_t>(c); // Routing inicial del ctor: control c -> dest c
         }
+        for (size_t g = 0; g < kNumFreeGroups; ++g) {
+            for (size_t s = 0; s < kNumFreeSlotsPerGroup; ++s) {
+                freeSlotDests_[g][s] = -1;
+                freeSlotDepths_[g][s] = 0.0f;
+            }
+        }
         modBaseValues_.fill(0.0f);
     }
 
@@ -243,8 +320,11 @@ private:
     std::array<float, kNumModSources> modSourceValues_;
     std::array<float, kNumModSources> modSourceDepths_;
     std::array<int32_t, kNumModSources> modSourceDests_;
+    std::array<std::array<int32_t, kNumFreeSlotsPerGroup>, kNumFreeGroups> freeSlotDests_;
+    std::array<std::array<float, kNumFreeSlotsPerGroup>, kNumFreeGroups> freeSlotDepths_;
     std::array<float, kNumModDests> modBaseValues_;
     std::array<ObserverContext, kNumTotalParameters> observerMap_;
+    int32_t unhookedDestIdx_{-1};
 };
 
 } // namespace abd::axionik

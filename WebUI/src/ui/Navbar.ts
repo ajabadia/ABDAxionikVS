@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────
 */
 
-import { createSynthNavBar } from '@abdsynths/shared/components';
+import { createSynthNavBar, CONTROL_ICONS, SysExIcon } from '@abdsynths/shared/components';
 import { ICONS } from './icons.js';
 
 export interface NavbarCallbacks {
@@ -17,7 +17,11 @@ export interface NavbarCallbacks {
   onSavePreset: () => void;
   onInitPreset: () => void;
   onToggleBank: () => void;
+  onToggleNuke?: () => void;
   onToggleMatrix: () => void;
+  onToggleMidiLearn?: () => void;
+  onToggleHardwareDumps?: () => void;
+  onToggleCalibration?: () => void;
   onToggleMfx: () => void;
   onToggleSettings?: () => void;
   onSelectPreset?: () => void;
@@ -72,7 +76,11 @@ export class AxionikNavbar {
         items: [
           { id: 201, label: 'NeuronDB Bank Browser...', action: 'toggleBank', shortcut: 'Ctrl+B' },
           { separator: true },
+          { id: 205, label: 'NUKE Remote Control Unit...', action: 'toggleNuke', shortcut: 'Ctrl+K' },
           { id: 202, label: 'Free Controllers Modulation Matrix (6x5)...', action: 'toggleMatrix', shortcut: 'Ctrl+M' },
+          { id: 206, label: 'MIDI Learn & CC Mapping Matrix...', action: 'toggleMidiLearn', shortcut: 'Ctrl+L' },
+          { id: 207, label: 'Hardware SysEx Dumps (Current / All Sounds / All SetUps / All Models)...', action: 'toggleHardwareDumps', shortcut: 'Ctrl+.' },
+          { id: 208, label: 'DSP Calibration & Magic Numbers (43 Parameters)...', action: 'toggleCalibration', shortcut: 'Ctrl+;' },
           { id: 203, label: 'Effects Rack (Silver & Master)...', action: 'toggleMfx', shortcut: 'Ctrl+F' },
           { separator: true },
           { id: 204, label: 'Global Synth Settings...', action: 'toggleSettings', shortcut: 'Ctrl+,' },
@@ -136,8 +144,21 @@ export class AxionikNavbar {
         <span class="hud-label">${ICONS.cpu}</span>
         <span class="hud-value" id="hud-cpu-load">0.0 %</span>
       </div>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-nuke" title="NUKE Remote Control Unit (Ctrl+K)">
+        ${ICONS.stick} <span>NUKE</span>
+      </button>
       <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-matrix" title="Modulation Matrix 6x5 (Ctrl+M)">
         ${ICONS.matrix} <span>Matrix</span>
+      </button>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-midi" title="MIDI Learn & CC/NRPN Mapping Matrix (Ctrl+L)">
+        ${CONTROL_ICONS.midiDin} <span>MIDI</span>
+      </button>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-sysex" title="Hardware SysEx Dumps & Live Inspector (Ctrl+.)">
+        ${SysExIcon} <span>SysEx</span>
+        <span class="nav-badge" id="nav-sysex-badge" hidden></span>
+      </button>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-calibration" title="DSP Calibration & Magic Numbers (Ctrl+;)">
+        ${ICONS.sliders} <span>Calib</span>
       </button>
       <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-mfx" title="Effects Rack (Silver & Master) (Ctrl+F)">
         ${ICONS.fx} <span>Effects</span>
@@ -189,21 +210,58 @@ export class AxionikNavbar {
     });
 
     // Click on right HUD buttons
+    rightSlot.querySelector('#btn-nav-nuke')?.addEventListener('click', () => {
+      this.callbacks.onToggleNuke?.();
+    });
     rightSlot.querySelector('#btn-nav-matrix')?.addEventListener('click', () => {
       this.callbacks.onToggleMatrix();
+    });
+    rightSlot.querySelector('#btn-nav-midi')?.addEventListener('click', () => {
+      this.callbacks.onToggleMidiLearn?.();
+    });
+    const sysexBtn = rightSlot.querySelector('#btn-nav-sysex') as HTMLElement | null;
+    sysexBtn?.addEventListener('click', () => {
+      this.setHardwareDumpsUnread(0);
+      this.callbacks.onToggleHardwareDumps?.();
+    });
+    sysexBtn?.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        this.setHardwareDumpsUnread(0);
+        this.callbacks.onToggleHardwareDumps?.();
+      }
+    });
+    rightSlot.querySelector('#btn-nav-calibration')?.addEventListener('click', () => {
+      this.callbacks.onToggleCalibration?.();
     });
     rightSlot.querySelector('#btn-nav-mfx')?.addEventListener('click', () => {
       this.callbacks.onToggleMfx();
     });
     rightSlot.querySelector('#btn-nav-bank')?.addEventListener('click', () => {
       this.callbacks.onToggleBank();
-    });
-    rightSlot.querySelector('#btn-nav-settings')?.addEventListener('click', () => {
+    });        rightSlot.querySelector('#btn-nav-settings')?.addEventListener('click', () => {
       this.callbacks.onToggleSettings?.();
     });
-    rightSlot.querySelector('#btn-nav-theme')?.addEventListener('click', () => {
-      this.callbacks.onToggleTheme();
-    });
+        rightSlot.querySelector('#btn-nav-theme')?.addEventListener('click', () => {
+          this.callbacks.onToggleTheme();
+        });
+
+        const sysexBtnEls = rightSlot.querySelectorAll<HTMLElement>('#btn-nav-sysex');
+        sysexBtnEls.forEach((btn) => {
+          btn.addEventListener('click', () => {
+            if (!this.navBarInstance) return;
+            this.setHardwareDumpsUnread(0);
+            this.callbacks.onToggleHardwareDumps?.();
+          });
+          btn.addEventListener('keydown', (e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              if (!this.navBarInstance) return;
+              this.setHardwareDumpsUnread(0);
+              this.callbacks.onToggleHardwareDumps?.();
+            }
+          });
+        });
   }
 
   private dispatchAction(action: string, value?: unknown): void {
@@ -229,8 +287,20 @@ export class AxionikNavbar {
       case 'toggleBank':
         this.callbacks.onToggleBank();
         break;
+      case 'toggleNuke':
+        this.callbacks.onToggleNuke?.();
+        break;
       case 'toggleMatrix':
         this.callbacks.onToggleMatrix();
+        break;
+      case 'toggleMidiLearn':
+        this.callbacks.onToggleMidiLearn?.();
+        break;
+      case 'toggleHardwareDumps':
+        this.callbacks.onToggleHardwareDumps?.();
+        break;
+      case 'toggleCalibration':
+        this.callbacks.onToggleCalibration?.();
         break;
       case 'toggleMfx':
         this.callbacks.onToggleMfx();
@@ -301,8 +371,65 @@ export class AxionikNavbar {
     if (this.cpuLoadEl) this.cpuLoadEl.textContent = `${percent.toFixed(1)} %`;
   }
 
+  public toggleNuke(): void {
+    this.callbacks.onToggleNuke?.();
+  }
+
+  public setNukeActive(active: boolean): void {
+    const btn = this.container.querySelector('#btn-nav-nuke');
+    if (btn) {
+      btn.classList.toggle('active', active);
+      btn.classList.toggle('btn-primary', active);
+      btn.classList.toggle('btn-secondary', !active);
+    }
+  }
+
   public toggleMatrix(): void {
     this.callbacks.onToggleMatrix();
+  }
+
+  public toggleMidiLearn(): void {
+    this.callbacks.onToggleMidiLearn?.();
+  }
+
+  public setHardwareDumpsUnread(count: number): void {
+    const badge = this.container.querySelector('#nav-sysex-badge') as HTMLElement | null;
+    if (!badge) return;
+    if (count > 0) {
+      badge.hidden = false;
+      badge.textContent = count > 99 ? '99+' : String(count);
+    } else {
+      badge.hidden = true;
+      badge.textContent = '';
+    }
+  }
+
+  public toggleHardwareDumps(): void {
+    this.callbacks.onToggleHardwareDumps?.();
+  }
+
+  public toggleCalibration(): void {
+    this.callbacks.onToggleCalibration?.();
+  }
+
+  public setMidiLearnState(isLearning: boolean, mappingCount: number, remainingSeconds: number = 0): void {
+    const btn = this.container.querySelector('#btn-nav-midi') as HTMLElement | null;
+    if (btn) {
+      btn.classList.toggle('is-learning', isLearning);
+      btn.classList.toggle('has-mappings', mappingCount > 0);
+      btn.classList.toggle('btn-primary', isLearning);
+      btn.classList.toggle('btn-secondary', !isLearning);
+      if (isLearning && remainingSeconds > 0) {
+        btn.innerHTML = `${CONTROL_ICONS.clock || CONTROL_ICONS.midiDin} <span>MIDI (${remainingSeconds}s)</span>`;
+      } else {
+        btn.innerHTML = `${CONTROL_ICONS.midiDin} <span>MIDI</span>`;
+      }
+      btn.title = isLearning && remainingSeconds > 0
+        ? `Waiting for MIDI controller (${remainingSeconds}s remaining) — Click to open or press Esc to cancel`
+        : mappingCount > 0
+          ? `MIDI Learn & CC/NRPN Mapping Matrix (${mappingCount} active) (Ctrl+L)`
+          : 'MIDI Learn & CC/NRPN Mapping Matrix (Ctrl+L)';
+    }
   }
 
   public toggleMfx(): void {

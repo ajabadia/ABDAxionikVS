@@ -60,6 +60,18 @@ public:
         }
     }
 
+    /// Establece un parámetro por su valor crudo sin recorte (usado por migración v1 FUN_10013ea0: BlenderAmount -= 64.0)
+    void setRawValueUnclamped(uint32_t index, float raw, bool notify = true) {
+        if (index >= kNumTotalParameters) return;
+        auto& rec = records_[index];
+        rec.rawValue = raw;
+        rec.normalizedValue = rawToNormalized(index, rec.rawValue);
+
+        if (notify) {
+            notifyObservers(index, rec.rawValue);
+        }
+    }
+
     /// Establece un parámetro por su valor normalizado (0.0 .. 1.0)
     void setNormalizedValue(uint32_t index, float norm, bool notify = true) {
         if (index >= kNumTotalParameters) return;

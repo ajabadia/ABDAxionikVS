@@ -10,6 +10,7 @@
 #include <array>
 #include <cstdint>
 #include <algorithm>
+#include "DspTypes.h"
 #include "State/NeuronSound.h"
 #include "AxionikParamIndices.h"
 
@@ -22,7 +23,7 @@ public:
 
     /// Inicializa la frecuencia de muestreo
     void prepare(double sampleRate) noexcept {
-        sampleRate_ = sampleRate > 0.0 ? sampleRate : 44100.0;
+        sampleRate_ = sampleRate > 0.0 ? sampleRate : kLegacyBaseSampleRate;
         reset();
     }
 
@@ -112,7 +113,7 @@ public:
     [[nodiscard]] bool getLoop() const noexcept { return loopMode_; }
 
 private:
-    double sampleRate_{44100.0};
+    double sampleRate_{kLegacyBaseSampleRate};
     double playbackTimeMs_{0.0};
     size_t currentEventIndex_{0};
     bool isPlaying_{false};

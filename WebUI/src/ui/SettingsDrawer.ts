@@ -10,6 +10,7 @@
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
+import { Knob } from '@abdsynths/shared/components';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 
 export interface SettingsDrawerOptions {
@@ -75,6 +76,14 @@ export class SettingsDrawer {
       attrName: 'data-dest',
     });
 
+    const renderKnobCell = (mountId: string, valId: string, initialText: string | number, label: string) => `
+      <div class="synth-knob-cell">
+        <div id="${mountId}"></div>
+        <span class="synth-knob-num stat-num" id="${valId}">${initialText}</span>
+        <span class="synth-knob-title">${label}</span>
+      </div>
+    `;
+
     root.innerHTML = `
       <div class="drawer-header ndb-modal-header">
         <div class="drawer-title ndb-header-title">
@@ -91,38 +100,11 @@ export class SettingsDrawer {
         <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3);">
           <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">POLYPHONY, STEREO PAN & PERFORMANCE ([3, 4, 5, 411, 412])</div>
 
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); align-items: center;">
-            <div>
-              <div style="display: flex; justify-content: space-between;">
-                <span class="hud-label">NUM VOICES [5]:</span>
-                <span class="hud-value stat-num" id="settings-voices-val">${curVoices}</span>
-              </div>
-              <input type="range" id="settings-voices-slider" class="abd-slider" min="1" max="12" value="${curVoices}" step="1" style="width: 100%;" />
-            </div>
-
-            <div>
-              <div style="display: flex; justify-content: space-between;">
-                <span class="hud-label">SOUND PAN [3]:</span>
-                <span class="hud-value stat-num" id="settings-pan-val">${curPan}</span>
-              </div>
-              <input type="range" id="settings-pan-slider" class="abd-slider" min="-64" max="63" value="${curPan}" step="1" style="width: 100%;" />
-            </div>
-
-            <div>
-              <div style="display: flex; justify-content: space-between;">
-                <span class="hud-label">PAN KEYTRACK [4]:</span>
-                <span class="hud-value stat-num" id="settings-pankt-val">${curPanKt}</span>
-              </div>
-              <input type="range" id="settings-pankt-slider" class="abd-slider" min="-64" max="63" value="${curPanKt}" step="1" style="width: 100%;" />
-            </div>
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 4px; padding-top: var(--space-2); border-top: 1px solid var(--color-panel-border-dim);">
-            <div style="display: flex; justify-content: space-between; max-width: 320px;">
-              <span class="hud-label">PITCH BEND RANGE [412]:</span>
-              <span class="hud-value stat-num" id="settings-pb-val">${curPbRange} st</span>
-            </div>
-            <input type="range" id="settings-pb-slider" class="abd-slider" min="0" max="12" value="${curPbRange}" step="1" style="max-width: 320px;" />
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); justify-items: center; padding: var(--space-2) 0;">
+            ${renderKnobCell('settings-voices-m', 'settings-voices-val', curVoices, 'NUM VOICES [5]')}
+            ${renderKnobCell('settings-pan-m', 'settings-pan-val', curPan, 'SOUND PAN [3]')}
+            ${renderKnobCell('settings-pankt-m', 'settings-pankt-val', curPanKt, 'PAN KEYTRACK [4]')}
+            ${renderKnobCell('settings-pb-m', 'settings-pb-val', `${curPbRange} st`, 'PITCH BEND [412]')}
           </div>
 
           <div style="display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-panel-border-dim);">
@@ -139,9 +121,9 @@ export class SettingsDrawer {
               Clean Clamp [-1.0..+1.0] (Default) prevents digital zero-dropouts. Enable Oracle Clip-to-Zero only for strict legacy binary inspection.
             </p>
           </div>
-          <label style="font-size: var(--text-xs); display: flex; align-items: center; gap: 6px; white-space: nowrap; cursor: pointer;">
-            <input type="checkbox" id="settings-oracle-clip" ${curOracleClip ? 'checked' : ''} /> Oracle Clip-to-Zero
-          </label>
+          <button type="button" class="btn btn-xs ${curOracleClip ? 'btn-primary active' : 'btn-outline'}" id="btn-settings-oracle-clip">
+            ${curOracleClip ? 'Oracle Clip-to-Zero' : 'Clean Clamp (Default)'}
+          </button>
         </div>
 
         <!-- 3. NeuronDB Library Configuration -->
@@ -178,20 +160,41 @@ export class SettingsDrawer {
       options.onClose();
     });
 
-    const bindSlider = (id: string, paramId: number, valId: string, suffix = '') => {
-      const slider = root.querySelector(`#${id}`) as HTMLInputElement | null;
+    const initKnob = (
+      mountId: string,
+      label: string,
+      initVal: number,
+      min: number,
+      max: number,
+      paramId: number,
+      valId: string,
+      isBipolar = false,
+      suffix = ''
+    ) => {
+      const mount = root.querySelector(`#${mountId}`) as HTMLElement | null;
+      if (!mount) return;
+      mount.setAttribute('data-param-index', String(paramId));
+      const range = max - min;
+      const normInit = range > 0 ? (initVal - min) / range : 0;
       const valEl = root.querySelector(`#${valId}`);
-      slider?.addEventListener('input', () => {
-        const val = parseFloat(slider.value);
-        if (valEl) valEl.textContent = `${val}${suffix}`;
-        WebBridge.setParam(paramId, val);
+
+      new Knob(mount, {
+        size: 40,
+        label,
+        value: normInit,
+        bipolar: isBipolar,
+        onChange: (normVal: number) => {
+          const actualVal = Math.round(min + normVal * range);
+          WebBridge.setParam(paramId, actualVal);
+          if (valEl) valEl.textContent = `${actualVal}${suffix}`;
+        },
       });
     };
 
-    bindSlider('settings-voices-slider', 5, 'settings-voices-val');
-    bindSlider('settings-pan-slider', 3, 'settings-pan-val');
-    bindSlider('settings-pankt-slider', 4, 'settings-pankt-val');
-    bindSlider('settings-pb-slider', 412, 'settings-pb-val', ' st');
+    initKnob('settings-voices-m', 'NUM VOICES', curVoices, 1, 12, ParamIdx.SoundNumVoices, 'settings-voices-val');
+    initKnob('settings-pan-m', 'SOUND PAN', curPan, -64, 63, ParamIdx.SoundPan, 'settings-pan-val', true);
+    initKnob('settings-pankt-m', 'PAN KEYTRACK', curPanKt, -64, 63, ParamIdx.SoundPanKeyTrack, 'settings-pankt-val', true);
+    initKnob('settings-pb-m', 'PITCH BEND', curPbRange, 0, 12, ParamIdx.PitchBendRange, 'settings-pb-val', false, ' st');
 
     const footContainer = root.querySelector('#settings-footswitch-chips') as HTMLElement | null;
     if (footContainer) {
@@ -205,9 +208,14 @@ export class SettingsDrawer {
       }, 'data-dest');
     }
 
-    const clipCheck = root.querySelector('#settings-oracle-clip') as HTMLInputElement | null;
-    clipCheck?.addEventListener('change', () => {
-      WebBridge.setOracleClipMode(clipCheck.checked);
+    const clipBtn = root.querySelector('#btn-settings-oracle-clip') as HTMLButtonElement | null;
+    clipBtn?.addEventListener('click', () => {
+      const next = !clipBtn.classList.contains('active');
+      clipBtn.classList.toggle('active', next);
+      clipBtn.classList.toggle('btn-primary', next);
+      clipBtn.classList.toggle('btn-outline', !next);
+      clipBtn.textContent = next ? 'Oracle Clip-to-Zero' : 'Clean Clamp (Default)';
+      WebBridge.setOracleClipMode(next);
     });
 
     root.querySelector('#btn-settings-config-folder')?.addEventListener('click', () => {

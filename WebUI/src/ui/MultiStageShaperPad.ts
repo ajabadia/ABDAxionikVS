@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────
 // ABDAxionikVS — MultiStageShaperPad.ts
 // Re-exporta el componente canónico universal de ABDShared
-// Proporciona tipado estricto para envolventes 4L4T
+// Proporciona tipado estricto para envolventes 4L4T y ADSR
 // ─────────────────────────────────────────────────────────
 
 import { MultiStageShaperPad as SharedShaper } from '@abdsynths/shared/components';
@@ -14,8 +14,12 @@ export interface MultiStageShaperValue {
 
 export interface MultiStageShaperOptions {
   label?: string;
+  caption?: string;
   bipolar?: boolean;
   editable?: boolean;
+  bare?: boolean;
+  showModeButtons?: boolean;
+  stageLabels?: string[];
   viewBoxWidth?: number;
   viewBoxHeight?: number;
   times?: number[];

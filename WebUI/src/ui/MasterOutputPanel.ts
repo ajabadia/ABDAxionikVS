@@ -23,22 +23,22 @@ export class MasterOutputPanel {
     this.rootEl = document.createElement('div');
     this.rootEl.className = 'synth-panel-card master-output-panel';
     this.rootEl.innerHTML = `
-      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08));">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08)); gap: 2px;">
         <span class="stick-label">MASTER</span>
-        <div class="panel-actions" style="display: flex; align-items: center; gap: 4px;">
+        <div class="panel-actions" style="display: flex; align-items: center; gap: 2px;">
           <button type="button" class="btn btn-xs btn-outline" id="btn-master-mute" title="Mute Master Output">MUTE</button>
           <button type="button" class="btn btn-xs btn-outline btn-collapse-row" data-row="row-bottom" title="Colapsar / Descolapsar fila">▾</button>
         </div>
       </div>
 
       <div class="panel-body master-body" data-collapse-body style="flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
-        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 4px 0;">
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 2px 0;">
           <div id="master-vol-knob-mount" style="display: flex; align-items: center; justify-content: center;"></div>
-          <span class="hud-value stat-num" id="master-vol-readout" style="font-size: 11px; font-weight: 700; color: var(--color-accent, #00c3ff);">85%</span>
+          <span class="hud-value stat-num" id="master-vol-readout" style="font-size: 10.5px; font-weight: 700; color: var(--color-accent, #00c3ff);">85%</span>
         </div>
 
-        <div style="display: flex; justify-content: center; align-items: center; padding-top: 4px; border-top: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08));">
-          <span class="hud-pill" style="font-size: 8px; color: var(--color-text-muted); font-weight: 600; padding: 1px 6px;">0.0 dB HEADROOM</span>
+        <div style="display: flex; justify-content: center; align-items: center; padding-top: 3px; border-top: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08));">
+          <span class="hud-pill" style="font-size: 7.5px; color: var(--color-text-muted); font-weight: 600; padding: 1px 4px; white-space: nowrap;">0.0 dB</span>
         </div>
       </div>
     `;
@@ -48,7 +48,7 @@ export class MasterOutputPanel {
     const mount = this.rootEl.querySelector('#master-vol-knob-mount');
     if (mount) {
       this.volumeKnob = new RotaryLedKnob(mount as HTMLElement, {
-        size: 64,
+        size: 54,
         label: 'VOLUME',
         value: 0.85,
         numLeds: 15,

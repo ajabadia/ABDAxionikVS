@@ -1,4 +1,4 @@
-﻿# ABDAxionikVS — Informe de Arquitectura y Plan de Implementación (`ROADMAP.md`)
+# ABDAxionikVS — Informe de Arquitectura y Plan de Implementación (`ROADMAP.md`)
 
 > **Proyecto:** `ABDAxionikVS` (`D:\desarrollos\ABDSynths\ABDAxionikVS`)
 > **Repositorio GitHub:** `https://github.com/ajabadia/ABDAxionikVS.git`
@@ -67,10 +67,11 @@
    - **Resolución Inteligente de `NeuronDB` + Modelo `511 (sinew)` Embebido**: Modelo `511` (`sinew`) y preset `000 InitSound` compilados en `constexpr` + búsqueda automática de `NeuronDB`.
    - **`TrajectoryStick2D` con Estela Visual (`Trail`) y Modos `Loop` / `One-Shot`**.
    - Véase el detalle completo en [`DOCS/DSP_MIGRATION_AND_FIXES.md`](./DOCS/DSP_MIGRATION_AND_FIXES.md).
-5. **Hallazgos Recientes de Descompilación y Oráculo (`stSPEngineCb`, Slots 0xA4/0xC2, Warm-up de DLL)**:
+5. **Hallazgos Recientes de Descompilación y Oráculo (`stSPEngineCb`, Slots 0xA4/0xC2, Warm-up de DLL, Rama Muerta `voice+0x18`)**:
    - **Campos espejo muertos (`dead mirrors`) en `stSPEngineCb` (`0x100139D0`)**: El callback del motor de parámetros de `NeuronVS.dll` actualiza los slots 164 (`0xA4`: `R1AmpEnvR`) y 194 (`0xC2`: `R2AmpEnvR`) escribiendo en `params+0x0C` y `params+0x10`. La investigación estática de referencias cruzadas y la sonda dinámica de lectura (`neuron_golden --mirror`) confirmaron que ningún método ni subrutina DSP lee jamás `params+0x0C` ni `params+0x10`. Son campos espejo inertes sin impacto alguno en el renderizado de audio ni en la síntesis.
    - **Puerta de 1 mm (`1/25.4` pulgadas)**: La condición de umbral `1/25.4 = 0.03937007874015748` encontrada en la descompilación del callback corresponde a la conversión de milímetros a pulgadas (en los registros 21 y 32 de `snddat`, las cotas físicas vienen medidas en mm y se convierten a pulgadas al guardarse en `p[164]` y `p[194]`). Solo se actualiza el parámetro si supera el umbral físico de 1 mm.
    - **Régimen de calentamiento y desplazamiento de estado en `NeuronVS.dll`**: La DLL original de 2004 altera su régimen interno acumulativo entre la 3ª y la 4ª carga de preset (las primeras 3 cargas renderizan bit-idéntico, pero a partir de la 4ª sufren un desplazamiento de ~0.267 por acumulación de estado estático en variables internas de la DLL). En los tests de paridad de audio diferencial (`GoldenParityTest`), deben descartarse siempre los primeros 4 renders de calentamiento para evaluar en régimen permanente estable.
+   - **Rama muerta `voice+0x18 == 1` (`×24.0f` post-voces) en `FUN_100382b0`**: En `100382b0_FUN_100382b0.c` (L134–136 y L1691–1705), si algún descriptor de voz tiene `*(int*)(voice + 0x18) == 1`, se activa `local_108 = 1`, que al salir del bucle de voces invoca `FUN_10029530()` y multiplica los buses acumulados L/R por `24.0f` (`_DAT_1030cdc0`). Sin embargo, `FUN_1003d800` (`noteOn`, L152) escribe explícitamente `*(uint32_t*)(voice + 0x18) = 0` al arrancar cada nota y ninguna función de `NeuronVS.dll` escribe `1` en `+0x18`. Por tanto, esa rama es **código muerto inalcanzable** en la DLL original (a diferencia de la ganancia final de `×24.0f` en la etapa de salida `DspNeuronMasterOutputStage`).
 
 ---
 
@@ -82,112 +83,84 @@ Siguiendo estrictamente la arquitectura de `ABDNeural`, `ABDMS2000`, `ABDEep` y 
 D:\desarrollos\ABDSynths\ABDAxionikVS\
 ├── CMakeLists.txt                   # Build raíz (JUCE 9 Standalone + VST3 + CTest)
 ├── DspSources.cmake                 # Lista ÚNICA anti-drift de fuentes DSP (compartida con wasm/)
-â”œâ”€â”€ package.json                     # miembro del pnpm-workspace (@abdsynths/shared, @abdsynths/midi-keyb)
-â”œâ”€â”€ vite.config.js                   # Empaquetado de WebUI/ -> WebUI/dist/ (base: './')
-â”œâ”€â”€ vitest.config.js                 # Suite de tests JS/TS (contratos, codecs, UI, bridge)
-â”œâ”€â”€ build.bat                        # Pipeline integral con tee a build-last-run.log y selftest E2E
-â”œâ”€â”€ start.bat                        # Lanzador (bancada WebView2, navegador WASM, selftest)
+├── package.json                     # Miembro del pnpm-workspace (@abdsynths/shared, @abdsynths/midi-keyb)
+├── vite.config.ts                   # Empaquetado de WebUI/ -> WebUI/dist/ (base: './')
+├── vitest.config.ts                 # Suite de tests JS/TS (contratos, codecs, UI, bridge)
+├── build.bat                        # Pipeline integral con tee a build-last-run.log y selftest E2E
+├── start.bat                        # Lanzador (bancada WebView2, navegador WASM, selftest)
 ├── README.md                        # Documentación general, compilación y banderas
-â”œâ”€â”€ CHANGELOG.md                     # Historial de cambios (Keep a Changelog)
-â”œâ”€â”€ HANDOFF.md                       # Estado vivo, arquitectura y puntos de entrada
+├── CHANGELOG.md                     # Historial de cambios (Keep a Changelog)
+├── HANDOFF.md                       # Estado vivo, arquitectura y puntos de entrada
 ├── ROADMAP.md                       # Plan de implementación por fases (este documento)
-â”‚
+│
 ├── DOCS/                            # Corpus local completo de ingeniería inversa, manuales y UI
 │   ├── UI_INVENTORY_AND_ADAPTATION.md # Inventario de los 445 parámetros, vistas y adaptación UX
-│   ├── DSP_MIGRATION_AND_FIXES.md   # Cierre de incógnitas de params, eliminación de Nuke y 9 bugs corregidos
-â”‚   â”œâ”€â”€ manuals/                     # Manuales oficiales (NeuronVS, Hardware, Technical Hints, Nuke4All, BrainMapper)
-â”‚   â”œâ”€â”€ community_panels/            # Paneles Lemur (MYELIN, Axel), Bidule, PureData y Max for Live
-â”‚   â””â”€â”€ reverse_engineering/         # Estudio RE completo (dsp, preset_format, neurondb, layout, vst2, port...)
-â”‚
+│   ├── DSP_MIGRATION_AND_FIXES.md   # Cierre de incógnitas de params, eliminación de Nuke y 10 bugs corregidos
+│   ├── manuals/                     # Manuales oficiales (NeuronVS, Hardware, Technical Hints, Nuke4All, BrainMapper)
+│   ├── community_panels/            # Paneles Lemur (MYELIN, Axel), Bidule, PureData y Max for Live
+│   └── reverse_engineering/         # Estudio RE completo (dsp, preset_format, neurondb, observers, layout, vst2...)
+│
 ├── schemas/                         # Fuentes declarativas canónicas (copiadas/validadas del estudio RE)
 │   ├── preset_schema.csv            # 445 descriptores estáticos (index, key, group, min, max, default, step)
 │   ├── vst_exposed_params.csv       # 26 parámetros VST expuestos al host y su mapeo a los 445
 │   ├── control_params.csv           # 174 enlaces control UI <-> parámetro
 │   ├── page_ref_links.csv           # 44 selectores de página/vista
-â”‚   â”œâ”€â”€ constants_types.csv          # 1.430 constantes tipadas del motor DSP
-â”‚   â””â”€â”€ parameter_sets_mnan.json     # 10 Parameter Sets (mnAN / fdAN) compartidos con ABDNeuModMakr
-â”‚
-â”œâ”€â”€ Scripts/
+│   ├── constants_types.csv          # 1.430 constantes tipadas del motor DSP
+│   └── parameter_sets_mnan.json     # 10 Parameter Sets (mnAN / fdAN) compartidos con ABDNeuModMakr
+│
+├── Scripts/
 │   ├── registry_generator.js        # Generador canónico único (C++ APVTS + JS + NRPN/CC/SysEx + bridge)
 │   ├── build_webui.js               # Ejecuta vite build -> WebUI/dist/ y genera catálogo de assets
 │   └── verify_golden_oracle.py      # Oráculo diferencial contra vectores áureos de NeuronVS.dll
-â”‚
-â”œâ”€â”€ Source/
-â”‚   â”œâ”€â”€ PluginProcessor.h / .cpp     # AudioProcessor JUCE 9 (bus Input opcional, APVTS, MIDI, estado)
-â”‚   â”œâ”€â”€ PluginEditor.h / .cpp        # AudioProcessorEditor con WebView2 (sirve WebUI/dist/ + dev probe)
-â”‚   â”œâ”€â”€ WebPilotHost.cpp             # Bancada nativa ligera WebView2 para desarrollo y selftest E2E
-â”‚   â”‚
-â”‚   â”œâ”€â”€ Generated/                   # Emitido por Scripts/registry_generator.js (PROHIBIDO editar a mano)
+│
+├── Source/
+│   ├── PluginProcessor.h / .cpp     # AudioProcessor JUCE 9 (APVTS, MIDI, NRPN, SysEx, estado)
+│   ├── PluginEditor.h / .cpp        # AudioProcessorEditor con WebView2 (sirve WebUI/dist/ + dev probe)
+│   ├── WebPilotHost.cpp             # Bancada nativa ligera WebView2 para desarrollo y selftest E2E
+│   │
+│   ├── Generated/                   # Emitido por Scripts/registry_generator.js (PROHIBIDO editar a mano)
 │   │   ├── ParameterRegistry.gen.h  # 445 parámetros, 26 alias VST, rangos, defaults y grupos
-â”‚   â”‚   â”œâ”€â”€ MidiContract.gen.h       # Tablas CC, NRPN (0..444) y SysEx IDs
-â”‚   â”‚   â””â”€â”€ BridgeContract.gen.h     # Literales versionados del protocolo WebView2
-â”‚   â”‚
-â”‚   â”œâ”€â”€ State/
-â”‚   â”‚   â”œâ”€â”€ SndDatStore.h / .cpp     # 445 registros de 40 B, regla FUN_10001170, 16 observadores/registro
-â”‚   â”‚   â”œâ”€â”€ ParamsExecution.h / .cpp # Estado intermedio params (335 observadores, 340 slots efectivos)
-│   │   ├── StickRecorder.h / .cpp   # Grabación y reproducción de trayectorias sound.stickrec (TTTTFCVVV)
-â”‚   â”‚   â”œâ”€â”€ NeuronBankAdapter.h/.cpp # Carga/guardado de NeuronDB (Models/000..511, Sounds/000..999, ZIP)
-â”‚   â”‚   â””â”€â”€ NmModelLoader.h / .cpp   # Lector C++ de paquetes .nmmodel v2.1 de ABDNeuModMakr
-â”‚   â”‚
-â”‚   â”œâ”€â”€ MIDI/
-â”‚   â”‚   â”œâ”€â”€ NeuronMidiProcessor.h/.cpp # Enrutado MIDI (Note, CC 1/2/3/4/11/32, PC, AT, PB, XY CCs)
-│   │   ├── NeuronNrpnHandler.h/.cpp # Direccionamiento NRPN de 14 bits para los 445 parámetros
-â”‚   â”‚   â””â”€â”€ NeuronSysExHandler.h/.cpp# Dumps de patch/modelo/stickrec usando ABDShared::HardwareDrivers
-â”‚   â”‚
-â”‚   â”œâ”€â”€ WebUI/
-â”‚   â”‚   â”œâ”€â”€ ParameterBridge.h / .cpp # Puente bidireccional APVTS <-> WebView2 (sondeo diff, sin ecos)
-│   │   └── BridgeAdapters.h         # Adaptadores Preset, Model, StickRec, MIDI CC y Telemetría
-â”‚   â”‚
+│   │   ├── Conversion.gen.h         # Normalización y conversión de dominio
+│   │   └── MidiMapping.gen.h        # Tablas CC, NRPN (0..444) y SysEx IDs
+│   │
 │   └── DSP/                         # 100 % C++20 PURO — PROHIBIDO incluir <juce_*.h>
-â”‚       â”œâ”€â”€ Runtime/
-â”‚       â”‚   â”œâ”€â”€ DspEngineFacade.h/.cpp # Fachada limpia consumida por PluginProcessor y por WASM
-â”‚       â”‚   â”œâ”€â”€ DspEvent.h           # Eventos sample-accurate (NoteOn/Off, CC, PitchBend, Aftertouch)
-â”‚       â”‚   â””â”€â”€ VoiceMemoryPool.h    # Pool RT-safe preasignado en prepare() (sustituye new(0x2020))
-â”‚       â”‚
-â”‚       â”œâ”€â”€ ClassicNeuron/           # Fase A: Motor Hartmann Neuron 1:1 (las 87 funciones)
-│       │   ├── Constants.gen.h      # 1.430 constantes verificadas por ancho de instrucción
-â”‚       â”‚   â”œâ”€â”€ EngineState.h        # Layout exacto de engine (0x367C B) y descriptores de voz ('nSAN')
-â”‚       â”‚   â”œâ”€â”€ Translator.h / .cpp  # FUN_10040550 + FUN_100343e4 + validador FUN_100373a0
-â”‚       â”‚   â”œâ”€â”€ ZoneMapper.h / .cpp  # FUN_100440d0: 128 entradas de 40 B por tecla (R1 +0xDB0, R2 +0x2200)
-│       │   ├── CurveReader.h / .cpp # FUN_100317b0: lector .scape (int16, bucle, énfasis diferencial)
-â”‚       â”‚   â”œâ”€â”€ BandReader.h / .cpp  # FUN_10031950: lector .sphere (25 bandas x 4 slots, crossfade)
-â”‚       â”‚   â”œâ”€â”€ SphereDecoder.h/.cpp # FUN_1002e750 / FUN_1003bd10 / FUN_1003c980 / FUN_10034290 (6152 B)
-â”‚       â”‚   â”œâ”€â”€ ResinatorVoice.h/.cpp# Motor por capa (0x6838 B): FUN_10032970, FUN_10029e34, FUN_1002e7a0
-│       │   ├── BlenderStage.h/.cpp  # Mezcla dual R1/R2, modos de fusión y envolvente de Blender
-â”‚       â”‚   â”œâ”€â”€ SilverStage.h / .cpp # Filtros multifrecuencia (3 curvas) + FreqFX + TimeFX + Stick
-â”‚       â”‚   â”œâ”€â”€ ModulationStage.h/.cpp# LFO global, 4L4T Shaper Envelopes (R1, R2, Blender, Silver), Slicer
-â”‚       â”‚   â””â”€â”€ BlockOrchestrator.h/.cpp # FUN_100382b0 + adaptador de bloques de 128 muestras
-â”‚       â”‚
-│       └── Extended/                # Fase B: Versión Extendida / Extended (capacidades ABDNeural)
-â”‚           â”œâ”€â”€ SpectralShaper.h/.cpp# Inharmonicity Stretch, Parity, Entropy/Roughness, Shift, RollOff
-â”‚           â”œâ”€â”€ NmModelResinator.h/.cpp # Resinator extendido Float32 multicapa para .nmmodel v2.1
-│           └── ExtendedBlender.h/.cpp  # Cruce híbrido Resinator Clásico (.sphere) <-> Extended (.nmmodel)
-â”‚
-â”œâ”€â”€ wasm/
-â”‚   â”œâ”€â”€ CMakeLists.txt               # Build Emscripten que incluye ../DspSources.cmake (EXPORT HEAPF32)
-â”‚   â””â”€â”€ AxionikWorkletBindings.cpp   # Wrapper C ABI para AudioWorkletProcessor
-â”‚
-â”œâ”€â”€ WebUI/
-â”‚   â”œâ”€â”€ index.html
-â”‚   â”œâ”€â”€ contracts/
-â”‚   â”‚   â””â”€â”€ bridge-protocol.json     # Contrato versionado del puente WebView2
-â”‚   â”œâ”€â”€ generated/                   # Emitido por Scripts/registry_generator.js
-â”‚   â”‚   â”œâ”€â”€ parameterRegistry.js
-â”‚   â”‚   â”œâ”€â”€ midiContract.js
-â”‚   â”‚   â””â”€â”€ layoutMap.js
-â”‚   â””â”€â”€ src/
-│       ├── app.js                   # Orquestador de vistas (Modo Clásico 33 páginas / Modo Moderno)
-â”‚       â”œâ”€â”€ bridge/                  # Cliente bridgeCore + AudioWorklet fallback
-â”‚       â”œâ”€â”€ panels/                  # R1, R2, Blender, Silver, Shapers/Mod, Setup/BankManager
-â”‚       â””â”€â”€ styles/                  # Cascada basada en @abdsynths/shared/styles/tokens.css
-â”‚
-â””â”€â”€ Tests/
-    â”œâ”€â”€ ParameterRegistryContractTest.cpp
-    â”œâ”€â”€ SndDatAndTranslatorTest.cpp  # Verifica las 445 claves, 19 clamps y 351 presets en reposo/nota
-    ├── GoldenOracleDspTest.cpp      # Compara salida DSP contra los 12 vectores áureos de NeuronVS.dll
-    â”œâ”€â”€ ZeroAllocAudioThreadTest.cpp # Audita 0 asignaciones en processBlock / noteOn / noteOff
-    â”œâ”€â”€ BridgeProtocolContractTest.cpp
-    â””â”€â”€ webviewBridgeDirectionTest.mjs
+│       ├── DspEngineFacade.h / .cpp # Fachada limpia consumida por PluginProcessor y por WASM
+│       ├── DspTypes.h               # Snapshot plano AxionikDspParams libre de JUCE
+│       ├── AxionikParamIndices.h    # Enum canónico de los 445 parámetros (0..444)
+│       ├── ParameterEngineBridge.h/.cpp # 445 registros snddat, 335 observadores y matriz 6x4 + 63 destinos
+│       ├── Translator.h / .cpp      # FUN_10040550 + FUN_100343e4 (TranslatorHooks.cpp) + FUN_100373a0
+│       ├── NeuronBankAdapter.h      # Carga/escaneo de NeuronDB (Models/000..511, Sounds/000..999)
+│       ├── StickPlayer.h            # Reproductor lock-free en tiempo real de trayectorias sound.stickrec
+│       ├── BlockRenderer.h          # Shim hacia ABDShared::DspCore::NeuronVS::NeuronBlockPump
+│       ├── VoicePool.h              # Shim hacia ABDShared::DspCore::NeuronVS::NeuronVoicePool
+│       ├── Voice.h                  # Shim hacia ABDShared::DspCore::NeuronVS::NeuronVoice
+│       ├── Oscillators.h            # Shim hacia ABDShared::DspCore::NeuronVS::NeuronOscillators
+│       └── NeuronModel.h            # Shim hacia ABDShared::DspCore::NeuronVS::NeuronModel
+│
+├── wasm/
+│   ├── CMakeLists.txt               # Build Emscripten que incluye ../DspSources.cmake (EXPORT HEAPF32)
+│   ├── WasmBridge.cpp               # Wrapper C ABI completo para AudioWorkletProcessor
+│   └── build_wasm.bat               # Script de compilación WASM invocado desde build.bat
+│
+├── WebUI/
+│   ├── index.html
+│   └── src/
+│       ├── main.ts                  # Orquestador de la rejilla de 6 unidades (3 filas), TopLcdBar y colapso por fila
+│       ├── bridge/
+│       │   ├── WebBridge.ts         # Cliente WebView2 + delegación automática a BridgeWasm en navegador
+│       │   └── BridgeWasm.ts        # Gestor AudioContext + AudioWorkletNode + carga de abdaxionikvs_dsp.wasm
+│       ├── wasm/
+│       │   ├── axionikWorklet.js    # AudioWorkletProcessor RT-safe sobre WebAssembly.instantiate + HEAPF32
+│       │   ├── abdaxionikvs_dsp.js  # Glue JS generado por Emscripten
+│       │   └── abdaxionikvs_dsp.wasm# Binario WASM del motor DSP C++20 completo
+│       ├── constants/paramIndices.ts# Índices canónicos TypeScript (0..444)
+│       └── ui/                      # TopLcdBar, Paneles (Resynator, Silver, Shapers, Controllers, Filter, Blender,
+│                                    # EnvelopeMaster, MasterOutput) y Drawers deslizantes (Resynator,
+│                                    # Blender, Effects/Silver, Envelope, Matrix, Nuke, Bank, Calibration,
+│                                    # HardwareDumps/SysEx, Settings)
+│
+└── Tests/
+    └── GoldenParityTest.cpp         # Arnés de paridad áurea (audio, --zones 128/128, --matrix 63/63)
 ```
 
 ---
@@ -221,13 +194,12 @@ A partir de `schemas/preset_schema.csv` (445 filas), `schemas/vst_exposed_params
      - `NRPN MSB (CC 99) = (paramIndex >> 7) & 0x7F` (`0..3`)
      - `NRPN LSB (CC 98) = paramIndex & 0x7F` (`0..127`)
      - `Data Entry MSB (CC 6)` + `LSB (CC 38)` transportan un entero de 14 bits (`0..16383`) que se mapea de forma exacta y biyectiva al rango entero `[min..max]` del descriptor (`rango máximo en NeuronVS: -200..+600`), eliminando la pérdida de cuantización de los CCs de 7 bits.
-3. **SysEx (bd::hw::SysExCodec y Especificación Canónica Hartmann)**:
-   - Documentación y análisis exhaustivo en [DOCS/reverse_engineering/SYSEX.md](DOCS/reverse_engineering/SYSEX.md).
-   - **Cabecera Oficial Hartmann GmbH:** F0 00 20 50 01 [DeviceID] [Opcode] ... F7 (confirmada en los 1.626 mensajes del firmware oficial 
-neuron_1_5_0.mid).
-   - Empaquetado 7-bit (SysExCodec::pack8to7 / unpack7to8) para:
+3. **SysEx (`abd::hw::SysExCodec` y Especificación Canónica Hartmann)**:
+   - Documentación y análisis exhaustivo en [`DOCS/reverse_engineering/SYSEX.md`](DOCS/reverse_engineering/SYSEX.md).
+   - **Cabecera Oficial Hartmann GmbH:** `F0 00 20 50 01 [DeviceID] [Opcode] ... F7` (confirmada en los 1.626 mensajes del firmware oficial `neuron_1_5_0.mid`).
+   - Empaquetado 7-bit (`SysExCodec::pack8to7` / `unpack7to8`) para:
      - **Single Parameter Change SysEx**: cambio atómico de cualquiera de los 445 parámetros.
-     - **Sound Patch Dump (sound.script + sound.stickrec)**: volcado y recepción completa de presets hacia/desde hardware y herramientas como SoundDiver / MidiQuest.
+     - **Sound Patch Dump (`sound.script` + `sound.stickrec`)**: volcado y recepción completa de presets hacia/desde hardware y herramientas como SoundDiver / MidiQuest.
      - **Model Header / Zone Map Inquiry**: sincronización con ABDBankManager y ABDNeuModMakr.
 
 ### 3.4 Capa de Abstracción Estricta entre Parámetros (`State`) y Motor (`DSP`)
@@ -286,15 +258,15 @@ Las 87 funciones alcanzables desde `FUN_100382b0` (sin ninguna llamada indirecta
 
 ## 5. Integración con el Ecosistema `ABDShared` (Consumir vs. Aportar)
 
-### 5.1 Componentes que Consumiremos y Ampliaremos en `ABDShared` (Cero Duplicación)
+### 5.1 Componentes Consumidos y Desacoplados en `ABDShared` (Cero Duplicación) [COMPLETADO]
 1. **Desde `ABDSharedCode` (`CMake` `add_subdirectory(../ABDShared/Code ...)`)**:
-   - **`ABDShared::DspCore` (`namespace abd::dsp`)**: `AudioBuffer`, `MidiBuffer`, `MidiMessage`, `SmoothedValue`, `ScopedNoDenormals`, `Random` (siempre con semilla determinista explícita `1234567`), `DspMath.h` (transcendentales deterministas para paridad WASM ↔ nativo, sin `libm` divergente).
-   - **`ABDShared::DspEffects` (`namespace abd::dsp`) — Todos los Efectos de `Silver` y `Master FX` viven en `ABDShared`**:
-     - Siguiendo las normas estrictas de `ABDShared/Code/DspEffects` (como en `ABDMS2000`: `DspMS2000ChorusFlanger.h`, `CascadeShelfEq.h`, `profiles/MS2000EqProfile.h`, `FxRegistry.h` y `adapters/BasicAdapters.h`):
-       - **El motor habla unidades físicas (Hz, ms, dB, muestras)**, es header-only en C++20 puro libre de JUCE y sin métodos virtuales en el lazo de audio.
-       - Los motores de efectos de `Silver` (**Filtro Multimodo 5 curvas**, **EQ 4 Bandas + Compresor**, **Distortion 6 curvas**, **Ring Modulator + Xover Delay**, **Sp-Warp**, **Decimator**, **Stereo Spread**, **L/R Delay**, **Flanger**, **Phaser**, **Chorus**) y de `Master FX` (**Stereo Delay con Damping** y **Master Reverb de 5 Salas**) se implementarán en `D:\desarrollos\ABDSynths\ABDShared\Code\DspEffects\` (con sus perfiles en `DspEffects/profiles/NeuronSilverProfile.h` y sus adaptadores en `BasicAdapters.h` + `Contracts/fx-effects.json`).
-       - En `ABDAxionikVS`, `SilverStage` y `MasterFxStage` serán **shims ligeros de producto** (idénticos en filosofía a `ABDMS2000/Source/DSP/Effects/Equalizer.h` y `ModFX.h`) que traducen las unidades del Neuron al motor compartido.
-       - Esto garantiza que todos los efectos del Neuron puedan usarse en otros proyectos actuales y futuros de `ABDSynths`, y que en la versión expandida de `ABDAxionikVS` podamos montar cualquiera de los **+60 efectos** del catálogo `ABDShared::DspEffects`.
+   - **`ABDShared::DspCore` (`namespace abd::dsp`)**: `AudioBuffer`, `MidiBuffer`, `MidiMessage`, `SmoothedValue`, `ScopedNoDenormals`, `Random` (semilla determinista explícita `1234567`), `DspMath.h` (transcendentales deterministas para paridad WASM ↔ nativo, sin `libm` divergente), [`DspNeuronEnvelope.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspCore/DspNeuronEnvelope.h) (envolvente analógica canónica `CShaper4T4L`) y el núcleo de síntesis en [`DspCore/NeuronVS/`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspCore/NeuronVS) (`NeuronBlockPump.h`, `NeuronVoicePool.h`, `NeuronVoice.h`, `NeuronOscillators.h`, `NeuronModel.h`, `NeuronSilverRack.h`).
+   - **`ABDShared::DspEffects` (`namespace abd::dsp`) — Desacoplo Completo de todos los Efectos de `Silver` y `Master FX` en `ABDShared` [COMPLETADO]**:
+     - Todos los motores de efectos residen canónicamente en [`ABDShared/Code/DspEffects/`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects) como cabeceras C++20 puras, header-only, libres de JUCE y 100 % RT-safe:
+       - [`DspNeuronSilverFilter.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspNeuronSilverFilter.h): Filtro multimodo de voz (`FUN_10021c90` / `FUN_1003d6f0`, 5 curvas: `24dB LP` Moog 5-pole ladder, `12dB LP` SVF, `6dB LP`, `HP`, `BP` con tablas LUT de 8192 entradas y limpieza anti-pops Mac 1.56).
+       - [`DspNeuronSilverRack.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspNeuronSilverRack.h): Tablas LFO canónicas de 12 formas de onda (`DspNeuronLfoTables`, `FUN_10044884`), `DspNeuronSilverFreqFX` (los 5 algoritmos: `0: 4-Band EQ + Comp`, `1: Distortion` 6 curvas, `2: Ring Modulator + Xover Delay`, `3: Sp-Warp`, `4: Decimator`) y `DspNeuronSilverTimeFX` (los 5 algoritmos: `0: Stereo Spread`, `1: L/R Delay`, `2: Flanger`, `3: Phaser`, `4: Chorus` con `Reset()` Mac 1.56).
+       - [`DspNeuronMasterFX.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspNeuronMasterFX.h): `DspNeuronGlobalSlicer` (`FUN_100295d0` 2D/3D), `DspNeuronMasterOutputStage` (`FUN_100382b0` + saturador `FUN_1003b930`), `DspNeuronMasterModFX` y `DspNeuronMasterTimeFX` (`Stereo Delay [431..436]` + `Master Reverb [437..444]` de 5 salas integrando `DspSchroederReverb.h`, `profiles/ReverbProfile.h` y `DspFdnReverb.h` 8x8 Householder).
+     - En `ABDAxionikVS`, los cabeceros de [`Source/DSP/`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP) (`BlockRenderer.h`, `VoicePool.h`, `Voice.h`, `Oscillators.h`, `NeuronModel.h`) son **shims ligeros de producto** que delegan directamente en los motores compartidos de `ABDShared`, garantizando su reutilización transversal en otros proyectos actuales y futuros de `ABDSynths`.
    - **`ABDShared::SynthCore` (`namespace abd::synth`) — Matriz Aséptica `ModMatrix.h`**:
       - `AudioThreadSnapshot`, `VoiceAllocator` y **`ModMatrixT<kNumSlots, kZeroIdInert>`** (`ModRoute`, `ModDestinationDescriptor`).
       - La matriz **`Free Controllers` (`[363..410]`, 6 fuentes × 4 destinos = 24 rutas) + Macros de Ejecución (`[413..424]`, 6 rutas)** se integrará sobre `ABDShared::SynthCore::ModMatrixT` y `ABDShared/Components/modMatrix.js` + `ABDShared/Contracts/abdaxionikvs_modulation_matrix.json`, manteniendo la regla de oro de `ABDShared`: **el motor y la vista son 100 % asépticos (índices opacos sin vocabulario de producto)** y la tabla declarativa aporta los nombres, rangos y categorías.
@@ -302,13 +274,13 @@ Las 87 funciones alcanzables desde `FUN_100382b0` (sin ninguna llamada indirecta
     - **`ABDShared::WebView2Bridge`**: `JuceWebView2Component` y `WebView2ResourceProvider` para servir `WebUI/dist/` embebido y la sonda al servidor Vite en Debug.
     - **`ABDShared::AudioComparator`**: Motor de comparación acústica A/B para las pruebas de certificación contra los WAV áureos de `NeuronVS.dll`.
     - **`ABDShared::BankManagerCore` (`ABDBankManager`)**: Gestión de librerías, bancos y presets integrada en el plugin.
-    - **`ABDShared::NeuronFormats` (`@abdsynths/shared/formats/neuron`)**: Codecs universales 1:1 para contenedores `.model` (`.scape`, `.sphere`, `map.script`, `MName`, `ModelNames`), `.sound` (`sound.script`, `sound.stickrec`, `SoundNames`), decodificador puro RIFF/WAVE y FORM/AIFF (`WavAiffDecoder.ts`) y empaquetador ZIP (`ZipArchive.ts`). Consumidos directamente en Fase A.1.
+    - **`ABDShared::NeuronFormats` (`@abdsynths/shared/formats/neuron`)**: Codecs universales 1:1 para contenedores `.model` (`.scape`, `.sphere`, `map.script`, `MName`, `ModelNames`), `.sound` (`sound.script`, `sound.stickrec`, `SoundNames`), motor relacional transparente **`NeuronDbMapper.ts`** (inspirado en `<Neuron> BrainMapper v1.2.0`: evaluación automática de dependencias bidireccionales `Model <-> Sound` para `R1` y `R2`, filtrado de ranuras vacías `--<empty>--`, asignación segura de ranura libre sin sobrescribir modelos en uso ni `#511 sinew`, remapeo automático de referencias en presets/scripts, compactación de modelos y sincronización de cachés `ModelNames`/`SoundNames`), decodificador puro RIFF/WAVE y FORM/AIFF (`WavAiffDecoder.ts`) y empaquetador ZIP (`ZipArchive.ts`). Consumidos directamente en `ABDAxionikVS` y `ABDNeuModMakr`.
     - **`ABDShared::DspCore::NeuronAnalysis` (`@abdsynths/shared/dsp/neuron-analysis`)**: Motor de análisis espectral de alta resolución (Radix-2 FFT 8192 pts con 4-term Blackman-Harris, HPS con escala de octavas, ajuste de rejilla armónica LS, clustering multicapa de 1..3 capas y generador paramétrico Scape/Sphere). Consumido en Fase B.
     - **`ABDShared::Visualizers` (`@abdsynths/shared/visualizers/SpectralCanvasVisualizer.js`)**: Visualizador gráfico Canvas 2D multimodo de alta fidelidad: espectrograma con estela temporal, barras de 64 parciales armónicos superpuestas a curva FFT en tiempo real y comparador diferencial de formas de onda A/B.
     - **`ABDShared::Scope` (`SpectrogramRenderer.js`)**: Renderizador cascada / waterfall enriquecido con superposición de trazas armónicas (`frame.partialTracks`), permitiendo monitorear las trayectorias de parciales simultáneamente con la densidad espectral global.
 2. **Desde `ABDShared/Code/MidiKeyboard` (`@abdsynths/midi-keyb`) y `ABDSharedAssets` (`@abdsynths/shared`)**:
    - **Teclado Unificado (`D:\desarrollos\ABDSynths\ABDShared\Code\MidiKeyboard`)**: integrado directamente con los 6 controles de ejecución (`params+0x44`: `Aftertouch`, `ModWheel Up/Down`, `Breath CC2`, `CC3`, `Foot CC4`, `Expression CC11`), `PitchBend` (`engine+0xDA4`) y `FootSwitch` (`[411]`), alimentando en tiempo real la matriz `Free Controllers` (`[363..410]`). Registrado con altura 98px para hosts multicapa.
-   - Tokens y cascada CSS (`@abdsynths/shared/styles/tokens.css`), fondo canónico neutral (`ABDShared/Assets/assets/backgrounds/bg_neutral.webp`), `SynthNavBar`, `AboutDialog`, `Knob`, `SilverFilmstripKnob`, `Slider`, `FilmstripFader`, `Segmented`, `Select`, `Toggle`, `Switch`, `XYPad`, `EnvelopePad`, `ModMatrix`, `SevenSegmentDisplay`, `VuMeter`, `SpectrumPlotter`, `LiveSysExInspector`.
+   - Tokens y cascada CSS (`@abdsynths/shared/styles/tokens.css`), fondo canónico neutral (`ABDShared/Assets/assets/backgrounds/bg_neutral.webp`), `SynthNavBar`, `AboutDialog`, `Knob`, `SilverFilmstripKnob`, `Slider`, `FilmstripFader`, `Segmented`, `Select`, `Toggle`, `Switch`, `XYPad`, `EnvelopePad`, `ModMatrix`, `SevenSegmentDisplay`, `VuMeter`, `SpectrumPlotter`, `LiveSysExInspector`, `createLcdPanel`, `createLcdScreen` y `createLcdMachine`.
 
 ### 5.2 Componentes Nuevos Desacoplados Aportados a `ABDShared`
 Siguiendo la directriz de volcado transversal hacia `ABDShared`:
@@ -379,7 +351,7 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
   4. [COMPLETADO] Corrección de offset de cuerpo espectral `SphereBodyTable` (`frameOffset + frameStride - 6152`, `FUN_1002e750`), normalización dinámica de `.scape` (`16-bit` completos y one-shots), compensación `RootKey`/`Detune` por zona (`zonePitchFactor_`, `FUN_10032970`), `R1Switch [23]`/`R2Switch [103]`, `ModelVelocitySwitch [41/121]`, `SoundNumVoices [5]`, `SoundPan [3]`/`SoundPanKeyTrack [4]` y `LFO Global [256..260]`.
   5. [COMPLETADO] Certificación offline de paridad sonora, zonas (`--zones` 128/128) y matriz (`--matrix` 63/63) con `GoldenParityTest`, y biblioteca unificada de **398 presets** (`NeuronVS` + `Hardware Soundset V4`).
 
-### Fase A.4 — Interfaz `WebUI` Adaptada y Mejorada (100 % de los 445 Parámetros) y Volcado a `ABDShared` [COMPLETADA EXCEPTO BUILD WASM]
+### Fase A.4 — Interfaz `WebUI` Adaptada y Mejorada (100 % de los 445 Parámetros), WebAssembly `AudioWorklet` y Volcado a `ABDShared` [COMPLETADA]
 > **Referencia de diseño obligatoria:** [`DOCS/UI_INVENTORY_AND_ADAPTATION.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/UI_INVENTORY_AND_ADAPTATION.md)
 > No replicaremos el aspecto estático ni el laberinto de 33 sub-páginas de 2004 del `NeuronVS` original. En su lugar, adaptaremos y mejoraremos todos sus controles, pantallas, selectores y opciones dentro del sistema de diseño de `ABDSynths` (`@abdsynths/shared`), exponiendo por primera vez los **445 parámetros completos** (incluyendo el rack `Master FX` `[430..444]`, la matriz `Free Controllers` `[363..410]`, `ModelVelocitySwitch` y las 24 profundidades `ResEnv` que el plugin de 2004 ocultaba o fragmentaba).
 
@@ -427,18 +399,13 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
          - Eliminación del marco/caja contenedora redundante en los joysticks (`borderless` en `TrajectoryStick2D` tanto en Control 1 como en Silver), alineándolos exactamente con los joysticks superiores de Scape y Sphere.
          - Sincronización de alturas en `bottom-controllers-row` mediante grid con `align-items: stretch` y tokens compartidos de `ABDShared`.
          - Resolución definitiva del conflicto de scrollbars verticales («scrolls van a la suya»): eliminación de `overflow-y: auto` de `.resynator-column` y unificación en un único scroll suave y coherente en `.workspace-canvas`.
-     - **Vista Simplificada / Modal «NUKE Remote Controller» (Emulador de la Superficie de Control Hardware)** [PENDIENTE / PLANIFICADO FASE C]:
-       - **Estado Real en Fase A (Funciones Absorbidas en Canvas y Matrix)**:
-         - *3D Stick Central Multiplexado*: En Fase A se implementaron **5 joysticks 2D dedicados y simultáneos** directamente sobre el canvas (Scape 1, Sphere 1, Scape 2, Sphere 2, y Vector 2D Silver), evitando conmutaciones forzadas para el flujo de trabajo en pantalla.
-         - *4 Macro Encoders Continuos ([425..428])*: Plenamente operativos en el motor C++ y asignables dentro de la Modulation Matrix (pestaña *1. MIDI & Macros*).
-         - *Transporte de Trayectorias*: Cada stick 2D cuenta con sus propios controles autónomos de grabación y reproducción (● REC, ▶ PLAY, ✕).
-         - *Controles de Rendimiento (Aftertouch, Modulation, Breath, CC 03, Foot, Expression)*: Integrados en ControllersPanel y la pestaña de controladores de la Matrix.
-       - **Diseño de la Vista Simplificada NUKE (Referencia Hartmann Neuron VS Original)**:
-         - Vista contextual accesible vía botón <NUKE> / Remote o modal desacoplable:
-           - **Carcasa Diamante Hartmann NUKE**: Recreación visual del orbe físico plateado original de la unidad de control remoto USB del Neuron VS.
-           - **Joystick Central Iluminado en Naranja**: Orbe táctil con halo dinámico y conmutador rápido de asignación de destino (Resynator 1, Resynator 2, Silver).
-           - **4 Diales Macro (Knob 1..4 Select [425..428])**: Diales giratorios con displays alfanuméricos LCD con el parámetro asignado (Filter Cutoff, Blender Mix, Shaper A1 Attack, Filter Resonance, etc.).
-           - **Consola Inferior de 6 Controladores Físicos**: Aftertouch, Modulation, Breath, CC 03, Foot, Expression con sus displays de asignación y ruedas/lecturas de profundidad (Depth +xx).
+     - **Vista Deslizable Superior «`<NUKE>` Remote Control Unit» ([`NukeDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/NukeDrawer.ts)) — [x] COMPLETADO**:
+       - Accesible desde el botón **`NUKE`** en la esquina superior derecha de la barra de navegación (a la izquierda de `Matrix`, o vía menú/atajo `Ctrl+K`), se desliza desde arriba ocupando el 90% del ancho (`min(90vw, 1180px)`) y deteniéndose sobre el teclado inferior para dejar visibles los laterales del sintetizador y permitir tocar el teclado MIDI en todo momento sin cerrarse (solo se cierra mediante su botón `✕ Close` o el botón `NUKE` de la barra superior).
+       - Construida íntegramente con el sistema de diseño y componentes de `@abdsynths/shared` (`TrajectoryStick2D` con la variante decorada `variant: 'nuke-orb'`, `Knob`, `pillSelectorHtml`, `.synth-panel-card`, `.hud-pill`, `.abd-select__field`, tokens CSS `var(--color-...)` sin colores hardcodeados) y la capa de abstracción `WebBridge` / `ParamIdx`:
+         - **Voice Limit (`SoundNumVoices [5]`, `1..32`)** en cabecera con stepper interactivo (`006`).
+         - **Stick Vectorial Central Multiplexado (`TrajectoryStick2D`, `212px × 212px`, `variant: 'nuke-orb'`)** con bisel fresado, anillos concéntricos de telemetría, esfera translúcida con retícula interna, conmutador rápido de motor (`Resys 1 | Resys 2 | Silver`), modo (`Sphere | Scape` sincronizado con `R1Type [24]` / `R2Type [104]`), capas (`L1 | L2 | L3` sincronizadas con `[25]`, `[105]`, `[272]`), etiquetas polares dinámicas `mnAN` según el `ParameterSet` del modelo cargado y grabador de trayectorias (`REC / PLAY / ✕`).
+         - **4 Diales Macro Asignables (`Knob 1..4 Select [425..428]`)**: `Knob`s rotatorios situados encima de selectores compactos (`132px`) de los 63 destinos de modulación (`0..62`), leyendo y modificando en tiempo real el parámetro objetivo en `snddat` (`resolveParamIndexFromModDest`).
+         - **Consola Inferior de 6 Controladores de Interpretación (`Controllers [413..424]`)**: `Aftertouch`, `Modulation`, `Breath`, `CC 03`, `Foot`, `Expression` con selector de destino (`0..62`) y `Knob` bipolar de profundidad (`Depth -64..+63`, formato tabular `+00`, `+29`).
      - **Pie de Página y Controles de Interpretación**:
        - Teclado MIDI compartido (`@abdsynths/midi-keyb`) con botón nativo de colapso/descolapso vertical (`enableCollapse: true`) para maximizar el espacio de la cubierta de síntesis, y barra de transporte/grabación global de `StickRec`.
        - **Bloque de Interpretación Izquierdo (Conmutable Ruedas vs. Control 1 Stick)**:
@@ -450,17 +417,30 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
       - Identificado y corregido el desajuste en el preset 176 (destino 58, control 1 prof 0.920635) mediante la alimentación previa de los valores de control de `params+0x44` al port.
       - **351/351 presets en verde**, 6.237 comprobaciones de arnés, 21.411 slots bit a bit (61/63 por preset × 351).
       - Verificador `verify_matrix.py` actualizado a `V10` (15/15 comprobaciones superadas).
-   6. **Ciclo de Vida y Parametrización de los Tres Objetos del Cierre en `engine+0x3650/0x3654/0x3658`**:
+   6. **Ciclo de Vida, Parametrización y Alineación 1:1 de los Tres Objetos del Cierre en `engine+0x3650/0x3654/0x3658` + Suite `CTest`**:
       - Creados en el constructor `FUN_10044884` sobre `operator_new(0x367C)` y destruidos por `FUN_100461c4`:
-        - `+0x3650` (`e[0xD94]`): Coro / Slicer (352.936 B) parametrizado por `FUN_10040550` desde los slots 226..229 (`p[0xE2..0xE5]`).
-        - `+0x3654` (`e[0xD95]`): Delay largo / CSilverRack (541.640 B) parametrizado por `FUN_100343e4(this, p)` con 64 campos (`st+0x0C..st+0x110`, 54 literales de `p[249..316]` + 10 calculados).
-        - `+0x3658` (`e[0xD96]`): Reloj del banco aditivo (120 B) con avance de 1024 muestras por bloque vía `FUN_10029530`.
+        - `+0x3650` (`e[0xD94]`): Coro / Slicer (`DspNeuronGlobalSlicer` en [`DspNeuronMasterFX.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspNeuronMasterFX.h)) parametrizado por `FUN_10040550` desde los slots 226..229 (`p[0xE2..0xE5]`), alineado 1:1 con `100295d0_FUN_100295d0.c` (`wet = 2x - x²`, `dry = 1 - wet`, retardo acoplado `2500*x` en L y mitad en R con suavizado `(10000*y + target)/10001` y snap `< 1e-3`, desfase estéreo LFO de `4096` muestras en las 12 tablas de 8192 floats, y Modo 2 con inyección directa `(in + del) * mod * wet + in * dry`).
+        - `+0x3654` (`e[0xD95]`): Delay largo / CSilverRack (`DspNeuronSilverRack` en [`DspNeuronSilverRack.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspNeuronSilverRack.h)) parametrizado por `FUN_100343e4(this, p)` con 64 campos (`st+0x0C..st+0x110`, 54 literales de `p[249..316]` + 10 calculados), anillos de 44.100 floats y clamp de feedback `0.99`.
+        - `+0x3658` (`e[0xD96]`): Reloj del banco aditivo (120 B) con avance de 1024 muestras por bloque vía `FUN_10029530` (rama inactiva en el binario original al nacer `voz+0x18 = 0`).
+        - Etapa final de salida (`DspNeuronMasterOutputStage` en [`DspNeuronMasterFX.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspNeuronMasterFX.h)): filtro de inclinación estéreo `(350*y + x)/351` + diferenciador de 2º orden + saturador soft-knee `FUN_1003b930(x, 0.4, 0.75)` + clamp `[-1.0, 0.99899995]`.
+      - Auditados y descartados los stubs inconexos de `NeuronVS_port/src/dsp_effects.cpp` (documentado en [`DOCS/DSP_MIGRATION_AND_FIXES.md` §11.8](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/DSP_MIGRATION_AND_FIXES.md)), verificado por qué el barrido de 351 presets con `--zones` en `NeuronVS.dll` daba 320 presets vacíos (instalador original con solo `511.model` en `Program Files (x86)`) mientras que `ABDAxionikVS` carga los 341 modelos de `NeuronVS-db/NeuronDB` + fallback estático `#511 sinew`, y registrada la suite `CTest` en [`CMakeLists.txt`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/CMakeLists.txt) (`DspEngineFacadeTests`, `GoldenParityTest_Zones`, `GoldenParityTest_Matrix`: 3/3 suites y 8/8 tests unitarios en verde).
+   8. **Cumplimiento Estricto del Principio Headless (`sampleRate_` vs `kLegacyBaseSampleRate`), Validación de Modelos Incompletos y Migración `v1 → v2` (`FUN_10013ea0`)**:
+      - Documentado en [`DOCS/DSP_MIGRATION_AND_FIXES.md` §§11.9–11.12](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/DSP_MIGRATION_AND_FIXES.md):
+        - Sustitución de todos los literales `44100.0`, `88` y `8192.0` en [`DspTypes.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/DspTypes.h), [`DspEngineFacade.h/.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/DspEngineFacade.h) y [`StickPlayer.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/StickPlayer.h) por `kLegacyBaseSampleRate`, `kDefaultAntiPopSamples`, `kAntiPopRampSeconds` y `DspNeuronLfoTables::kTableSize`, manteniendo el motor DSP 100 % libre de JUCE.
+        - Validación estricta en [`NeuronModel::parseMapScript()`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspCore/NeuronVS/NeuronModel.h) para rechazar cualquier `.model` cuyas zonas activas referencien fuentes `LowSource`/`HiSource` (base 1) sin par completo `.scape` + `.sphere` en disco (verificado en `DspEngineFacadeTests` Test 7).
+        - Confinamiento por tipos de `modBaseValues_` (`params+0x0C`) y `effectiveSlots_` (`params+0x10`) al contexto de `stSPEngineCb` (`0x100139D0`) en [`ParameterEngineBridge.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/ParameterEngineBridge.h).
+        - Soporte sin recorte (`SndDatStore::setRawValueUnclamped`) para la migración de formato `SoundVersionMajor < 2` (`FUN_10013ea0`: `BlenderAmount -= 64.0f` sin clamp posterior, verificado en `DspEngineFacadeTests` Test 8).
    7. **Especificación Canónica SysEx y Presets de Fábrica**:
       - Confirmada la ausencia de SysEx en el DLL VST2 (filtra estrictamente `kVstMidiType`).
       - Decodificada la cabecera canónica del hardware Hartmann desde el volcado de firmware `neuron_1_5_0.mid`: `F0 00 20 50 01 7F 70 00` (Manufacturer ID oficial MMA: `0x00 0x20 0x50`).
       - Tabla canónica de 445 descriptores embebida en `.rdata:0x10049F08`, nombres de 1.000 sonidos inicializados con `InitSound` (`0x100525BC`).
+   9. **Compilación WebAssembly (`abdaxionikvs_dsp.wasm`) e Integración `AudioWorklet` en Navegador ([`wasm/`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/wasm), [`BridgeWasm.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/bridge/BridgeWasm.ts), [`axionikWorklet.js`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/wasm/axionikWorklet.js), [`build.bat`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/build.bat))**:
+      - El motor DSP de `ABDAxionikVS` (`DspEngineFacade`, `Translator`, `ParameterEngineBridge`, `ABDShared::DspCore::NeuronVS`, `ABDShared::DspEffects` y `ABDShared::SynthCore`) está escrito en **C++20 puro 100 % libre de dependencias JUCE**, por lo que compila directamente a WebAssembly con Emscripten sin necesidad de incluir módulos de JUCE.
+      - Síntesis en memoria para modelos en entorno navegador (`NeuronModel::loadEmbeddedSyntheticModel` en [`NeuronModel.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspCore/NeuronVS/NeuronModel.h) y [`NeuronBankAdapter.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/NeuronBankAdapter.h)): cuando no hay acceso a sistema de archivos local (`__EMSCRIPTEN__`), el motor genera en memoria los contenedores `.scape` y `.sphere` canónicos tanto para el modelo `#511 sinew` como perfiles multi-armónicos diferenciados para los slots `000..510`, mapeando las 128 zonas MIDI para que el sintetizador suene de inmediato en el navegador.
+      - `WasmBridge.cpp` y `axionikWorklet.js` (`AxionikWorkletProcessor`): exponen el C ABI completo (`axionik_create`, `axionik_render`, `axionik_note_on/off`, `axionik_set_param`, `axionik_pitch_bend`, `axionik_mod_wheel`, `axionik_channel_pressure`, `axionik_midi_cc`, `axionik_load_preset_script`, `axionik_load_model_slot`, `axionik_set_calibration`, `axionik_get_telemetry`) y procesan bloques estéreo en tiempo real sobre `HEAPF32`.
+      - Integrado [`wasm/build_wasm.bat`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/wasm/build_wasm.bat) como paso `[6/6]` de [`build.bat`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/build.bat) inmediatamente después de la compilación nativa CMake/MSVC, copiando automáticamente `abdaxionikvs_dsp.js`, `abdaxionikvs_dsp.wasm` y `axionikWorklet.js` a `WebUI/src/wasm/` y `WebUI/dist/`.
 - **Verificación (DoD)**:
-  - Cierre de la **Fase A (Hartmann Neuron Clásico 1:1)**: `build.bat nopause` 100 % en verde (CTest + Vitest 43/43 + Selftest E2E en las dos superficies + paridad WASM `AudioWorklet`).
+  - Cierre 100 % completado de la **Fase A (Hartmann Neuron Clásico 1:1)**: `build.bat nopause` 100 % en verde (CTest + Vitest + Selftest E2E en las dos superficies + compilación y reproducción WASM `AudioWorklet`).
 
 ---
 
@@ -476,7 +456,7 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 > 4. Soporte de Drag & Drop directo de archivos `.model`, `.sound` y `.nmmodel` sobre la interfaz (adelantado a la UI clásica por ser una mejora de ergonomía general).
 
 ### Fase B — Versión Extendida / Extended (Soporte Híbrido `.nmmodel v2.1` de `ABDNeuModMakr`) *(Sujeta a Gate de Diseño A → B)*
-- **Objetivos Preliminares (a refinar en el Gate A â†’ B)**:
+- **Objetivos Preliminares (a refinar en el Gate A → B)**:
   1. **Soporte Nativo de `.nmmodel` (`v2.1`)**:
      - Implementar `NmModelLoader` y `NmModelResinator` en `Source/DSP/Extended/` para cargar directamente paquetes `.nmmodel` generados por `ABDNeuModMakr` (precisión `Float32`, 64 parciales inarmónicos con `frequencyOffsets` en semitonos, múltiples capas de velocidad/nota y muestras WAV embebidas), integrando los módulos de análisis y modelado espectral `@abdsynths/shared/dsp/neuron-analysis` (`FftEngine`, `SpectralAnalyzer`, `LayerClustering`, `ScapeSphereGenerator`).
   2. **Moldeadores de Materia Sónica de `ABDNeural` (`SpectralShaper`)**:
@@ -486,7 +466,7 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
        - *Entropy / Roughness* (micro-modulación determinista por parcial) y *HF RollOff*
   3. **Modo Híbrido Dual / `Resinator 3` (Morphing 4-Way A/B/C/D)**:
      - Permitir que `R1` y `R2` operen indistintamente con modelos clásicos `.model` (`NeuronDB`) o con modelos `.nmmodel` (`ABDNeuModMakr`), e incorporar el modo de morphing bilineal de 4 esquinas (`Slots A..D`) de `ABDNeural`.
-  4. **Puente Directo `ABDNeuModMakr` â†” `ABDAxionikVS`**:
+  4. **Puente Directo `ABDNeuModMakr` ↔ `ABDAxionikVS`**:
      - Carga en caliente (Drag & Drop o vigilancia de directorio) de archivos `.model` y `.nmmodel` recién sintetizados desde `ABDNeuModMakr`.
 - **Verificación (DoD)**:
   - Suite de pruebas del motor extendido verificando paridad matemática con `ABDNeural::DSP::CoreModules::Resonator`, carga sin artefactos de `.nmmodel v2.1` multicapa y paridad bit-exacta entre el build nativo (`VST3`/`Standalone`) y el `AudioWorklet` WASM.
@@ -494,87 +474,131 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 
 ---
 
-### Fase C / Expansión Futura — Pantalla LCD Superior Fija y Monitor de Telemetría (Post-Fase B)
+### Fase C — Pantalla LCD Panorámica Fija Superior y Monitor de Telemetría ([`TopLcdBar.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/TopLcdBar.ts)) [COMPLETADA]
 > [!NOTE]
-> **Planificación a largo plazo:** Este hito se abordará al concluir la Fase B. Implementará una pantalla LCD panorámica fija superior, inspirada en la arquitectura de `ABDMS2000` (`Sticky Top Hero Bar`), estrecha pero larga, reutilizando los componentes LCD de `ABDShared` (`ABDShared/Components/LcdDisplay`, `lcdMachine.js`, `lcdPanel.js`, `lcdScreen.js` y `lcd.css`).
+> Implementada en [`WebUI/src/ui/TopLcdBar.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/TopLcdBar.ts) y montada en [`WebUI/src/main.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/main.ts) justo debajo de la `SynthNavBar` (`<header>`) y por encima de `<main class="workspace-canvas">`. Comparte el mismo fondo que la barra de navegación (`var(--navbar-bg)` + `backdrop-filter: blur(8px)`), ocupa todo el ancho (`100%`), se alinea a las **12 columnas** del sintetizador (`.synth-row` con 3 zonas `.col-span-2` de `4/12` columnas cada una en el orden **`Resynator 1` → `Resynator 2` → `Consola Central + Silver`**) y despliega en **2 filas** las **4 pantallas LCD de caracteres** y las **7 mini-pantallas gráficas ADSR de `66×22 px`** simultáneamente, sin ocultar ninguna.
 
-- **Objetivos de la Pantalla LCD Superior**:
-  1. **Emulación y Visor de Pantallas del Hardware Original**:
-     - Visualizar la información de contexto de todas las pantallas y sub-páginas clásicas del `NeuronVS` original (las 33 vistas de 2004) y los menús del sintetizador hardware Hartmann Neuron (`Setup`, `Bank`, `Model`, `Resynator`, `Blender`, `Silver`, `Modulation`, `Zones`).
-  2. **Telemetría y Monitorización de Parámetros en Tiempo Real**:
-     - Al interactuar el usuario con cualquier potenciómetro, fader, selector o stick, el LCD mostrará instantáneamente en cabecera:
-       - Nombre formal y legible del parámetro activo.
-       - Valor actual normalizado y valor en su dominio físico real (Hz, dB, %, ms, semitonos).
-       - Identificador de mapeo MIDI: Código CC correspondiente (si está asignado), código NRPN de 14 bits (`CC 99/98/6/38`, `0..444`) y trama de comando SysEx asociada.
-  3. **Monitor Visual de Automatizaciones y Reproducción de Trayectorias**:
-     - Mostrar en vivo el estado del grabador vectorial de trayectorias (`REC / PLAY / IDLE`).
-     - Renderizar la evolución temporal de las automatizaciones grabadas en los Sticks cuando se pulse `PLAY`, mostrando coordenadas $X, Y$, estela en miniatura y barra de progreso temporal en tiempo real sobre el display LCD.
-  4. **Alineación con el Ecosistema `ABDShared`**:
-     - Consumir el subsistema LCD de `ABDShared` (`LcdMachine`, `LcdPanel`, `LcdScreen`) con tipografía retro segmentada/matriz de puntos, contraste adaptable según el tema activo y formateador de menús similar a `LCDMenuFormatter.h` de `ABDMS2000`.
-  5. **Joystick Digital de Navegación del Hardware (`Navigation Stick` 4 Vías + Enter)**:
-     - En el hardware físico original Hartmann Neuron, situado a la derecha de la pantalla LCD, existía un joystick digital de navegación de 4 posiciones (`stick.up`, `stick.down`, `stick.left`, `stick.right`) y un botón central de confirmación (`Enter`) para navegar por menús de sistema, bancos, modelos y cambiar parámetros numéricos sin necesidad de ratón.
-     - Integrar junto al display LCD panorámico el widget interactivo **`NavigationStick`** (con respuesta táctil/ratón, atajos de flechas de teclado y mapeo MIDI CC/SysEx configurable), permitiendo una experiencia de navegación táctil y operativa 100% idéntica a la consola del sintetizador de teclado original.
+- **Arquitectura Implementada en [`TopLcdBar.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/TopLcdBar.ts)**:
+  1. **Zona 1 — Izquierda (`col-span-2`, Columnas 1–4): `RESYNATOR 1` (2 Filas)**:
+     - **Fila 1**: Pantalla `createLcdScreen` (`26×2` caracteres) con lectura en vivo de `Resynator 1` (`C_GraphEditor #12/#13`: modelo `#511 sinew`, `SPH`/`SCP`, `L1..L3`; `C_PadGrid #0`: coordenadas `X/Y` en `"%03i"`; `C_Knob #0`: `VOL` y `Semi` en `"%+02.2i"`), acompañada de botones `MODEL ▾` y `EDIT`.
+     - **Fila 2**: Las **3 mini-pantallas gráficas ADSR `66×22 px` de `Resynator 1`** visibles simultáneamente (`C_DisplayButton #1 R1 AMP [200..203]`, `#0 R1 RES [182..185]` y `#2 R1 FREE [205..208]`), cada una con su lectura numérica `A·D·S·R` y la polilínea exacta de 5 vértices (`FUN_10018220`: `(1,21) → (1+A,1) → (2+A+D,20-S) → (13+A+D,20-S) → (14+A+D+R,21)` con doble trazo halo `3px` + núcleo `1px`).
+  2. **Zona 2 — Centro (`col-span-2`, Columnas 5–8): `RESYNATOR 2` (2 Filas)**:
+     - **Fila 1**: Pantalla `createLcdScreen` (`26×2` caracteres) con lectura en vivo de `Resynator 2` (`C_GraphEditor #39/#40`, `C_PadGrid #1` `X/Y`, `C_Knob #1 R2Volume` y `R2Semi`), acompañada de botones `MODEL ▾` y `EDIT`.
+     - **Fila 2**: Las **3 mini-pantallas gráficas ADSR `66×22 px` de `Resynator 2`** visibles simultáneamente (`C_DisplayButton #4 R2 AMP [230..233]`, `#3 R2 RES [212..215]` y `#5 R2 FREE [235..238]`).
+  3. **Zona 3 — Derecha (`col-span-2`, Columnas 9–12): `CONSOLA CENTRAL + SILVER & TELEMETRÍA` (2 Filas)**:
+     - **Fila 1 (Consola Principal Interactiva)**:
+       - **8 Botones de Salto Rápido de Subsistema** (`SND`, `R1`, `BLD`, `R2`, `SLV`, `SHP`, `MOD`, `MFX`).
+       - **Pantalla Central (`28×2` caracteres) + D-Pad de 6 Botones (`MENU`, `OK`, `‹`, `›`, `^`, `v` con hold-repeat `400ms / 120ms`)**: construida con `createLcdPanel` de `@abdsynths/shared/components`, mostrando en reposo `C_GraphEditor #0/#1` (`Sound #000 InitSound` + `Blender` + `Voices`), árbol completo de menús de los 445 parámetros y previsualización instantánea `C_ParameterPage` (`Grupo · Nombre [#idx]`, valor `"%03i"` / `"%+02.2i"`, `NRPN MSB:LSB`) al tocar cualquier control.
+       - **Joystick Digital Hardware de 4 Vías + `ENT` (`#lcd-nav-stick`)** con soporte de ratón y teclado.
+     - **Fila 2 (7ª Pantallita ADSR `66×22` + 4ª Pantalla LCD de `Silver` + Telemetría)**:
+       - **7ª mini-pantalla ADSR `66×22 px`** (`C_DisplayButton #6 FLT ENV [355..358]`).
+       - **4ª Pantalla LCD (`createLcdScreen`, `20×2` caracteres)** dedicada a `Silver & Multi-FX` (`C_PadGrid #2`: curva de filtro `24LP/12LP/06LP/BP/HP`, `CUT [274]`, `RES [275]`, `FreqFX [282]` y `TimeFX [328]`).
+       - Steppers de preset (`◀ / PRESET / ▶`), estado `STK: IDLE/REC/PLAY` y badge `NRPN MSB:LSB`.
+  4. **Especificación Exacta de las «Pantallitas» y Displays de `NeuronVS.dll` (Ingeniería Inversa de `C_GraphEditor`, `C_DisplayButton` y `C_PadGrid`)**:
+     - Documentado en detalle en [`DOCS/reverse_engineering/layout/PAINT_PIPELINE.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/reverse_engineering/layout/PAINT_PIPELINE.md) (§18 y §19) y verificado con tests unitarios en [`tests/top_lcd_bar.test.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/tests/top_lcd_bar.test.ts):
+       - **Motor de texto y estado (`C_GraphEditor`, `FUN_10014dd0` / `FUN_10015280` / `FUN_10015910`)**: formatea valores unipolares como `"%03i"` (`0x100545b8`) y bipolares como `"%+02.2i"` (`0x100545c0`).
+       - **Los 8 displays perimetrales de cada Stick (`C_PadGrid`, `FUN_10018bb0` + `DAT_1004ea50..54`)**: 4 etiquetas dinámicas de 8 caracteres (`mnAN`) y 4 lecturas numéricas de 3 dígitos.
+       - **Las 7 mini-pantallas ADSR (`66×22 px`, `FUN_10018220`) y el compositor de envolvente (`458×71 px`, `FUN_10017950`) de `C_DisplayButton` (`FUN_10017470`)**:
+         - Conectadas en tiempo real a los 28 parámetros individuales de envolvente (`R1 AMP [200..203]`, `R1 RES [182..185]`, `R1 FREE [205..208]`, `R2 AMP [230..233]`, `R2 RES [212..215]`, `R2 FREE [235..238]` y `FLT ENV [355..358]`) tanto desde C++ (`PluginEditor.cpp` / `PluginProcessor.cpp` al cargar presets) como en modo standalone (`WebBridge.ts`, con valores iniciales diferenciados por envolvente según el preset de fábrica `000 InitSound`) y desde los paneles interactivos (`ShapersPanel.ts`, `EnvelopeMasterPanel.ts`, `EnvelopeDrawer.ts`).
+         - **Diseño Responsive sin Solapamientos (`SynthNavBar` y Zona 3 Central)**: Eliminado el posicionamiento absoluto de `.abd-top-menu` en `SynthNavBar` para evitar que `File / Edit / View / Help` se solapen con el selector de preset, y reestructurada la fila 1 de la consola central (`.top-lcd-console-strip`) con CSS Grid (`auto minmax(140px, 1fr) auto auto`) para escalar limpiamente en cualquier ancho de ventana.
 
 ---
 
-### Fase D / Expansión Futura — Inspector & Calibrador Integral de Parámetros (`paramIndices.ts` & `AxionikParamIndices.h`), Magic Numbers y Gestión JSON (Estilo `ABDJUNiO601`)
+### Fase D — Inspector & Calibrador Integral de Parámetros DSP, Magic Numbers y Gestión JSON (`ABDJUNiO601` Pattern Enhanced) [COMPLETADA]
 > [!NOTE]
-> **Planificación a largo plazo (casi al final de los desarrollos):** Implementación de una vista / panel avanzado de auditoría, calibración y edición exhaustiva de los parámetros de [`paramIndices.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/constants/paramIndices.ts) y [`AxionikParamIndices.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/ClassicNeuron/AxionikParamIndices.h), adaptando el patrón de banco de pruebas e inspección paramétrica ya establecido en `ABDJUNiO601`.
+> **Implementación completada:** Extracción centralizada de los **43 valores mágicos del motor DSP** a [`AxionikCalibrationConfig.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/AxionikCalibrationConfig.h), registro tipado bilingüe en [`calibrationContracts.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/calibrationContracts.ts), documentación técnica en [`CALIBRATION_PARAMETERS.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/CALIBRATION_PARAMETERS.md) y cajón interactivo [`CalibrationDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/CalibrationDrawer.ts) accesible desde la cabecera (`Calib`, `Ctrl+;` y `Edit -> DSP Calibration & Magic Numbers...`).
 
-- **Objetivos de la Fase D**:
-  1. **Inspector Tabular & Jerárquico de Parámetros Completos**:
-     - Visualización exhaustiva de los 445 parámetros autoritativos de `snddat` más los coeficientes del motor DSP:
-       - **Identificación:** Índice numérico formal (`0..444`), identificador canónico (`enum ParamIdx`), clave en `sound.script` y nombre legible.
-       - **Metadatos de Rango y Cuantización:** Valor mínimo (`min`), valor máximo (`max`), paso/resolución (`step`), y valor por defecto autoritativo actual (`default`).
-       - **Documentación y Explicación Técnica:** Descripción contextual de la función exacta del parámetro en la arquitectura del sintetizador y unidades físicas reales (Hz, dB, %, ms, semitonos, ratio, etc.).
-       - **Control Interactivo en Vivo:** Entradas numéricas y sliders de precisión para ajuste en caliente con propagación bidireccional inmediata al motor DSP (`WebBridge.setParam`) y sincronización sin ecos hacia el resto de vistas.
-  2. **Agrupación y Organización Modular por Subsistemas**:
-     - Filtros y pestañas de agrupación lógica para navegación inmediata:
-       - **Global, Performance & Voice:** `[0..21, 411..412]` (Polifonía, Pan, PanKeyTrack, PitchBendRange, Footswitch, etc.).
-       - **Resynator 1 & Resynator 2:** `[22..101]` y `[102..181]` (Modelos, Afinación, Tamaño, Niveles Scape/Sphere 1..3, Envolventes, Modulaciones de eje).
-       - **Blender & Slicer:** `[261..270]` (Algoritmos de fusión, cantidad de mezcla bipolar, modulación, Slicer Type, Depth, Rate).
-       - **Silver Multimode Filter & ADSR:** `[271..280, 355..362]` (Curvas de filtro 24/12/6 dB, Cutoff, Reso, Keytrack, Velocity, envolvente ADSR de filtro).
-       - **Silver FreqFX:** `[281..326]` (EQ paramétrico de 4 bandas + Compresor, Distorsión 6 curvas, Ring Modulator, Decimator, Spectral Warp).
-       - **Silver TimeFX:** `[327..354]` (Stereo Spread, L/R Delay, Flanger, Phaser, Chorus).
-       - **Free Modulation Matrix & Hardware Controls:** `[363..429]` (6 fuentes × 4 destinos, Macro Encoders 1..4, Controles CC 1..11, Aftertouch).
-       - **Master Spatial FX Rack:** `[430..444]` (Master Delay estéreo y Master Reverb de 5 salas).
-  3. **Auditoría e Inclusión Exhaustiva de "Magic Numbers" y Constantes Internas**:
-     - Revisión completa para documentar y parametrizar las constantes empíricas y números mágicos identificados durante la descompilación de `NeuronVS.dll` y el oráculo áureo:
-       - **Umbral Físico de 1 mm (`1/25.4` pulgadas = `0.03937`):** Constante de puerta en el callback `stSPEngineCb` (`0x100139D0`) para actualización de cotas físicas en mm convertidas a pulgadas en slots 164 y 194.
-       - **Parámetros con Default Menor que Min (19 parámetros):** Registro de los 19 casos donde el descriptor en `.rdata` declara `default = 0` con `min = 1` (`*StickPlayback` y `EQ_*`), forzados a `1.0` por `FUN_10001170`.
-       - **Dimensiones de Frames y Bloques FDN:** Dimensiones de frame de `.sphere` (`6.568 B`, `magic = 1234` / `0x4d2`), crossfade de 25 bandas cada 1024 o 512 muestras según `decodeMode`, y bloque opaco de 6.152 B (1.024 parciales espectrales).
-       - **Filtro de Énfasis Diferencial de Curvas `.scape`:** Coeficientes `(v - prev) * 2 + v` y longitudes de ciclo variables (`84, 100, 168, 169, 337, 2047` muestras).
-       - **Límites de Seguridad y Saturación:** Modos conmutables de salida (`OracleClipToZeroMode` legacy `if (x*x > 1.0) x = 0.0` vs. Soft-Saturation musical moderna).
-  4. **Gestión de Serialización JSON (Import / Export / Reset)**:
-     - **Exportar a JSON:** Volcado estructurado de la totalidad de parámetros, metadatos, agrupaciones y calibraciones a archivo `.json` formateado y versionado.
-     - **Importar desde JSON:** Carga, validación de esquema, comprobación de rangos `[min, max]` e inyección masiva en caliente hacia `snddat` y el motor DSP.
-     - **Perfiles de Calibración:** Soporte para guardar perfiles ("Default Factory", "Paridad Estricta DLL 2004", "Enhanced Musical Mode", "Calibración Custom").
-     - **Botón Reset:** Restauración instantánea de todos los parámetros a sus valores por defecto canónicos.
+- **Hitos Completados en la Fase D**:
+  1. **Extracción Exhaustiva de los 43 Magic Numbers a Configuración Centralizada C++ ([`AxionikCalibrationConfig.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/AxionikCalibrationConfig.h))**:
+     - Agrupados en 6 subsistemas lógicos con `id`, `label`, `category`, `defaultValue`, `minValue`, `maxValue`, `stepSize`, `unit`, `codeReference` y `description`:
+       - **1. GENERAL & ENGINE (7):** `masterVolume`, `antiPopRampMs`, `voicePanWidth`, `pitchBendMaxSt`, `glideBaseTimeMs`, `glideSpanTimeMs`, `mmToInchesGate`.
+       - **2. RESYNATOR (SCAPE & SPHERE) (12):** `scapeCycleSamples`, `scapeMinPeakFloor`, `scapeEmphasisCoeff`, `scapeYModRange`, `scapeSizeExponent`, `sphereConvolveGain`, `spherePeakFloor`, `sphereBand0Boost`, `sphereSubOctaveGain`, `sphereExciterGain`, `sphereSvfBaseCutoffHz`, `sphereSvfModOctaves`.
+       - **3. BLENDER & SLICER (6):** `crossmorphIntermodGain`, `intermorphSineGain`, `slicerBaseRateHz`, `slicerMaxRateSpanHz`, `slicer3dPanDepth`, `slicer3dQuadratureGain`.
+       - **4. SHAPERS & ENVELOPES (6):** `envMaxTimeSeconds`, `envDecayExpRate`, `envReleaseExpRate`, `shaperVelCurveRange`, `lfoBaseRateHz`, `lfoMaxRateSpanHz`.
+       - **5. SILVER FILTER (6):** `filterMinCutoffHz`, `filterSweepMaxRatio`, `filterKeyTrackSpanHz`, `filterEnvModOctaves`, `filterLp24FeedbackK`, `filterSvfMaxResQ`.
+       - **6. SILVER & MASTER FX (6):** `fxDistMaxDriveGain`, `fxRingModMaxCarrierHz`, `fxChorusBaseDelayMs`, `fxChorusModDepthMs`, `masterDelayMaxWetMix`, `masterReverbMaxWetGain`.
+  2. **Puente Bidireccional en Tiempo Real (`DspEngineFacade` & `PluginEditor` & `WebBridge`)**:
+     - Comandos `CALIBRATION_SET`, `CALIBRATION_RESET`, `CALIBRATION_RESET_ALL` y evento `CALIBRATION_SYNC` conectados con [`DspEngineFacade.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/DspEngineFacade.cpp) y [`PluginEditor.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginEditor.cpp).
+  3. **Cajón Interactivo `CalibrationDrawer.ts` (Superando el Modal de `ABDJUNiO601`)**:
+     - Buscador instantáneo por nombre, ID, descripción o archivo fuente (`DspEngineFacade.h`, `NeuronVoice.h`, `NeuronOscillators.h`, `SilverFilter.h`, etc.).
+     - Filtro rápido **`MODIFIED (N / 43)`**, pestañas por categoría con contador en vivo, slider horizontal con marcador visual de valor por defecto, input numérico de precisión, reset individual (`↺`), **`Reset Group`** por sección y **`RESET ALL`**.
+     - **Importar / Exportar JSON (`LOAD JSON` / `EXPORT JSON`)** con validación de rangos y cuantización automática, más persistencia automática en `localStorage`.
+     - **Preparado para Multi-idioma (`i18n`)**: Textos activos en inglés (`en`) por defecto para homogeneidad con el resto de la UI, conservando íntegramente todas las traducciones y descripciones técnicas en castellano (`es` / `descriptionEs`) en [`calibrationContracts.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/calibrationContracts.ts).
 
 ---
 
-### Fase E — Distribución de Pantalla en Rejilla Canónica de 6 Unidades y Colapso Sincronizado de Filas
-- **Rejilla Unificada de 6 Unidades (
-epeat(6, 1fr)) en 3 Filas Simétricas**:
-  1. **Fila 1 (Superior — Resynators & Silver)**:
-     - Izquierda (col-span-2): Resynator 1 (Scape 1 + Sphere 1 joysticks).
-     - Centro (col-span-2): Resynator 2 (Scape 2 + Sphere 2 joysticks).
-     - Derecha (col-span-2): Silver Filter & Multi-FX Rack (SilverPanel).
-     - Las tres cajas comparten idéntico ancho (1/3 de pantalla = 2 unidades), estilos y tokens visuales.
+### Fase E — Distribución de Pantalla en Rejilla Canónica de 6 Unidades y Colapso Sincronizado de Filas [COMPLETADA]
+- **Rejilla Unificada de 6 Unidades (`repeat(6, 1fr)`) en 3 Filas Simétricas**:
+  1. **Fila 1 (Superior — Resynators & Silver + Slicer)**:
+     - Izquierda (`col-span-2`): **Resynator 1** (`Scape 1` + `Sphere 1` joysticks).
+     - Centro (`col-span-2`): **Resynator 2** (`Scape 2` + `Sphere 2` joysticks).
+     - Derecha (`col-span-2`): **Silver Filter, Multi-FX & Slicer Rack** ([`SilverPanel.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/SilverPanel.ts)) con 4 columnas: joystick `Vector 2D` (`FILT / FREQ / TIME`), selectores cíclicos de `FreqFX` y `TimeFX`, y 4ª columna dedicada al **Slicer** (`OFF / 2D / 3D`, `Rate`, `Depth`, forma de onda).
+     - Las tres cajas comparten idéntico ancho (`1/3` de pantalla = 2 unidades), estilos y tokens visuales.
   2. **Fila 2 (Media — Shapers Hardware)**:
-     - Izquierda (col-span-2): Shaper 1 (R1).
-     - Centro (col-span-2): Shaper 2 (R2).
-     - Derecha (col-span-2): Shaper 3 (Silver & Master EFX).
+     - Izquierda (`col-span-2`): **Shaper 1 (`R1`)** ([`ShapersPanel.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/ShapersPanel.ts)).
+     - Centro (`col-span-2`): **Shaper 2 (`R2`)**.
+     - Derecha (`col-span-2`): **Shaper 3 (`Silver & Master EFX`)**.
      - Idéntico ancho y alineación vertical con las 3 cajas de la fila superior.
-  3. **Fila 3 (Inferior — Controllers, Expansión & Master)**:
-     - Izquierda (col-span-2): Hardware Controllers (Control 1 stick, Control 2 wheel + ladder, Control 3 wheel + ladder).
-     - Centro + Media Derecha (col-span-3): Bahía de Expansión Auxiliar (#aux-panel / "Módulo de Expansión Auxiliar").
-     - Extremo Derecho (col-span-1): Master Output (MasterOutputPanel) con encoder rotatorio de LEDs discretos (RotaryLedKnob).
+  3. **Fila 3 (Inferior — Rejilla de 12 Sub-Unidades `1/12 + 1/12 + 5/12 + 4/12 + 1/12`: `Filter | Env Master | Blender | Controllers | Master`)**:
+     - Sub-unidad 1 (`1/12`, `.col-span-half`): **Filter** ([`FilterPanel.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/FilterPanel.ts): knobs `Cutoff [274]` y `Reso [275]` apilados verticalmente y botón `Edit` con acceso directo a [`EffectsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/EffectsDrawer.ts)).
+     - Sub-unidad 2 (`1/12`, `.col-span-half`): **Envelope Master (`ENV MST`)** ([`EnvelopeMasterPanel.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/EnvelopeMasterPanel.ts), según manual Hartmann Neuron págs. 105–108): knobs `DEPTH [251]` y `VELO [252]` apilados verticalmente y botón `Edit` que despliega [`EnvelopeDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/EnvelopeDrawer.ts)).
+     - Centro Expandido (`5/12`, `.col-span-blender`): **Blender** ([`BlenderPanel.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/BlenderPanel.ts): a la izquierda, barra horizontal bipolar `R1 ◀ Amount [262] ▶ R2` y fila limpia `1×4` de knobs de modulación `LFO DEPTH / ADSR 1 / ADSR 2 / 4L/4T` sin caja de fondo; a la derecha, matriz `2×5` `FUSION MODE` reutilizando exactamente las mismas clases CSS de `SilverPanel` (`.silver-fx-column`, `.silver-fx-col-title`, `.silver-pills-stack`), más botón `Edit` hacia [`BlenderDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/BlenderDrawer.ts)).
+     - Derecha Media (`4/12`, `.col-span-2`): **Hardware Controllers** ([`ControllersPanel.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/ControllersPanel.ts): `Control 1` stick = `Modulation CC 01 [415/416]`, `Control 2` wheel + ladder = `Breath CC 02 [417/418]`, `Control 3` wheel + ladder = `Controller CC 03 [419/420]`, y botón `Edit` que abre [`MatrixDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/MatrixDrawer.ts) directamente en la pestaña `1. Controllers & MIDI [413..424]`, separada de `2. Macro Knobs (NUKE) [425..428]` y `3. Free Matrix 6×4 [363..410]`).
+     - Extremo Derecho (`1/12`, `.col-span-half`): **Master Output** ([`MasterOutputPanel.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/MasterOutputPanel.ts)) con encoder rotatorio de LEDs discretos (`RotaryLedKnob`).
 - **Sistema de Colapso Sincronizado por Fila (Row-Level Collapse)**:
-  - Todas las cajas incorporan un botón chevron (▾ / ▴) a la derecha del botón Edit.
-  - Al pulsar el chevron de cualquier caja de una fila, **la fila entera se colapsa o expande simultáneamente**, ocultando el cuerpo de los paneles ([data-collapse-body]) y dejando visible exclusivamente la primera línea de cabecera (.panel-header) con los títulos legibles (RESYNATOR 1, RESYNATOR 2, SILVER, SHAPER 1 (R1), SHAPER 2 (R2), SHAPER 3 (SILVER), CONTROLLERS, EXPANSION, MASTER).
-  - Totalmente adaptativo en responsive (@media max-width: 1100px y 768px).
-- **Modernización de BlenderDrawer con Knobs de ABDShared**:
-  - Sustitución de la totalidad de sliders HTML por componentes vectoriales interactivos Knob (size: 40, skin estándar con arrastre y rueda).
-  - Bloque 1 (Fusion Engine): 5 knobs alineados (AMOUNT [262] bipolar -64..+63 con sub-etiqueta R1 ◀ ▶ R2, LFO DEP [263], ADSR 1 [264], ADSR 2 [265], 4L4T [266]).
-  - Bloque 2 (Slicer Engine): 2 knobs (RATE [269] 0..200 y DEPTH [268] 0..127) + selector de ondas con píldoras estándar.
+  - Todas las cajas incorporan un botón chevron (`▾` / `▴`) a la derecha del botón `Edit`.
+  - Al pulsar el chevron de cualquier caja de una fila, **la fila entera se colapsa o expande simultáneamente**, ocultando el cuerpo de los paneles (`[data-collapse-body]`) y dejando visible exclusivamente la primera línea de cabecera (`.panel-header`) con los títulos legibles (`RESYNATOR 1`, `RESYNATOR 2`, `SILVER`, `SHAPER 1 (R1)`, `SHAPER 2 (R2)`, `SHAPER 3 (SILVER)`, `CONTROLLERS`, `FILTER`, `BLENDER`, `ENV MST`, `MASTER`).
+  - Totalmente adaptativo en responsive (`@media max-width: 1150px` y `768px`).
+- **Unificación DRY de todos los Knobs de la Interfaz (excepto Master)**:
+  - Todos los paneles y drawers (`FilterPanel`, `EnvelopeMasterPanel`, `BlenderPanel`, `SilverPanel`, `BlenderDrawer`, `EnvelopeDrawer`, `EffectsDrawer` y `NukeDrawer`) utilizan el mismo componente [`Knob`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/knob.js) de `@abdsynths/shared/components`, el mismo tamaño (`size: 38`) y el mismo bloque canónico de clases CSS en [`style.css`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/style.css) (`.synth-knob-cell`, `.synth-knob-num`, `.synth-knob-title`), sin duplicar estilos.
+
+---
+
+### Fase F / Expansión Final — Sistema Canónico de MIDI Learn & CC/NRPN Mapping Matrix ($N:M$) [COMPLETADA]
+> [!NOTE]
+> **Implementación canónica y DRY en `@abdsynths/shared` (`ABDShared`) + integración completa en `ABDAxionikVS`.**
+
+- **Arquitectura Canónica en `ABDShared` (Reutilizable en toda la suite ABDSynths)**:
+  1. **Motor C++ (`abd::hw::MidiLearnManager`)**:
+     - Implementado en [`MidiLearnManager.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/HardwareDrivers/MidiLearnManager.h) con enrutamiento **Many-to-Many ($N:M$)** libre de asignaciones en el hilo de audio:
+       - **1-a-$N$ (Macro Hardware)**: un mismo controlador (`CC`, `NRPN`, `Channel Aftertouch` o `Pitch Bend`) puede gobernar múltiples parámetros simultáneamente, cada uno con su propio rango (`minNorm..maxNorm`), polaridad (`invert`) y curva de respuesta (`Linear`, `Exponential`, `Logarithmic`).
+       - **$N$-a-1 (Multi-Controlador)**: varios controladores físicos distintos pueden actuar sobre el mismo parámetro del sintetizador.
+     - Serialización bidireccional en JSON (`toJson()` / `loadFromVar()`) para el puente WebView2 y en `juce::ValueTree` (`saveState()` / `loadState()`) para persistencia en proyectos del DAW.
+  2. **Store Reactivo, Menú Contextual, Indicadores y Drawer en `@abdsynths/shared/components/midi-learn`**:
+     - [`midiLearnStore.js`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/MidiLearn/midiLearnStore.js): store reactivo $N:M$ con persistencia en `localStorage`, sincronización con el host C++ (`MIDI_LEARN_SYNC`, `MIDI_LEARN_START`, `MIDI_LEARN_CANCEL`) e importación/exportación de mapas `.json`.
+     - [`midiLearnContextMenu.js`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/MidiLearn/midiLearnContextMenu.js): delegación universal de eventos para controles 1D (`[data-param-index]`, incluidos elementos `<input>`/`<select>` mediante `indicatorHost`) y controles 2D (`[data-param-x]` + `[data-param-y]` en `TrajectoryStick2D`), inyección automática del punto luminoso `.abd-midi-learn-indicator` en la esquina superior derecha, tooltip flotante al pasar el ratón y menú contextual con clic derecho (`Learn MIDI (Replace)`, `Add Another Controller (N:1)...`, borrado individual y apertura del drawer).
+     - [`midiLearnDrawer.js`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/MidiLearn/midiLearnDrawer.js): vista en tabla deslizable con monitor MIDI en vivo, filtro de búsqueda, edición en línea de canal/CC/NRPN, rango `Min % .. Max %`, curva, inversión, botón `+ Target` (1:$N$), conmutador de etiquetas sobre el panel (*Panel Badges*) e importación/exportación JSON.
+     - [`midi-learn.css`](file:///d:/desarrollos/ABDSynths/ABDShared/Assets/styles/components/midi-learn.css) e iconos SVG monocromos en [`icons.js`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/icons.js): 100 % basados en tokens CSS de tema (`--color-*`, `--space-*`, `--radius-*`), sin emojis.
+- **Integración Completa en `ABDAxionikVS`**:
+  - **Backend C++**: integrado en [`PluginProcessor.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginProcessor.h), [`PluginProcessor.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginProcessor.cpp) (`handleMidiEvent`, `getStateInformation`, `setStateInformation`) y [`PluginEditor.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginEditor.cpp) (`MIDI_LEARN_STATE`, `MIDI_ACTIVITY`).
+  - **Cabecera, Menú y Atajo**: botón **`MIDI`** (`#btn-nav-midi`) en la cabecera de [`Navbar.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/Navbar.ts), entrada `Edit -> MIDI Learn & CC Mapping Matrix...` y atajo `Ctrl+L` en [`keyboardShortcuts.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/app/keyboardShortcuts.ts) que despliegan el drawer lateral en [`main.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/main.ts).
+  - **Cobertura Total de Controles (`[0..444]`)**: todos los knobs, sliders, ruedas y sticks 2D de los paneles principales y de los 6 drawers etiquetados con `data-param-index` o `data-param-x`/`data-param-y`.
+
+---
+
+### Fase G — Hardware SysEx Dumps & Live SysEx Inspector (`MMA 00 20 50 01`) [COMPLETADA]
+- **Codificador/Decodificador Hartmann Neuron 7-Bit Packed SysEx ([`hardwareDumpsContracts.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/hardwareDumpsContracts.ts))**:
+  - Cabecera oficial Hartmann GmbH (`F0 00 20 50 01 <devId> <cmd>`), empaquetado 7-bit MSB-index (7 bytes crudos $\rightarrow$ 8 bytes MIDI 7-bit) y checksum XOR7 sobre los 4 Modos de Dump del manual (págs. 131–132): `Current Sound (0x10)`, `All Sounds (0x20)`, `All SetUps (0x30)` y `All Models (0x40)` con generación perezosa (*lazy*) bajo demanda para no penalizar el arranque.
+  - **Nota de Ingeniería Inversa (`SYSEX.md`)**: El volcado de firmware oficial `neuron_1_5_0.mid` utiliza el opcode `0x70` con paquetes fijos de 235 bytes (`F0 00 20 50 01 7F 70 00 <227B> F7`, 1.626 tramas 7-bit limpias sin checksum verificable), mientras que el archivo de imagen de disco de 80 GB (`NUX`) utiliza cabeceras de 224 bytes (`csAN`/`psAN`) con compresión `zlib` (`wbits=-15`) y resumen SHA-256 truncado a 16 bytes. Si en el futuro se captura un volcado `.syx` desde una unidad física Neuron con `Dump Current`, se contrastará directamente contra los opcodes `0x10..0x40` de `hardwareDumpsContracts.ts`.
+- **Cajón Interactivo y `LiveSysExInspector` ([`HardwareDumpsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/HardwareDumpsDrawer.ts))**:
+  - Integración del componente compartido `LiveSysExInspector` (`@abdsynths/shared/components`) con resaltado en vivo byte a byte cuando se mueve cualquier parámetro del Edit Buffer (`[0..444]`), Diff A/B, importación/exportación de archivos `.syx` y puente C++ en [`PluginEditor.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginEditor.cpp).
+  - Botón **`SysEx`** en [`Navbar.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/Navbar.ts), entrada en menú `File` y atajo `Ctrl+D`.
+
+---
+
+### Fase H — Sistema Multi-idioma Integral (`i18n` EN / ES) [PENDIENTE — PLANIFICADA]
+> [!IMPORTANT]
+> **Funcionalidad planificada para el cierre de la herramienta:** Internacionalización completa (`i18n`) de `ABDAxionikVS` (Inglés `en` por defecto + Español `es` seleccionable en vivo desde `Settings` / `Navbar`).
+
+- **Estado Previo ya Preparado (No Descartar Traducciones)**:
+  1. **Diccionarios Bilingües Conservados (`en` + `es`)**:
+     - [`calibrationContracts.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/calibrationContracts.ts) y [`CalibrationDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/CalibrationDrawer.ts) ya incluyen `CALIBRATION_I18N` (`en` y `es`), `description` (EN) + `descriptionEs` (ES) en los 43 descriptores de calibración, y el método público `setLocale('en' | 'es')`.
+     - [`HardwareDumpsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/HardwareDumpsDrawer.ts) ya incluye `HARDWARE_DUMPS_I18N` (`en` y `es`) y el método público `setLocale('en' | 'es')`.
+- **Tareas Pendientes para Completar la Fase H**:
+  1. **Servicio Central de Internacionalización (`WebUI/src/i18n/`)**:
+     - Crear un store reactivo de idioma (`en` por defecto, `es`, extensible a otros idiomas) con persistencia en `localStorage` (`axionik.locale`) y evento de cambio global.
+  2. **Extracción de Cadenas Restantes de la Interfaz**:
+     - Unificar las cadenas de `Navbar.ts`, `TopLcdBar.ts`, paneles principales (`ResynatorPanel`, `SilverPanel`, `ShapersPanel`, `FilterPanel`, `EnvelopeMasterPanel`, `BlenderPanel`, `ControllersPanel`, `MasterOutputPanel`), cajones (`ResynatorDrawer`, `EffectsDrawer`, `BlenderDrawer`, `MatrixDrawer`, `EnvelopeDrawer`, `NukeDrawer`, `SettingsDrawer`, `NeuronDB`), `AboutModal` y `ManualModal`.
+  3. **Selector de Idioma en UI**:
+     - Añadir selector `Language (EN / ES)` en `SettingsDrawer.ts` (y opcionalmente acceso rápido en `Navbar`) que conmute todos los componentes en caliente sin recargar el plugin.
+

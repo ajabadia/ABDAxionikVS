@@ -1,22 +1,25 @@
 /**
  * ABDAxionikVS — MatrixDrawer.ts
  * Dedicated slide-out drawer (50vw) for:
- * 1. The 6 Real-Time MIDI Performance Controls ([413..424]) routed to all 63 modulation destinations (0..62)
- * 2. The 4 Hardware Macro Knobs ([425..428])
+ * 1. The 4 <NUKE> Hardware Macro Knobs ([425..428]) with live rotary Knobs + target dropdowns (0..62)
+ * 2. The 6 Real-Time Performance Controllers ([413..424]: <NUKE> & Panel Control 1..3) with bipolar Depth Knobs + target dropdowns (0..62)
  * 3. The 6 × 4 Free Controllers Matrix ([363..410])
  */
 
 import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
+import { ParamIdx } from '../constants/paramIndices.js';
+import { PARAM_DEFINITIONS } from '../generated/parameters.gen.js';
+import { Knob } from '@abdsynths/shared/components';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 
 export const MOD_SOURCES = [
-  { id: 1, name: 'Aftertouch (Channel Pressure)', destParam: 413, depthParam: 414, defaultDest: 61, defaultDepth: 40 },
-  { id: 2, name: 'Modulation Wheel (MIDI CC 1)', destParam: 415, depthParam: 416, defaultDest: 59, defaultDepth: 55 },
-  { id: 3, name: 'Breath Controller (MIDI CC 2)', destParam: 417, depthParam: 418, defaultDest: 56, defaultDepth: 0 },
-  { id: 4, name: 'Continuous Controller 03 (MIDI CC 3)', destParam: 419, depthParam: 420, defaultDest: 57, defaultDepth: 0 },
-  { id: 5, name: 'Foot Pedal (MIDI CC 4)', destParam: 421, depthParam: 422, defaultDest: 14, defaultDepth: 0 },
-  { id: 6, name: 'Expression Pedal (MIDI CC 11)', destParam: 423, depthParam: 424, defaultDest: 0, defaultDepth: 63 },
+  { id: 1, shortName: 'AFTERTOUCH', subLabel: 'Channel Pressure', name: 'Aftertouch (Channel Pressure)', destParam: 413, depthParam: 414, defaultDest: 61, defaultDepth: 40 },
+  { id: 2, shortName: 'MODULATION', subLabel: 'Control 1 · CC 01', name: 'Control 1 · Modulation Wheel (MIDI CC 1)', destParam: 415, depthParam: 416, defaultDest: 59, defaultDepth: 55 },
+  { id: 3, shortName: 'BREATH', subLabel: 'Control 2 · CC 02', name: 'Control 2 · Breath Controller (MIDI CC 2)', destParam: 417, depthParam: 418, defaultDest: 56, defaultDepth: 0 },
+  { id: 4, shortName: 'CC 03', subLabel: 'Control 3 · CC 03', name: 'Control 3 · Continuous Controller 03 (MIDI CC 3)', destParam: 419, depthParam: 420, defaultDest: 57, defaultDepth: 0 },
+  { id: 5, shortName: 'FOOT', subLabel: 'Foot Pedal · CC 04', name: 'Foot Pedal (MIDI CC 4)', destParam: 421, depthParam: 422, defaultDest: 14, defaultDepth: 0 },
+  { id: 6, shortName: 'EXPRESSION', subLabel: 'Expression · CC 11', name: 'Expression Pedal (MIDI CC 11)', destParam: 423, depthParam: 424, defaultDest: 0, defaultDepth: 63 },
 ];
 
 export const ALL_63_MOD_DESTINATIONS = [
@@ -93,18 +96,44 @@ export function getModDestinationLabel(destId: number): string {
   return found.label.replace(/^\d+:\s*/, '').replace(/\s*\[\d+\]$/, '');
 }
 
+/**
+ * Extracts the authoritative snddat parameter index [0..444] from a 0..62 modulation destination ID.
+ */
+export function resolveParamIndexFromModDest(destId: number): number {
+  const safeDest = Math.max(0, Math.min(62, Math.round(destId)));
+  const entry = ALL_63_MOD_DESTINATIONS.find((d) => d.id === safeDest);
+  if (entry) {
+    const m = entry.label.match(/\[(\d+)\]$/);
+    if (m) {
+      return parseInt(m[1], 10);
+    }
+  }
+  const fromDef = PARAM_DEFINITIONS.find((d) => d.modDestIdx === safeDest);
+  return fromDef ? fromDef.index : ParamIdx.FilterFreq;
+}
+
 export const FREE_CONTROLLER_GROUPS = [
-  { name: 'Aftertouch Free [363..370]', baseDest: 363, baseDepth: 367 },
-  { name: 'Controller 1 Up [371..378]', baseDest: 371, baseDepth: 375 },
-  { name: 'Controller 1 Down [379..386]', baseDest: 379, baseDepth: 383 },
-  { name: 'Controller 2 [387..394]', baseDest: 387, baseDepth: 391 },
-  { name: 'Controller 3 [395..402]', baseDest: 395, baseDepth: 399 },
-  { name: 'Controller 4 [403..410]', baseDest: 403, baseDepth: 407 },
+  { name: 'Aftertouch (Channel Pressure) — 4 Free Slots [363..370]', shortGroup: 'AFTERTOUCH', baseDest: 363, baseDepth: 367 },
+  { name: 'Control 1 Stick Up (+Y / CC 01) — 4 Free Slots [371..378]', shortGroup: 'CTRL 1 UP', baseDest: 371, baseDepth: 375 },
+  { name: 'Control 1 Stick Down (−Y) — 4 Free Slots [379..386]', shortGroup: 'CTRL 1 DOWN', baseDest: 379, baseDepth: 383 },
+  { name: 'Control 2 Wheel (CC 02) — 4 Free Slots [387..394]', shortGroup: 'CTRL 2 WHEEL', baseDest: 387, baseDepth: 391 },
+  { name: 'Control 3 Wheel (CC 03) — 4 Free Slots [395..402]', shortGroup: 'CTRL 3 WHEEL', baseDest: 395, baseDepth: 399 },
+  { name: 'Controller 4 / Foot & Aux (CC 04) — 4 Free Slots [403..410]', shortGroup: 'CTRL 4 AUX', baseDest: 403, baseDepth: 407 },
 ];
+
+export type MatrixTabId = 'all' | 'macros' | 'controllers' | 'free';
 
 export interface MatrixDrawerOptions {
   onClose: () => void;
-  initialTab?: 'all' | 'midi' | 'controllers';
+  initialTab?: MatrixTabId;
+}
+
+const MACRO_DEFAULTS = [61, 56, 32, 62]; // Knob 1..4 default destinations
+
+function formatSignedDepth(val: number): string {
+  const rounded = Math.round(val);
+  const absStr = String(Math.abs(rounded)).padStart(2, '0');
+  return rounded >= 0 ? `+${absStr}` : `-${absStr}`;
 }
 
 export class MatrixDrawer {
@@ -113,8 +142,11 @@ export class MatrixDrawer {
     root.className = 'drawer-view-content';
     root.style.cssText = 'display: flex; flex-direction: column; height: 100%; box-sizing: border-box;';
 
-    const buildDestOptions = (selectedId: number) =>
-      ALL_63_MOD_DESTINATIONS.map((d) => `<option value="${d.id}" ${d.id === selectedId ? 'selected' : ''}>${d.label}</option>`).join('');
+    const buildCleanDestOptions = (selectedId: number) =>
+      ALL_63_MOD_DESTINATIONS.map((d) => {
+        const cleanLabel = d.label.replace(/^\d+:\s*/, '').replace(/\s*\[\d+\]$/, '');
+        return `<option value="${d.id}" title="${d.label}" ${d.id === selectedId ? 'selected' : ''}>${cleanLabel}</option>`;
+      }).join('');
 
     const buildFreeDestOptions = (selectedVal: number) => {
       const isOff = selectedVal === 3000 || selectedVal === 0;
@@ -122,15 +154,17 @@ export class MatrixDrawer {
       ALL_63_MOD_DESTINATIONS.forEach((d) => {
         const val = 3001 + d.id;
         const isSelected = selectedVal === val || selectedVal === d.id;
-        opts += `<option value="${val}" ${isSelected ? 'selected' : ''}>${d.label}</option>`;
+        const cleanLabel = d.label.replace(/^\d+:\s*/, '').replace(/\s*\[\d+\]$/, '');
+        opts += `<option value="${val}" title="${d.label}" ${isSelected ? 'selected' : ''}>${cleanLabel}</option>`;
       });
       return opts;
     };
 
     const viewSectionItems = [
       { id: 'all', label: 'All Matrix' },
-      { id: 'midi', label: '1. MIDI & Macros' },
-      { id: 'controllers', label: '2. Free Controllers' },
+      { id: 'macros', label: '1. <NUKE> Macros & Controllers' },
+      { id: 'controllers', label: '2. Controllers & Free Matrix' },
+      { id: 'free', label: '3. Free Matrix 6×4' },
     ];
     const viewSectionHtml = pillSelectorHtml(viewSectionItems, options.initialTab || 'all', {
       id: 'matrix-view-section-pills',
@@ -138,80 +172,89 @@ export class MatrixDrawer {
       attrName: 'data-view',
     });
 
-    let sourcesHtml = '';
-    MOD_SOURCES.forEach((src) => {
-      const curDest = Math.round(WebBridge.getParam(src.destParam, src.defaultDest));
-      const curDepth = Math.round(WebBridge.getParam(src.depthParam, src.defaultDepth));
-
-      sourcesHtml += `
-        <div class="synth-panel-card" style="padding: var(--space-2) var(--space-3); display: flex; flex-direction: column; gap: 6px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span class="panel-badge" style="font-size: 10px;">${src.name}</span>
-            <span class="hud-pill stat-num" style="font-size: 9px;">Dest [${src.destParam}] / Depth [${src.depthParam}]</span>
-          </div>
-
-          <div style="display: flex; align-items: center; gap: var(--space-3);">
-            <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
-              <span class="hud-label" style="font-size: 10px;">DESTINATION:</span>
-              <select class="btn btn-xs btn-outline src-dest-select" data-param="${src.destParam}" style="flex: 1; height: 22px;">
-                ${buildDestOptions(curDest)}
-              </select>
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 6px; width: 190px;">
-              <span class="hud-label" style="font-size: 10px;">DEPTH [-64..+63]:</span>
-              <input type="range" class="abd-slider src-depth-slider" data-param="${src.depthParam}" min="-64" max="63" value="${curDepth}" step="1" style="flex: 1;" />
-              <span class="hud-value stat-num src-depth-val" style="width: 32px; text-align: right;">${curDepth}</span>
-            </div>
-          </div>
-        </div>
-      `;
-    });
-
-    // 4 Macro Knobs [425..428]
+    // 1. 4 <NUKE> Assignable Macro Knobs [425..428] (Knob + Value above <select>)
     let knobsHtml = '';
     for (let k = 0; k < 4; ++k) {
-      const paramId = 425 + k;
-      const curTarget = Math.round(WebBridge.getParam(paramId, k === 0 ? 61 : (k === 1 ? 56 : (k === 2 ? 32 : 62))));
+      const knobNum = k + 1;
+      const selectParamId = 425 + k;
+      const curTargetDest = Math.max(0, Math.min(62, Math.round(WebBridge.getParam(selectParamId, MACRO_DEFAULTS[k]))));
+      const targetParamIdx = resolveParamIndexFromModDest(curTargetDest);
+      const def = PARAM_DEFINITIONS[targetParamIdx];
+      const defVal = def ? def.defaultValue : 64;
+      const curVal = Math.round(WebBridge.getParam(targetParamIdx, defVal));
+
       knobsHtml += `
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <span class="hud-label" style="font-size: 10px;">MACRO KNOB ${k + 1} [${paramId}]:</span>
-          <select class="btn btn-xs btn-outline src-dest-select" data-param="${paramId}" style="height: 22px;">
-            ${buildDestOptions(curTarget)}
+        <div class="synth-panel-card nuke-ctrl-card" data-matrix-macro="${k}" style="padding: var(--space-2); display: flex; flex-direction: column; align-items: center; gap: 6px;">
+          <div class="nuke-ctrl-header" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+            <span class="stick-label" style="font-size: 10px;">MACRO KNOB ${knobNum}</span>
+            <span class="hud-pill stat-num" style="font-size: 8.5px;">[${selectParamId}]</span>
+          </div>
+          <div class="synth-knob-cell">
+            <div id="matrix-macro-knob-mount-${k}"></div>
+            <span class="synth-knob-num stat-num" id="matrix-macro-val-${k}">${curVal}</span>
+            <span class="synth-knob-title">KNOB ${knobNum}</span>
+          </div>
+          <select class="btn btn-xs btn-outline abd-select__field matrix-macro-select" id="matrix-macro-select-${k}" data-macro-idx="${k}" data-param="${selectParamId}" style="width: 100%; height: 22px;" title="Macro Knob ${knobNum} Target Parameter [${selectParamId}]">
+            ${buildCleanDestOptions(curTargetDest)}
           </select>
         </div>
       `;
     }
 
-    // 6x4 Free Controllers [363..410]
+    // 2. 6 Real-Time Performance Controllers ([413..424]: <NUKE> bottom strip & Panel Control 1..3)
+    let sourcesHtml = '';
+    MOD_SOURCES.forEach((src, idx) => {
+      const curDest = Math.max(0, Math.min(62, Math.round(WebBridge.getParam(src.destParam, src.defaultDest))));
+      const curDepth = Math.max(-64, Math.min(63, Math.round(WebBridge.getParam(src.depthParam, src.defaultDepth))));
+
+      sourcesHtml += `
+        <div class="synth-panel-card nuke-ctrl-card" data-matrix-ctrl="${idx}" style="padding: var(--space-2); display: flex; flex-direction: column; align-items: center; gap: 6px;">
+          <div class="nuke-ctrl-header" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+            <span class="stick-label" style="font-size: 10px;" title="${src.name}">${src.shortName}</span>
+            <span class="hud-pill stat-num" style="font-size: 8.5px;" title="${src.subLabel}">${src.subLabel}</span>
+          </div>
+          <div class="synth-knob-cell">
+            <div id="matrix-ctrl-knob-mount-${idx}"></div>
+            <span class="synth-knob-num stat-num" id="matrix-ctrl-depth-val-${idx}">${formatSignedDepth(curDepth)}</span>
+            <span class="synth-knob-title">DEPTH</span>
+          </div>
+          <select class="btn btn-xs btn-outline abd-select__field src-dest-select" id="matrix-ctrl-dest-${idx}" data-ctrl-idx="${idx}" data-param="${src.destParam}" style="width: 100%; height: 22px;" title="${src.name} Destination [${src.destParam}]">
+            ${buildCleanDestOptions(curDest)}
+          </select>
+        </div>
+      `;
+    });
+
+    // 3. 6x4 Free Controllers [363..410] (Same card + bipolar Knob + <select> aesthetic)
     let freeCtrlHtml = '';
-    FREE_CONTROLLER_GROUPS.forEach((grp) => {
+    FREE_CONTROLLER_GROUPS.forEach((grp, gIdx) => {
       let slotsHtml = '';
       for (let s = 0; s < 4; ++s) {
         const destIdx = grp.baseDest + s;
         const dpIdx = grp.baseDepth + s;
         const curDestVal = Math.round(WebBridge.getParam(destIdx, 3000));
-        const curDp = Math.round(WebBridge.getParam(dpIdx, 0));
+        const curDp = Math.max(-64, Math.min(63, Math.round(WebBridge.getParam(dpIdx, 0))));
         slotsHtml += `
-          <div class="hud-pill" style="display: flex; flex-direction: column; gap: 4px; padding: var(--space-2); background: var(--color-bg-base, rgba(0,0,0,0.3)); border-radius: var(--radius-sm, 4px);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span class="hud-label" style="font-size: 9px; font-weight: 700;">SLOT ${s + 1} [${destIdx}]:</span>
-              <span class="hud-value stat-num src-depth-val" style="font-size: 10px;">${curDp}</span>
+          <div class="synth-panel-card nuke-ctrl-card" data-free-slot="${gIdx}-${s}" style="padding: var(--space-2); display: flex; flex-direction: column; align-items: center; gap: 6px;">
+            <div class="nuke-ctrl-header" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+              <span class="stick-label" style="font-size: 10px;">SLOT ${s + 1}</span>
+              <span class="hud-pill stat-num" style="font-size: 8.5px;">[${destIdx}/${dpIdx}]</span>
             </div>
-            <select class="btn btn-xs btn-outline src-dest-select" data-param="${destIdx}" style="height: 22px; font-size: 9px; width: 100%;">
+            <div class="synth-knob-cell">
+              <div id="matrix-free-knob-mount-${gIdx}-${s}"></div>
+              <span class="synth-knob-num stat-num" id="matrix-free-depth-val-${gIdx}-${s}">${formatSignedDepth(curDp)}</span>
+              <span class="synth-knob-title">DEPTH</span>
+            </div>
+            <select class="btn btn-xs btn-outline abd-select__field src-dest-select" data-param="${destIdx}" style="width: 100%; height: 22px;" title="${grp.name} · Slot ${s + 1} Destination [${destIdx}]">
               ${buildFreeDestOptions(curDestVal)}
             </select>
-            <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
-              <span class="hud-label" style="font-size: 8px;">DEPTH:</span>
-              <input type="range" class="abd-slider src-depth-slider" data-param="${dpIdx}" min="-64" max="63" value="${curDp}" step="1" style="flex: 1;" />
-            </div>
           </div>
         `;
       }
       freeCtrlHtml += `
         <div class="synth-panel-card" style="padding: var(--space-2) var(--space-3); display: flex; flex-direction: column; gap: 6px;">
           <span class="panel-caption" style="font-size: 10px; color: var(--color-accent); font-weight: 700;">${grp.name}</span>
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2);">
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2);">
             ${slotsHtml}
           </div>
         </div>
@@ -222,7 +265,7 @@ export class MatrixDrawer {
       <div class="drawer-header ndb-modal-header" style="flex-wrap: wrap; gap: var(--space-2);">
         <div class="drawer-title ndb-header-title" style="flex: 1; min-width: 240px;">
           <span class="drawer-icon">${ICONS.matrix}</span>
-          <span class="ndb-title-text">MODULATION MATRIX</span>
+          <span class="ndb-title-text">&lt;NUKE&gt; MACROS, CONTROLLERS &amp; MODULATION MATRIX</span>
           <span class="panel-badge ndb-badge">[363..428]</span>
         </div>
         <button type="button" class="btn btn-close-drawer ndb-close-btn" id="btn-close-matrix-drawer" title="Close (Esc)">${ICONS.close}</button>
@@ -238,27 +281,40 @@ export class MatrixDrawer {
       </div>
 
       <div class="drawer-scroll-body" id="matrix-scroll-body" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) var(--space-4);">
-        <!-- Bloque 1: Live MIDI Performance Controls & Macro Knobs -->
-        <section id="block-midi-controls" style="display: flex; flex-direction: column; gap: var(--space-3);">
-          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">
-            1. LIVE MIDI PERFORMANCE CONTROLS ([413..424]) & MACROS ([425..428])
+        <!-- Bloque 1: 4 <NUKE> Assignable Macro Knobs ([425..428]) -->
+        <section id="block-macro-knobs" style="display: flex; flex-direction: column; gap: var(--space-2);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+            <span class="panel-caption" style="color: var(--color-accent); font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">
+              1. &lt;NUKE&gt; REMOTE — 4 ASSIGNABLE MACRO KNOBS ([425..428])
+            </span>
+            <span class="hud-label" style="font-size: 9.5px; opacity: 0.85;">
+              Direct rotary control &amp; target parameter assignment (KNOB 1..4 in &lt;NUKE&gt;)
+            </span>
           </div>
-          <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-            ${sourcesHtml}
-          </div>
-
-          <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2);">
-            <span class="panel-caption" style="color: var(--color-accent); font-weight: 700; font-size: 11px;">4 HARDWARE MACRO KNOBS ASSIGNMENT ([425..428])</span>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
-              ${knobsHtml}
-            </div>
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2);">
+            ${knobsHtml}
           </div>
         </section>
 
-        <!-- Bloque 2: Free Controllers Matrix ([363..410]) -->
-        <section id="block-free-controllers" style="display: flex; flex-direction: column; gap: var(--space-3);">
+        <!-- Bloque 2: 6 Real-Time Performance Controllers (<NUKE> Bottom Console & Panel Control 1..3 [413..424]) -->
+        <section id="block-midi-controls" style="display: flex; flex-direction: column; gap: var(--space-2);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+            <span class="panel-caption" style="color: var(--color-accent); font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">
+              2. REAL-TIME PERFORMANCE CONTROLLERS — &lt;NUKE&gt; &amp; PANEL CONTROL 1..3 ([413..424])
+            </span>
+            <span class="hud-label" style="font-size: 9.5px; opacity: 0.85;">
+              Bipolar modulation depth (-64..+63) &amp; target destination (0..62)
+            </span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2);">
+            ${sourcesHtml}
+          </div>
+        </section>
+
+        <!-- Bloque 3: Free Controllers Matrix ([363..410]) -->
+        <section id="block-free-controllers" style="display: flex; flex-direction: column; gap: var(--space-2);">
           <div class="panel-caption" style="color: var(--color-accent); font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">
-            2. FREE CONTROLLERS MODULATION MATRIX (6 × 4 SLOTS, [363..410])
+            3. FREE CONTROLLERS MODULATION MATRIX (6 × 4 SLOTS, [363..410])
           </div>
           <div style="display: flex; flex-direction: column; gap: var(--space-2);">
             ${freeCtrlHtml}
@@ -271,6 +327,106 @@ export class MatrixDrawer {
       options.onClose();
     });
 
+    // Mount the 4 Macro Knobs (KNOB 1..4) and wire their <select> dropdowns
+    const macroKnobs: (Knob | null)[] = [null, null, null, null];
+    const syncMacroKnobCard = (k: number) => {
+      const selectParamId = 425 + k;
+      const curDestId = Math.max(0, Math.min(62, Math.round(WebBridge.getParam(selectParamId, MACRO_DEFAULTS[k]))));
+      const targetParamIdx = resolveParamIndexFromModDest(curDestId);
+      const mountEl = root.querySelector(`#matrix-macro-knob-mount-${k}`) as HTMLElement | null;
+      mountEl?.setAttribute('data-param-index', String(targetParamIdx));
+      const def = PARAM_DEFINITIONS[targetParamIdx];
+      const min = def ? def.min : 0;
+      const max = def ? def.max : 127;
+      const defVal = def ? def.defaultValue : 64;
+      const curVal = Math.round(WebBridge.getParam(targetParamIdx, defVal));
+      const norm = max > min ? Math.max(0, Math.min(1, (curVal - min) / (max - min))) : 0.5;
+      macroKnobs[k]?.setValue(norm, false);
+      const valEl = root.querySelector(`#matrix-macro-val-${k}`);
+      if (valEl) valEl.textContent = String(curVal);
+    };
+
+    for (let k = 0; k < 4; ++k) {
+      const knobNum = k + 1;
+      const selectParamId = 425 + k;
+      const mountEl = root.querySelector(`#matrix-macro-knob-mount-${k}`) as HTMLElement | null;
+      const selectEl = root.querySelector(`#matrix-macro-select-${k}`) as HTMLSelectElement | null;
+
+      if (mountEl) {
+        macroKnobs[k] = new Knob(mountEl, {
+          size: 38,
+          value: 0.5,
+          label: `KNOB ${knobNum}`,
+          onChange: (normVal: number) => {
+            const curDestId = Math.max(0, Math.min(62, Math.round(WebBridge.getParam(selectParamId, MACRO_DEFAULTS[k]))));
+            const targetParamIdx = resolveParamIndexFromModDest(curDestId);
+            const def = PARAM_DEFINITIONS[targetParamIdx];
+            const min = def ? def.min : 0;
+            const max = def ? def.max : 127;
+            const rawVal = Math.round(min + normVal * (max - min));
+            const valEl = root.querySelector(`#matrix-macro-val-${k}`);
+            if (valEl) valEl.textContent = String(rawVal);
+            WebBridge.setParam(targetParamIdx, rawVal);
+          },
+        });
+        syncMacroKnobCard(k);
+      }
+
+      if (selectEl) {
+        selectEl.addEventListener('change', () => {
+          const newDestId = parseInt(selectEl.value || '0', 10);
+          WebBridge.setParam(selectParamId, newDestId);
+          syncMacroKnobCard(k);
+        });
+      }
+    }
+
+    // Mount the 6 Performance Controller Bipolar Depth Knobs ([414, 416, 418, 420, 422, 424])
+    MOD_SOURCES.forEach((src, idx) => {
+      const mountEl = root.querySelector(`#matrix-ctrl-knob-mount-${idx}`) as HTMLElement | null;
+      const valEl = root.querySelector(`#matrix-ctrl-depth-val-${idx}`) as HTMLElement | null;
+      if (mountEl) {
+        mountEl.setAttribute('data-param-index', String(src.depthParam));
+        const initDepth = Math.max(-64, Math.min(63, Math.round(WebBridge.getParam(src.depthParam, src.defaultDepth))));
+        const initNorm = Math.max(0, Math.min(1, (initDepth + 64) / 127.0));
+        new Knob(mountEl, {
+          size: 38,
+          value: initNorm,
+          bipolar: true,
+          onChange: (normVal: number) => {
+            const rawDepth = Math.max(-64, Math.min(63, Math.round(normVal * 127.0 - 64.0)));
+            if (valEl) valEl.textContent = formatSignedDepth(rawDepth);
+            WebBridge.setParam(src.depthParam, rawDepth);
+          },
+        });
+      }
+    });
+
+    // Mount the 24 (6x4) Free Controller Bipolar Depth Knobs ([367..370, 375..378, 383..386, 391..394, 399..402, 407..410])
+    FREE_CONTROLLER_GROUPS.forEach((grp, gIdx) => {
+      for (let s = 0; s < 4; ++s) {
+        const dpIdx = grp.baseDepth + s;
+        const mountEl = root.querySelector(`#matrix-free-knob-mount-${gIdx}-${s}`) as HTMLElement | null;
+        const valEl = root.querySelector(`#matrix-free-depth-val-${gIdx}-${s}`) as HTMLElement | null;
+        if (mountEl) {
+          mountEl.setAttribute('data-param-index', String(dpIdx));
+          const initDepth = Math.max(-64, Math.min(63, Math.round(WebBridge.getParam(dpIdx, 0))));
+          const initNorm = Math.max(0, Math.min(1, (initDepth + 64) / 127.0));
+          new Knob(mountEl, {
+            size: 38,
+            value: initNorm,
+            bipolar: true,
+            onChange: (normVal: number) => {
+              const rawDepth = Math.max(-64, Math.min(63, Math.round(normVal * 127.0 - 64.0)));
+              if (valEl) valEl.textContent = formatSignedDepth(rawDepth);
+              WebBridge.setParam(dpIdx, rawDepth);
+            },
+          });
+        }
+      }
+    });
+
+    // Destination selects for 6 Performance Controllers & 6x4 Free Matrix
     root.querySelectorAll('.src-dest-select').forEach((sel) => {
       sel.addEventListener('change', (e) => {
         const target = e.currentTarget as HTMLSelectElement;
@@ -280,35 +436,33 @@ export class MatrixDrawer {
       });
     });
 
-    root.querySelectorAll('.src-depth-slider').forEach((slider) => {
-      slider.addEventListener('input', (e) => {
-        const target = e.currentTarget as HTMLInputElement;
-        const paramId = parseInt(target.getAttribute('data-param') || '0', 10);
-        const val = parseFloat(target.value);
-        const parent = target.parentElement;
-        const valDisplay = parent?.querySelector('.src-depth-val');
-        if (valDisplay) valDisplay.textContent = String(val);
-        WebBridge.setParam(paramId, val);
-      });
-    });
-
     // ── Filtro / Navegación por pestañas (View Section) ─────
     const blockMidi = root.querySelector('#block-midi-controls') as HTMLElement | null;
+    const blockMacros = root.querySelector('#block-macro-knobs') as HTMLElement | null;
     const blockFree = root.querySelector('#block-free-controllers') as HTMLElement | null;
     const viewSectionContainer = root.querySelector('#matrix-view-section-pills') as HTMLElement | null;
     const scrollContainer = root.querySelector('#matrix-scroll-body') as HTMLElement | null;
 
-    const setFilter = (mode: 'all' | 'midi' | 'controllers', doScroll = false) => {
+    const setFilter = (mode: MatrixTabId, doScroll = false) => {
       const viewPills = viewSectionContainer?.querySelectorAll('[data-view]');
       viewPills?.forEach((p) => p.classList.toggle('active', p.getAttribute('data-view') === mode));
 
       if (mode === 'all') {
+        if (blockMacros) blockMacros.style.display = 'flex';
         if (blockMidi) blockMidi.style.display = 'flex';
         if (blockFree) blockFree.style.display = 'flex';
-      } else if (mode === 'midi') {
+      } else if (mode === 'macros') {
+        // Dedicated <NUKE> tab: shows BOTH the 4 <NUKE> Macro Knobs AND the 6 <NUKE> Performance Controllers!
+        if (blockMacros) blockMacros.style.display = 'flex';
         if (blockMidi) blockMidi.style.display = 'flex';
         if (blockFree) blockFree.style.display = 'none';
       } else if (mode === 'controllers') {
+        // Front-panel CONTROLLERS box is governed by both the 6 Performance Controllers ([413..424]) and the 6×4 Free Matrix ([363..410])
+        if (blockMacros) blockMacros.style.display = 'none';
+        if (blockMidi) blockMidi.style.display = 'flex';
+        if (blockFree) blockFree.style.display = 'flex';
+      } else if (mode === 'free') {
+        if (blockMacros) blockMacros.style.display = 'none';
         if (blockMidi) blockMidi.style.display = 'none';
         if (blockFree) blockFree.style.display = 'flex';
       }
@@ -320,7 +474,7 @@ export class MatrixDrawer {
 
     if (viewSectionContainer) {
       bindPillSelector(viewSectionContainer, (viewId) => {
-        setFilter(viewId as 'all' | 'midi' | 'controllers', viewId !== 'all');
+        setFilter(viewId as MatrixTabId, viewId !== 'all');
       }, 'data-view');
     }
 

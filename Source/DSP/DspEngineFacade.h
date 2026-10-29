@@ -11,6 +11,7 @@
 #include <memory>
 #include <filesystem>
 #include "DspTypes.h"
+#include "AxionikCalibrationConfig.h"
 #include "State/SndDatStore.h"
 #include "ParameterEngineBridge.h"
 #include "NeuronBankAdapter.h"
@@ -49,7 +50,16 @@ public:
     bool loadModel(int slot, const std::filesystem::path& modelFolder);
     bool loadModelBySlot(int slot, int modelIndex) {
         if (!bridge_) return false;
-        return bankAdapter_.loadModelBySlot(slot, modelIndex, bridge_->getEngineState());
+        voicePool_.reset();
+        activeVoices_ = 0;
+        bool ok = bankAdapter_.loadModelBySlot(slot, modelIndex, bridge_->getEngineState());
+        if (ok) {
+            if (slot == 0) currentPreset_.r1ModelIndex = modelIndex;
+            else if (slot == 1) currentPreset_.r2ModelIndex = modelIndex;
+            blockRenderer_.reset();
+            antiPopRemaining_ = antiPopTotalSamples_;
+        }
+        return ok;
     }
 
     /// Carga de presets completos (.sound)
@@ -116,14 +126,35 @@ public:
 
     /// Conmutador de modo de limitación Clip-to-Zero (false por defecto = musical limpio; true = bug histórico 0x1000bc40)
     void setOracleClipToZeroMode(bool enabled) noexcept {
+        calibration_.oracleClipToZeroMode = enabled ? 1.0f : 0.0f;
         blockRenderer_.setOracleClipToZeroMode(enabled);
     }
     /// Control de volumen maestro (0.85f por defecto para paridad NeuronVS)
     void setMasterVolume(float vol) noexcept {
         masterVolume_ = std::clamp(vol, 0.0f, 2.0f);
+        calibration_.masterVolume = masterVolume_;
     }
     [[nodiscard]] float getMasterVolume() const noexcept {
         return masterVolume_;
+    }
+
+    /// Acceso y mutación de parámetros de calibración DSP (Magic Numbers)
+    [[nodiscard]] const ::axionik::dsp::AxionikCalibrationConfig& getCalibrationConfig() const noexcept {
+        return calibration_;
+    }
+    bool setCalibrationParam(std::string_view id, float value) noexcept {
+        if (!calibration_.setValue(id, value)) return false;
+        syncCalibrationToSubsystems();
+        return true;
+    }
+    bool resetCalibrationParam(std::string_view id) noexcept {
+        if (!calibration_.resetParam(id)) return false;
+        syncCalibrationToSubsystems();
+        return true;
+    }
+    void resetAllCalibrationParams() noexcept {
+        calibration_.resetAll();
+        syncCalibrationToSubsystems();
     }
 
 private:
@@ -156,8 +187,15 @@ private:
     RenderBlockParams updateSilverAndMasterFx(const float* p, float globalLfoSignal);
     void applyAntiPop(float* leftChannel, float* rightChannel, size_t numSamples);
     void updatePeaksAndTelemetry(const float* leftChannel, const float* rightChannel, size_t numSamples, float instantLoad);
+    void syncCalibrationToSubsystems() noexcept {
+        masterVolume_ = std::clamp(calibration_.masterVolume, 0.0f, 2.0f);
+        blockRenderer_.setOracleClipToZeroMode(calibration_.oracleClipToZeroMode > 0.5f);
+        antiPopTotalSamples_ = static_cast<size_t>(
+            std::max(0.0, sampleRate_ * static_cast<double>(calibration_.antiPopRampMs) * 0.001));
+    }
 
-    double sampleRate_{44100.0};
+    ::axionik::dsp::AxionikCalibrationConfig calibration_{};
+    double sampleRate_{kLegacyBaseSampleRate};
     size_t maxBlockSize_{512};
     uint32_t activeVoices_{0};
     float cpuUsage_{0.0f};
@@ -168,7 +206,7 @@ private:
 
     std::array<float, 6> modControllers_{};
     float pitchBendWheel_{0.0f};
-    size_t antiPopTotalSamples_{88};
+    size_t antiPopTotalSamples_{kDefaultAntiPopSamples};
     size_t antiPopRemaining_{0};
 
     SndDatStore store_;

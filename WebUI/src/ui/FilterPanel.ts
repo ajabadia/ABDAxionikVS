@@ -35,28 +35,24 @@ export class FilterPanel {
     this.rootEl = document.createElement('section');
     this.rootEl.className = 'synth-panel-card filter-panel-card';
     this.rootEl.innerHTML = `
-      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08));">
-        <div style="display: flex; align-items: center; gap: var(--space-2);">
-          <span class="stick-label">FILTER</span>
-          <span class="hud-pill" style="font-size: 8px; opacity: 0.7;">24dB LP</span>
-        </div>
-        <div class="panel-actions" style="display: flex; align-items: center; gap: 4px;">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08)); gap: 2px;">
+        <span class="stick-label">FILTER</span>
+        <div class="panel-actions" style="display: flex; align-items: center; gap: 2px;">
           <button type="button" class="btn btn-xs btn-outline" id="btn-edit-filter-panel" title="Open Filter & Silver Rack">Edit</button>
-          <button type="button" class="btn btn-xs btn-outline btn-collapse-row" data-row="row-bottom" title="Colapsar / Descolapsar fila">▾</button>
         </div>
       </div>
 
       <div class="panel-body filter-panel-body" data-collapse-body>
-        <div class="filter-knob-wrapper">
-          <div id="filter-panel-cut-mount"></div>
-          <span class="filter-knob-num stat-num" id="filter-panel-cut-val">${initCut}</span>
-          <span class="filter-knob-title">CUTOFF</span>
+        <div class="synth-knob-cell">
+          <div id="filter-panel-cut-mount" data-param-index="${ParamIdx.FilterFreq}"></div>
+          <span class="synth-knob-num stat-num" id="filter-panel-cut-val">${initCut}</span>
+          <span class="synth-knob-title">CUTOFF</span>
         </div>
 
-        <div class="filter-knob-wrapper">
-          <div id="filter-panel-reso-mount"></div>
-          <span class="filter-knob-num stat-num" id="filter-panel-reso-val">${(initReso / 127.0).toFixed(2)}</span>
-          <span class="filter-knob-title">RESO</span>
+        <div class="synth-knob-cell">
+          <div id="filter-panel-reso-mount" data-param-index="${ParamIdx.FilterReso}"></div>
+          <span class="synth-knob-num stat-num" id="filter-panel-reso-val">${(initReso / 127.0).toFixed(2)}</span>
+          <span class="synth-knob-title">RESO</span>
         </div>
       </div>
     `;
@@ -70,7 +66,7 @@ export class FilterPanel {
     const cutMount = this.rootEl.querySelector('#filter-panel-cut-mount') as HTMLElement | null;
     if (cutMount) {
       this.cutKnob = new Knob(cutMount, {
-        size: 42,
+        size: 38,
         value: initCut / 127.0,
         label: 'CUT',
         onChange: (normVal: number) => {
@@ -84,7 +80,7 @@ export class FilterPanel {
     const resoMount = this.rootEl.querySelector('#filter-panel-reso-mount') as HTMLElement | null;
     if (resoMount) {
       this.resoKnob = new Knob(resoMount, {
-        size: 42,
+        size: 38,
         value: initReso / 127.0,
         label: 'RESO',
         onChange: (normVal: number) => {

@@ -276,9 +276,31 @@ export const ParamIdx = {
   FilterEnvDepth: 360,
   Shaper3Status: 362,
 
-  // Mod / Master
+  // Mod / Controllers / NUKE Remote [411..428]
   FootSwitchDest: 411,
   PitchBendRange: 412,
+  AftertouchSelect: 413,
+  AftertouchScale: 414,
+  AftertouchDest: 413,
+  AftertouchDepth: 414,
+  ModulationSelect: 415,
+  ModulationScale: 416,
+  BreathSelect: 417,
+  BreathScale: 418,
+  CC03Select: 419,
+  CC03Scale: 420,
+  FootSelect: 421,
+  FootScale: 422,
+  ExpressionSelect: 423,
+  ExpressionScale: 424,
+  ExpressionDest: 423,
+  ExpressionDepth: 424,
+  Knob1R1Select: 425,
+  Knob2R1Select: 426,
+  Knob3R1Select: 427,
+  Knob4R1Select: 428,
+
+  // Master FX [430..444]
   SoundMFXSwitch: 430,
   SoundMFXDelaySwitch: 431,
   SoundMFXDelayMix: 432,

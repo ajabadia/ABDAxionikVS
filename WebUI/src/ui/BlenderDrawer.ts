@@ -9,7 +9,7 @@ import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
-import { Knob } from '@abdsynths/shared/components/knob.js';
+import { Knob } from '@abdsynths/shared/components';
 
 export const BLENDER_ALGORITHMS = [
   { id: 0, name: 'Mix', desc: 'Linear volume crossfade between Resynator 1 and 2' },
@@ -85,10 +85,10 @@ export class BlenderDrawer {
     });
 
     const renderKnobCell = (mountId: string, valId: string, initialVal: number, unit = '', subLabel = '') => `
-      <div class="drawer-knob-cell" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <div class="synth-knob-cell">
         <div id="${mountId}"></div>
-        <span class="hud-value stat-num" id="${valId}" style="font-size: 11px;">${initialVal}${unit ? ' ' + unit : ''}</span>
-        ${subLabel ? `<span style="font-size: 8.5px; color: var(--color-text-muted); font-weight: 600; letter-spacing: 0.5px;">${subLabel}</span>` : ''}
+        <span class="synth-knob-num stat-num" id="${valId}">${initialVal}${unit ? ' ' + unit : ''}</span>
+        <span class="synth-knob-title" data-knob-title-for="${mountId}">${subLabel}</span>
       </div>
     `;
 
@@ -202,12 +202,17 @@ export class BlenderDrawer {
     ) => {
       const mount = root.querySelector(`#${mountId}`);
       if (!mount) return;
+      (mount as HTMLElement).setAttribute('data-param-index', String(paramId));
       const range = max - min;
       const normInit = range > 0 ? (initVal - min) / range : 0;
       const valEl = root.querySelector(`#${valId}`);
+      const titleEl = root.querySelector(`[data-knob-title-for="${mountId}"]`);
+      if (titleEl && !titleEl.textContent) {
+        titleEl.textContent = label;
+      }
 
       new Knob(mount as HTMLElement, {
-        size: 40,
+        size: 38,
         label,
         value: normInit,
         bipolar: isBipolar,

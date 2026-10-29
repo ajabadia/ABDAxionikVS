@@ -22,17 +22,20 @@ WM_PAINT ──► ¿algo sucio? ──► slot 5 ──► slot 1 (pintado de l
   0x10008810   0x100087d0    0x10007d60   0x10014a70  knob
                                                0x100161a0  led
                                                0x1001ac30  panel
+                                               0x10018220  mini-display ADSR (66×22)
+                                               0x10017950  compositor ADSR (458×71)
 ```
 
 ## 1. El byte "sucio": un byte en `+0x30` y dos slots
 
-Todos los widgets de la familia (`C_Rect`, `C_Knob`, `C_Led`, `C_ControlPanel`)
-comparten la misma cola de vtable y los mismos dos slots para la invalidez:
+Todos los widgets de la familia (`C_Rect`, `C_Knob`, `C_Led`, `C_ControlPanel`,
+`C_DisplayButton`, `C_PadGrid`) comparten la misma cola de vtable y los mismos
+dos slots para la invalidez:
 
 | slot | offset | función | qué hace |
 |---:|---:|---|---|
-| 0 | `+0x00` | `0x100147c0` (knob), `0x1001a9e0` (panel), `0x100160f0` (led) | destructor |
-| 1 | `+0x04` | `0x10014a70` / `0x100161a0` / `0x1001ac30` | **el pintado de la clase** |
+| 0 | `+0x00` | `0x100147c0` (knob), `0x1001a9e0` (panel), `0x100160f0` (led), `0x100176c0` (display) | destructor |
+| 1 | `+0x04` | `0x10014a70` / `0x100161a0` / `0x1001ac30` / `0x10018220` / `0x10017950` | **el pintado de la clase** |
 | 4 | `+0x10` | `0x10014b30` / `0x1001acd0` | `createChild` (ratón) |
 | 5 | `+0x14` | `0x10007d60` (común) | **pinta si está sucio** |
 | 13 | `+0x34` | `0x10007ce0` (común) | lee el byte |
@@ -62,11 +65,13 @@ Quién pone el byte a 1:
 * `FUN_10016300` (`C_Led::setLit`): marca el LED como sucio.
 * `FUN_1001ab30` (el callback del panel): marca el panel como sucio.
 * `FUN_1001acd0` (el ratón del panel): marca el panel al pulsar y al soltar.
+* `FUN_10017880` / `FUN_100178b0` (los callbacks de `C_DisplayButton`): marcan la
+  mini-pantalla (`+0x38`) y el compositor padre como sucios cuando cambian `A, D, S, R`.
 
 Quién lo pone a 0: **el propio pintado** — en el knob, tras formatear el texto
 y justo antes de blitar la aguja (`call [eax+0x38]` con `0` en `0x10014abf`); en
-el panel (`0x1001ac5c`) y en el LED (`0x100161cc`), al principio — y otra vez
-el slot 5 al terminar.
+el panel (`0x1001ac5c`), en el LED (`0x100161cc`) y en las pantallitas ADSR
+(`0x10018220` y `0x10017950`), al principio — y otra vez el slot 5 al terminar.
 
 ## 2. El recorrido: de la ventana al píxel
 
@@ -101,12 +106,12 @@ void FUN_10007d60(int *w, int canvas) {
 
 El `canvas` viaja como **único argumento de pila** (`RET 4` en todos los
 pintados): es el widget raíz, y es el que lleva el `HDC` (`+0x14`) y el origen
-del lienzo (`+0xc`, `+0x10`). Los dos blits suman ese origen al rectángulo de
+del lienzo (`+0xc`, `+0x10`). Los blits suman ese origen al rectángulo de
 destino, así que las coordenadas de cada control son relativas al lienzo.
 
-## 3. Los dos blits
+## 3. Los tres blits (`BitBlt` opaco, máscara 5-ROP y `AlphaBlend`)
 
-Sólo hay dos primitivas de dibujo, y ninguna clase llama al GDI directamente.
+Sólo hay tres primitivas de dibujo, y ninguna clase de widget llama al GDI directamente.
 
 **Opaco** (`FUN_10008ec0`): crea un `DC` compatible, selecciona el bitmap origen
 y hace **un** `BitBlt` con `rop = 0xCC0020` (`SRCCOPY`):
@@ -139,6 +144,21 @@ en el `DC` de la fuente y se hacen tres blits sobre el lienzo (`0x660046` con
 la fuente, `0x8800C6` con el bitmap de la clave, `0x660046` con la fuente), más
 la copia al temporal. Es lo que permite que la aguja y los LEDs no pinten un
 rectángulo opaco.
+
+**Con canal alfa (`FUN_10008ff0` → `msimg32.dll!AlphaBlend`)**: resuelve en
+runtime `DAT_100556d4 = GetProcAddress(LoadLibraryA("msimg32.dll"), "AlphaBlend")`
+y empaqueta el byte de opacidad constante (`param_5`) como `BLENDFUNCTION`
+(`SourceConstantAlpha = param_5`, `param_2 = (uint)param_5 << 0x10`):
+
+```c
+BLENDFUNCTION bf = { AC_SRC_OVER (0), 0, alpha_byte, 0 }; // (uint)alpha_byte << 16
+AlphaBlend(dstDC, dstX, dstY, w, h, srcDC, srcX, srcY, w, h, bf);
+```
+
+Lo utilizan exclusivamente las 7 instancias de `C_DisplayButton` (`FUN_10018220`
+con `alpha = 0xC0` para las 7 mini-pantallas `66×22`, y `FUN_10017950` con
+`alpha = 0x28` para la sombra y `0x80` para el trazo principal de la envolvente
+ADSR en el visor `458×71`).
 
 ## 4. El knob: la aguja y la etiqueta
 
@@ -287,7 +307,7 @@ encima. Sus campos:
 **En la construcción** (`0x10019f20`) el panel busca su tipo en dos tablas: la
 de índices `0x1004ebfc` (12 bytes por tipo) da el número de registro, y el
 registro vive en `0x1004eb50` (entradas de 24 bytes: `{recurso, ancho, alto,
-…}`). Los siete registros son 11000 17×12, 11001 22×21, 11002 36×23 (tres
+…}`). Los siete registros son 11000 17×12, 11001 22×21, 36×23 (tres
 veces), 11004 33×22 y 11003 19×12. Con él:
 
 * crea el bitmap del atlas (los recursos 11000, 11001, 11002…);
@@ -369,7 +389,113 @@ sucio, así que el cambio de un LED dispara su propio repintado.
 > dirty que nadie consume. La capa de LEDs está cableada a medias; los píxeles
 > del panel salen sólo de la celda del atlas.
 
-## 6. Resumen de offsets
+## 6. Las 7 «pantallitas» ADSR (`C_DisplayButton`) y el compositor de envolvente (`458×71`)
+
+Las 7 instancias de `C_DisplayButton` en la página 0 de `page_controls.csv`
+(3 envolventes de `Resynator 1`: `R1Amp`, `R1Res`, `R1Free`; 3 de `Resynator 2`:
+`R2Amp`, `R2Res`, `R2Free`; y 1 de `Silver Filter`: `FilterEnv`) combinan en un
+solo objeto (`0xA8` bytes, constructor `FUN_10017470`) **dos superficies de
+dibujo con sus propias vtables**:
+
+* **El padre (`this+0x00`, vtable `0x1004e9c0`, slot 1 = `FUN_10017950`)**: el
+  editor/compositor grande de envolvente ADSR de **`458×71` px** (`0x1CA × 0x47`),
+  con dos bitmaps scratch de `458×71` en `+0x90` y `+0x94` y el icono de nodo
+  arrastrable de **`7×7` px** (recurso **`11501` / `0x2CED`**) en `+0x98`.
+* **La «pantallita» hija empotrada (`this+0x38`, vtable `0x1004e940`, slot 1 = `FUN_10018220`)**:
+  el mini-display selector de **`66×22` px** (`0x42 × 0x16`), con el bitmap
+  recurso **`11500` (`0x2CEC`)** en `child+0x6c` (`parent+0xa4`) y un scratch de
+  `66×22` en `child+0x68` (`parent+0xa0`).
+
+Ambos leen los mismos **4 punteros `C_Param*`** enlazados en `parent+0x3c..+0x48`
+(`param_1[0xf..0x12]` = `Attack`, `Decay`, `Sustain`, `Release`, enlazados por
+el helper `FUN_10017820` con el callback `0x10017880`):
+
+| offset (padre) | offset (hijo `+0x38`) | significado |
+|---:|---:|---|
+| `+0x3c` (`[0x0f]`) | `+0x04` (`[1]`) | `C_Param*` Attack (`A`) |
+| `+0x40` (`[0x10]`) | `+0x08` (`[2]`) | `C_Param*` Decay (`D`) |
+| `+0x44` (`[0x11]`) | `+0x0c` (`[3]`) | `C_Param*` Sustain (`S`) |
+| `+0x48` (`[0x12]`) | `+0x10` (`[4]`) | `C_Param*` Release (`R`) |
+| `+0x90` / `+0x94` | — | 2 bitmaps scratch `458×71` (`0x1ca × 0x47`) |
+| `+0x98` | — | bitmap `11501` (`7×7` handle de nodo ADSR) |
+| `+0x9c` | `+0x64` (`[0x19]`) | flag `isSelected` (`0` = normal, `1` = activo) |
+| `+0xa0` | `+0x68` (`[0x1a]`) | bitmap scratch `66×22` (`0x42 × 0x16`) |
+| `+0xa4` | `+0x6c` (`[0x1b]`) | bitmap `11500` (`66×22`, 2 filas: normal `y=0`, activo `y=22`) |
+
+### 6.1 Pintado de la mini-pantalla `66×22` (`FUN_10018220`)
+
+1. Limpia su byte sucio (`slot 14`) y copia el fondo `66×22` desde el recurso
+   `11500` (`child+0x6c`): si la pantallita está activa (`child+0x64 != 0`)
+   toma la segunda fila (`srcY = 22`), si no la primera (`srcY = 0`), y además
+   copia el parche de fondo del panel padre a su scratch `child+0x68`.
+2. Escala los 4 parámetros `A, D, S, R` (normalizados con `FUN_100014c0` sobre
+   su rango `max - min`) a coordenadas enteras de la cajita `66×22`:
+   * `A`, `D`, `R` se escalan por `0.15f` (`15` px máximos cada uno en X);
+   * `S` se escala por `0.18f` (`18` px máximos en Y, invertido desde `y = 20`).
+3. Construye la polilínea de **5 vértices** (`aiStack_38`, 10 `int`s):
+   * `P0 = (1, 21)` (`0x01, 0x15` — pie de ataque)
+   * `P1 = (1 + A, 1)` (pico de ataque)
+   * `P2 = (2 + A + D, 20 - S)` (`0x14 - S` — inicio de sustain)
+   * `P3 = (13 + A + D, 20 - S)` (`0x0d + A + D` — meseta de sustain de 11 px)
+   * `P4 = (14 + A + D + R, 21)` (`0x0e + A + D + R, 0x15` — fin de release)
+4. Dibuja dos pasadas con `Polyline` (`FUN_100071b0` → `GDI32!Polyline` en
+   `0x1004901c` y `CreatePenIndirect` en `0x10049020`) sobre el scratch `66×22`:
+   * **Halo exterior**: grosor `3 px`, color gris claro `0xB0B0B0`;
+   * **Núcleo interior**: grosor `1 px`, color blanco cálido `0xE1E1E1`.
+5. Estampa el scratch sobre el lienzo con **`FUN_10008ff0` (`AlphaBlend`,
+   `alpha = 0xC0 = 192`)**.
+
+### 6.2 Pintado del compositor ADSR `458×71` (`FUN_10017950`)
+
+1. Limpia el byte sucio y copia el parche de fondo de `458×71` (`0x1CA × 0x47`)
+   desde el bitmap de la página (`owner+0x3c`) hacia los dos scratch `+0x90` y
+   `+0x94`.
+2. Escala `A, D, R` horizontalmente (`_DAT_1004ea40`) y `S` verticalmente
+   (`_DAT_1004ea44`) y calcula los **5 vértices** en `local_90`:
+   * `P0 = (6, 70)` (`0x06, 0x46`)
+   * `P1 = (14 + A, 4)` (`0x0e + A, 0x04`)
+   * `P2 = (22 + A + D, 66 - S)` (`0x16 + A + D, 0x42 - S`)
+   * `P3 = (71 + A + D, 66 - S)` (`0x47 + A + D, 0x42 - S` — meseta de sustain de 49 px)
+   * `P4 = (79 + A + D + R, 66)` (`0x4f + A + D + R, 0x42`)
+3. **Sombra proyectada (`+6 px` en X, `+5 px` en Y, en `aiStack_40` sobre `+0x90`)**:
+   * Polilínea de `3 px` en gris oscuro `0x404040`;
+   * Polilínea de `1 px` en negro `0x000000` + 4 líneas guía verticales de
+     altura completa (`y = 0..71` con `MoveToEx`/`LineTo`, `FUN_100070e0`) en
+     `P1.x + 6`, `P2.x + 6`, `P3.x + 6`, `P4.x + 6`;
+   * Mezcla la sombra sobre `+0x94` con **`AlphaBlend` (`FUN_10008ff0`,
+     `alpha = 0x28 = 40`)**.
+4. **Curva principal y guías verticales (sobre `+0x90`)**:
+   * Polilínea de `3 px` en gris plata `0xC8C8C8`;
+   * Polilínea de `1 px` en blanco puro `0xFFFFFF` + 4 líneas guía verticales
+     (`y = 0..71`) en `P1.x`, `P2.x`, `P3.x`, `P4.x`;
+   * Mezcla la curva sobre `+0x94` con **`AlphaBlend` (`FUN_10008ff0`,
+     `alpha = 0x80 = 128`)**.
+5. **Nodos arrastrables (`11501`, `7×7` px)**: estampa con máscara (`FUN_10008f50`)
+   el icono `+0x98` centrado (`[x-3, y-3, x+4, y+4]`) sobre los 4 vértices
+   activos `P1..P4`, y finalmente vuelca `+0x94` al lienzo con `BitBlt` opaco
+   (`FUN_10008ec0`).
+
+## 7. `C_PadGrid` (`0x10018bb0`) y las tablas `DAT_1004ea50..54`
+
+Los 3 controles `C_PadGrid` (`0x10018bb0`, `vtable 0x1004eb00`, `param_2 = 0, 1, 2`
+para `Resynator 1`, `Resynator 2` y `Silver`) gobiernan los **Stick Pads 2D** y
+sus etiquetas perimetrales:
+
+* La geometría base del pad se lee de las tablas indexadas por `param_2` (`0..2`):
+  * `DAT_1004ea50 + param_2 * 20` (`x`) y `DAT_1004ea52 + param_2 * 20` (`y`)
+    fijan la esquina superior izquierda de cada `C_PadGrid` (de `111×111` px,
+    `+0x57` desde el centro).
+  * `DAT_1004ea54 + param_2 * 20` contiene **8 `short`s consecutivos** con los
+    tipos de display (`0x1004d2b8`) para los **8 objetos `C_GraphEditor`** que
+    el constructor instancia en `this+0x68..+0x84` (`local_bc + 0x1a`, bucle de
+    8 iteraciones llamando a `FUN_10015760` → `FUN_10014dd0`):
+    * **4 displays de nombre de parámetro (`8 caracteres`, fuente `11101`)**:
+      muestran las etiquetas dinámicas de los 4 polos (`mnAN` en `R1`/`R2` según
+      el `ParamSet` y `Level 1..3`, o los 4 efectos en `Silver`).
+    * **4 displays numéricos (`3 caracteres`, fuente `11100`)**: muestran los
+      valores `000..100` / `-50..+50` de los 4 polos alrededor del Stick.
+
+## 8. Resumen de offsets
 
 | clase | offset | significado | valor |
 |---|---|---|---|
@@ -379,9 +505,9 @@ sucio, así que el cambio de un LED dispara su propio repintado.
 | `C_Knob` | `+0x64` | `C_Param` privado | fotograma 0..89 |
 | `C_Knob` | `+0x8c` / `+0x90` | máscara de clic 11600 / tira 11601 | |
 | `C_Knob` | `+0x94` | objeto de texto del display | tipo de `0x1004d20c` |
-| texto | `+0x1cc` / `+0x1f0` | cadena / rehacer | 18 bytes / 0-1 |
-| texto | `+0x1e8` / `+0x1ec` | atlas de fuente / scratch | 11100 o 11101 |
-| texto | `+0x1fc`..`+0x210` | celda, primer glifo, avance, nº, x, y | tabla `0x1004d2a0` y registro de tipo |
+| texto (`C_GraphEditor`) | `+0x1cc` / `+0x1f0` | cadena / rehacer | 18 bytes / 0-1 |
+| texto (`C_GraphEditor`) | `+0x1e8` / `+0x1ec` | atlas de fuente / scratch | 11100 o 11101 |
+| texto (`C_GraphEditor`) | `+0x1fc`..`+0x210` | celda, primer glifo, avance, nº, x, y | tabla `0x1004d2a0` y registro de tipo |
 | `C_ControlPanel` | `+0x64` / `+0x68` | atlas / bitmap de trabajo | 2 filas |
 | `C_ControlPanel` | `+0x6c` / `+0x70` / `+0x74` | columnas − 1 / ancho / alto de celda | |
 | `C_ControlPanel` | `+0x7c` / `+0x80` | rótulos / cuántos hay | |
@@ -390,8 +516,13 @@ sucio, así que el cambio de un LED dispara su propio repintado.
 | `C_ControlPanel` | `+0x90` / `+0x94` / `+0x98` | tabla de LEDs / array / nº | |
 | `C_Led` | `+0x54` / `+0x58` | bitmap 11300 / byte encendido | |
 | `C_Led` | `+0x28` | el dueño (nunca se asigna) | 0 |
+| `C_DisplayButton` | `+0x38` | sub-widget mini-display `66×22` | vtable `0x1004e940` |
+| `C_DisplayButton` | `+0x3c`..`+0x48` | 4 punteros `C_Param*` (`A, D, S, R`) | leídos por `0x10018220` y `0x10017950` |
+| `C_DisplayButton` | `+0x90`, `+0x94`, `+0x98` | 2 scratch `458×71` + nodo `7×7` (`11501`) | compositor `0x10017950` |
+| `C_DisplayButton` | `+0xa0`, `+0xa4` | scratch `66×22` + fondo `11500` | mini-display `0x10018220` |
+| `C_PadGrid` | `+0x68`..`+0x84` | 8 punteros `C_GraphEditor*` | tipos en `DAT_1004ea54 + idx*20` |
 
-## 7. Cómo se comprueba
+## 9. Cómo se comprueba
 
 [`tools/verify_paint.py`](tools/verify_paint.py) relee el DLL y exige, punto por
 punto, lo que afirma este documento:
@@ -430,24 +561,9 @@ punto, lo que afirma este documento:
     → glifos `char − 0x21` del atlas `+0x1e8` al scratch `+0x1ec`
     (`0x10015280`) → blit opaco en `(+0x20c, +0x210)` (`0x100151c0`), y que la
     tabla de tipos de display (`0x1004d2b8`, 18 bytes) y las dos fuentes
-    (`0x1004d2a0`: 11100 16/3/8 y 11101 16/5/5) son las que dicen los bytes.
-
-```console
-$ python NeuronVS_layout/tools/verify_paint.py
-  vtables: knob y panel comparten slot 1 (pintado), 5 (pinta si sucio), 13 (lee) y 14 (escribe)
-  byte sucio: +0x30 (1 byte); slot 14 lo escribe, slot 13 lo lee y slot 5 pinta por el slot 1 y lo pone a 0
-  ventana: 0x10008810 sólo entra si hay algo sucio (0x100087d0), 0x10008760 baja por los hijos con el slot 5 y 0x10008250 repinta todo con el slot 1
-  knob: fotograma = ftol(clamp(+0x64)) · alto de 11600 → origen de la tira 11601, blit con máscara; el registro +0x38 sólo alimenta el texto
-  panel: el callback cachea en +0x84 el dígito de la tabla +0x7c y enciende los LED de +0x90/+0x94; el pintado sólo copia la celda w×h del atlas +0x68
-  LED: encendido = 11300 con máscara; apagado = parche de fondo del padre (+0x28 → +0x3c)
-  LED sin padre: 0x10016250 crea los LEDs y nadie llama al slot 25 (0x10005120), así que +0x28 queda a 0 y esa capa no llega a píxeles
-  geometría: celda desde la tabla de 0x1004eb50; el scratch de +0x68 es celda×columnas de ancho y 2×celda de alto, con dos blits opacos desde el atlas
-  LED: caja de 15×7 en la posición (y, x) de la tabla 0x1004e170/0x1004e172, recurso 11300
-  recursos: 11600 → +0x8c (máscara de clic) y 11601 → +0x90 (tira de la aguja); el param privado va de 0.0f a 89.0f; el LED usa 11300 en +0x54
-  tipo del panel: 0x1004ebfc (12 bytes por tipo) → registro de 24 bytes en 0x1004eb50 {recurso, ancho, alto}; columnas = atlas/celda − 1
-  tipos de LED: 39 pares (y, x) en 0x1004e170, 4 bytes por tipo (el tipo se recorta a 0..38)
-  blit con máscara: SRCCOPY → SRCAND(fuente) → MERGEPAINT(máscara) → SRCAND(fuente) → SRCCOPY; sin máscara, la clave va en el BkColor
-  texto: "%03i"/"%+02.2i" → +0x1cc (18 bytes) → glifo = char − 0x21 desde el atlas +0x1e8 → hojas de 16 px cada 8 (o 5) en el scratch +0x1ec → blit opaco en (+0x20c,+0x210)
-
-all checks passed
-```
+    (`0x1004d2a0`: 11100 16/3/8 y 11101 16/5/5) son las que dicen los bytes;
+14. que las 7 pantallitas `C_DisplayButton` (`0x10017470`) enlazan los 4 registros
+    `A, D, S, R` en `+0x3c..+0x48`, pintan la polilínea de 5 vértices en la
+    mini-pantalla `66×22` (`0x10018220`, `alpha = 0xC0`) y en el compositor
+    `458×71` (`0x10017950`, sombra `alpha = 0x28` + curva `alpha = 0x80` +
+    4 nodos `11501` de `7×7`) mediante `FUN_10008ff0` (`msimg32.dll!AlphaBlend`).

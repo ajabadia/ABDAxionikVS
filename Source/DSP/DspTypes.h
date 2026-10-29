@@ -16,6 +16,8 @@ constexpr size_t kMaxVoices = 32;
 constexpr size_t kDefaultPolyphony = 12;
 constexpr double kLegacyBaseSampleRate = 44100.0;
 constexpr size_t kLegacyInternalBlockSize = 128;
+constexpr double kAntiPopRampSeconds = 0.002; // 2ms rampa anti-pops (Mac 1.56)
+constexpr size_t kDefaultAntiPopSamples = static_cast<size_t>(kLegacyBaseSampleRate * kAntiPopRampSeconds);
 
 enum class OutputClipMode : uint8_t {
     LegacyZeroClip = 0, // |x*x| > 1.0 -> 0.0 (paridad bit-exacta con NeuronVS.dll para oraculo)

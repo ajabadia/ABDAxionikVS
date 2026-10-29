@@ -11,13 +11,17 @@ import { WebBridge } from '../bridge/WebBridge.js';
 import {
   MODEL_METADATA,
   PRESET_METADATA,
+  PRESET_R2_MODELS,
   createCanonicalBank,
 } from './NeuronCatalogMetadata.js';
 import {
+  evaluateNeuronDb,
+  filterActiveModels,
   parseMName,
   parseMapScript,
   parseModelNamesCache,
   parseSoundScript,
+  type NeuronDbEvaluation,
 } from '@abdsynths/shared/formats/neuron';
 import { createBankShell } from '@abdsynths/shared/components/bank/bankShell.js';
 import { bankCardHtml, bindBankCards } from '@abdsynths/shared/components/bank/bankCard.js';
@@ -43,6 +47,9 @@ export interface BankPresetEntry {
   name: string;
   category: string;
   modelIndex: number;
+  r2ModelIndex?: number;
+  r1Switch?: boolean;
+  r2Switch?: boolean;
   parameterCount: number;
   soundPath?: string;
   files?: Map<string, ArrayBuffer>;
@@ -105,6 +112,7 @@ export class BankDrawer {
   private cardUnbind: (() => void) | null = null;
   private chipsUnbind: (() => void) | null = null;
   private currentBank: BankSummary = { folderName: 'Default Library', models: [], presets: [] };
+  private dbEvaluation: NeuronDbEvaluation | null = null;
   private activeTab: 'models' | 'presets' = 'models';
   private preferredResynator: 1 | 2 = 1;
   private callerContext: 'r1' | 'r2' | 'global' = 'global';
@@ -227,8 +235,40 @@ export class BankDrawer {
     });
   }
 
+  private evaluateCurrentBank(): void {
+    this.currentBank.models = filterActiveModels(this.currentBank.models).map((m) => {
+      const meta = MODEL_METADATA[m.slot];
+      return {
+        ...m,
+        parameterSet: meta ? meta[0] : (m.parameterSet ?? (m.slot % 10)),
+        complexity: meta ? meta[1] : (m.complexity ?? 5),
+      };
+    });
+
+    this.currentBank.presets = this.currentBank.presets.map((p) => {
+      const pMeta = PRESET_METADATA[p.slot];
+      const mIdx = p.modelIndex ?? (pMeta ? pMeta[0] : p.slot);
+      const r2Idx = p.r2ModelIndex ?? PRESET_R2_MODELS[p.slot] ?? 511;
+      const rawCat =
+        p.category && p.category !== 'General' && p.category !== 'Sound'
+          ? p.category
+          : pMeta
+            ? pMeta[1]
+            : (PARAM_SET_NAMES[mIdx % 10] || 'General');
+      return {
+        ...p,
+        modelIndex: mIdx,
+        r2ModelIndex: r2Idx,
+        category: rawCat,
+      };
+    });
+
+    this.dbEvaluation = evaluateNeuronDb(this.currentBank.models, this.currentBank.presets);
+  }
+
   public setBank(bank: BankSummary): void {
     this.currentBank = bank;
+    this.evaluateCurrentBank();
     this.persistToLocalStorage();
     this.updateCounters();
     this.renderCategoryChips();
@@ -247,33 +287,12 @@ export class BankDrawer {
     if (!data || !Array.isArray(data.models) || !Array.isArray(data.presets)) return;
     if (data.models.length === 0 && data.presets.length === 0) return;
 
-    const presets: BankPresetEntry[] = data.presets.map((p) => {
-      const pMeta = PRESET_METADATA[p.slot];
-      const mIdx = p.modelIndex ?? (pMeta ? pMeta[0] : p.slot);
-      const rawCat = (p.category && p.category !== 'General' && p.category !== 'Sound')
-        ? p.category
-        : (pMeta ? pMeta[1] : (PARAM_SET_NAMES[mIdx % 10] || 'General'));
-      return {
-        ...p,
-        modelIndex: mIdx,
-        category: rawCat,
-      };
-    });
-
-    const models: BankModelEntry[] = data.models.map((m) => {
-      const meta = MODEL_METADATA[m.slot];
-      return {
-        ...m,
-        parameterSet: meta ? meta[0] : (m.parameterSet ?? (m.slot % 10)),
-        complexity: meta ? meta[1] : (m.complexity ?? 5),
-      };
-    });
-
     this.currentBank = {
       folderName: data.folderName || 'NeuronDB (Disk Sync)',
-      models,
-      presets,
+      models: data.models,
+      presets: data.presets,
     };
+    this.evaluateCurrentBank();
 
     this.persistToLocalStorage();
     this.updateCounters();
@@ -285,7 +304,12 @@ export class BankDrawer {
       this.renderPresets();
     }
 
-    this.shell.setFooterStatus(`${this.currentBank.folderName} (${models.length} models, ${presets.length} presets)`);
+    const models = this.currentBank.models;
+    const presets = this.currentBank.presets;
+    const inUse = this.dbEvaluation?.inUseModelCount ?? models.length;
+    this.shell.setFooterStatus(
+      `${this.currentBank.folderName} (${models.length} models · ${inUse} in use, ${presets.length} presets)`
+    );
     console.log(`[BankDrawer] Synced ${models.length} models and ${presets.length} presets from native host.`);
   }
 
@@ -346,6 +370,7 @@ export class BankDrawer {
     const presets = this.currentBank.presets.map((p) => {
       const pMeta = PRESET_METADATA[p.slot];
       const mIdx = pMeta ? pMeta[0] : (p.modelIndex ?? p.slot);
+      const r2Idx = p.r2ModelIndex ?? PRESET_R2_MODELS[p.slot] ?? 511;
       const rawCat = pMeta
         ? pMeta[1]
         : (p.category && p.category !== 'Sound' && p.category !== 'General'
@@ -354,12 +379,14 @@ export class BankDrawer {
       return {
         ...p,
         modelIndex: mIdx,
+        r2ModelIndex: r2Idx,
         category: rawCat,
       };
     });
 
     this.currentBank.models = models;
     this.currentBank.presets = presets;
+    this.evaluateCurrentBank();
     this.persistToLocalStorage();
     this.updateCounters();
     this.renderCategoryChips();
@@ -374,8 +401,9 @@ export class BankDrawer {
     // changes no counters, so the time proves the click did something.
     // The message stays until the next bank update restores the summary.
     const time = new Date().toLocaleTimeString();
+    const inUse = this.dbEvaluation?.inUseModelCount ?? this.currentBank.models.length;
     this.shell.setFooterStatus(
-      `Library refreshed & re-indexed (${models.length} models, ${presets.length} presets) · ${time}`
+      `Library refreshed & re-indexed (${this.currentBank.models.length} models · ${inUse} in use, ${this.currentBank.presets.length} presets) · ${time}`
     );
   }
 
@@ -383,11 +411,13 @@ export class BankDrawer {
     if (!this.drawerElement) return;
     const mCount = this.currentBank.models.length;
     const pCount = this.currentBank.presets.length;
+    const inUse = this.dbEvaluation?.inUseModelCount;
 
     this.shell.setTabCount('models', mCount);
     this.shell.setTabCount('presets', pCount);
 
-    this.shell.setFooterStatus(`${this.currentBank.folderName} (${mCount} models, ${pCount} presets)`);
+    const inUseSummary = typeof inUse === 'number' ? ` · ${inUse} in use` : '';
+    this.shell.setFooterStatus(`${this.currentBank.folderName} (${mCount} models${inUseSummary}, ${pCount} presets)`);
   }
 
   private updateTargetRowUI(): void {
@@ -591,13 +621,19 @@ export class BankDrawer {
       filtered = filtered.filter((m) => m.parameterSet === this.selectedCategory);
     }
     if (this.filterQuery) {
-      filtered = filtered.filter(
-        (m) =>
-          m.name.toLowerCase().includes(this.filterQuery) ||
-          String(m.slot).includes(this.filterQuery) ||
-          `#${String(m.slot).padStart(3, '0')}`.includes(this.filterQuery) ||
-          (PARAM_SET_NAMES[m.parameterSet]?.toLowerCase().includes(this.filterQuery) ?? false)
-      );
+      const q = this.filterQuery.toLowerCase().trim();
+      filtered = filtered.filter((m) => {
+        const dep = this.dbEvaluation?.modelDependencies.get(m.slot);
+        const usageTag = dep ? dep.usageStatus : '';
+        return (
+          m.name.toLowerCase().includes(q) ||
+          String(m.slot).includes(q) ||
+          `#${String(m.slot).padStart(3, '0')}`.includes(q) ||
+          (PARAM_SET_NAMES[m.parameterSet]?.toLowerCase().includes(q) ?? false) ||
+          (q === 'unused' && usageTag === 'unused') ||
+          ((q === 'in-use' || q === 'used') && usageTag !== 'unused')
+        );
+      });
     }
 
     this.shell.setBadge(
@@ -633,6 +669,12 @@ export class BankDrawer {
         const setName = PARAM_SET_NAMES[m.parameterSet] || `Set ${m.parameterSet}`;
         const catClass = `cat-${m.parameterSet % 10}`;
         const iconKey = `param${m.parameterSet % 10}` as keyof typeof ICONS;
+        const dep = this.dbEvaluation?.modelDependencies.get(m.slot);
+        const usedCount = dep ? dep.usedByPresetSlots.length : 0;
+        const usageBadge =
+          usedCount > 0
+            ? `${usedCount} Sound${usedCount === 1 ? '' : 's'}`
+            : 'Unused';
         return bankCardHtml({
           slot: m.slot,
           catClass,
@@ -642,6 +684,7 @@ export class BankDrawer {
           badges: [
             `${m.zoneCount} Zone${m.zoneCount === 1 ? '' : 's'}`,
             `Lvl ${m.complexity}`,
+            usageBadge,
           ],
           actions: [{ id: 'load', label: btnLabel }],
         });
@@ -691,13 +734,23 @@ export class BankDrawer {
       : this.currentBank.presets.filter((p) => p.category === this.selectedPresetCategory);
 
     const filtered = this.filterQuery
-      ? catFiltered.filter(
-          (p) =>
-            p.name.toLowerCase().includes(this.filterQuery) ||
-            p.category.toLowerCase().includes(this.filterQuery) ||
-            String(p.slot).includes(this.filterQuery) ||
-            String(p.modelIndex).includes(this.filterQuery)
-        )
+      ? catFiltered.filter((p) => {
+          const q = this.filterQuery.toLowerCase().trim();
+          const dep = this.dbEvaluation?.presetDependencies.get(p.slot);
+          const r2Slot = p.r2ModelIndex ?? PRESET_R2_MODELS[p.slot] ?? 511;
+          return (
+            p.name.toLowerCase().includes(q) ||
+            p.category.toLowerCase().includes(q) ||
+            String(p.slot).includes(q) ||
+            `#${String(p.slot).padStart(3, '0')}`.includes(q) ||
+            String(p.modelIndex).includes(q) ||
+            `#${String(p.modelIndex).padStart(3, '0')}`.includes(q) ||
+            String(r2Slot).includes(q) ||
+            `#${String(r2Slot).padStart(3, '0')}`.includes(q) ||
+            (dep?.r1ModelName.toLowerCase().includes(q) ?? false) ||
+            (dep?.r2ModelName.toLowerCase().includes(q) ?? false)
+          );
+        })
       : catFiltered;
 
     this.shell.setBadge(
@@ -721,16 +774,19 @@ export class BankDrawer {
     grid.innerHTML = filtered
       .map((p) => {
         const catInfo = getPresetCategoryInfo(p.category);
+        const dep = this.dbEvaluation?.presetDependencies.get(p.slot);
+        const r1SlotStr = `#${String(p.modelIndex).padStart(3, '0')}`;
+        const r2Slot = p.r2ModelIndex ?? PRESET_R2_MODELS[p.slot] ?? 511;
+        const r2SlotStr = `#${String(r2Slot).padStart(3, '0')}`;
+        const r1Label = dep ? `R1: ${r1SlotStr} ${dep.r1ModelName}` : `R1: ${r1SlotStr}`;
+        const r2Label = dep ? `R2: ${r2SlotStr} ${dep.r2ModelName}` : `R2: ${r2SlotStr}`;
         return bankCardHtml({
           slot: p.slot,
           catClass: catInfo.catClass,
           catLabel: p.category || 'Preset',
           name: p.name,
           iconHtml: catInfo.icon,
-          badges: [
-            `Uses Model #${String(p.modelIndex).padStart(3, '0')}`,
-            `${p.parameterCount} params`,
-          ],
+          badges: [r1Label, r2Label],
           actions: [
             { id: 'load-preset', label: 'Load Sound', title: `Load Sound Preset #${p.slot}` },
           ],
@@ -925,6 +981,9 @@ export class BankDrawer {
           let soundName = entry.name.replace(/\.sound$/i, '');
           let cat = 'General';
           let modelIdx = slot;
+          let r2ModelIdx = PRESET_R2_MODELS[slot] ?? 511;
+          let r1Switch = true;
+          let r2Switch = true;
 
           try {
             for await (const sf of (entry as IterDir).values()) {
@@ -934,6 +993,9 @@ export class BankDrawer {
                 const parsed = parseSoundScript(text);
                 if (parsed.name) soundName = parsed.name;
                 if (parsed.r1ModelIndex !== undefined) modelIdx = parsed.r1ModelIndex;
+                if (parsed.r2ModelIndex !== undefined) r2ModelIdx = parsed.r2ModelIndex;
+                r1Switch = parsed.r1Switch;
+                r2Switch = parsed.r2Switch;
               }
             }
           } catch {
@@ -953,6 +1015,9 @@ export class BankDrawer {
             name: soundName,
             category: cat,
             modelIndex: modelIdx,
+            r2ModelIndex: r2ModelIdx,
+            r1Switch,
+            r2Switch,
             parameterCount: 445
           });
         }
@@ -1063,6 +1128,9 @@ export class BankDrawer {
               if (parsed) {
                 if (parsed.name) entry.name = parsed.name;
                 if (typeof parsed.r1ModelIndex === 'number') entry.modelIndex = parsed.r1ModelIndex;
+                if (typeof parsed.r2ModelIndex === 'number') entry.r2ModelIndex = parsed.r2ModelIndex;
+                entry.r1Switch = parsed.r1Switch;
+                entry.r2Switch = parsed.r2Switch;
               }
             } catch {
               // ignore
@@ -1121,6 +1189,7 @@ export class BankDrawer {
           name: p.name,
           category: p.category,
           modelIndex: p.modelIndex,
+          r2ModelIndex: p.r2ModelIndex,
           parameterCount: p.parameterCount
         }))
       };
@@ -1137,37 +1206,12 @@ export class BankDrawer {
       if (rawBank) {
         const parsed = JSON.parse(rawBank);
         if (parsed && Array.isArray(parsed.models)) {
-          const models: BankModelEntry[] = parsed.models.map((m: any) => {
-            const meta = MODEL_METADATA[m.slot];
-            const pSet = meta ? meta[0] : (m.parameterSet ?? 0);
-            const comp = meta ? meta[1] : (m.complexity ?? 5);
-            return {
-              ...m,
-              parameterSet: pSet,
-              complexity: comp,
-            };
-          });
-
-          const presets: BankPresetEntry[] = (Array.isArray(parsed.presets) ? parsed.presets : []).map((p: any) => {
-            const pMeta = PRESET_METADATA[p.slot];
-            const mIdx = pMeta ? pMeta[0] : (p.modelIndex ?? p.slot);
-            const rawCat = pMeta
-              ? pMeta[1]
-              : (p.category && p.category !== 'Sound' && p.category !== 'General'
-                  ? p.category
-                  : (PARAM_SET_NAMES[mIdx % 10] || 'General'));
-            return {
-              ...p,
-              modelIndex: mIdx,
-              category: rawCat,
-            };
-          });
-
           this.currentBank = {
             folderName: parsed.folderName || 'Persisted Library',
-            models,
-            presets
+            models: parsed.models,
+            presets: Array.isArray(parsed.presets) ? parsed.presets : [],
           };
+          this.evaluateCurrentBank();
           this.persistToLocalStorage();
           this.updateCounters();
         }
@@ -1183,6 +1227,7 @@ export class BankDrawer {
         models: canonical.models,
         presets: canonical.presets,
       };
+      this.evaluateCurrentBank();
       this.persistToLocalStorage();
       this.updateCounters();
       this.renderCategoryChips();

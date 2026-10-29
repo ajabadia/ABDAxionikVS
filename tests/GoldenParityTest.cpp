@@ -333,21 +333,24 @@ bool verifyModMatrix(abd::axionik::DspEngineFacade* engine) {
     }
     std::cout << "\n";
 
-    // Probar envío MIDI CC1 = 100 (100/127) sobre el control 1 y restaurar a 0
-    int32_t c1Dest = bridge->getControlDestination(1);
-    float c1Depth = bridge->getControlDepth(1);
-    if (c1Dest >= 0 && c1Dest < static_cast<int32_t>(abd::axionik::kNumModDests)) {
-        int32_t c1Slot = bridge->getDestSlot(static_cast<size_t>(c1Dest));
-        float baseBefore = bridge->getBaseValue(static_cast<size_t>(c1Dest));
-        float cc1Val = 100.0f / 127.0f;
-        engine->setModulationSource(1, cc1Val);
-        float expected = std::clamp(
-            static_cast<float>(static_cast<double>(baseBefore) + static_cast<double>(c1Depth) * static_cast<double>(cc1Val)),
-            (c1Dest == 1 || c1Dest == 15) ? -24.0f : 0.0f,
-            (c1Dest == 1 || c1Dest == 15) ?  24.0f : 1.0f);
-        checkClose(p[c1Slot], expected, "MIDI CC1=100 -> p[slot]");
-        engine->setModulationSource(1, 0.0f);
-        checkClose(p[c1Slot], baseBefore, "MIDI CC1=0 -> restaura base[dest]");
+    // M6 Extendido: Probar envío de los 6 controles MIDI (0..5: Aftertouch, CC1, CC2, CC3, CC4, CC11)
+    // comprobando que p[slot] == clip(base + depth * value, min, max) en cada uno y que restaurar a 0 devuelve base[dest]
+    for (size_t c = 0; c < abd::axionik::kNumModSources; ++c) {
+        int32_t cDest = bridge->getControlDestination(c);
+        float cDepth = bridge->getControlDepth(c);
+        if (cDest >= 0 && cDest < static_cast<int32_t>(abd::axionik::kNumModDests)) {
+            int32_t cSlot = bridge->getDestSlot(static_cast<size_t>(cDest));
+            float baseBefore = bridge->getBaseValue(static_cast<size_t>(cDest));
+            float ctrlVal = 100.0f / 127.0f;
+            engine->setModulationSource(static_cast<int>(c), ctrlVal);
+            float expected = std::clamp(
+                static_cast<float>(static_cast<double>(baseBefore) + static_cast<double>(cDepth) * static_cast<double>(ctrlVal)),
+                (cDest == 1 || cDest == 15) ? -24.0f : 0.0f,
+                (cDest == 1 || cDest == 15) ?  24.0f : 1.0f);
+            checkClose(p[cSlot], expected, "Control 0..5 -> p[slot] (base + depth * value)");
+            engine->setModulationSource(static_cast<int>(c), 0.0f);
+            checkClose(p[cSlot], baseBefore, "Control 0..5 = 0 -> restaura base[dest]");
+        }
     }
 
     std::cout << "  VEREDICTO MATRIZ: " << (failures == 0 ? "CORRECTO (63 destinos + 6 controles validados)" : "FALLO") << "\n";

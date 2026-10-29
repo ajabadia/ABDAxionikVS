@@ -114,6 +114,7 @@ target_include_directories(ABDAxionikVS PUBLIC
     Source
     Source/DSP
     Source/Generated
+    "${ABDSHARED_CODE_DIR}"
 )
 target_compile_definitions(ABDAxionikVS PUBLIC
     JUCE_WEB_BROWSER=1
@@ -171,6 +172,7 @@ target_include_directories(ABDAxionikVS_WebPilot PRIVATE
     Source
     Source/DSP
     Source/Generated
+    "${ABDSHARED_CODE_DIR}"
 )
 
 target_compile_definitions(ABDAxionikVS_WebPilot PRIVATE
@@ -241,4 +243,27 @@ target_link_libraries(DspEngineFacadeTests PRIVATE
     ABDShared::DspCore
     ABDShared::SynthCore
     ABDShared::DspEffects
+)
+
+# ============================================================================
+# 8. Suite CTest (DspEngineFacadeTests + GoldenParityTest --zones / --matrix)
+# ============================================================================
+enable_testing()
+
+add_test(
+    NAME DspEngineFacadeTests
+    COMMAND $<TARGET_FILE:DspEngineFacadeTests>
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_test(
+    NAME GoldenParityTest_Zones
+    COMMAND $<TARGET_FILE:GoldenParityTest> --zones
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_test(
+    NAME GoldenParityTest_Matrix
+    COMMAND $<TARGET_FILE:GoldenParityTest> --matrix
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )

@@ -50,6 +50,9 @@ AxionikProcessor::AxionikProcessor()
         pendingUiChanges_.push_back({ idx, rawVal });
     });
 
+    // Sincronizar APVTS y estado inicial (000: Init Sound) desde dspEngine_
+    syncApvtsFromDspEngine();
+
     AX_LOG("[PROCESSOR] AxionikProcessor constructor finished successfully.");
 }
 
@@ -107,8 +110,11 @@ AxionikProcessor::PresetEvent AxionikProcessor::drainPendingPresetEvent() {
 }
 
 bool AxionikProcessor::loadPresetFromScript(const std::string& scriptText) {
-    if (!dspEngine_.loadPresetFromScript(scriptText)) {
-        return false;
+    {
+        const juce::ScopedLock sl(getCallbackLock());
+        if (!dspEngine_.loadPresetFromScript(scriptText)) {
+            return false;
+        }
     }
     syncApvtsFromDspEngine();
     return true;
@@ -116,9 +122,12 @@ bool AxionikProcessor::loadPresetFromScript(const std::string& scriptText) {
 
 bool AxionikProcessor::loadPresetBySlot(int slot) {
     AX_LOG(juce::String("[PRESET] loadPresetBySlot called with slot=") + juce::String(slot));
-    if (!dspEngine_.loadPresetBySlot(slot)) {
-        AX_LOG(juce::String("[PRESET] dspEngine_.loadPresetBySlot FAILED for slot=") + juce::String(slot));
-        return false;
+    {
+        const juce::ScopedLock sl(getCallbackLock());
+        if (!dspEngine_.loadPresetBySlot(slot)) {
+            AX_LOG(juce::String("[PRESET] dspEngine_.loadPresetBySlot FAILED for slot=") + juce::String(slot));
+            return false;
+        }
     }
     syncApvtsFromDspEngine();
     currentProgram_ = getProgramIndexForSlot(slot);
@@ -130,7 +139,11 @@ bool AxionikProcessor::loadPresetBySlot(int slot) {
 }
 
 bool AxionikProcessor::loadModelBySlot(int slot, int modelIndex) {
-    bool ok = dspEngine_.loadModelBySlot(slot, modelIndex);
+    bool ok = false;
+    {
+        const juce::ScopedLock sl(getCallbackLock());
+        ok = dspEngine_.loadModelBySlot(slot, modelIndex);
+    }
     if (ok) {
         uint32_t paramIdx = (slot == 0) ? abd::axionik::ParamIdx::R1ModellIndex : abd::axionik::ParamIdx::R2ModellIndex;
         setParameterByIndex(paramIdx, static_cast<float>(modelIndex));
@@ -139,8 +152,19 @@ bool AxionikProcessor::loadModelBySlot(int slot, int modelIndex) {
 }
 
 void AxionikProcessor::initPreset() {
-    auto initPreset = NeuronSound::getEmbeddedInitPreset();
-    dspEngine_.applyPreset(initPreset);
+    {
+        const juce::ScopedLock sl(getCallbackLock());
+        auto initPreset = NeuronSound::getEmbeddedInitPreset();
+        // Perfiles ADSR iniciales diferenciados por generador para InitSound
+        initPreset.values[200] = 4.0f;  initPreset.values[201] = 28.0f; initPreset.values[202] = 127.0f; initPreset.values[203] = 50.0f; // R1 Amp
+        initPreset.values[182] = 74.0f; initPreset.values[183] = 84.0f; initPreset.values[184] = 32.0f;  initPreset.values[185] = 57.0f; // R1 Res
+        initPreset.values[205] = 32.0f; initPreset.values[206] = 68.0f; initPreset.values[207] = 54.0f;  initPreset.values[208] = 72.0f; // R1 Free
+        initPreset.values[230] = 18.0f; initPreset.values[231] = 46.0f; initPreset.values[232] = 108.0f; initPreset.values[233] = 58.0f; // R2 Amp
+        initPreset.values[212] = 52.0f; initPreset.values[213] = 76.0f; initPreset.values[214] = 44.0f;  initPreset.values[215] = 63.0f; // R2 Res
+        initPreset.values[235] = 60.0f; initPreset.values[236] = 30.0f; initPreset.values[237] = 88.0f;  initPreset.values[238] = 46.0f; // R2 Free
+        initPreset.values[355] = 65.0f; initPreset.values[356] = 75.0f; initPreset.values[357] = 79.0f;  initPreset.values[358] = 89.0f; // Filter Env
+        dspEngine_.applyPreset(initPreset);
+    }
     syncApvtsFromDspEngine();
 }
 
@@ -204,7 +228,7 @@ void AxionikProcessor::setMidiController(int ccNum, float ccVal) {
         dspEngine_.setModulationSource(2, ccVal);
     } else if (ccNum == kMidiCCCO3) {
         dspEngine_.setModulationSource(3, ccVal);
-    } else if (ccNum == kMidiCCFoot) {
+    } else if (ccNum == kMidiCCFoot || ccNum == 64) {
         dspEngine_.setModulationSource(4, ccVal);
     } else if (ccNum == kMidiCCExpression) {
         dspEngine_.setModulationSource(5, ccVal);
@@ -274,22 +298,56 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
             nrpnChannel_ = channel;
             lastNrpnTimestampMs_ = nowMs;
             uint16_t paramIdx = (static_cast<uint16_t>(nrpnMsb_) << 7) | nrpnLsb_;
-            if (isNrpnParameterAddress(paramIdx)) {
-                setParameterNormalizedByIndex(paramIdx, static_cast<float>(dataEntryMsb_) / 127.0f);
+            float normVal = static_cast<float>(dataEntryMsb_) / 127.0f;
+            bool consumed = midiLearnManager_.handleIncomingNRPN(
+                channel,
+                static_cast<int>(paramIdx),
+                normVal,
+                static_cast<int>(dataEntryMsb_) << 7,
+                [this](int targetIdx, const juce::String&, float outNorm) {
+                    if (targetIdx >= 0) setParameterNormalizedByIndex(static_cast<uint32_t>(targetIdx), outNorm);
+                });
+            if (!consumed && isNrpnParameterAddress(paramIdx)) {
+                setParameterNormalizedByIndex(paramIdx, normVal);
             }
         } else if (ccNum == 38) {
             nrpnChannel_ = channel;
             lastNrpnTimestampMs_ = nowMs;
             uint16_t paramIdx = (static_cast<uint16_t>(nrpnMsb_) << 7) | nrpnLsb_;
-            if (isNrpnParameterAddress(paramIdx)) {
-                uint16_t val14 = (static_cast<uint16_t>(dataEntryMsb_) << 7) | static_cast<uint8_t>(rawVal & 0x7F);
-                setParameterNormalizedByIndex(paramIdx, static_cast<float>(val14) / 16383.0f);
+            uint16_t val14 = (static_cast<uint16_t>(dataEntryMsb_) << 7) | static_cast<uint8_t>(rawVal & 0x7F);
+            float normVal = static_cast<float>(val14) / 16383.0f;
+            bool consumed = midiLearnManager_.handleIncomingNRPN(
+                channel,
+                static_cast<int>(paramIdx),
+                normVal,
+                static_cast<int>(val14),
+                [this](int targetIdx, const juce::String&, float outNorm) {
+                    if (targetIdx >= 0) setParameterNormalizedByIndex(static_cast<uint32_t>(targetIdx), outNorm);
+                });
+            if (!consumed && isNrpnParameterAddress(paramIdx)) {
+                setParameterNormalizedByIndex(paramIdx, normVal);
             }
         } else if (ccNum == kMidiCCBankSelect) {
             midiBank_ = static_cast<uint8_t>(rawVal & 0x7F);
         } else {
-            // Controladores CC estándar y Matriz de Modulación
-            setMidiController(ccNum, static_cast<float>(rawVal) / 127.0f);
+            // 2. MIDI Learn N:M custom mappings first
+            bool consumed = midiLearnManager_.handleIncomingCC(
+                channel,
+                ccNum,
+                rawVal,
+                [this](int targetIdx, const juce::String&, float outNorm) {
+                    if (targetIdx >= 0) setParameterNormalizedByIndex(static_cast<uint32_t>(targetIdx), outNorm);
+                });
+
+            // 3. Controladores CC estándar y Matriz de Modulación
+            float ccNorm = static_cast<float>(rawVal) / 127.0f;
+            if (!consumed) {
+                setMidiController(ccNum, ccNorm);
+            } else if (ccNum == kMidiCCModulation || ccNum == kMidiCCBreath || ccNum == kMidiCCCO3 ||
+                       ccNum == kMidiCCFoot || ccNum == 64 || ccNum == kMidiCCExpression) {
+                // Keep real-time performance modulation sources alive even when also used as a MIDI Learn Macro
+                setMidiController(ccNum, ccNorm);
+            }
         }
     } else if (msg.isProgramChange()) {
         int progNum = msg.getProgramChangeNumber();
@@ -297,10 +355,30 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
         nrpnMsb_ = 0; nrpnLsb_ = 0; dataEntryMsb_ = 0; nrpnChannel_ = -1;
         loadPresetBySlot(slot);
     } else if (msg.isChannelPressure()) {
-        float atVal = static_cast<float>(msg.getChannelPressureValue()) / 127.0f;
+        int rawAt = msg.getChannelPressureValue();
+        float atVal = static_cast<float>(rawAt) / 127.0f;
+        midiLearnManager_.handleIncomingSource(
+            abd::hw::MidiLearnManager::SourceType::Aftertouch,
+            msg.getChannel(),
+            0,
+            atVal,
+            rawAt,
+            [this](int targetIdx, const juce::String&, float outNorm) {
+                if (targetIdx >= 0) setParameterNormalizedByIndex(static_cast<uint32_t>(targetIdx), outNorm);
+            });
         setMidiChannelPressure(atVal);
     } else if (msg.isPitchWheel()) {
         int val14 = msg.getPitchWheelValue(); // 0..16383, 8192 al centro
+        float norm01 = static_cast<float>(val14) / 16383.0f;
+        midiLearnManager_.handleIncomingSource(
+            abd::hw::MidiLearnManager::SourceType::PitchBend,
+            msg.getChannel(),
+            0,
+            norm01,
+            val14,
+            [this](int targetIdx, const juce::String&, float outNorm) {
+                if (targetIdx >= 0) setParameterNormalizedByIndex(static_cast<uint32_t>(targetIdx), outNorm);
+            });
         float bendBipolar = static_cast<float>(val14 - 8192) / 8192.0f;
         setMidiPitchBend(bendBipolar);
     }
@@ -358,6 +436,11 @@ void AxionikProcessor::changeProgramName(int index, const juce::String& newName)
 
 void AxionikProcessor::getStateInformation(juce::MemoryBlock& destData) {
     auto state = apvts_.copyState();
+    auto existingMl = state.getChildWithName("MidiLearn");
+    if (existingMl.isValid()) {
+        state.removeChild(existingMl, nullptr);
+    }
+    state.addChild(midiLearnManager_.saveState(), -1, nullptr);
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
@@ -367,9 +450,43 @@ void AxionikProcessor::setStateInformation(const void* data, int sizeInBytes) {
         AX_LOG("[PROCESSOR] setStateInformation: invalid or truncated state data received");
         return;
     }
+
+    // En modo Standalone, conservar el arranque limpio en 000: Init Sound (evita que JUCE Standalone
+    // restaure silenciosamente un estado previo incompleto o mudo desde ABDAxionikVS.settings).
+    if (wrapperType == wrapperType_Standalone) {
+        AX_LOG("[PROCESSOR] setStateInformation ignored in Standalone mode (preserving 000: Init Sound).");
+        return;
+    }
+
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
     if (xmlState != nullptr && xmlState->hasTagName(apvts_.state.getType())) {
-        apvts_.replaceState(juce::ValueTree::fromXml(*xmlState));
+        {
+            const juce::ScopedLock sl(getCallbackLock());
+            isSyncingPreset_.store(true, std::memory_order_release);
+            auto loadedTree = juce::ValueTree::fromXml(*xmlState);
+            auto mlChild = loadedTree.getChildWithName("MidiLearn");
+            if (mlChild.isValid()) {
+                midiLearnManager_.loadState(mlChild);
+            }
+            apvts_.replaceState(loadedTree);
+
+            auto& store = dspEngine_.getStore();
+            for (uint32_t i = 0; i < kNumTotalParameters; ++i) {
+                const auto& desc = kParameterDescriptors[i];
+                auto paramId = juce::String(desc.key.data(), desc.key.size());
+                if (auto* rawPtr = apvts_.getRawParameterValue(paramId)) {
+                    store.setRawValue(i, rawPtr->load(), false);
+                }
+            }
+            store.notifyAll();
+
+            int r1Model = static_cast<int>(std::round(store.getRawValue(abd::axionik::ParamIdx::R1ModellIndex)));
+            int r2Model = static_cast<int>(std::round(store.getRawValue(abd::axionik::ParamIdx::R2ModellIndex)));
+            dspEngine_.loadModelBySlot(0, std::clamp(r1Model, 0, 511));
+            dspEngine_.loadModelBySlot(1, std::clamp(r2Model, 0, 511));
+            isSyncingPreset_.store(false, std::memory_order_release);
+        }
+        syncApvtsFromDspEngine();
     }
 }
 

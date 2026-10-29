@@ -88,7 +88,7 @@ public:
         preset.versionMajor = 2;
         preset.versionMinor = 0;
         preset.versionBuild = 0;
-        preset.numVoices = 4;
+        preset.numVoices = 12;
         preset.r1ModelIndex = 511;
         preset.r2ModelIndex = 511;
         preset.r1Switch = true;
@@ -99,6 +99,7 @@ public:
             // Respetar la regla de recorte FUN_10001170 para los 19 defaults que caen fuera de [min, max]
             preset.values[i] = std::clamp(desc.defaultValue, desc.min, desc.max);
         }
+        preset.values[5] = 12.0f; // SoundNumVoices = 12 voces por defecto
 
         encodeSoundName(preset.values, "InitSound");
         return preset;

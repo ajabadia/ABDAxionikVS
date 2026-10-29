@@ -42,6 +42,7 @@ export interface ParamUpdateCtx {
   blenderPanel?: { updateParam: (idx: number, val: number) => void } | null;
   filterPanel?: { updateParam: (idx: number, val: number) => void } | null;
   envelopeMasterPanel?: { updateParam: (idx: number, val: number) => void } | null;
+  nukeDrawer?: { updateParam: (idx: number, val: number) => void } | null;
 }
 
 const clampIdx = (v: number, max: number): number => Math.max(0, Math.min(max, Math.round(v)));
@@ -101,12 +102,13 @@ export function handleParamUpdate(idx: number, val: number, ctx: ParamUpdateCtx)
     handleStickUpdate(idx, val, ctx);
   }
 
-  // Notificar a los paneles físicos
+  // Notificar a los paneles físicos y cajón NUKE
   ctx.shapersPanel?.updateParam(idx, val);
   ctx.silverPanel?.updateParam(idx, val);
   ctx.blenderPanel?.updateParam(idx, val);
   ctx.filterPanel?.updateParam(idx, val);
   ctx.envelopeMasterPanel?.updateParam(idx, val);
+  ctx.nukeDrawer?.updateParam(idx, val);
 }
 
 /** Actualiza la coordenada de uno de los 4 sticks 2D según el índice de capa. */
@@ -121,6 +123,9 @@ function handleStickUpdate(idx: number, val: number, ctx: ParamUpdateCtx): void 
     axis: Axis,
   ): boolean => {
     if (!stick || layer < 0) return false;
+    if ((stick as any).isDragging && (stick as any).activeLayer === layer) {
+      return true;
+    }
     const cur = stick.getCoordinates(layer);
     const norm = norm127(val);
     if (axis === 'x') stick.setPosition(layer, norm, cur.y, false);

@@ -36,6 +36,7 @@ export interface TrajectoryStickOptions {
   restX?: number;
   restY?: number;
   size?: number;
+  variant?: 'standard' | 'nuke-orb';
   className?: string;
   onLayerChange?: (layerIdx: number) => void;
   onPositionChange?: (layerIdx: number, coord: StickCoordinate) => void;
