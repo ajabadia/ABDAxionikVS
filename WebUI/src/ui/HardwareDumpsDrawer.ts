@@ -14,6 +14,7 @@
 import { Knob, LiveSysExInspector } from '@abdsynths/shared/components';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ICONS } from './icons.js';
+import { onLocaleChange, getLocale } from '../i18n/index.js';
 import {
   HARDWARE_DUMP_META,
   HARTMANN_PARAM_COUNT,
@@ -181,14 +182,17 @@ export class HardwareDumpsDrawer implements HardwareDumpsContracts {
   private activityPanel: HTMLElement | null = null;
   private fileInputEl: HTMLInputElement | null = null;
   private liveInspector: InstanceType<typeof LiveSysExInspector> | null = null;
+  private unsubLocale: (() => void) | null = null;
 
   constructor(
     app: HTMLElement,
     callbacks: HardwareDumpsDrawerCallbacks = {},
     drawerManager?: DrawerManager,
+    locale?: 'en' | 'es'
   ) {
     this.callbacks = callbacks;
     this.drawerManager = drawerManager ?? new DrawerManager(app);
+    this.locale = locale ?? getLocale();
     this.state = {
       portStatus: { ...DEFAULT_PORT },
       selectedMode: 'current',
@@ -199,6 +203,10 @@ export class HardwareDumpsDrawer implements HardwareDumpsContracts {
     };
     this.mount();
     this.render();
+
+    this.unsubLocale = onLocaleChange((newLoc) => {
+      this.setLocale(newLoc);
+    });
   }
 
   public setLocale(locale: 'en' | 'es'): void {
@@ -226,6 +234,13 @@ export class HardwareDumpsDrawer implements HardwareDumpsContracts {
   public close(): void {
     if (this.isOpen()) {
       this.drawerManager.close();
+    }
+  }
+
+  public destroy(): void {
+    if (this.unsubLocale) {
+      this.unsubLocale();
+      this.unsubLocale = null;
     }
   }
 

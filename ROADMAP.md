@@ -586,19 +586,32 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 
 ---
 
-### Fase H — Sistema Multi-idioma Integral (`i18n` EN / ES) [PENDIENTE — PLANIFICADA]
+### Fase H — Sistema Multi-idioma Integral (`i18n` EN / ES) [COMPLETADA]
 > [!IMPORTANT]
-> **Funcionalidad planificada para el cierre de la herramienta:** Internacionalización completa (`i18n`) de `ABDAxionikVS` (Inglés `en` por defecto + Español `es` seleccionable en vivo desde `Settings` / `Navbar`).
+> **Internacionalización completa (`i18n`) de `ABDAxionikVS` implementada con paridad 100 % de claves y cambio reactivo en caliente.**
 
-- **Estado Previo ya Preparado (No Descartar Traducciones)**:
-  1. **Diccionarios Bilingües Conservados (`en` + `es`)**:
-     - [`calibrationContracts.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/calibrationContracts.ts) y [`CalibrationDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/CalibrationDrawer.ts) ya incluyen `CALIBRATION_I18N` (`en` y `es`), `description` (EN) + `descriptionEs` (ES) en los 43 descriptores de calibración, y el método público `setLocale('en' | 'es')`.
-     - [`HardwareDumpsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/HardwareDumpsDrawer.ts) ya incluye `HARDWARE_DUMPS_I18N` (`en` y `es`) y el método público `setLocale('en' | 'es')`.
-- **Tareas Pendientes para Completar la Fase H**:
-  1. **Servicio Central de Internacionalización (`WebUI/src/i18n/`)**:
-     - Crear un store reactivo de idioma (`en` por defecto, `es`, extensible a otros idiomas) con persistencia en `localStorage` (`axionik.locale`) y evento de cambio global.
-  2. **Extracción de Cadenas Restantes de la Interfaz**:
-     - Unificar las cadenas de `Navbar.ts`, `TopLcdBar.ts`, paneles principales (`ResynatorPanel`, `SilverPanel`, `ShapersPanel`, `FilterPanel`, `EnvelopeMasterPanel`, `BlenderPanel`, `ControllersPanel`, `MasterOutputPanel`), cajones (`ResynatorDrawer`, `EffectsDrawer`, `BlenderDrawer`, `MatrixDrawer`, `EnvelopeDrawer`, `NukeDrawer`, `SettingsDrawer`, `NeuronDB`), `AboutModal` y `ManualModal`.
-  3. **Selector de Idioma en UI**:
-     - Añadir selector `Language (EN / ES)` en `SettingsDrawer.ts` (y opcionalmente acceso rápido en `Navbar`) que conmute todos los componentes en caliente sin recargar el plugin.
+- **Arquitectura Canónica y Extensible (`WebUI/src/i18n/`)**:
+  1. **Archivos de Traducción Autónomos (`en.ts` / `es.ts`)**:
+     - Localización pura clave-valor: [`WebUI/src/i18n/locales/en.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/i18n/locales/en.ts) (referencia TypeScript estricta) y [`WebUI/src/i18n/locales/es.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/i18n/locales/es.ts).
+     - **Regla Estricta de Acrónimos de Síntesis**: Acrónimos universales y letras sueltas (`A`, `D`, `S`, `R`, `LFO`, `CUTOFF`, `RESO`, `Scape`, `Sphere`, `Blender`, `Slicer`, `MIDI`, `CC`, `NRPN`, `SysEx`) **no se traducen** jamás.
+     - **Extensibilidad a Nuevos Idiomas (e.g. Francés `fr.ts`)**: Para agregar un nuevo idioma en el futuro, solo es necesario duplicar `en.ts`, traducir los literales y añadir la clave al motor. Cero modificaciones de lógica interna.
+  2. **Motor Reactivo (`WebUI/src/i18n/index.ts`)**:
+     - Métodos públicos `initI18n()`, `getLocale()`, `setLocale(locale)`, `onLocaleChange(cb)` y `t(key, params)`.
+     - Soporte para interpolación de parámetros (`t('key', { name: 'value' })`).
+     - Función declarativa `applyI18n(root)` para atributos `data-i18n`, `data-i18n-title`, `data-i18n-placeholder`.
+     - Persistencia automática de la preferencia del usuario en `localStorage` (`axionik.locale`).
+  3. **Selectores de Idioma en la Interfaz de Usuario**:
+     - Botón de acceso rápido conmutador en la barra superior HUD de [`Navbar.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/Navbar.ts) (`EN` / `ES`).
+     - Submenú desplegable en la barra de menú superior: `View -> Language -> English (EN) / Español (ES)`.
+     - Selector por fichas (Pill Selector) en el cajón de configuración global [`SettingsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/SettingsDrawer.ts).
+     - Cambio instantáneo en caliente de toda la interfaz sin recarga de página ni corte de audio.
+  4. **Suscripción Reactiva en Cajones Especializados**:
+     - Sincronización automática de [`CalibrationDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/CalibrationDrawer.ts) y [`HardwareDumpsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/HardwareDumpsDrawer.ts) vía `onLocaleChange`.
+  5. **Verificación y Pruebas Automatizadas**:
+     - Test unitario [`tests/i18n.test.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/tests/i18n.test.ts) que valida:
+       - Paridad del 100 % de claves entre `en.ts` y `es.ts`.
+       - Traducciones de claves anidadas en tiempo real.
+       - Preservación de acrónimos universales.
+       - Reactividad de suscriptores y actualización declarativa del DOM con `applyI18n`.
+       - 100 % de tests superados en la suite de `vitest` (12 archivos, 79 tests pasando).
 

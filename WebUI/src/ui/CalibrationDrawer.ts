@@ -9,6 +9,7 @@
 
 import { ICONS } from './icons';
 import { DrawerManager } from './Drawers';
+import { onLocaleChange, getLocale, type Locale } from '../i18n/index';
 import {
   CALIBRATION_CATEGORIES,
   CALIBRATION_I18N,
@@ -37,14 +38,19 @@ export class CalibrationDrawer {
   private showModifiedOnly: boolean = false;
   private statusMessage: { text: string; type: 'info' | 'ok' | 'warn' } | null = null;
   private unsubStore: (() => void) | null = null;
+  private unsubLocale: (() => void) | null = null;
 
-  constructor(app: HTMLElement, drawerManager?: DrawerManager, locale: CalibrationLocale = 'en') {
+  constructor(app: HTMLElement, drawerManager?: DrawerManager, locale?: CalibrationLocale) {
     this.drawerManager = drawerManager ?? new DrawerManager(app);
-    this.locale = locale;
+    this.locale = locale ?? (getLocale() as CalibrationLocale);
     this.initDrawer();
     if (calibrationStore.getModifiedCount() > 0) {
       calibrationStore.syncAllToBridge();
     }
+
+    this.unsubLocale = onLocaleChange((newLoc) => {
+      this.setLocale(newLoc as CalibrationLocale);
+    });
   }
 
   public setLocale(locale: CalibrationLocale): void {
@@ -125,6 +131,10 @@ export class CalibrationDrawer {
   }
 
   public destroy(): void {
+    if (this.unsubLocale) {
+      this.unsubLocale();
+      this.unsubLocale = null;
+    }
     if (this.unsubStore) {
       this.unsubStore();
       this.unsubStore = null;

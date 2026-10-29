@@ -43,6 +43,7 @@ import {
 } from './ui/NeuronCatalogMetadata.js';
 import { setupKeyboardShortcuts } from './app/keyboardShortcuts.js';
 import { ThemeManager } from './utils/themeManager.js';
+import { initI18n, applyI18n } from './i18n/index.js';
 import { handleParamUpdate, type ParamUpdateCtx } from './app/paramUpdate.js';
 import {
   createMidiLearnStore,
@@ -53,6 +54,9 @@ import {
 const bootstrapAxionikApp = async () => {
   const app = document.getElementById('app');
   if (!app) return;
+
+  // Initialize Internationalization (i18n)
+  initI18n();
 
   // Themes
   const themeManager = new ThemeManager();

@@ -1,13 +1,15 @@
 /**
-// ─────────────────────────────────────────────────────────
-// ABDAxionikVS — Navbar Component
-// Integrates with ABDShared's SynthNavBar (desktop menu bar + HUD slots)
-// File / Edit / View / Help menus + Live HUD telemetry + Quick Actions
-// ─────────────────────────────────────────────────────────
-*/
+ * // ─────────────────────────────────────────────────────────
+ * // ABDAxionikVS — Navbar Component
+ * // Integrates with ABDShared's SynthNavBar (desktop menu bar + HUD slots)
+ * // File / Edit / View / Help menus + Live HUD telemetry + Quick Actions
+ * // Internationalization (i18n) enabled for dynamic EN / ES switching
+ * // ─────────────────────────────────────────────────────────
+ */
 
 import { createSynthNavBar, CONTROL_ICONS, SysExIcon } from '@abdsynths/shared/components';
 import { ICONS } from './icons.js';
+import { t, getLocale, setLocale, onLocaleChange, applyI18n, type Locale } from '../i18n/index.js';
 
 export interface NavbarCallbacks {
   onConfigureFolder: () => void;
@@ -42,11 +44,93 @@ export class AxionikNavbar {
   private cpuLoadEl: HTMLElement | null = null;
   private currentTheme: string = 'ms2000';
   private currentZoom: number = 1.0;
+  private unsubscribeLocale: (() => void) | null = null;
 
   constructor(container: HTMLElement, callbacks: NavbarCallbacks) {
     this.container = container;
     this.callbacks = callbacks;
     this.mount();
+
+    // Rebuild on locale changes
+    this.unsubscribeLocale = onLocaleChange(() => {
+      this.rebuild();
+    });
+  }
+
+  private buildMenuDefinition() {
+    return [
+      {
+        name: t('navbar.menuFile'),
+        items: [
+          { id: 101, label: t('navbar.configureFolder'), action: 'configureFolder' },
+          { separator: true },
+          { id: 102, label: t('navbar.importModelFolder'), action: 'importModelFolder' },
+          { id: 103, label: t('navbar.importModelZip'), action: 'importModelZip' },
+          { separator: true },
+          { id: 104, label: t('navbar.loadPreset'), action: 'loadPreset', shortcut: 'Ctrl+O' },
+          { id: 105, label: t('navbar.savePreset'), action: 'savePreset', shortcut: 'Ctrl+S' },
+          { separator: true },
+          { id: 106, label: t('navbar.initPreset'), action: 'initPreset', shortcut: 'Ctrl+N' },
+        ],
+      },
+      {
+        name: t('navbar.menuEdit'),
+        items: [
+          { id: 201, label: t('navbar.bankBrowser'), action: 'toggleBank', shortcut: 'Ctrl+B' },
+          { separator: true },
+          { id: 205, label: t('navbar.nukeRemote'), action: 'toggleNuke', shortcut: 'Ctrl+K' },
+          { id: 202, label: t('navbar.matrixMod'), action: 'toggleMatrix', shortcut: 'Ctrl+M' },
+          { id: 206, label: t('navbar.midiLearn'), action: 'toggleMidiLearn', shortcut: 'Ctrl+L' },
+          { id: 207, label: t('navbar.hardwareSysEx'), action: 'toggleHardwareDumps', shortcut: 'Ctrl+.' },
+          { id: 208, label: t('navbar.dspCalibration'), action: 'toggleCalibration', shortcut: 'Ctrl+;' },
+          { id: 203, label: t('navbar.effectsRack'), action: 'toggleMfx', shortcut: 'Ctrl+F' },
+          { separator: true },
+          { id: 204, label: t('navbar.globalSettings'), action: 'toggleSettings', shortcut: 'Ctrl+,' },
+        ],
+      },
+      {
+        name: t('navbar.menuView'),
+        items: [
+          {
+            id: 301,
+            label: t('navbar.zoom'),
+            submenu: [
+              { id: 311, label: t('navbar.zoom100'), action: 'zoom', value: 1.0 },
+              { id: 312, label: t('navbar.zoom125'), action: 'zoom', value: 1.25 },
+              { id: 313, label: t('navbar.zoom150'), action: 'zoom', value: 1.5 },
+            ],
+          },
+          {
+            id: 302,
+            label: t('navbar.colorTheme'),
+            submenu: [
+              { id: 321, label: 'MS2000 (Default Dark Cyan)', action: 'selectTheme', value: 'ms2000' },
+              { id: 322, label: 'AudioLab (Pro Dark Slate)', action: 'selectTheme', value: 'audiolab' },
+              { id: 323, label: 'AudioLab Light (Laboratory)', action: 'selectTheme', value: 'audiolab-light' },
+              { id: 324, label: 'Advanced (High Contrast Orange)', action: 'selectTheme', value: 'advanced' },
+              { id: 325, label: 'CZ101 (Classic Teal & Red)', action: 'selectTheme', value: 'cz101' },
+            ],
+          },
+          {
+            id: 303,
+            label: t('navbar.language'),
+            submenu: [
+              { id: 331, label: t('navbar.langEn'), action: 'switchLocale', value: 'en' },
+              { id: 332, label: t('navbar.langEs'), action: 'switchLocale', value: 'es' },
+            ],
+          },
+        ],
+      },
+      {
+        name: t('navbar.menuHelp'),
+        items: [
+          { id: 901, label: t('navbar.manual'), action: 'manual', shortcut: 'F1' },
+          { separator: true },
+          { id: 902, label: t('navbar.checkForUpdates'), action: 'checkForUpdates' },
+          { id: 903, label: t('navbar.about'), action: 'about' },
+        ],
+      },
+    ];
   }
 
   private mount(): void {
@@ -56,78 +140,14 @@ export class AxionikNavbar {
       logoHtml: `<div class="neuron-logo-mark" title="Hartmann Neuron / ABDAxionikVS">${ICONS.wave}</div>`,
     };
 
-    const menus = [
-      {
-        name: 'File',
-        items: [
-          { id: 101, label: 'Configure NeuronDB Library Folder...', action: 'configureFolder' },
-          { separator: true },
-          { id: 102, label: 'Import Model Folder (<NNN>.model)...', action: 'importModelFolder' },
-          { id: 103, label: 'Import Model Package (.zip)...', action: 'importModelZip' },
-          { separator: true },
-          { id: 104, label: 'Load Sound Preset...', action: 'loadPreset', shortcut: 'Ctrl+O' },
-          { id: 105, label: 'Save Sound Preset As...', action: 'savePreset', shortcut: 'Ctrl+S' },
-          { separator: true },
-          { id: 106, label: 'Init Sound (Factory Reset)', action: 'initPreset', shortcut: 'Ctrl+N' },
-        ],
-      },
-      {
-        name: 'Edit',
-        items: [
-          { id: 201, label: 'NeuronDB Bank Browser...', action: 'toggleBank', shortcut: 'Ctrl+B' },
-          { separator: true },
-          { id: 205, label: 'NUKE Remote Control Unit...', action: 'toggleNuke', shortcut: 'Ctrl+K' },
-          { id: 202, label: 'Free Controllers Modulation Matrix (6x5)...', action: 'toggleMatrix', shortcut: 'Ctrl+M' },
-          { id: 206, label: 'MIDI Learn & CC Mapping Matrix...', action: 'toggleMidiLearn', shortcut: 'Ctrl+L' },
-          { id: 207, label: 'Hardware SysEx Dumps (Current / All Sounds / All SetUps / All Models)...', action: 'toggleHardwareDumps', shortcut: 'Ctrl+.' },
-          { id: 208, label: 'DSP Calibration & Magic Numbers (43 Parameters)...', action: 'toggleCalibration', shortcut: 'Ctrl+;' },
-          { id: 203, label: 'Effects Rack (Silver & Master)...', action: 'toggleMfx', shortcut: 'Ctrl+F' },
-          { separator: true },
-          { id: 204, label: 'Global Synth Settings...', action: 'toggleSettings', shortcut: 'Ctrl+,' },
-        ],
-      },
-      {
-        name: 'View',
-        items: [
-          {
-            id: 301,
-            label: 'Zoom',
-            submenu: [
-              { id: 311, label: '100% (Normal)', action: 'zoom', value: 1.0 },
-              { id: 312, label: '125% (Medium)', action: 'zoom', value: 1.25 },
-              { id: 313, label: '150% (Large)', action: 'zoom', value: 1.5 },
-            ],
-          },
-          {
-            id: 302,
-            label: 'Color Theme',
-            submenu: [
-              { id: 321, label: 'MS2000 (Default Dark Cyan)', action: 'selectTheme', value: 'ms2000' },
-              { id: 322, label: 'AudioLab (Pro Dark Slate)', action: 'selectTheme', value: 'audiolab' },
-              { id: 323, label: 'AudioLab Light (Laboratory)', action: 'selectTheme', value: 'audiolab-light' },
-              { id: 324, label: 'Advanced (High Contrast Orange)', action: 'selectTheme', value: 'advanced' },
-              { id: 325, label: 'CZ101 (Classic Teal & Red)', action: 'selectTheme', value: 'cz101' },
-            ],
-          },
-        ],
-      },
-      {
-        name: 'Help',
-        items: [
-          { id: 901, label: 'Hartmann Neuron Architecture Guide...', action: 'manual', shortcut: 'F1' },
-          { separator: true },
-          { id: 902, label: 'Check for Updates...', action: 'checkForUpdates' },
-          { id: 903, label: 'About ABDAxionikVS...', action: 'about' },
-        ],
-      },
-    ];
+    const menus = this.buildMenuDefinition();
 
     // Center HUD Slot: Active Preset Name
     const centerSlot = document.createElement('div');
     centerSlot.className = 'nav-hud-center';
     centerSlot.innerHTML = `
-      <div class="hud-pill preset-slot-tag" id="nav-preset-pill" style="cursor: pointer;" title="Active Sound Preset (Click to open Bank Browser)">
-        <span class="hud-label">PRESET:</span>
+      <div class="hud-pill preset-slot-tag" id="nav-preset-pill" style="cursor: pointer;" title="${t('navbar.presetPillTitle')}">
+        <span class="hud-label">${t('navbar.presetLabel')}</span>
         <span class="hud-value" id="hud-preset-name">000 InitSound</span>
       </div>
     `;
@@ -135,41 +155,45 @@ export class AxionikNavbar {
     // Right Slot: Telemetry, Drawers & Themes
     const rightSlot = document.createElement('div');
     rightSlot.className = 'nav-hud-right';
+    const curLocale = getLocale().toUpperCase();
     rightSlot.innerHTML = `
-      <div class="hud-pill stat-num" title="Active polyphonic voices">
-        <span class="hud-label">VOICES:</span>
+      <div class="hud-pill stat-num" title="${t('navbar.voicesTitle')}">
+        <span class="hud-label">${t('navbar.voicesLabel')}</span>
         <span class="hud-value" id="hud-active-voices">0 / 12</span>
       </div>
-      <div class="hud-pill stat-num" title="Audio DSP CPU Load">
+      <div class="hud-pill stat-num" title="${t('navbar.cpuTitle')}">
         <span class="hud-label">${ICONS.cpu}</span>
         <span class="hud-value" id="hud-cpu-load">0.0 %</span>
       </div>
-      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-nuke" title="NUKE Remote Control Unit (Ctrl+K)">
-        ${ICONS.stick} <span>NUKE</span>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-nuke" title="${t('navbar.btnNukeTitle')}">
+        ${ICONS.stick} <span>${t('navbar.nuke')}</span>
       </button>
-      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-matrix" title="Modulation Matrix 6x5 (Ctrl+M)">
-        ${ICONS.matrix} <span>Matrix</span>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-matrix" title="${t('navbar.btnMatrixTitle')}">
+        ${ICONS.matrix} <span>${t('navbar.matrix')}</span>
       </button>
-      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-midi" title="MIDI Learn & CC/NRPN Mapping Matrix (Ctrl+L)">
-        ${CONTROL_ICONS.midiDin} <span>MIDI</span>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-midi" title="${t('navbar.btnMidiTitle')}">
+        ${CONTROL_ICONS.midiDin} <span>${t('navbar.midi')}</span>
       </button>
-      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-sysex" title="Hardware SysEx Dumps & Live Inspector (Ctrl+.)">
-        ${SysExIcon} <span>SysEx</span>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-sysex" title="${t('navbar.btnSysExTitle')}">
+        ${SysExIcon} <span>${t('navbar.sysex')}</span>
         <span class="nav-badge" id="nav-sysex-badge" hidden></span>
       </button>
-      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-calibration" title="DSP Calibration & Magic Numbers (Ctrl+;)">
-        ${ICONS.sliders} <span>Calib</span>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-calibration" title="${t('navbar.btnCalibTitle')}">
+        ${ICONS.sliders} <span>${t('navbar.calib')}</span>
       </button>
-      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-mfx" title="Effects Rack (Silver & Master) (Ctrl+F)">
-        ${ICONS.fx} <span>Effects</span>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-mfx" title="${t('navbar.btnEffectsTitle')}">
+        ${ICONS.fx} <span>${t('navbar.effects')}</span>
       </button>
-      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-bank" title="NeuronDB Bank Browser (Ctrl+B)">
-        ${ICONS.database} <span>NeuronDB</span>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-bank" title="${t('navbar.btnNeuronDbTitle')}">
+        ${ICONS.database} <span>${t('navbar.neuronDb')}</span>
       </button>
-      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-settings" title="Global Synth Settings & Preferences (Ctrl+,)">
-        ${ICONS.settings} <span>Settings</span>
+      <button type="button" class="btn btn-hud-icon btn-secondary" id="btn-nav-settings" title="${t('navbar.btnSettingsTitle')}">
+        ${ICONS.settings} <span>${t('navbar.settings')}</span>
       </button>
-      <button type="button" class="btn btn-hud-icon btn-theme-toggle" id="btn-nav-theme" title="Cycle Color Theme">
+      <button type="button" class="btn btn-hud-icon btn-lang-toggle" id="btn-nav-lang" title="${t('navbar.btnLangTitle')}">
+        <span style="font-weight: 700; font-size: 11px;">${curLocale}</span>
+      </button>
+      <button type="button" class="btn btn-hud-icon btn-theme-toggle" id="btn-nav-theme" title="${t('navbar.btnThemeTitle')}">
         <span class="theme-icon">${ICONS.palette}</span>
       </button>
     `;
@@ -184,14 +208,15 @@ export class AxionikNavbar {
       activeValues: {
         zoom: this.currentZoom,
         selectTheme: this.currentTheme,
+        switchLocale: getLocale(),
       },
       aboutDialog: {
-        appName: 'ABDAxionikVS',
-        subtitle: 'Hartmann Neuron / NeuronVS Faithful Modern Virtual Synthesizer',
+        appName: t('navbar.aboutTitle'),
+        subtitle: t('navbar.aboutSubtitle'),
         version: '1.0.0',
-        buildInfo: 'Neuron DSP Core C++20 + WebAssembly + WebView2 Architecture',
-        author: 'ABDSynths',
-        copyright: '© 2026 ABDSynths',
+        buildInfo: t('navbar.aboutBuildInfo'),
+        author: t('navbar.aboutAuthor'),
+        copyright: t('navbar.aboutCopyright'),
       },
       onAction: (action: string, value?: unknown) => {
         this.dispatchAction(action, value);
@@ -239,29 +264,26 @@ export class AxionikNavbar {
     });
     rightSlot.querySelector('#btn-nav-bank')?.addEventListener('click', () => {
       this.callbacks.onToggleBank();
-    });        rightSlot.querySelector('#btn-nav-settings')?.addEventListener('click', () => {
+    });
+    rightSlot.querySelector('#btn-nav-settings')?.addEventListener('click', () => {
       this.callbacks.onToggleSettings?.();
     });
-        rightSlot.querySelector('#btn-nav-theme')?.addEventListener('click', () => {
-          this.callbacks.onToggleTheme();
-        });
+    rightSlot.querySelector('#btn-nav-lang')?.addEventListener('click', () => {
+      const nextLocale: Locale = getLocale() === 'en' ? 'es' : 'en';
+      setLocale(nextLocale);
+    });
+    rightSlot.querySelector('#btn-nav-theme')?.addEventListener('click', () => {
+      this.callbacks.onToggleTheme();
+    });
+  }
 
-        const sysexBtnEls = rightSlot.querySelectorAll<HTMLElement>('#btn-nav-sysex');
-        sysexBtnEls.forEach((btn) => {
-          btn.addEventListener('click', () => {
-            if (!this.navBarInstance) return;
-            this.setHardwareDumpsUnread(0);
-            this.callbacks.onToggleHardwareDumps?.();
-          });
-          btn.addEventListener('keydown', (e) => {
-            if (e.key === ' ' || e.key === 'Enter') {
-              e.preventDefault();
-              if (!this.navBarInstance) return;
-              this.setHardwareDumpsUnread(0);
-              this.callbacks.onToggleHardwareDumps?.();
-            }
-          });
-        });
+  private rebuild(): void {
+    if (this.navBarInstance) {
+      this.navBarInstance.destroy?.();
+      this.navBarInstance = null;
+    }
+    this.container.innerHTML = '';
+    this.mount();
   }
 
   private dispatchAction(action: string, value?: unknown): void {
@@ -322,6 +344,11 @@ export class AxionikNavbar {
           this.callbacks.onSelectTheme(value);
         }
         break;
+      case 'switchLocale':
+        if (value === 'en' || value === 'es') {
+          setLocale(value);
+        }
+        break;
       case 'manual':
         window.open('https://github.com/ajabadia/ABDAxionikVS/wiki', '_blank');
         break;
@@ -338,12 +365,35 @@ export class AxionikNavbar {
     this.navBarInstance?.setActiveValues({
       zoom: this.currentZoom,
       selectTheme: this.currentTheme,
+      switchLocale: getLocale(),
     });
   }
 
-  public setZoom(zoom: number): void {
-    this.currentZoom = zoom;
-    this.updateActiveValues();
+  public setPresetName(name: string): void {
+    if (this.presetNameEl) {
+      this.presetNameEl.textContent = name;
+    }
+  }
+
+  public setModelNames(r1Name: string, r2Name: string): void {
+    if (this.r1ModelNameEl) {
+      this.r1ModelNameEl.textContent = r1Name;
+    }
+    if (this.r2ModelNameEl) {
+      this.r2ModelNameEl.textContent = r2Name;
+    }
+  }
+
+  public setVoiceCount(active: number, max: number): void {
+    if (this.activeVoicesEl) {
+      this.activeVoicesEl.textContent = `${active} / ${max}`;
+    }
+  }
+
+  public setCpuLoad(percent: number): void {
+    if (this.cpuLoadEl) {
+      this.cpuLoadEl.textContent = `${percent.toFixed(1)} %`;
+    }
   }
 
   public setTheme(theme: string): void {
@@ -351,32 +401,13 @@ export class AxionikNavbar {
     this.updateActiveValues();
   }
 
-  public setPresetName(name: string): void {
-    if (this.presetNameEl) this.presetNameEl.textContent = name;
+  public setZoom(zoom: number): void {
+    this.currentZoom = zoom;
+    this.updateActiveValues();
   }
 
-  public setModelName(resynator: 1 | 2, name: string): void {
-    if (resynator === 1 && this.r1ModelNameEl) {
-      this.r1ModelNameEl.textContent = name;
-    } else if (resynator === 2 && this.r2ModelNameEl) {
-      this.r2ModelNameEl.textContent = name;
-    }
-  }
-
-  public setVoices(voices: number): void {
-    if (this.activeVoicesEl) this.activeVoicesEl.textContent = `${voices} / 12`;
-  }
-
-  public setCpuLoad(percent: number): void {
-    if (this.cpuLoadEl) this.cpuLoadEl.textContent = `${percent.toFixed(1)} %`;
-  }
-
-  public toggleNuke(): void {
-    this.callbacks.onToggleNuke?.();
-  }
-
-  public setNukeActive(active: boolean): void {
-    const btn = this.container.querySelector('#btn-nav-nuke');
+  public setButtonActive(btnId: string, active: boolean): void {
+    const btn = this.container.querySelector(`#${btnId}`) as HTMLElement | null;
     if (btn) {
       btn.classList.toggle('active', active);
       btn.classList.toggle('btn-primary', active);
@@ -438,5 +469,16 @@ export class AxionikNavbar {
 
   public toggleBank(): void {
     this.callbacks.onToggleBank();
+  }
+
+  public destroy(): void {
+    if (this.unsubscribeLocale) {
+      this.unsubscribeLocale();
+      this.unsubscribeLocale = null;
+    }
+    if (this.navBarInstance) {
+      this.navBarInstance.destroy?.();
+      this.navBarInstance = null;
+    }
   }
 }

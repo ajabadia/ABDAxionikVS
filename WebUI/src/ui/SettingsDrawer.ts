@@ -5,6 +5,7 @@
 // - Rango de Pitch Bend [412] (0..12 st) y Función de Footswitch [411] (0..26)
 // - Conmutador OracleClipToZeroMode (Musical Clean Clamp vs Legacy 0x1000bc40 Clip-to-Zero)
 // - Ubicación de NeuronDB Library, Temas de color y escala de interfaz (Zoom)
+// - Idioma de la interfaz (i18n EN / ES)
 // ─────────────────────────────────────────────────────────
 
 import { ICONS } from './icons.js';
@@ -12,6 +13,7 @@ import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
+import { t, getLocale, setLocale, type Locale } from '../i18n/index.js';
 
 export interface SettingsDrawerOptions {
   onClose: () => void;
@@ -36,6 +38,7 @@ export class SettingsDrawer {
     const curOracleClip = WebBridge.getUIState<boolean>('oracleClipMode', false);
     const curZoom = options.currentZoom ?? 1.0;
     const curTheme = options.currentTheme ?? 'ms2000';
+    const curLocale = getLocale();
 
     const themeItems = [
       { id: 'ms2000', label: 'MS2000 (Default Dark Cyan)', theme: 'ms2000' },
@@ -51,9 +54,9 @@ export class SettingsDrawer {
     });
 
     const zoomItems = [
-      { id: '1', label: '100% (Normal)' },
-      { id: '1.25', label: '125% (Medium)' },
-      { id: '1.5', label: '150% (Large)' },
+      { id: '1', label: t('navbar.zoom100') },
+      { id: '1.25', label: t('navbar.zoom125') },
+      { id: '1.5', label: t('navbar.zoom150') },
     ];
     const activeZoomId = Math.abs(curZoom - 1.5) < 0.05 ? '1.5' : Math.abs(curZoom - 1.25) < 0.05 ? '1.25' : '1';
     const zoomPillsHtml = pillSelectorHtml(zoomItems, activeZoomId, {
@@ -62,13 +65,23 @@ export class SettingsDrawer {
       attrName: 'data-zoom',
     });
 
+    const langItems = [
+      { id: 'en', label: t('navbar.langEn') },
+      { id: 'es', label: t('navbar.langEs') },
+    ];
+    const langPillsHtml = pillSelectorHtml(langItems, curLocale, {
+      id: 'settings-lang-chips',
+      size: 'sm',
+      attrName: 'data-lang',
+    });
+
     const footswitchItems = [
-      { id: '0', label: '0: Sustain (Damper Pedal)' },
-      { id: '1', label: '1: Hold Active Notes' },
-      { id: '2', label: '2: Slicer LFO On / Off' },
-      { id: '3', label: '3: Silver Rack On / Off' },
-      { id: '4', label: '4: Stick Playback Start / Stop' },
-      { id: '5', label: '5: Tap Tempo Sync' },
+      { id: '0', label: t('settings.fsOptions.sustain') },
+      { id: '1', label: t('settings.fsOptions.hold') },
+      { id: '2', label: t('settings.fsOptions.slicer') },
+      { id: '3', label: t('settings.fsOptions.silver') },
+      { id: '4', label: t('settings.fsOptions.stick') },
+      { id: '5', label: t('settings.fsOptions.tapTempo') },
     ];
     const footswitchPillsHtml = pillSelectorHtml(footswitchItems, String(curFootswitchDest), {
       id: 'settings-footswitch-chips',
@@ -88,27 +101,27 @@ export class SettingsDrawer {
       <div class="drawer-header ndb-modal-header">
         <div class="drawer-title ndb-header-title">
           <span class="drawer-icon">${ICONS.settings}</span>
-          <span class="ndb-title-text">GLOBAL SETTINGS & PREFERENCES</span>
+          <span class="ndb-title-text">${t('settings.drawerTitle')}</span>
         </div>
         <div class="drawer-header-actions">
-          <button type="button" class="btn btn-close-drawer ndb-close-btn" id="btn-close-settings-drawer" title="Close (Esc)">${ICONS.close}</button>
+          <button type="button" class="btn btn-close-drawer ndb-close-btn" id="btn-close-settings-drawer" title="${t('common.close')} (Esc)">${ICONS.close}</button>
         </div>
       </div>
 
       <div class="drawer-scroll-body" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-4); padding-right: 4px;">
         <!-- 1. Voice Polyphony, Pan & Performance Controls ([3, 4, 5, 411, 412]) -->
         <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3);">
-          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">POLYPHONY, STEREO PAN & PERFORMANCE ([3, 4, 5, 411, 412])</div>
+          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${t('settings.polyphonyCard')} ([3, 4, 5, 411, 412])</div>
 
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); justify-items: center; padding: var(--space-2) 0;">
-            ${renderKnobCell('settings-voices-m', 'settings-voices-val', curVoices, 'NUM VOICES [5]')}
-            ${renderKnobCell('settings-pan-m', 'settings-pan-val', curPan, 'SOUND PAN [3]')}
-            ${renderKnobCell('settings-pankt-m', 'settings-pankt-val', curPanKt, 'PAN KEYTRACK [4]')}
-            ${renderKnobCell('settings-pb-m', 'settings-pb-val', `${curPbRange} st`, 'PITCH BEND [412]')}
+            ${renderKnobCell('settings-voices-m', 'settings-voices-val', curVoices, `${t('settings.numVoicesLabel')} [5]`)}
+            ${renderKnobCell('settings-pan-m', 'settings-pan-val', curPan, `${t('settings.soundPanLabel')} [3]`)}
+            ${renderKnobCell('settings-pankt-m', 'settings-pankt-val', curPanKt, `${t('settings.panKeyTrackLabel')} [4]`)}
+            ${renderKnobCell('settings-pb-m', 'settings-pb-val', `${curPbRange} st`, `${t('settings.pitchBendRangeLabel')} [412]`)}
           </div>
 
           <div style="display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-panel-border-dim);">
-            <span class="hud-label">FOOTSWITCH ASSIGN [411]:</span>
+            <span class="hud-label">${t('settings.footswitchLabel')} [411]:</span>
             ${footswitchPillsHtml}
           </div>
         </div>
@@ -116,41 +129,49 @@ export class SettingsDrawer {
         <!-- 2. DSP Output Limiter Mode (OracleClipToZeroMode) -->
         <div class="synth-panel-card" style="padding: var(--space-3); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);">
           <div>
-            <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">OUTPUT LIMITER MODE (0x1000bc40)</div>
+            <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${t('settings.oracleCard')}</div>
             <p style="font-size: var(--text-xs); color: var(--color-text-muted); margin: 4px 0 0 0;">
-              Clean Clamp [-1.0..+1.0] (Default) prevents digital zero-dropouts. Enable Oracle Clip-to-Zero only for strict legacy binary inspection.
+              ${t('settings.oracleDesc')}
             </p>
           </div>
           <button type="button" class="btn btn-xs ${curOracleClip ? 'btn-primary active' : 'btn-outline'}" id="btn-settings-oracle-clip">
-            ${curOracleClip ? 'Oracle Clip-to-Zero' : 'Clean Clamp (Default)'}
+            ${curOracleClip ? t('settings.oracleModeLegacy') : t('settings.oracleModeModern')}
           </button>
         </div>
 
-        <!-- 3. NeuronDB Library Configuration -->
+        <!-- 3. Language & Internationalization -->
         <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3);">
-          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">NEURONDB LIBRARY STORAGE</div>
-          <p style="font-size: var(--text-sm); color: var(--color-text-muted); margin: 0;">
-            Configure the local filesystem path containing the official Hartmann NeuronDB models (000..511) and presets.
-          </p>
-          <div style="display: flex; gap: var(--space-2);">
-            <button type="button" class="btn btn-xs btn-outline" id="btn-settings-config-folder">
-              ${ICONS.folder} Configure Library Folder...
-            </button>
+          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${t('navbar.language').toUpperCase()} (i18n)</div>
+          <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            ${langPillsHtml}
           </div>
         </div>
 
         <!-- 4. Appearance & Interface Scale -->
         <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3);">
-          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">APPEARANCE & DISPLAY</div>
+          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${t('settings.uiThemeCard')}</div>
 
           <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-            <span class="hud-label">COLOR THEME:</span>
+            <span class="hud-label">${t('settings.themeLabel').toUpperCase()}:</span>
             ${themePillsHtml}
           </div>
 
           <div style="display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2);">
-            <span class="hud-label">UI ZOOM SCALE:</span>
+            <span class="hud-label">${t('settings.zoomLabel').toUpperCase()}:</span>
             ${zoomPillsHtml}
+          </div>
+        </div>
+
+        <!-- 5. NeuronDB Library Configuration -->
+        <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3);">
+          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${t('settings.libraryCard')}</div>
+          <p style="font-size: var(--text-sm); color: var(--color-text-muted); margin: 0;">
+            ${t('settings.libraryDesc')}
+          </p>
+          <div style="display: flex; gap: var(--space-2);">
+            <button type="button" class="btn btn-xs btn-outline" id="btn-settings-config-folder">
+              ${ICONS.folder} ${t('settings.configureFolderBtn')}
+            </button>
           </div>
         </div>
       </div>
@@ -160,88 +181,126 @@ export class SettingsDrawer {
       options.onClose();
     });
 
-    const initKnob = (
-      mountId: string,
-      label: string,
-      initVal: number,
-      min: number,
-      max: number,
-      paramId: number,
-      valId: string,
-      isBipolar = false,
-      suffix = ''
-    ) => {
-      const mount = root.querySelector(`#${mountId}`) as HTMLElement | null;
-      if (!mount) return;
-      mount.setAttribute('data-param-index', String(paramId));
-      const range = max - min;
-      const normInit = range > 0 ? (initVal - min) / range : 0;
-      const valEl = root.querySelector(`#${valId}`);
-
-      new Knob(mount, {
-        size: 40,
-        label,
-        value: normInit,
-        bipolar: isBipolar,
-        onChange: (normVal: number) => {
-          const actualVal = Math.round(min + normVal * range);
-          WebBridge.setParam(paramId, actualVal);
-          if (valEl) valEl.textContent = `${actualVal}${suffix}`;
-        },
-      });
-    };
-
-    initKnob('settings-voices-m', 'NUM VOICES', curVoices, 1, 12, ParamIdx.SoundNumVoices, 'settings-voices-val');
-    initKnob('settings-pan-m', 'SOUND PAN', curPan, -64, 63, ParamIdx.SoundPan, 'settings-pan-val', true);
-    initKnob('settings-pankt-m', 'PAN KEYTRACK', curPanKt, -64, 63, ParamIdx.SoundPanKeyTrack, 'settings-pankt-val', true);
-    initKnob('settings-pb-m', 'PITCH BEND', curPbRange, 0, 12, ParamIdx.PitchBendRange, 'settings-pb-val', false, ' st');
-
-    const footContainer = root.querySelector('#settings-footswitch-chips') as HTMLElement | null;
-    if (footContainer) {
-      bindPillSelector(footContainer, (destStr, btn) => {
-        if (destStr != null) {
-          const dest = parseInt(destStr, 10);
-          WebBridge.setParam(ParamIdx.FootSwitchDest, dest);
-          footContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((c) => c.classList.remove('active'));
-          btn.classList.add('active');
-        }
-      }, 'data-dest');
-    }
-
-    const clipBtn = root.querySelector('#btn-settings-oracle-clip') as HTMLButtonElement | null;
-    clipBtn?.addEventListener('click', () => {
-      const next = !clipBtn.classList.contains('active');
-      clipBtn.classList.toggle('active', next);
-      clipBtn.classList.toggle('btn-primary', next);
-      clipBtn.classList.toggle('btn-outline', !next);
-      clipBtn.textContent = next ? 'Oracle Clip-to-Zero' : 'Clean Clamp (Default)';
-      WebBridge.setOracleClipMode(next);
-    });
-
     root.querySelector('#btn-settings-config-folder')?.addEventListener('click', () => {
       options.onConfigureFolder();
     });
 
-    const themeContainer = root.querySelector('#settings-theme-chips') as HTMLElement | null;
-    if (themeContainer) {
-      bindPillSelector(themeContainer, (theme, btn) => {
-        if (theme) {
-          options.onSelectTheme(theme);
-          themeContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((c) => c.classList.remove('active'));
-          btn.classList.add('active');
-        }
-      }, 'data-theme');
-    }
+    const oracleBtn = root.querySelector('#btn-settings-oracle-clip') as HTMLButtonElement | null;
+    oracleBtn?.addEventListener('click', () => {
+      const current = WebBridge.getUIState<boolean>('oracleClipMode', false);
+      const next = !current;
+      WebBridge.setUIState('oracleClipMode', next);
+      WebBridge.sendWasmMessage({ type: 'SET_ORACLE_CLIP_MODE', enabled: next });
+      if (oracleBtn) {
+        oracleBtn.textContent = next ? t('settings.oracleModeLegacy') : t('settings.oracleModeModern');
+        oracleBtn.classList.toggle('btn-primary', next);
+        oracleBtn.classList.toggle('active', next);
+        oracleBtn.classList.toggle('btn-outline', !next);
+      }
+    });
 
-    const zoomContainer = root.querySelector('#settings-zoom-chips') as HTMLElement | null;
-    if (zoomContainer) {
-      bindPillSelector(zoomContainer, (zoomStr, btn) => {
-        const zoom = parseFloat(zoomStr || '1.0');
-        options.onZoom(zoom);
-        zoomContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((c) => c.classList.remove('active'));
-        btn.classList.add('active');
-      }, 'data-zoom');
-    }
+    bindPillSelector(root, '#settings-lang-chips', (val) => {
+      if (val === 'en' || val === 'es') {
+        setLocale(val as Locale);
+        // Refresh this drawer content in place
+        const updated = SettingsDrawer.createContent(options);
+        root.replaceWith(updated);
+      }
+    });
+
+    bindPillSelector(root, '#settings-theme-chips', (val) => {
+      options.onSelectTheme(val);
+    });
+
+    bindPillSelector(root, '#settings-zoom-chips', (val) => {
+      const zoomVal = parseFloat(val);
+      if (!isNaN(zoomVal)) {
+        options.onZoom(zoomVal);
+      }
+    });
+
+    bindPillSelector(root, '#settings-footswitch-chips', (val) => {
+      const dest = parseInt(val, 10);
+      if (!isNaN(dest)) {
+        WebBridge.setParam(ParamIdx.FootSwitchDest, dest);
+      }
+    });
+
+    setTimeout(() => {
+      const voicesMount = root.querySelector('#settings-voices-m') as HTMLElement | null;
+      const voicesVal = root.querySelector('#settings-voices-val') as HTMLElement | null;
+      if (voicesMount) {
+        new Knob({
+          container: voicesMount,
+          min: 1,
+          max: 12,
+          step: 1,
+          value: curVoices,
+          size: 40,
+          onChange: (val) => {
+            const v = Math.round(val);
+            if (voicesVal) voicesVal.textContent = String(v);
+            WebBridge.setParam(ParamIdx.SoundNumVoices, v);
+          },
+        });
+      }
+
+      const panMount = root.querySelector('#settings-pan-m') as HTMLElement | null;
+      const panVal = root.querySelector('#settings-pan-val') as HTMLElement | null;
+      if (panMount) {
+        new Knob({
+          container: panMount,
+          min: -64,
+          max: 63,
+          step: 1,
+          value: curPan,
+          size: 40,
+          bipolar: true,
+          onChange: (val) => {
+            const v = Math.round(val);
+            if (panVal) panVal.textContent = (v > 0 ? `+${v}` : String(v));
+            WebBridge.setParam(ParamIdx.SoundPan, v);
+          },
+        });
+      }
+
+      const panKtMount = root.querySelector('#settings-pankt-m') as HTMLElement | null;
+      const panKtVal = root.querySelector('#settings-pankt-val') as HTMLElement | null;
+      if (panKtMount) {
+        new Knob({
+          container: panKtMount,
+          min: -64,
+          max: 63,
+          step: 1,
+          value: curPanKt,
+          size: 40,
+          bipolar: true,
+          onChange: (val) => {
+            const v = Math.round(val);
+            if (panKtVal) panKtVal.textContent = (v > 0 ? `+${v}` : String(v));
+            WebBridge.setParam(ParamIdx.SoundPanKeyTrack, v);
+          },
+        });
+      }
+
+      const pbMount = root.querySelector('#settings-pb-m') as HTMLElement | null;
+      const pbVal = root.querySelector('#settings-pb-val') as HTMLElement | null;
+      if (pbMount) {
+        new Knob({
+          container: pbMount,
+          min: 0,
+          max: 12,
+          step: 1,
+          value: curPbRange,
+          size: 40,
+          onChange: (val) => {
+            const v = Math.round(val);
+            if (pbVal) pbVal.textContent = `${v} st`;
+            WebBridge.setParam(ParamIdx.PitchBendRange, v);
+          },
+        });
+      }
+    }, 0);
 
     return root;
   }
