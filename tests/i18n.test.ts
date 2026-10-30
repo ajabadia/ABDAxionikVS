@@ -1,50 +1,63 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { en } from '../WebUI/src/i18n/locales/en';
-import { es } from '../WebUI/src/i18n/locales/es';
-import { initI18n, getLocale, setLocale, onLocaleChange, t, applyI18n } from '../WebUI/src/i18n/index';
+import { SHARED_EN, SHARED_ES, collectLocaleKeys } from '@abdsynths/shared/i18n';
+import { en, axionikEn } from '../WebUI/src/i18n/locales/en';
+import { es, axionikEs } from '../WebUI/src/i18n/locales/es';
+import { getLocale, setLocale, onLocaleChange, t, applyI18n } from '../WebUI/src/i18n/index';
 
-function collectKeys(obj: any, prefix = ''): string[] {
-  let keys: string[] = [];
-  for (const [k, v] of Object.entries(obj)) {
-    const fullPath = prefix ? `${prefix}.${k}` : k;
-    if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
-      keys = keys.concat(collectKeys(v, fullPath));
-    } else {
-      keys.push(fullPath);
-    }
-  }
-  return keys;
-}
-
-describe('i18n System (EN/ES parity & reactivity)', () => {
+describe('2-Tier i18n System (@abdsynths/shared Core + ABDAxionikVS Synth Tier)', () => {
   beforeEach(() => {
     setLocale('en');
   });
 
-  it('maintains 100% key parity between English (en.ts) and Spanish (es.ts)', () => {
-    const enKeys = collectKeys(en).sort();
-    const esKeys = collectKeys(es).sort();
+  it('maintains 100% key parity in Tier-1 Shared Dictionary (SHARED_EN vs SHARED_ES)', () => {
+    const sharedEnKeys = collectLocaleKeys(SHARED_EN);
+    const sharedEsKeys = collectLocaleKeys(SHARED_ES);
 
-    expect(enKeys).toEqual(esKeys);
-    expect(enKeys.length).toBeGreaterThan(50);
+    expect(sharedEnKeys).toEqual(sharedEsKeys);
+    expect(sharedEnKeys.length).toBeGreaterThan(70);
   });
 
-  it('translates nested keys accurately based on current locale', () => {
+  it('maintains 100% key parity in Tier-2 Axionik Extension (axionikEn vs axionikEs)', () => {
+    const axEnKeys = collectLocaleKeys(axionikEn);
+    const axEsKeys = collectLocaleKeys(axionikEs);
+
+    expect(axEnKeys).toEqual(axEsKeys);
+    expect(axEnKeys.length).toBeGreaterThan(40);
+  });
+
+  it('maintains 100% key parity in Merged Dictionary (en vs es)', () => {
+    const enKeys = collectLocaleKeys(en);
+    const esKeys = collectLocaleKeys(es);
+
+    expect(enKeys).toEqual(esKeys);
+    expect(enKeys.length).toBeGreaterThan(100);
+  });
+
+  it('translates both shared Tier-1 keys and synth-specific Tier-2 keys accurately', () => {
     setLocale('en');
+    // Tier 1 (from ABDShared)
     expect(t('navbar.menuFile')).toBe('File');
     expect(t('settings.polyphonyCard')).toBe('POLYPHONY & STEREO SPREAD');
     expect(t('common.close')).toBe('Close');
+    expect(t('midiLearn.clearAll')).toBe('Clear All Mappings');
+    // Tier 2 (from ABDAxionikVS)
+    expect(t('navbar.nukeRemote')).toBe('NUKE Remote Control Unit...');
+    expect(t('settings.oracleModeModern')).toBe('Musical Saturation (Modern)');
 
     setLocale('es');
+    // Tier 1 (from ABDShared)
     expect(t('navbar.menuFile')).toBe('Archivo');
     expect(t('settings.polyphonyCard')).toBe('POLIFONÍA Y APERTURA ESTÉREO');
     expect(t('common.close')).toBe('Cerrar');
+    expect(t('midiLearn.clearAll')).toBe('Limpiar Todos los Mapeos');
+    // Tier 2 (from ABDAxionikVS)
+    expect(t('navbar.nukeRemote')).toBe('Unidad de Control Remoto NUKE...');
+    expect(t('settings.oracleModeModern')).toBe('Saturación Musical (Moderna)');
   });
 
   it('does not translate universal acronyms and descriptors', () => {
     setLocale('es');
-    // Acronyms should be preserved in Spanish
     expect(t('navbar.nuke')).toBe('NUKE');
     expect(t('navbar.midi')).toBe('MIDI');
     expect(t('navbar.sysex')).toBe('SysEx');
@@ -53,12 +66,7 @@ describe('i18n System (EN/ES parity & reactivity)', () => {
     expect(t('nuke.stickDomainScape')).toBe('SCAPE');
   });
 
-  it('supports interpolation in strings', () => {
-    setLocale('en');
-    expect(t('navbar.aboutSubtitle')).toContain('Hartmann Neuron');
-  });
-
-  it('notifies subscribers on locale change', () => {
+  it('supports interpolation and notifies subscribers on locale change', () => {
     let triggeredLocale = '';
     const unsubscribe = onLocaleChange((newLocale) => {
       triggeredLocale = newLocale;

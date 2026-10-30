@@ -586,20 +586,18 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 
 ---
 
-### Fase H — Sistema Multi-idioma Integral (`i18n` EN / ES) [COMPLETADA]
+### Fase H — Sistema Multi-idioma Integral (`i18n` EN / ES en 2 Capas: `ABDShared` + `ABDAxionikVS`) [COMPLETADA]
 > [!IMPORTANT]
-> **Internacionalización completa (`i18n`) de `ABDAxionikVS` implementada con paridad 100 % de claves y cambio reactivo en caliente.**
+> **Internacionalización completa (`i18n`) implementada bajo el estándar arquitectónico de 2 Capas en [`@abdsynths/shared/i18n`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/I18n/index.js) + extensión específica en `ABDAxionikVS`.**
 
-- **Arquitectura Canónica y Extensible (`WebUI/src/i18n/`)**:
-  1. **Archivos de Traducción Autónomos (`en.ts` / `es.ts`)**:
-     - Localización pura clave-valor: [`WebUI/src/i18n/locales/en.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/i18n/locales/en.ts) (referencia TypeScript estricta) y [`WebUI/src/i18n/locales/es.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/i18n/locales/es.ts).
+- **Arquitectura Canónica en 2 Capas ([`I18N_MULTI_LANGUAGE_STANDARD.md`](file:///d:/desarrollos/ABDSynths/ABDShared/Docs/architecture/I18N_MULTI_LANGUAGE_STANDARD.md))**:
+  1. **Capa 1 — Motor y Diccionario Base Transversal en `ABDShared` (`@abdsynths/shared/i18n`)**:
+     - Motor reactivo universal [`ABDShared/Components/I18n/index.js`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/I18n/index.js) (`createSynthI18n`, `deepMergeLocales`, `collectLocaleKeys`).
+     - Diccionarios base comunes [`SHARED_EN`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/I18n/locales/en.js) y [`SHARED_ES`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/I18n/locales/es.js) con los términos transversales a toda la suite (`common`, `navbar` estándar, `settings` base, `calibration` UI, `hardwareDumps` UI, `midiLearn` UI).
+     - Persistencia compartida de suite en `localStorage` (`abdsynths.locale`) con retrocompatibilidad automática (`axionik.locale`).
+  2. **Capa 2 — Extensión Específica del Sintetizador (`WebUI/src/i18n/`)**:
+     - [`WebUI/src/i18n/locales/en.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/i18n/locales/en.ts) (`axionikEn`) y [`WebUI/src/i18n/locales/es.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/i18n/locales/es.ts) (`axionikEs`) contienen exclusivamente la terminología propia de Hartmann Neuron (`nuke`, `silver`, `neuronDb`, `oracleCard`, etc.), fusionada automáticamente sobre `SHARED_EN` / `SHARED_ES`.
      - **Regla Estricta de Acrónimos de Síntesis**: Acrónimos universales y letras sueltas (`A`, `D`, `S`, `R`, `LFO`, `CUTOFF`, `RESO`, `Scape`, `Sphere`, `Blender`, `Slicer`, `MIDI`, `CC`, `NRPN`, `SysEx`) **no se traducen** jamás.
-     - **Extensibilidad a Nuevos Idiomas (e.g. Francés `fr.ts`)**: Para agregar un nuevo idioma en el futuro, solo es necesario duplicar `en.ts`, traducir los literales y añadir la clave al motor. Cero modificaciones de lógica interna.
-  2. **Motor Reactivo (`WebUI/src/i18n/index.ts`)**:
-     - Métodos públicos `initI18n()`, `getLocale()`, `setLocale(locale)`, `onLocaleChange(cb)` y `t(key, params)`.
-     - Soporte para interpolación de parámetros (`t('key', { name: 'value' })`).
-     - Función declarativa `applyI18n(root)` para atributos `data-i18n`, `data-i18n-title`, `data-i18n-placeholder`.
-     - Persistencia automática de la preferencia del usuario en `localStorage` (`axionik.locale`).
   3. **Selectores de Idioma en la Interfaz de Usuario**:
      - Botón de acceso rápido conmutador en la barra superior HUD de [`Navbar.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/Navbar.ts) (`EN` / `ES`).
      - Submenú desplegable en la barra de menú superior: `View -> Language -> English (EN) / Español (ES)`.
@@ -608,10 +606,5 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
   4. **Suscripción Reactiva en Cajones Especializados**:
      - Sincronización automática de [`CalibrationDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/CalibrationDrawer.ts) y [`HardwareDumpsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/HardwareDumpsDrawer.ts) vía `onLocaleChange`.
   5. **Verificación y Pruebas Automatizadas**:
-     - Test unitario [`tests/i18n.test.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/tests/i18n.test.ts) que valida:
-       - Paridad del 100 % de claves entre `en.ts` y `es.ts`.
-       - Traducciones de claves anidadas en tiempo real.
-       - Preservación de acrónimos universales.
-       - Reactividad de suscriptores y actualización declarativa del DOM con `applyI18n`.
-       - 100 % de tests superados en la suite de `vitest` (12 archivos, 79 tests pasando).
+     - Test unitario en `ABDShared` ([`I18n.test.js`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/I18n/I18n.test.js)) y en `ABDAxionikVS` ([`tests/i18n.test.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/tests/i18n.test.ts)) verificando paridad 100 % en Capa 1 (`SHARED_EN` vs `SHARED_ES`), Capa 2 (`axionikEn` vs `axionikEs`) y diccionario fusionado (`en` vs `es`).
 
