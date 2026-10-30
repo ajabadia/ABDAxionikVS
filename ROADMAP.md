@@ -603,8 +603,24 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
      - Submenú desplegable en la barra de menú superior: `View -> Language -> English (EN) / Español (ES)`.
      - Selector por fichas (Pill Selector) en el cajón de configuración global [`SettingsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/SettingsDrawer.ts).
      - Cambio instantáneo en caliente de toda la interfaz sin recarga de página ni corte de audio.
-  4. **Suscripción Reactiva en Cajones Especializados**:
-     - Sincronización automática de [`CalibrationDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/CalibrationDrawer.ts) y [`HardwareDumpsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/HardwareDumpsDrawer.ts) vía `onLocaleChange`.
+  4. **Suscripción Reactiva en Cajones y Componentes Especializados (Live Re-render sin cerrar pestañas)**:
+     - Sincronización dinámica instantánea de [`CalibrationDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/CalibrationDrawer.ts), [`HardwareDumpsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/HardwareDumpsDrawer.ts) y [`SettingsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/SettingsDrawer.ts) vía `onLocaleChange`, manteniendo los cajones abiertos y preservando estado visual/knobs canónicos.
+     - Métodos de mutación dinámica de etiquetas en caliente en [`ABDShared/Components/bank/bankShell.js`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/bank/bankShell.js) (`setTitle`, `setSearchPlaceholder`, `setTabLabels`, `setHeaderActionTitle`) para internacionalizar el gestor de bancos compartido.
   5. **Verificación y Pruebas Automatizadas**:
      - Test unitario en `ABDShared` ([`I18n.test.js`](file:///d:/desarrollos/ABDSynths/ABDShared/Components/I18n/I18n.test.js)) y en `ABDAxionikVS` ([`tests/i18n.test.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/tests/i18n.test.ts)) verificando paridad 100 % en Capa 1 (`SHARED_EN` vs `SHARED_ES`), Capa 2 (`axionikEn` vs `axionikEs`) y diccionario fusionado (`en` vs `es`).
 
+---
+
+### Fase I — Motor WebAssembly: Carga de Presets DSP y Pipeline de Build Automatizado [COMPLETADA]
+> [!IMPORTANT]
+> **Carga reactiva de presets en el motor WebAssembly (Worklet C++ DSP) y pipeline de empaquetado continuo.**
+
+- **Carga de Presets en WASM ([`WasmBridge.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/wasm/WasmBridge.cpp) & [`axionikWorklet.js`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/wasm/axionikWorklet.js))**:
+  - Función C++ exportada `axionik_load_preset_slot(int slotIndex)` compilada con Emscripten (`_axionik_load_preset_slot` en [`wasm/CMakeLists.txt`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/wasm/CMakeLists.txt)).
+  - Gestión del comando `LOAD_PRESET_SLOT` en el AudioWorklet: mapeo instantáneo del slot al motor DSP en el hilo de audio en tiempo real.
+  - Generación de presets sintéticos alternativos en [`Source/DSP/NeuronBankAdapter.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/NeuronBankAdapter.h) (`loadEmbeddedSyntheticPreset`) para asegurar variaciones tímbricas diferenciadas en navegador Web cuando no hay acceso al sistema de archivos nativo o a bases de datos neuronDB binarias en disco.
+  - Verificación mediante tests automatizados en [`tests/wasm_dsp.test.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/tests/wasm_dsp.test.ts) comprobando que cada preset cargado produce espectros de señal y formas de onda distintas.
+
+- **Pipeline de Compilación Reordenado ([`build.bat`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/build.bat))**:
+  - Reordenamiento del ciclo de compilación: la fase `[2/6] WASM` se ejecuta antes del bundling de la WebUI (`[4/6]`).
+  - Copia sincronizada y automática de binarios generados (`axionik.wasm`, `axionik.js`) a `WebUI/dist/` en cada ejecución, garantizando que el entorno web y los tests de navegador siempre ejecuten la última versión compilada del DSP C++.
