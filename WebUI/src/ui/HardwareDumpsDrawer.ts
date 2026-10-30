@@ -430,15 +430,11 @@ export class HardwareDumpsDrawer implements HardwareDumpsContracts {
     if (knobHost) {
       new Knob(knobHost, {
         label: 'DEV ID',
-        min: 0,
-        max: 127,
-        step: 1,
-        value: deviceId,
-        defaultValue: 0,
         size: 38,
-        formatValue: (v: number) => `0x${Math.round(v).toString(16).toUpperCase().padStart(2, '0')}`,
-        onChange: (val: number) => {
-          const nextId = Math.max(0, Math.min(127, Math.round(val)));
+        value: deviceId / 127.0,
+        format: (v: number) => `0x${Math.round(v * 127.0).toString(16).toUpperCase().padStart(2, '0')}`,
+        onChange: (normVal: number) => {
+          const nextId = Math.max(0, Math.min(127, Math.round(normVal * 127.0)));
           this.state.portStatus = { ...this.state.portStatus, deviceId: nextId };
           this.send({ type: 'HARDWARE_SET_DEVICE_ID', deviceId: nextId });
           this.refreshLiveInspector();
