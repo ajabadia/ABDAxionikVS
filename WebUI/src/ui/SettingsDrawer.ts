@@ -189,8 +189,7 @@ export class SettingsDrawer {
     oracleBtn?.addEventListener('click', () => {
       const current = WebBridge.getUIState<boolean>('oracleClipMode', false);
       const next = !current;
-      WebBridge.setUIState('oracleClipMode', next);
-      WebBridge.sendWasmMessage({ type: 'SET_ORACLE_CLIP_MODE', enabled: next });
+      WebBridge.setOracleClipMode(next);
       if (oracleBtn) {
         oracleBtn.textContent = next ? t('settings.oracleModeLegacy') : t('settings.oracleModeModern');
         oracleBtn.classList.toggle('btn-primary', next);
@@ -230,15 +229,14 @@ export class SettingsDrawer {
       const voicesMount = root.querySelector('#settings-voices-m') as HTMLElement | null;
       const voicesVal = root.querySelector('#settings-voices-val') as HTMLElement | null;
       if (voicesMount) {
-        new Knob({
-          container: voicesMount,
-          min: 1,
-          max: 12,
-          step: 1,
-          value: curVoices,
+        voicesMount.setAttribute('data-param-index', String(ParamIdx.SoundNumVoices));
+        const normInit = (curVoices - 1) / (12 - 1);
+        new Knob(voicesMount, {
           size: 40,
-          onChange: (val) => {
-            const v = Math.round(val);
+          value: normInit,
+          label: 'VOICES',
+          onChange: (normVal: number) => {
+            const v = Math.round(1 + normVal * (12 - 1));
             if (voicesVal) voicesVal.textContent = String(v);
             WebBridge.setParam(ParamIdx.SoundNumVoices, v);
           },
@@ -248,16 +246,15 @@ export class SettingsDrawer {
       const panMount = root.querySelector('#settings-pan-m') as HTMLElement | null;
       const panVal = root.querySelector('#settings-pan-val') as HTMLElement | null;
       if (panMount) {
-        new Knob({
-          container: panMount,
-          min: -64,
-          max: 63,
-          step: 1,
-          value: curPan,
+        panMount.setAttribute('data-param-index', String(ParamIdx.SoundPan));
+        const normInit = (curPan + 64) / 127.0;
+        new Knob(panMount, {
           size: 40,
+          value: normInit,
           bipolar: true,
-          onChange: (val) => {
-            const v = Math.round(val);
+          label: 'PAN',
+          onChange: (normVal: number) => {
+            const v = Math.round(-64 + normVal * 127.0);
             if (panVal) panVal.textContent = (v > 0 ? `+${v}` : String(v));
             WebBridge.setParam(ParamIdx.SoundPan, v);
           },
@@ -267,16 +264,15 @@ export class SettingsDrawer {
       const panKtMount = root.querySelector('#settings-pankt-m') as HTMLElement | null;
       const panKtVal = root.querySelector('#settings-pankt-val') as HTMLElement | null;
       if (panKtMount) {
-        new Knob({
-          container: panKtMount,
-          min: -64,
-          max: 63,
-          step: 1,
-          value: curPanKt,
+        panKtMount.setAttribute('data-param-index', String(ParamIdx.SoundPanKeyTrack));
+        const normInit = (curPanKt + 64) / 127.0;
+        new Knob(panKtMount, {
           size: 40,
+          value: normInit,
           bipolar: true,
-          onChange: (val) => {
-            const v = Math.round(val);
+          label: 'KEYTRACK',
+          onChange: (normVal: number) => {
+            const v = Math.round(-64 + normVal * 127.0);
             if (panKtVal) panKtVal.textContent = (v > 0 ? `+${v}` : String(v));
             WebBridge.setParam(ParamIdx.SoundPanKeyTrack, v);
           },
@@ -286,15 +282,14 @@ export class SettingsDrawer {
       const pbMount = root.querySelector('#settings-pb-m') as HTMLElement | null;
       const pbVal = root.querySelector('#settings-pb-val') as HTMLElement | null;
       if (pbMount) {
-        new Knob({
-          container: pbMount,
-          min: 0,
-          max: 12,
-          step: 1,
-          value: curPbRange,
+        pbMount.setAttribute('data-param-index', String(ParamIdx.PitchBendRange));
+        const normInit = curPbRange / 12.0;
+        new Knob(pbMount, {
           size: 40,
-          onChange: (val) => {
-            const v = Math.round(val);
+          value: normInit,
+          label: 'PITCH BEND',
+          onChange: (normVal: number) => {
+            const v = Math.round(normVal * 12.0);
             if (pbVal) pbVal.textContent = `${v} st`;
             WebBridge.setParam(ParamIdx.PitchBendRange, v);
           },
