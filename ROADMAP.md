@@ -444,32 +444,63 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
 
 ---
 
-### Hito de Diseño Intermedio (Gate A → B) — Sesión de Definición de la Fase B
+### Hito de Diseño Intermedio (Gate A → B) — Sesión de Definición de la Fase B [CONGELADO]
 > [!IMPORTANT]
-> **Compromiso Estricto de Hoja de Ruta:**
-> La **Fase B (Versión Extendida / Extended) queda congelada y NO se diseñará ni implementará** hasta comprobar exhaustivamente y certificar en audio real que la versión clásica (Fase A) funciona de forma 100% correcta y estable.
-> 
-> Todas las ideas preliminares quedan registradas como sugerencias de análisis futuro:
-> 1. Cómo conviven o se conmutan los modelos clásicos `.model` (`NeuronDB`) y los modelos extendidos `.nmmodel v2.1` (`ABDNeuModMakr`) en cada Resynator (conmutación por Resynator o global).
-> 2. Qué moldeadores espectrales de `ABDNeural` (*Inharmonicity Stretch*, *Parity*, *Entropy/Roughness*, *Shift*, *RollOff*) se incorporan, con qué rangos y cómo se mapean (pestaña dedicada o asignables a los Sticks 2D).
-> 3. Si se mantiene la topología dual `R1 + R2 + Blender` o se amplía a morphing de 4 esquinas (`A/B/C/D`) con un tercer Resynator.
-> 4. Soporte de Drag & Drop directo de archivos `.model`, `.sound` y `.nmmodel` sobre la interfaz (adelantado a la UI clásica por ser una mejora de ergonomía general).
+> **Compromiso Estricto de Hoja de Ruta (ratificado el 2026-10-30):**
+> La **Fase B (Versión Extendida / Extended) permanece congelada y NO se diseñará ni implementará** hasta que se cumplan las dos condiciones siguientes:
+> 1. Certificación en audio real de que la versión clásica (Fase A) funciona de forma 100 % correcta y estable.
+> 2. Cierre de las Fases 10–11 de [`ABDNeuModMakr`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/roadmap.md) (modo extendido, formato espectral HD, Surround y nuevos Resynators), que es quien define el formato que consumirá la Fase B.
+>
+> Mientras tanto, esta sección actúa como **registro de alineación** con `ABDNeuModMakr` para que, al descongelarse, la integración sea directa y sin retrabajo.
 
-### Fase B — Versión Extendida / Extended (Soporte Híbrido `.nmmodel v2.1` de `ABDNeuModMakr`) *(Sujeta a Gate de Diseño A → B)*
+#### Estado de Referencia en `ABDNeuModMakr` (fuente de verdad: [`NEXTGEN_ARCHITECTURE_AND_SPEC.md`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/DOCS/NEXTGEN_ARCHITECTURE_AND_SPEC.md))
+El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 64 parciales. `ABDNeuModMakr` ya ha ido bastante más lejos:
+1. **Contenedor Multiformato de 5 Capas — «Cápsula del Tiempo» (`.nmpack` / `.zip`)** ([`timeCapsule.ts`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/src/core/timeCapsule.ts)): `manifest.json` (`NEURONMM_TIMECAPSULE`) + `provenance.json` (linaje anti-efecto fotocopia) + capas `01_raw_source/`, `02_legacy_original/`, `03_enhanced_audio/` (Master Wave `24-bit / 96 kHz`, Mono / Estéreo `2.0` / Quad `4.0`), `04_classic_enhanced/` y `05_extended_model/` (`model.nmmodel` + `extended_map.json` + `cover.webp`).
+2. **Mapa 2D Libre «Lego» (`ExtendedRegion`)** ([`types.ts`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/src/core/types.ts), [`extendedAdapter.ts`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/src/core/extendedAdapter.ts)): $N$ capas de velocidad, rangos asimétricos `Key × Velocity`, crossfades (`linear`, `equal-power`, `spectral-morph`), `pitchKeytrack` `0..100 %`, `trigger` (`attack`, `release`, `first`, `legato`), *Round-Robin* y Zona Común + overrides por región.
+3. **Loops de 6 Modos** ([`LoopEditorTools.ts`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/src/core/dsp/LoopEditorTools.ts)): `no_loop`, `loop_continuous`, `loop_sustain`, `ping_pong`, `loop_backward`, `one_shot` con `loopCrossfadeMs`.
+4. **Articulación DAHDSR (6 etapas), Filtro y LFO** con mapeo seguro a `sound.script` (`mapArticulationToSoundOverrides`, profundidades a `Scape`/`Sphere`/`Blender` forzadas a `0`), importadores `.sf2` / `.sfz`, clasificador acústico (`cat-0..cat-9` + `Parameter Set 0..9`) y portada `cover.webp` `512×512`.
+
+#### Puente Inmediato con el Modo Clásico (permitido antes de descongelar la Fase B)
+- La capa `04_classic_enhanced/` (y las rutas `Models/<NNN>.model/` + `Sounds/<NNN>.sound/` del ZIP) ya es 100 % compatible con el motor clásico actual: regiones 2D proyectadas a columnas `0..127`, compensación de ganancia entre velocidades sobre `.scape`/`.sphere` (`10^(ΔdB/20)`), análisis `Enhanced DSP` (HPSS) y `sound.script` limpio.
+- **Único ajuste puente previsto**: que el importador de `ABDAxionikVS` reconozca paquetes `.nmpack` / `.zip` de *Time Capsule* y seleccione `04_classic_enhanced/` (o `02_legacy_original/` como respaldo) sin mezclarlos jamás en un mismo parseo, replicando `extractTimeCapsuleFromFiles` de [`timeCapsule.ts`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/src/core/timeCapsule.ts).
+
+#### Decisiones de Diseño Pendientes para la Sesión Gate A → B
+1. Conmutación de modelos clásicos `.model` (`NeuronDB`) vs. extendidos (`.nmpack` / `.nmmodel`): **por Resynator** (p. ej. `R1` clásico + `R2` extendido fundidos en `Blender`) o global.
+2. Moldeadores espectrales de `ABDNeural` (*Inharmonicity Stretch*, *Parity*, *Entropy/Roughness*, *Shift*, *RollOff*): rangos y mapeo (pestaña dedicada o asignables a los Sticks 2D).
+3. Topología: mantener `R1 + R2 + Blender` o ampliar a morphing de 4 esquinas (`A/B/C/D`) con un tercer Resynator / espacio latente.
+4. Drag & Drop directo de `.model`, `.sound`, `.nmmodel` y `.nmpack` sobre la interfaz (mejora ergonómica adelantable a la UI clásica).
+5. Bus de salida espacial: Quad `4.0` / `5.1` discreto en hosts JUCE 9 vs. reducción Pseudo-Surround estéreo (WASM y hosts `2.0`).
+
+### Fase B — Versión Extendida / Extended (Consumo de la «Cápsula del Tiempo» de `ABDNeuModMakr`) *(CONGELADA — Sujeta a Gate A → B)*
 - **Objetivos Preliminares (a refinar en el Gate A → B)**:
-  1. **Soporte Nativo de `.nmmodel` (`v2.1`)**:
-     - Implementar `NmModelLoader` y `NmModelResinator` en `Source/DSP/Extended/` para cargar directamente paquetes `.nmmodel` generados por `ABDNeuModMakr` (precisión `Float32`, 64 parciales inarmónicos con `frequencyOffsets` en semitonos, múltiples capas de velocidad/nota y muestras WAV embebidas), integrando los módulos de análisis y modelado espectral `@abdsynths/shared/dsp/neuron-analysis` (`FftEngine`, `SpectralAnalyzer`, `LayerClustering`, `ScapeSphereGenerator`).
-  2. **Moldeadores de Materia Sónica de `ABDNeural` (`SpectralShaper`)**:
-     - Integrar en cada Resinator (o en el modo extendido) los operadores espectrales de `ABDNeural/Source/DSP/CoreModules/Resonator.cpp`:
+  1. **Promoción del Esquema de Cápsula a `ABDShared` (`@abdsynths/shared/formats/neuron`)**:
+     - Subir `TimeCapsuleManifest`, `ModelProvenance`, `ExtendedRegion`, `SynthArticulationConfig`, `CommonPlaybackDefaults` y `extractTimeCapsuleFromFiles` junto a los codecs ya compartidos (`ModelFormat.ts`, `SoundFormat.ts`, `ZipArchive.ts`, `NeuronDbMapper.ts`).
+     - El `BankManager` compartido mostrará las cápsulas en ambas aplicaciones con su categoría `cat-0..cat-9`, insignias `EXTENDED / 96kHz / QUAD` y miniatura `cover.webp`.
+  2. **`model.nmmodel` Indexado por Fuente / `ExtendedRegion` (requisito hacia `ABDNeuModMakr` Fase 11)**:
+     - Hoy [`PipelineRunner.ts`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/src/core/dsp/PipelineRunner.ts) agrupa el `.nmmodel` sobre las columnas clásicas proyectadas. Se acordará que `05_extended_model/model.nmmodel` indexe el análisis de alta resolución por `sampleName` (de `03_enhanced_audio/`), de modo que las $N$ regiones de `extended_map.json` lo referencien sin pasar por el embudo clásico de 2 velocidades.
+  3. **`ExtendedRegionDispatcher` y Motor de Muestras/Articulación en `Source/DSP/Extended/` (C++20 puro sin JUCE, idéntico en `VST3`, `Standalone` y `WASM AudioWorklet`)**:
+     - Selección 2D `Key × Velocity` con disparo/interpolación en crossfades (`keyFadeIn/Out`, `velFadeIn/Out`, incluido `spectral-morph`), `trigger` (`attack`, `release`, `first`, `legato`), estado *Round-Robin* y `pitchKeytrack` continuo.
+     - Los 6 modos de loop con crossfade de costura (`loopCrossfadeMs`) y envolvente DAHDSR de 6 etapas cuando la región traiga `hasArticulationOverride` o articulación global extendida.
+     - Preasignación RT-safe (cero `new`/`malloc` en el hilo de audio) coherente con `VoiceMemoryPool` (§4.3).
+  4. **Síntesis Híbrida: Transitorio PCM `24-bit / 96 kHz` + Resynator Espectral/Latente**:
+     - Disparo del micro-ataque real desde `03_enhanced_audio/` fundido en fase con el cuerpo resintetizado.
+     - Separación envolvente de formantes / $f_0$ para *Formant Shifting* real y transposición sin «efecto ardilla».
+     - Moldeadores de materia sónica de `ABDNeural/Source/DSP/CoreModules/Resonator.cpp`:
        - *Inharmonicity Stretch*: $f_n = f_0 \cdot (n + \Delta_n) \cdot \sqrt{1 + B \cdot n^2}$
-       - *Parity (Par/Impar)* y *Spectral Shift*
-       - *Entropy / Roughness* (micro-modulación determinista por parcial) y *HF RollOff*
-  3. **Modo Híbrido Dual / `Resinator 3` (Morphing 4-Way A/B/C/D)**:
-     - Permitir que `R1` y `R2` operen indistintamente con modelos clásicos `.model` (`NeuronDB`) o con modelos `.nmmodel` (`ABDNeuModMakr`), e incorporar el modo de morphing bilineal de 4 esquinas (`Slots A..D`) de `ABDNeural`.
-  4. **Puente Directo `ABDNeuModMakr` ↔ `ABDAxionikVS`**:
-     - Carga en caliente (Drag & Drop o vigilancia de directorio) de archivos `.model` y `.nmmodel` recién sintetizados desde `ABDNeuModMakr`.
+       - *Parity (Par/Impar)*, *Spectral Shift*, *Entropy / Roughness* y *HF RollOff*.
+     - Integración del análisis `@abdsynths/shared/dsp/neuron-analysis` (`FftEngine`, `SpectralAnalyzer`, `LayerClustering`, `ScapeSphereGenerator`).
+  5. **Topología Espacial por Voz (Mono / Estéreo `2.0` / Quad `4.0` + Pseudo-Surround)**:
+     - Bus interno de voz extendida de 4 canales (`FL, FR, RL, RR`) acorde con `MasterChannelLayout` de `ABDNeuModMakr`: excitación/transitorio (`Scape`) al frente y cuerpo/capas (`Sphere`, `Layers 0..3`) al campo envolvente.
+     - Salida discreta multicanal si el host abre un bus Quad/5.1; reducción Pseudo-Surround decorrelacionada y mono-compatible en hosts `2.0` y en navegador (WASM).
+  6. **Modo Híbrido por Resynator, Puente en Caliente y UI**:
+     - `R1` y `R2` operan indistintamente con `.model` clásico o cápsula extendida; morphing opcional de 4 esquinas (`A..D`).
+     - Carga en caliente (Drag & Drop o vigilancia de directorio) de cápsulas recién exportadas desde `ABDNeuModMakr`.
+     - Portada `cover.webp` en la tarjeta del Resynator y del banco; textos vía `@abdsynths/shared/i18n` (Fase H).
 - **Verificación (DoD)**:
-  - Suite de pruebas del motor extendido verificando paridad matemática con `ABDNeural::DSP::CoreModules::Resonator`, carga sin artefactos de `.nmmodel v2.1` multicapa y paridad bit-exacta entre el build nativo (`VST3`/`Standalone`) y el `AudioWorklet` WASM.
+  - Carga sin artefactos de cápsulas multicapa con $N$ velocidades, crossfades y los 6 modos de loop.
+  - Paridad matemática de los moldeadores con `ABDNeural::DSP::CoreModules::Resonator`.
+  - Paridad bit-exacta entre build nativo (`VST3` / `Standalone`) y `AudioWorklet` WASM, incluida la reducción Pseudo-Surround.
+  - Regresión cero en la Fase A: `GoldenParityTest` (`--zones 128/128`, `--matrix 63/63`) sigue en verde con modelos clásicos.
 
 
 ---
