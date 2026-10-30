@@ -18,7 +18,7 @@ import {
   type CalibrationLocale,
   type CalibrationParamDescriptor,
   calibrationStore,
-} from './calibrationContracts';
+} from './CalibrationContracts.js';
 
 function escapeHtml(str: string): string {
   return String(str ?? '')
@@ -39,6 +39,8 @@ export class CalibrationDrawer {
   private statusMessage: { text: string; type: 'info' | 'ok' | 'warn' } | null = null;
   private unsubStore: (() => void) | null = null;
   private unsubLocale: (() => void) | null = null;
+  private onNavbarFilterChange: ((cat: CalibrationCategory | 'ALL') => void) | null = null;
+  private applyFilterFromNavbar: ((cat: CalibrationCategory | 'ALL') => void) | null = null;
 
   constructor(app: HTMLElement, drawerManager?: DrawerManager, locale?: CalibrationLocale) {
     this.drawerManager = drawerManager ?? new DrawerManager(app);
@@ -51,6 +53,19 @@ export class CalibrationDrawer {
     this.unsubLocale = onLocaleChange((newLoc) => {
       this.setLocale(newLoc as CalibrationLocale);
     });
+  }
+
+  public attachToNavbar(filterChange: (cat: CalibrationCategory | 'ALL') => void): void {
+    this.onNavbarFilterChange = filterChange;
+  }
+
+  public setCategoryFilter(cat: CalibrationCategory | 'ALL'): void {
+    this.selectedCategory = cat;
+    this.render();
+  }
+
+  public setApplyFilterFromNavbar(fn: (cat: CalibrationCategory | 'ALL') => void): void {
+    this.applyFilterFromNavbar = fn;
   }
 
   public setLocale(locale: CalibrationLocale): void {
@@ -103,6 +118,7 @@ export class CalibrationDrawer {
     this.unsubStore = calibrationStore.onChange((id) => {
       this.updateSingleParamUI(id);
       this.updateSummaryBadges();
+      this.updateNavbarChip();
     });
   }
 
@@ -158,6 +174,9 @@ export class CalibrationDrawer {
         return false;
       }
       if (this.showModifiedOnly && !calibrationStore.isModified(desc.id)) {
+        return false;
+      }
+      if (this.onNavbarFilterChange && this.selectedCategory !== 'ALL' && desc.category !== this.selectedCategory) {
         return false;
       }
       if (q.length > 0) {
@@ -267,6 +286,20 @@ export class CalibrationDrawer {
     this.bindToolbarEvents();
     this.bindContentEvents();
     this.updateSummaryBadges();
+
+    const chip = this.mainPanel?.querySelector('#nav-calib-filter-chip-inner') as HTMLElement | null;
+    if (chip) {
+      this.updateNavbarChip();
+    }
+  }
+
+  private updateNavbarChip(): void {
+    if (!this.onNavbarFilterChange) return;
+    const chip = this.mainPanel?.querySelector('#nav-calib-filter-chip-inner') as HTMLElement | null;
+    if (chip) {
+      const i18n = this.getCalibI18n();
+      chip.innerHTML = `${ICONS.sliders} ${this.selectedCategory === 'ALL' ? i18n.allTab : this.selectedCategory}`;
+    }
   }
 
   private renderCategoryTabsHtml(): string {
@@ -282,6 +315,22 @@ export class CalibrationDrawer {
     `;
 
     for (const cat of CALIBRATION_CATEGORIES) {
+      if (this.onNavbarFilterChange) {
+        const isActive = this.selectedCategory === cat;
+        html += `
+          <button
+            type="button"
+            class="ax-calib-cat-tab ${isActive ? 'is-active' : ''}"
+            data-cat="${escapeHtml(cat)}"
+            title="${escapeHtml(i18n.calibTabTitle)}"
+          >
+            <span>${escapeHtml(cat)} (${CALIBRATION_REGISTRY.filter((p) => p.category === cat).length})</span>
+            ${calibrationStore.getCategoryModifiedCount(cat) > 0
+              ? `<span class="ax-calib-cat-mod-dot" title="${calibrationStore.getCategoryModifiedCount(cat)} ${escapeHtml(i18n.modShort)}">${calibrationStore.getCategoryModifiedCount(cat)}</span>`
+              : ''}
+          </button>
+        `;
+      } else {
       const catParams = CALIBRATION_REGISTRY.filter((p) => p.category === cat);
       const catMod = calibrationStore.getCategoryModifiedCount(cat);
       const isActive = this.selectedCategory === cat ? 'is-active' : '';
@@ -291,6 +340,7 @@ export class CalibrationDrawer {
           ${catMod > 0 ? `<span class="ax-calib-cat-mod-dot" title="${catMod} ${escapeHtml(i18n.modShort)}">${catMod}</span>` : ''}
         </button>
       `;
+      }
     }
 
     return html;
@@ -708,7 +758,7 @@ export class CalibrationDrawer {
         min-height: 0;
         height: 100%;
         overflow: hidden;
-        color: var(--color-text-primary, #e2e8f0);
+        color: var(--color-text-main, #e2e8f0);
         font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
       }
 
@@ -718,15 +768,15 @@ export class CalibrationDrawer {
         letter-spacing: 0.06em;
         padding: 3px 8px;
         border-radius: var(--radius-sm, 4px);
-        background: rgba(15, 23, 42, 0.7);
+        background: rgba(var(--color-panel-bg-rgb, 15, 23, 42), 0.7);
         border: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.2));
-        color: var(--color-text-secondary, #94a3b8);
+        color: var(--color-text-muted, #94a3b8);
       }
 
       .ax-calib-header-badge.has-mod {
-        color: var(--color-accent-primary, #38bdf8);
-        border-color: var(--color-accent-primary, #38bdf8);
-        background: rgba(56, 189, 248, 0.12);
+        color: var(--color-accent, #38bdf8);
+        border-color: var(--color-accent, #38bdf8);
+        background: rgba(var(--color-accent-rgb, 56, 189, 248), 0.12);
       }
 
       .ax-calib-toolbar {
@@ -736,7 +786,7 @@ export class CalibrationDrawer {
         flex-shrink: 0;
         gap: var(--space-2, 8px);
         padding: var(--space-2, 10px) var(--space-3, 12px);
-        background: rgba(15, 23, 42, 0.65);
+        background: rgba(var(--color-panel-bg-rgb, 15, 23, 42), 0.65);
         border: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.16));
         border-radius: var(--radius-md, 6px);
       }
@@ -759,16 +809,16 @@ export class CalibrationDrawer {
       .ax-calib-search-input {
         width: 100%;
         padding: 6px 10px 6px 32px;
-        background: rgba(2, 6, 23, 0.75);
+        background: rgba(var(--color-bg-base-rgb, 2, 6, 23), 0.75);
         border: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.22));
         border-radius: var(--radius-sm, 4px);
-        color: var(--color-text-primary, #f1f5f9);
+        color: var(--color-text-main, #f1f5f9);
         font-size: 12px;
         outline: none;
       }
 
       .ax-calib-search-input:focus {
-        border-color: var(--color-accent-primary, #38bdf8);
+        border-color: var(--color-accent, #38bdf8);
       }
 
       .ax-calib-actions {
@@ -787,17 +837,17 @@ export class CalibrationDrawer {
         letter-spacing: 0.04em;
         border-radius: var(--radius-sm, 4px);
         border: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.25));
-        background: rgba(30, 41, 59, 0.75);
-        color: var(--color-text-primary, #e2e8f0);
+        background: rgba(var(--color-panel-surface-rgb, 30, 41, 59), 0.75);
+        color: var(--color-text-main, #e2e8f0);
         cursor: pointer;
         transition: all 0.15s ease;
         white-space: nowrap;
       }
 
       .ax-calib-btn:hover {
-        border-color: var(--color-accent-primary, #38bdf8);
-        color: #ffffff;
-        background: rgba(56, 189, 248, 0.14);
+        border-color: var(--color-accent, #38bdf8);
+        color: var(--color-text-main, #ffffff);
+        background: rgba(var(--color-accent-rgb, 56, 189, 248), 0.14);
       }
 
       .ax-calib-btn-sm {
@@ -806,15 +856,15 @@ export class CalibrationDrawer {
       }
 
       .ax-calib-btn-toggle.is-active {
-        border-color: var(--color-accent-primary, #38bdf8);
-        background: rgba(56, 189, 248, 0.18);
-        color: var(--color-accent-primary, #38bdf8);
+        border-color: var(--color-accent, #38bdf8);
+        background: rgba(var(--color-accent-rgb, 56, 189, 248), 0.18);
+        color: var(--color-accent, #38bdf8);
       }
 
       .ax-calib-btn-danger:hover {
-        border-color: var(--color-status-danger, #f43f5e);
-        background: rgba(244, 63, 94, 0.16);
-        color: #fda4af;
+        border-color: var(--color-danger, #f43f5e);
+        background: rgba(var(--color-danger-rgb, 244, 63, 94), 0.16);
+        color: var(--color-danger-soft, #fda4af);
       }
 
       .ax-calib-pill-count {
@@ -822,8 +872,8 @@ export class CalibrationDrawer {
         font-size: 10px;
         padding: 1px 6px;
         border-radius: 999px;
-        background: rgba(2, 6, 23, 0.65);
-        color: var(--color-accent-primary, #38bdf8);
+        background: rgba(var(--color-bg-base-rgb, 2, 6, 23), 0.65);
+        color: var(--color-accent, #38bdf8);
       }
 
       .ax-calib-status-banner {
@@ -832,19 +882,19 @@ export class CalibrationDrawer {
         padding: 7px 12px;
         border-radius: var(--radius-sm, 4px);
         font-size: 11.5px;
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        background: rgba(56, 189, 248, 0.1);
-        color: var(--color-text-primary, #e2e8f0);
+        border: 1px solid rgba(var(--color-accent-rgb, 56, 189, 248), 0.3);
+        background: rgba(var(--color-accent-rgb, 56, 189, 248), 0.1);
+        color: var(--color-text-main, #e2e8f0);
       }
 
       .ax-calib-status-banner.is-ok {
-        border-color: rgba(16, 185, 129, 0.4);
-        background: rgba(16, 185, 129, 0.12);
+        border-color: rgba(var(--color-success-rgb, 16, 185, 129), 0.4);
+        background: rgba(var(--color-success-rgb, 16, 185, 129), 0.12);
       }
 
       .ax-calib-status-banner.is-warn {
-        border-color: rgba(245, 158, 11, 0.45);
-        background: rgba(245, 158, 11, 0.14);
+        border-color: rgba(var(--color-warning-rgb, 245, 158, 11), 0.45);
+        background: rgba(var(--color-warning-rgb, 245, 158, 11), 0.14);
       }
 
       .ax-calib-cat-tabs {
@@ -864,21 +914,21 @@ export class CalibrationDrawer {
         letter-spacing: 0.04em;
         border-radius: var(--radius-sm, 4px);
         border: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.2));
-        background: rgba(15, 23, 42, 0.6);
-        color: var(--color-text-secondary, #94a3b8);
+        background: rgba(var(--color-panel-bg-rgb, 15, 23, 42), 0.6);
+        color: var(--color-text-muted, #94a3b8);
         cursor: pointer;
         transition: all 0.15s ease;
       }
 
       .ax-calib-cat-tab:hover {
-        color: var(--color-text-primary, #f1f5f9);
-        border-color: rgba(56, 189, 248, 0.4);
+        color: var(--color-text-main, #f1f5f9);
+        border-color: rgba(var(--color-accent-rgb, 56, 189, 248), 0.4);
       }
 
       .ax-calib-cat-tab.is-active {
-        background: rgba(56, 189, 248, 0.16);
-        border-color: var(--color-accent-primary, #38bdf8);
-        color: var(--color-accent-primary, #38bdf8);
+        background: rgba(var(--color-accent-rgb, 56, 189, 248), 0.16);
+        border-color: var(--color-accent, #38bdf8);
+        color: var(--color-accent, #38bdf8);
       }
 
       .ax-calib-cat-mod-dot {
@@ -886,8 +936,8 @@ export class CalibrationDrawer {
         font-size: 9.5px;
         padding: 1px 5px;
         border-radius: 999px;
-        background: var(--color-accent-primary, #38bdf8);
-        color: #020617;
+        background: var(--color-accent, #38bdf8);
+        color: var(--color-bg-base, #020617);
         font-weight: 700;
       }
 
@@ -905,7 +955,7 @@ export class CalibrationDrawer {
 
       .ax-calib-group {
         flex-shrink: 0;
-        background: rgba(15, 23, 42, 0.45);
+        background: rgba(var(--color-panel-bg-rgb, 15, 23, 42), 0.45);
         border: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.16));
         border-radius: var(--radius-md, 6px);
       }
@@ -915,7 +965,7 @@ export class CalibrationDrawer {
         align-items: center;
         justify-content: space-between;
         padding: 9px 14px;
-        background: rgba(2, 6, 23, 0.55);
+        background: rgba(var(--color-bg-base-rgb, 2, 6, 23), 0.55);
         border-bottom: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.15));
         border-radius: var(--radius-md, 6px) var(--radius-md, 6px) 0 0;
       }
@@ -927,7 +977,7 @@ export class CalibrationDrawer {
       }
 
       .ax-calib-group-icon {
-        color: var(--color-accent-primary, #38bdf8);
+        color: var(--color-accent, #38bdf8);
         display: inline-flex;
       }
 
@@ -936,7 +986,7 @@ export class CalibrationDrawer {
         font-size: 11.5px;
         font-weight: 700;
         letter-spacing: 0.08em;
-        color: var(--color-accent-primary, #38bdf8);
+        color: var(--color-accent, #38bdf8);
       }
 
       .ax-calib-group-count {
@@ -950,9 +1000,9 @@ export class CalibrationDrawer {
         font-size: 10px;
         padding: 1px 6px;
         border-radius: var(--radius-sm, 4px);
-        background: rgba(56, 189, 248, 0.15);
-        color: var(--color-accent-primary, #38bdf8);
-        border: 1px solid rgba(56, 189, 248, 0.35);
+        background: rgba(var(--color-accent-rgb, 56, 189, 248), 0.15);
+        color: var(--color-accent, #38bdf8);
+        border: 1px solid rgba(var(--color-accent-rgb, 56, 189, 248), 0.35);
       }
 
       .ax-calib-grid {
@@ -969,7 +1019,7 @@ export class CalibrationDrawer {
         justify-content: space-between;
         gap: 10px;
         padding: 11px 13px;
-        background: rgba(2, 6, 23, 0.65);
+        background: rgba(var(--color-bg-base-rgb, 2, 6, 23), 0.65);
         border: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.14));
         border-radius: var(--radius-sm, 5px);
         transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -977,8 +1027,8 @@ export class CalibrationDrawer {
       }
 
       .ax-calib-card.is-modified {
-        border-color: rgba(56, 189, 248, 0.55);
-        box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.15);
+        border-color: rgba(var(--color-accent-rgb, 56, 189, 248), 0.55);
+        box-shadow: inset 0 0 0 1px rgba(var(--color-accent-rgb, 56, 189, 248), 0.15);
       }
 
       .ax-calib-card-top {
@@ -1004,7 +1054,7 @@ export class CalibrationDrawer {
       .ax-calib-param-label {
         font-size: 12px;
         font-weight: 700;
-        color: var(--color-text-primary, #f8fafc);
+        color: var(--color-text-main, #f8fafc);
       }
 
       .ax-calib-param-id {
@@ -1012,8 +1062,8 @@ export class CalibrationDrawer {
         font-size: 10px;
         padding: 1px 5px;
         border-radius: 3px;
-        background: rgba(30, 41, 59, 0.85);
-        color: var(--color-accent-primary, #38bdf8);
+        background: rgba(var(--color-panel-surface-rgb, 30, 41, 59), 0.85);
+        color: var(--color-accent, #38bdf8);
       }
 
       .ax-calib-param-ref {
@@ -1028,16 +1078,16 @@ export class CalibrationDrawer {
         font-weight: 700;
         padding: 1px 5px;
         border-radius: 3px;
-        background: rgba(56, 189, 248, 0.2);
-        color: var(--color-accent-primary, #38bdf8);
-        border: 1px solid rgba(56, 189, 248, 0.45);
+        background: rgba(var(--color-accent-rgb, 56, 189, 248), 0.2);
+        color: var(--color-accent, #38bdf8);
+        border: 1px solid rgba(var(--color-accent-rgb, 56, 189, 248), 0.45);
       }
 
       .ax-calib-param-desc {
         margin: 0;
         font-size: 11px;
         line-height: 1.42;
-        color: var(--color-text-secondary, #94a3b8);
+        color: var(--color-text-muted, #94a3b8);
       }
 
       .ax-calib-card-readout {
@@ -1051,7 +1101,7 @@ export class CalibrationDrawer {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        background: rgba(15, 23, 42, 0.9);
+        background: rgba(var(--color-panel-bg-rgb, 15, 23, 42), 0.9);
         border: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.25));
         border-radius: 4px;
         padding: 2px 6px;
@@ -1061,7 +1111,7 @@ export class CalibrationDrawer {
         width: 66px;
         background: transparent;
         border: none;
-        color: var(--color-accent-primary, #38bdf8);
+        color: var(--color-accent, #38bdf8);
         font-family: var(--font-mono, monospace);
         font-size: 11.5px;
         font-weight: 700;
@@ -1083,7 +1133,7 @@ export class CalibrationDrawer {
         height: 26px;
         border-radius: 4px;
         border: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.2));
-        background: rgba(30, 41, 59, 0.65);
+        background: rgba(var(--color-panel-surface-rgb, 30, 41, 59), 0.65);
         color: var(--color-text-muted, #64748b);
         cursor: pointer;
         transition: all 0.15s ease;
@@ -1091,9 +1141,9 @@ export class CalibrationDrawer {
 
       .ax-calib-btn-reset-single.is-active,
       .ax-calib-btn-reset-single:hover {
-        color: var(--color-accent-primary, #38bdf8);
-        border-color: var(--color-accent-primary, #38bdf8);
-        background: rgba(56, 189, 248, 0.15);
+        color: var(--color-accent, #38bdf8);
+        border-color: var(--color-accent, #38bdf8);
+        background: rgba(var(--color-accent-rgb, 56, 189, 248), 0.15);
       }
 
       .ax-calib-slider-area {
@@ -1114,7 +1164,7 @@ export class CalibrationDrawer {
         top: 2px;
         bottom: 2px;
         width: 2px;
-        background: rgba(248, 250, 252, 0.45);
+        background: rgba(var(--color-text-main-rgb, 248, 250, 252), 0.45);
         pointer-events: none;
         z-index: 1;
         transform: translateX(-1px);
@@ -1128,10 +1178,10 @@ export class CalibrationDrawer {
         border-radius: 999px;
         background: linear-gradient(
           90deg,
-          var(--color-accent-primary, #38bdf8) 0%,
-          var(--color-accent-primary, #38bdf8) var(--calib-fill, 50%),
-          rgba(30, 41, 59, 0.95) var(--calib-fill, 50%),
-          rgba(30, 41, 59, 0.95) 100%
+          var(--color-accent, #38bdf8) 0%,
+          var(--color-accent, #38bdf8) var(--calib-fill, 50%),
+          rgba(var(--color-panel-surface-rgb, 30, 41, 59), 0.95) var(--calib-fill, 50%),
+          rgba(var(--color-panel-surface-rgb, 30, 41, 59), 0.95) 100%
         );
         outline: none;
         cursor: pointer;
@@ -1144,9 +1194,9 @@ export class CalibrationDrawer {
         width: 14px;
         height: 14px;
         border-radius: 50%;
-        background: #f8fafc;
-        border: 2px solid var(--color-accent-primary, #38bdf8);
-        box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+        background: var(--color-text-main, #f8fafc);
+        border: 2px solid var(--color-accent, #38bdf8);
+        box-shadow: 0 0 6px rgba(var(--color-accent-rgb, 56, 189, 248), 0.6);
         cursor: ew-resize;
         position: relative;
         z-index: 2;
@@ -1162,14 +1212,14 @@ export class CalibrationDrawer {
       }
 
       .ax-calib-meta-def strong {
-        color: var(--color-text-secondary, #cbd5e1);
+        color: var(--color-text-muted, #cbd5e1);
       }
 
       .ax-calib-empty {
         flex-shrink: 0;
         padding: 36px 20px;
         text-align: center;
-        background: rgba(15, 23, 42, 0.4);
+        background: rgba(var(--color-panel-bg-rgb, 15, 23, 42), 0.4);
         border: 1px dashed var(--color-border-subtle, rgba(148, 163, 184, 0.25));
         border-radius: var(--radius-md, 6px);
       }
@@ -1177,13 +1227,13 @@ export class CalibrationDrawer {
       .ax-calib-empty-title {
         font-size: 13px;
         font-weight: 700;
-        color: var(--color-text-primary, #e2e8f0);
+        color: var(--color-text-main, #e2e8f0);
         margin-bottom: 4px;
       }
 
       .ax-calib-empty-sub {
         font-size: 11.5px;
-        color: var(--color-text-secondary, #94a3b8);
+        color: var(--color-text-muted, #94a3b8);
       }
     `;
     document.head.appendChild(style);
