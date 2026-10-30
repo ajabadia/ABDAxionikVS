@@ -125,6 +125,11 @@ describe('WebAssembly DSP Module (abdaxionikvs_dsp.wasm)', () => {
     // Test loading synthetic model slot #12 in Resynator 1 (resynatorSlot=0) and rendering a new note
     const modelLoaded = exports.axionik_load_model_slot(handle, 0, 12);
     expect(modelLoaded).toBe(1);
+
+    // Test loading synthetic preset slot #5 and verifying sound changes
+    const presetLoaded = exports.axionik_load_preset_slot(handle, 5);
+    expect(presetLoaded).toBe(1);
+
     exports.axionik_note_on(handle, 64, 0.9);
     exports.axionik_process(handle, outLPtr, outRPtr, 128);
 

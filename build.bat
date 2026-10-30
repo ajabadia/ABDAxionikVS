@@ -26,38 +26,38 @@ if %ERRORLEVEL% neq 0 (
     goto error_exit
 )
 
-echo [2/6] Ejecutando suite de tests de contratos (Vitest)...
+echo [2/6] Compilando modulo WebAssembly WASM...
+call wasm\build_wasm.bat
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Fallo en la compilacion del modulo WebAssembly.
+    goto error_exit
+)
+
+echo [3/6] Ejecutando suite de tests de contratos (Vitest)...
 call npx vitest run
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Fallaron los tests unitarios de contratos.
     goto error_exit
 )
 
-echo [3/6] Compilando bundle WebUI (Vite -> WebUI/dist/)...
+echo [4/6] Compilando bundle WebUI (Vite -> WebUI/dist/)...
 node Scripts/build_webui.js
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Fallo al empaquetar WebUI.
     goto error_exit
 )
 
-echo [4/6] Configurando CMake nativo...
+echo [5/6] Configurando CMake nativo...
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Fallo en la configuracion de CMake.
     goto error_exit
 )
 
-echo [5/6] Compilando Standalone, VST3, WebPilotHost y GoldenParityTest...
+echo [6/6] Compilando Standalone, VST3, WebPilotHost y GoldenParityTest...
 cmake --build build --config Release --target ABDAxionikVS_Standalone ABDAxionikVS_VST3 ABDAxionikVS_WebPilot GoldenParityTest --parallel
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Fallo en la compilacion de los binarios nativos.
-    goto error_exit
-)
-
-echo [6/6] Compilando modulo WebAssembly WASM...
-call wasm\build_wasm.bat
-if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Fallo en la compilacion del modulo WebAssembly.
     goto error_exit
 )
 
