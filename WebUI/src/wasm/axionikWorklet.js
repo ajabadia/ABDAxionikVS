@@ -122,6 +122,9 @@ class AxionikWorkletProcessor extends AudioWorkletProcessor {
       case 'INIT_PRESET':
         this.wasm.axionik_init_preset(h);
         break;
+      case 'LOAD_PRESET_SLOT':
+        this.wasm.axionik_load_preset_slot(h, data.slot | 0);
+        break;
       case 'LOAD_PRESET_SCRIPT': {
         const ptr = this._writeUtf8ToScratch(data.script || '');
         if (ptr) {

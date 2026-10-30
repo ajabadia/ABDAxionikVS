@@ -27,6 +27,7 @@ import { createBankShell } from '@abdsynths/shared/components/bank/bankShell.js'
 import { bankCardHtml, bindBankCards } from '@abdsynths/shared/components/bank/bankCard.js';
 import { bankChipsHtml, bindBankChips, type BankChipItem } from '@abdsynths/shared/components/bank/bankChips.js';
 import { getPresetCategoryInfo } from './presetCategories.js';
+import { t, onLocaleChange } from '../i18n/index.js';
 
 export { getPresetCategoryInfo };
 
@@ -119,28 +120,33 @@ export class BankDrawer {
   private selectedCategory: number | 'all' = 'all';
   private selectedPresetCategory: string = 'all';
   private filterQuery: string = '';
+  private unsubLocale: (() => void) | null = null;
 
   constructor(drawerManager: DrawerManager, handlers: BankDrawerHandlers) {
     this.drawerManager = drawerManager;
     this.handlers = handlers;
     this.init();
     this.restoreFromLocalStorage();
+
+    this.unsubLocale = onLocaleChange(() => {
+      this.refreshI18n();
+    });
   }
 
   private init(): void {
     this.shell = createBankShell({
-      title: 'NEURONDB BANK BROWSER',
-      badge: '0 ITEMS',
+      title: t('bank.drawerTitle'),
+      badge: t('bank.itemsCount', { count: 0 }),
       tabs: [
-        { id: 'models', label: 'MODELS (000..511)', iconHtml: ICONS.database },
-        { id: 'presets', label: 'SOUND PRESETS', iconHtml: ICONS.sliders },
+        { id: 'models', label: t('bank.modelsTab'), iconHtml: ICONS.database },
+        { id: 'presets', label: t('bank.presetsTab'), iconHtml: ICONS.sliders },
       ],
       activeTab: this.activeTab,
-      searchPlaceholder: 'Search models or presets by name, slot (#000), set...',
+      searchPlaceholder: t('bank.searchPlaceholder'),
       headerActions: [
-        { id: 'refresh', label: 'Refresh', title: 'Refresh & Re-index Library Metadata', iconHtml: ICONS.refresh },
-        { id: 'folder', label: 'Folder', title: 'Configure NeuronDB Library Folder', iconHtml: ICONS.folder },
-        { id: 'close', label: 'Close', title: 'Close Drawer (Esc)', iconHtml: ICONS.close },
+        { id: 'refresh', label: t('bank.refreshBtn'), title: t('bank.refreshTitle'), iconHtml: ICONS.refresh },
+        { id: 'folder', label: t('bank.folderBtn'), title: t('bank.folderTitle'), iconHtml: ICONS.folder },
+        { id: 'close', label: t('bank.closeBtn'), title: t('bank.closeTitle'), iconHtml: ICONS.close },
       ],
       // No footer actions: the header already serves Refresh/Folder/Close.
       // The footer keeps the slot + status line (folder summary, refresh
@@ -535,17 +541,17 @@ export class BankDrawer {
           <span class="ndb-choice-modal-title">ASSIGN MODEL #${String(slot).padStart(3, '0')}</span>
         </div>
         <div class="ndb-choice-modal-name">${modelName}</div>
-        <div class="ndb-choice-modal-desc">Choose which Resynator to load this model into:</div>
+        <div class="ndb-choice-modal-desc">${t('bank.loadModelR1')} / ${t('bank.loadModelR2')}:</div>
         <div class="ndb-choice-modal-actions">
           <button type="button" class="btn btn-sm btn-primary" id="btn-modal-choose-r1">
-            → Load to Resynator 1 (R1)
+            → ${t('bank.loadModelR1')}
           </button>
           <button type="button" class="btn btn-sm btn-secondary" id="btn-modal-choose-r2">
-            → Load to Resynator 2 (R2)
+            → ${t('bank.loadModelR2')}
           </button>
         </div>
         <div class="ndb-choice-modal-footer">
-          <button type="button" class="btn btn-xs btn-outline" id="btn-modal-choose-cancel">Cancel</button>
+          <button type="button" class="btn btn-xs btn-outline" id="btn-modal-choose-cancel">${t('common.cancel')}</button>
         </div>
       </div>
     `;
@@ -657,10 +663,10 @@ export class BankDrawer {
 
     const btnLabel =
       this.callerContext === 'r1'
-        ? 'Load to R1'
+        ? t('bank.loadModelR1')
         : this.callerContext === 'r2'
-        ? 'Load to R2'
-        : 'Load';
+        ? t('bank.loadModelR2')
+        : t('common.load');
 
     const grid = document.createElement('div');
     grid.className = 'ndb-grid';
@@ -788,7 +794,7 @@ export class BankDrawer {
           iconHtml: catInfo.icon,
           badges: [r1Label, r2Label],
           actions: [
-            { id: 'load-preset', label: 'Load Sound', title: `Load Sound Preset #${p.slot}` },
+            { id: 'load-preset', label: t('bank.loadPreset'), title: `${t('bank.loadPreset')} #${p.slot}` },
           ],
         });
       })
@@ -1319,6 +1325,10 @@ export class BankDrawer {
   }
 
   public destroy(): void {
+    if (this.unsubLocale) {
+      this.unsubLocale();
+      this.unsubLocale = null;
+    }
     if (this.drawerManager.getCurrentDrawerId() === 'bank') {
       this.drawerManager.close();
     }
@@ -1326,5 +1336,28 @@ export class BankDrawer {
     this.cardUnbind = null;
     this.shell.destroy();
     this.drawerElement = null;
+  }
+
+  public refreshI18n(): void {
+    if (!this.drawerElement) return;
+
+    this.shell.setTitle(t('bank.drawerTitle'));
+    this.shell.setSearchPlaceholder(t('bank.searchPlaceholder'));
+    this.shell.setTabLabels({
+      models: t('bank.modelsTab'),
+      presets: t('bank.presetsTab'),
+    });
+    this.shell.setHeaderActionTitle('refresh', t('bank.refreshTitle'));
+    this.shell.setHeaderActionTitle('folder', t('bank.folderTitle'));
+    this.shell.setHeaderActionTitle('close', t('bank.closeTitle'));
+
+    this.renderCategoryChips();
+    this.updateTargetRowUI();
+
+    if (this.activeTab === 'models') {
+      this.renderModels();
+    } else {
+      this.renderPresets();
+    }
   }
 }

@@ -43,7 +43,7 @@ import {
 } from './ui/NeuronCatalogMetadata.js';
 import { setupKeyboardShortcuts } from './app/keyboardShortcuts.js';
 import { ThemeManager } from './utils/themeManager.js';
-import { initI18n, applyI18n } from './i18n/index.js';
+import { initI18n, applyI18n, onLocaleChange } from './i18n/index.js';
 import { handleParamUpdate, type ParamUpdateCtx } from './app/paramUpdate.js';
 import {
   createMidiLearnStore,
@@ -320,6 +320,29 @@ const bootstrapAxionikApp = async () => {
     });
     drawerManager.openCustom('settings-expanded', content);
   };
+
+  // Re-render open drawers reactively on language change without closing them
+  onLocaleChange(() => {
+    const curId = drawerManager.getCurrentDrawerId();
+    if (!curId) return;
+    if (curId === 'settings-expanded') {
+      openSettingsDrawer();
+    } else if (curId === 'r1-expanded') {
+      openR1Drawer();
+    } else if (curId === 'r2-expanded') {
+      openR2Drawer();
+    } else if (curId === 'effects-rack') {
+      openEffectsDrawer();
+    } else if (curId === 'blender-expanded') {
+      openBlenderDrawer();
+    } else if (curId === 'matrix-expanded') {
+      openMatrixDrawer();
+    } else if (curId === 'envelope-expanded') {
+      openEnvelopeDrawer();
+    } else if (curId === 'midi-learn-matrix') {
+      openMidiLearnDrawer();
+    }
+  });
 
   // 4b. Sistema canónico N:M de MIDI Learn & CC/NRPN Mapping Matrix (ABDShared)
   const midiLearnParameters = PARAM_DEFINITIONS.map((p) => ({

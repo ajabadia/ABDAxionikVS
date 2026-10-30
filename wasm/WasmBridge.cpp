@@ -149,6 +149,13 @@ WASM_EXPORT void axionik_init_preset(void* handle) {
     }
 }
 
+WASM_EXPORT int axionik_load_preset_slot(void* handle, int slot) {
+    if (auto* engine = static_cast<abd::axionik::DspEngineFacade*>(handle)) {
+        return engine->loadPresetBySlot(slot) ? 1 : 0;
+    }
+    return 0;
+}
+
 WASM_EXPORT int axionik_load_preset_script(void* handle, const char* scriptText) {
     if (auto* engine = static_cast<abd::axionik::DspEngineFacade*>(handle)) {
         if (scriptText) {

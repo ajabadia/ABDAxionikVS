@@ -31,6 +31,7 @@ export { resolveParamIndexFromModDest };
 import { MODEL_METADATA, getCanonicalModelName } from './NeuronCatalogMetadata.js';
 import { Knob } from '@abdsynths/shared/components';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
+import { onLocaleChange } from '../i18n/index.js';
 
 export type NukeStickEngine = 'r1' | 'r2' | 'silver';
 export type NukeStickDomain = 'sphere' | 'scape';
@@ -105,6 +106,12 @@ export class NukeDrawer {
     this.parent.appendChild(this.panelEl);
 
     this.render();
+
+    onLocaleChange(() => {
+      if (this.openState) {
+        this.render();
+      }
+    });
   }
 
   public isOpen(): boolean {
