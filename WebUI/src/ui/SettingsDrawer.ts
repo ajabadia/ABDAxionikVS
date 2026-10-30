@@ -198,32 +198,41 @@ export class SettingsDrawer {
       }
     });
 
-    bindPillSelector(root, '#settings-lang-chips', (val) => {
-      if (val === 'en' || val === 'es') {
-        setLocale(val as Locale);
-        // Refresh this drawer content in place
-        const updated = SettingsDrawer.createContent(options);
-        root.replaceWith(updated);
-      }
-    });
+    const langContainer = root.querySelector('#settings-lang-chips') as HTMLElement | null;
+    if (langContainer) {
+      bindPillSelector(langContainer, (val) => {
+        if (val === 'en' || val === 'es') {
+          setLocale(val as Locale);
+        }
+      }, 'data-lang');
+    }
 
-    bindPillSelector(root, '#settings-theme-chips', (val) => {
-      options.onSelectTheme(val);
-    });
+    const themeContainer = root.querySelector('#settings-theme-chips') as HTMLElement | null;
+    if (themeContainer) {
+      bindPillSelector(themeContainer, (val) => {
+        options.onSelectTheme(val);
+      }, 'data-theme');
+    }
 
-    bindPillSelector(root, '#settings-zoom-chips', (val) => {
-      const zoomVal = parseFloat(val);
-      if (!isNaN(zoomVal)) {
-        options.onZoom(zoomVal);
-      }
-    });
+    const zoomContainer = root.querySelector('#settings-zoom-chips') as HTMLElement | null;
+    if (zoomContainer) {
+      bindPillSelector(zoomContainer, (val) => {
+        const zoomVal = parseFloat(val);
+        if (!isNaN(zoomVal)) {
+          options.onZoom(zoomVal);
+        }
+      }, 'data-zoom');
+    }
 
-    bindPillSelector(root, '#settings-footswitch-chips', (val) => {
-      const dest = parseInt(val, 10);
-      if (!isNaN(dest)) {
-        WebBridge.setParam(ParamIdx.FootSwitchDest, dest);
-      }
-    });
+    const footswitchContainer = root.querySelector('#settings-footswitch-chips') as HTMLElement | null;
+    if (footswitchContainer) {
+      bindPillSelector(footswitchContainer, (val) => {
+        const dest = parseInt(val, 10);
+        if (!isNaN(dest)) {
+          WebBridge.setParam(ParamIdx.FootSwitchDest, dest);
+        }
+      }, 'data-dest');
+    }
 
     setTimeout(() => {
       const voicesMount = root.querySelector('#settings-voices-m') as HTMLElement | null;
