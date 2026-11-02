@@ -459,6 +459,7 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
 2. **Mapa 2D Libre «Lego» (`ExtendedRegion`)** ([`types.ts`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/src/core/types.ts), [`extendedAdapter.ts`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/src/core/extendedAdapter.ts)): $N$ capas de velocidad, rangos asimétricos `Key × Velocity`, crossfades (`linear`, `equal-power`, `spectral-morph`), `pitchKeytrack` `0..100 %`, `trigger` (`attack`, `release`, `first`, `legato`), *Round-Robin* y Zona Común + overrides por región.
 3. **Loops de 6 Modos** ([`LoopEditorTools.ts`](file:///d:/desarrollos/ABDSynths/ABDNeuModMakr/src/core/dsp/LoopEditorTools.ts)): `no_loop`, `loop_continuous`, `loop_sustain`, `ping_pong`, `loop_backward`, `one_shot` con `loopCrossfadeMs`.
 4. **Articulación DAHDSR (6 etapas), Filtro y LFO** con mapeo seguro a `sound.script` (`mapArticulationToSoundOverrides`, profundidades a `Scape`/`Sphere`/`Blender` forzadas a `0`), importadores `.sf2` / `.sfz`, clasificador acústico (`cat-0..cat-9` + `Parameter Set 0..9`) y portada `cover.webp` `512×512`.
+5. **Contrato versionado del modelo expanded (`axionikExpandedModel` v2.0.0, SSOT en `ABDShared`)** ([`Contracts/axionikExpandedModel.ts`](file:///d:/desarrollos/ABDSynths/ABDShared/Contracts/axionikExpandedModel.ts)): tipos + JSON Schema espejo (`axionik_expanded_model.schema.json`) con guarda `isAxionikExpandedModel` y descubrimiento por capacidades (`identity.requiredCaps` + `meetsEngineCaps`). Fija lo que el v1 no podia portar: `partialCount`/`frameCount` como datos (espectral HD), separacion formante/pitch persistida, `morphSpace` + `latentRef`, filtros/`fxChain`/`resynators` namespaced v2, y `engineMin` + `requiredCaps` por documento. `ABDNeuModMakr` ya lo escribe y pre-vuela (Fase 11.5: `src/core/expandedModelWriter.ts` + `tests/phase11_expanded_model.test.ts`); la Fase B lo consumira. El preflight tambien correra hacia Axionik: adaptar o bloquear con aviso, nunca corromper en silencio.
 
 #### Puente Inmediato con el Modo Clásico (permitido antes de descongelar la Fase B)
 - La capa `04_classic_enhanced/` (y las rutas `Models/<NNN>.model/` + `Sounds/<NNN>.sound/` del ZIP) ya es 100 % compatible con el motor clásico actual: regiones 2D proyectadas a columnas `0..127`, compensación de ganancia entre velocidades sobre `.scape`/`.sphere` (`10^(ΔdB/20)`), análisis `Enhanced DSP` (HPSS) y `sound.script` limpio.
@@ -655,3 +656,18 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
 - **Pipeline de Compilación Reordenado ([`build.bat`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/build.bat))**:
   - Reordenamiento del ciclo de compilación: la fase `[2/6] WASM` se ejecuta antes del bundling de la WebUI (`[4/6]`).
   - Copia sincronizada y automática de binarios generados (`axionik.wasm`, `axionik.js`) a `WebUI/dist/` en cada ejecución, garantizando que el entorno web y los tests de navegador siempre ejecuten la última versión compilada del DSP C++.
+
+---
+
+### Fase J — Exportación Canónica al Diccionario de Datos Común (`ABDShared` v2.0) e Integración Rompler/Sampler [PLANIFICADA]
+> **Especificación y Guía de Integración Canónica en `ABDShared`:**
+> - [`ABDShared/Docs/specs/COMMON_DATA_DICTIONARY_AND_INTEGRATION.md`](file:///d:/desarrollos/ABDSynths/ABDShared/Docs/specs/COMMON_DATA_DICTIONARY_AND_INTEGRATION.md)
+> - [`ABDShared/Contracts/parameter_dictionary.schema.json`](file:///d:/desarrollos/ABDSynths/ABDShared/Contracts/parameter_dictionary.schema.json)
+> - [`ABDShared/Contracts/sampler_voice_parameter_spec.json`](file:///d:/desarrollos/ABDSynths/ABDShared/Contracts/sampler_voice_parameter_spec.json)
+
+- **Objetivos**:
+  - [ ] **J.1 — Publicar `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` (`v2.0.0`)**:
+    - Extender `Scripts/registry_generator.js` para emitir automáticamente los **445 parámetros** de `schemas/preset_schema.csv` y `Source/State/ParameterEngineBridge.h` hacia `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` validado contra `parameter_dictionary.schema.json` v2.0.
+    - Declarar `"topology": "multi_part"` (`Resynator 1`, `Resynator 2`, `Blender`, `Silver`, `Shapers`, `FreeControllers`, `MasterFX`), `"curve": "SymBipolar"` con `"wireZeroCenter": 0` para los rangos asimétricos `[-64..+63]` de `remap(v, -64, 63, -1.0, +1.0)`, direccionamiento NRPN (`nrpnMsb = index >> 7`, `nrpnLsb = index & 0x7F`), `"modDestId"` (`0..62` enlazado con `neuronik_modulation_matrix.json`) y `"semanticRole"`.
+  - [ ] **J.2 — Consumo del Diccionario Canónico de Sampler (`sampler_voice_parameter_spec.json`) en Modo Rompler / Importación Multisample**:
+    - Conectar la importación de zonas/multisamples y el modo Rompler de Fase B con los `semanticRole` de `ABDShared/Contracts/sampler_voice_parameter_spec.json` (`zone.key.root`, `zone.key.low`, `zone.key.high`, `zone.vel.low`, `zone.vel.high`, `loop.mode`, `loop.startFrame`, `loop.endFrame`, `env.amp.*`, `filter.*`), garantizando compatibilidad directa con `ABDNeuModMakr`.
