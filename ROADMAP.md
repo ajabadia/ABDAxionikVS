@@ -662,15 +662,45 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
 
 ---
 
-### Fase J — Exportación Canónica al Diccionario de Datos Común (`ABDShared` v2.0) e Integración Rompler/Sampler [PLANIFICADA]
+### Fase J — Exportación Canónica al Diccionario de Datos Común (`ABDShared` v2.0) e Integración Rompler/Sampler [COMPLETADA]
 > **Especificación y Guía de Integración Canónica en `ABDShared`:**
 > - [`ABDShared/Docs/specs/COMMON_DATA_DICTIONARY_AND_INTEGRATION.md`](file:///d:/desarrollos/ABDSynths/ABDShared/Docs/specs/COMMON_DATA_DICTIONARY_AND_INTEGRATION.md)
 > - [`ABDShared/Contracts/parameter_dictionary.schema.json`](file:///d:/desarrollos/ABDSynths/ABDShared/Contracts/parameter_dictionary.schema.json)
 > - [`ABDShared/Contracts/sampler_voice_parameter_spec.json`](file:///d:/desarrollos/ABDSynths/ABDShared/Contracts/sampler_voice_parameter_spec.json)
 
-- **Objetivos**:
-  - [ ] **J.1 — Publicar `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` (`v2.0.0`)**:
-    - Extender `Scripts/registry_generator.js` para emitir automáticamente los **445 parámetros** de `schemas/preset_schema.csv` y `Source/State/ParameterEngineBridge.h` hacia `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` validado contra `parameter_dictionary.schema.json` v2.0.
-    - Declarar `"topology": "multi_part"` (`Resynator 1`, `Resynator 2`, `Blender`, `Silver`, `Shapers`, `FreeControllers`, `MasterFX`), `"curve": "SymBipolar"` con `"wireZeroCenter": 0` para los rangos asimétricos `[-64..+63]` de `remap(v, -64, 63, -1.0, +1.0)`, direccionamiento NRPN (`nrpnMsb = index >> 7`, `nrpnLsb = index & 0x7F`), `"modDestId"` (`0..62` enlazado con `neuronik_modulation_matrix.json`) y `"semanticRole"`.
-  - [ ] **J.2 — Consumo del Diccionario Canónico de Sampler (`sampler_voice_parameter_spec.json`) en Modo Rompler / Importación Multisample**:
-    - Conectar la importación de zonas/multisamples y el modo Rompler de Fase B con los `semanticRole` de `ABDShared/Contracts/sampler_voice_parameter_spec.json` (`zone.key.root`, `zone.key.low`, `zone.key.high`, `zone.vel.low`, `zone.vel.high`, `loop.mode`, `loop.startFrame`, `loop.endFrame`, `env.amp.*`, `filter.*`), garantizando compatibilidad directa con `ABDNeuModMakr`.
+- **Objetivos Cumplidos**:
+  - [x] **J.1 — Publicar `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` (`v2.0.0`)**:
+    - `Scripts/registry_generator.js` ampliado con el 7º artefacto canónico `shared_spec`, emitiendo los **445 parámetros** hacia `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` validado al 100 % contra `parameter_dictionary.schema.json` v2.0.
+    - Soporte completo de `"topology": "multi_part"` (7 partes: `r1`, `r2`, `blender`, `silver`, `shapers`, `controllers`, `master_fx`), `"curve": "SymBipolar"` con `"wireZeroCenter": 0` para los 176 parámetros `[-64..+63]`, direccionamiento NRPN (`nrpnMsb = index >> 7`, `nrpnLsb = index & 0x7F`), 63 `"modDestId"` (`0..62`), 11 direct MIDI CC, 26 VST `binaryPacking` y 48 parámetros con `"semanticRole"` transversal.
+  - [x] **J.2 — Consumo del Diccionario Canónico de Sampler (`sampler_voice_parameter_spec.json`) en Modo Rompler / Importación Multisample**:
+    - Conexión de `AxionikExpandedModel.h` y `AxionikExpandedSynthesizer.h` con el esquema canónico de zonas/multisamples de `ABDShared` (`zone.key.root`, `zone.key.low`, `zone.key.high`, `zone.vel.low`, `zone.vel.high`, `loop.mode`, `loop.startFrame`, `loop.endFrame`, `env.amp.*`, `filter.*`), verificado mediante pruebas unitarias en `ABDShared/tests/axionikExpandedModel.test.js`.
+
+---
+
+### Fase K — Mapeo de Controladores Semánticos, Automatización VST3 y Roundtrip Rompler E2E [PLANIFICADA]
+> [!IMPORTANT]
+> **Plan de delegación / ejecución para agente o sesión LLM:**
+> Consumir los metadatos canónicos de `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` y `sampler_voice_parameter_spec.json` v2.0 en el host C++ (`ABDAxionikVS`) y su puente WebUI.
+
+#### K.1 — Mapeo de Controladores y Automatización en el Plugin C++ mediante `semanticRole`
+- **Contexto y SSOT**:
+  `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` define 48 parámetros con `semanticRole` explícito (`MasterVolume`, `MasterPan`, `FilterCutoff`, `FilterResonance`, `AmpEnvAttack`, `AmpEnvDecay`, `AmpEnvSustain`, `AmpEnvRelease`, etc.) y rangos normalizados/bipolares unificados.
+- **Tareas Concretas**:
+  1. **Generación / Exposición de Parámetros VST3 con Metadatos Semánticos**:
+     - Actualizar [`Source/PluginProcessor.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginProcessor.cpp) para registrar o enriquecer los parámetros expuestos al DAW asignando las categorías y atributos semánticos de JUCE (`AudioProcessorParameter::category`, `isMetaParameter`, etc.) a partir de la tabla canónica generada.
+  2. **Enlace Semántico en `MidiLearnManager` (`ABDShared`)**:
+     - Asegurar que `MidiLearnManager.h` y `midiLearnStore.js` puedan resolver destinos no solo por `paramIndex` numérico directo (`0..444`), sino por `semanticRole` transversal (p. ej. mapear una perilla física de filtro global a cualquier sintetizador de la suite ABDSynths que declare `FilterCutoff`).
+  3. **Verificación de Curva `SymBipolar` en Automatización y MIDI Learn**:
+     - Comprobar que los parámetros con `SymBipolar` y `wireZeroCenter: 0` (`-64..+63`) transmitan el punto muerto central exacto (`0.0` normalizado -> `0` en dominio del sinte) en los mensajes de automatización VST3 y gestores de envolvente del DAW.
+
+#### K.2 — Pruebas de Roundtrip Rompler E2E: Importación de Multisamples y Banco Cruzado
+- **Contexto y SSOT**:
+  `AxionikExpandedModel.h` modela `axionik-expanded.json` y soporta capas multisample y zonas generadas desde `ABDNeuModMakr` (`05_extended_model/`).
+- **Tareas Concretas**:
+  1. **Test E2E de Carga Multisample en Motor C++**:
+     - Crear una suite CTest en `Source/Tests/` o test TypeScript en `tests/expanded_sampler_roundtrip.test.ts` que tome un instrumento exportado por `ABDNeuModMakr` (multisample con zonas divididas por nota/velocidad y loops calculados por `computeBatchAutoLoopForZones`).
+     - Verificar que `AxionikExpandedSynthesizer` o `NeuronBankAdapter` cargue y asigne correctamente las zonas basándose en las claves canónicas de `sampler_voice_parameter_spec.json`.
+  2. **Verificación de Modulación Cruzada y Reproducción en Tiempo Real**:
+     - Probar disparos NoteOn/NoteOff con distintas velocidades comprobando la selección correcta de zona (`key.low..key.high`, `vel.low..vel.high`) y la aplicación de los parámetros de filtro/envolvente vinculados a cada zona.
+
+---
