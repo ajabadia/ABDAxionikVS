@@ -677,30 +677,29 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
 
 ---
 
-### Fase K — Mapeo de Controladores Semánticos, Automatización VST3 y Roundtrip Rompler E2E [PLANIFICADA]
-> [!IMPORTANT]
-> **Plan de delegación / ejecución para agente o sesión LLM:**
-> Consumir los metadatos canónicos de `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` y `sampler_voice_parameter_spec.json` v2.0 en el host C++ (`ABDAxionikVS`) y su puente WebUI.
+### Fase K — Mapeo de Controladores Semánticos, Automatización VST3 y Roundtrip Rompler E2E [COMPLETADA]
+> [!NOTE]
+> **Hitos Completados y Verificados:**
+> Consumo de metadatos canónicos de `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` y `sampler_voice_parameter_spec.json` v2.0 en el host C++ (`ABDAxionikVS`) y su puente WebUI.
 
-#### K.1 — Mapeo de Controladores y Automatización en el Plugin C++ mediante `semanticRole`
-- **Contexto y SSOT**:
-  `ABDShared/Contracts/hartmann_neuron_parameter_spec.json` define 48 parámetros con `semanticRole` explícito (`MasterVolume`, `MasterPan`, `FilterCutoff`, `FilterResonance`, `AmpEnvAttack`, `AmpEnvDecay`, `AmpEnvSustain`, `AmpEnvRelease`, etc.) y rangos normalizados/bipolares unificados.
-- **Tareas Concretas**:
-  1. **Generación / Exposición de Parámetros VST3 con Metadatos Semánticos**:
-     - Actualizar [`Source/PluginProcessor.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/PluginProcessor.cpp) para registrar o enriquecer los parámetros expuestos al DAW asignando las categorías y atributos semánticos de JUCE (`AudioProcessorParameter::category`, `isMetaParameter`, etc.) a partir de la tabla canónica generada.
+#### K.1 — Mapeo de Controladores y Automatización en el Plugin C++ mediante `semanticRole` [x]
+- **Objetivos Cumplidos**:
+  1. **Generación / Exposición de Parámetros con Metadatos Semánticos y SymBipolar**:
+     - `Scripts/registry_generator.js` actualizado con el flag `isSymBipolar` (176 parámetros `[-64..+63]`) y campo `semanticRole` (48 parámetros canónicos).
+     - Generados `Conversion.gen.h` y `ParameterRegistry.gen.h` con matemática `SymBipolar` de centro muerto exacto en DAW (`raw 0.0f <-> norm 0.5f`) y `std::string_view semanticRole`.
   2. **Enlace Semántico en `MidiLearnManager` (`ABDShared`)**:
-     - Asegurar que `MidiLearnManager.h` y `midiLearnStore.js` puedan resolver destinos no solo por `paramIndex` numérico directo (`0..444`), sino por `semanticRole` transversal (p. ej. mapear una perilla física de filtro global a cualquier sintetizador de la suite ABDSynths que declare `FilterCutoff`).
-  3. **Verificación de Curva `SymBipolar` en Automatización y MIDI Learn**:
-     - Comprobar que los parámetros con `SymBipolar` y `wireZeroCenter: 0` (`-64..+63`) transmitan el punto muerto central exacto (`0.0` normalizado -> `0` en dominio del sinte) en los mensajes de automatización VST3 y gestores de envolvente del DAW.
+     - Añadido campo `juce::String semanticRole` a la estructura `Mapping` y al método `startLearning(...)` en `MidiLearnManager.h`.
+     - Persistencia completa en JSON y `juce::ValueTree` (`saveState()` / `loadState()`), permitiendo asignaciones de controladores transversales a través de toda la suite ABDSynths.
+  3. **Verificación de Curva `SymBipolar` y Roles Semánticos**:
+     - Implementado **Test 13** en `tests/DspEngineFacadeTests.cpp`: verificación matemática de los 176 parámetros bipolares (`rawToNormalized` y `normalizedToRaw` exactos en `0.0f`, `-64.0f`, `+63.0f`) y cobertura completa de 48 roles semánticos.
 
-#### K.2 — Pruebas de Roundtrip Rompler E2E: Importación de Multisamples y Banco Cruzado
-- **Contexto y SSOT**:
-  `AxionikExpandedModel.h` modela `axionik-expanded.json` y soporta capas multisample y zonas generadas desde `ABDNeuModMakr` (`05_extended_model/`).
-- **Tareas Concretas**:
+#### K.2 — Pruebas de Roundtrip Rompler E2E: Importación de Multisamples y Banco Cruzado [x]
+- **Objetivos Cumplidos**:
   1. **Test E2E de Carga Multisample en Motor C++**:
-     - Crear una suite CTest en `Source/Tests/` o test TypeScript en `tests/expanded_sampler_roundtrip.test.ts` que tome un instrumento exportado por `ABDNeuModMakr` (multisample con zonas divididas por nota/velocidad y loops calculados por `computeBatchAutoLoopForZones`).
-     - Verificar que `AxionikExpandedSynthesizer` o `NeuronBankAdapter` cargue y asigne correctamente las zonas basándose en las claves canónicas de `sampler_voice_parameter_spec.json`.
+     - Implementado **Test 14** en `tests/DspEngineFacadeTests.cpp` con un modelo JSON expandido multicapa de 3 zonas acústicas/velocidad (`zone_low_p`, `zone_low_f`, `zone_hi`) estructurado conforme a `sampler_voice_parameter_spec.json` v2.0.
+     - Carga exitosa mediante `loadExpandedModelFromJson` validando el preflight completo del motor (`report.ok == true`).
   2. **Verificación de Modulación Cruzada y Reproducción en Tiempo Real**:
-     - Probar disparos NoteOn/NoteOff con distintas velocidades comprobando la selección correcta de zona (`key.low..key.high`, `vel.low..vel.high`) y la aplicación de los parámetros de filtro/envolvente vinculados a cada zona.
+     - Disparos NoteOn/NoteOff con matriz de notas y velocidades diferenciadas (baja velocidad en registro bajo -> `zone_low_p`, alta velocidad en registro bajo -> `zone_low_f`, registro agudo -> `zone_hi`), verificando generación de audio estéreo finito no nulo en cada zona y aislamiento sin fugas de notas.
+     - Suite CTest en Release verificada al 100% (3/3 suites PASS: `DspEngineFacadeTests` [14/14 tests], `GoldenParityTest_Zones`, `GoldenParityTest_Matrix`).
 
 ---

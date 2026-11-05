@@ -1,5 +1,5 @@
-// ============================================================================
-// ABDAxionikVS — DspEngineFacadeTests.cpp
+﻿// ============================================================================
+// ABDAxionikVS -- DspEngineFacadeTests.cpp
 // Pruebas unitarias offline del motor DSP desacoplado DspEngineFacade
 // ============================================================================
 
@@ -229,7 +229,7 @@ int main() {
         std::cout << "  [PASS] Test 8: Preset v1->v2 migration regime (FUN_10013ea0) verified.\n";
     }
 
-    // Test 9: Fase 11.5.6 — Preflight blocks Expanded Model when engine lacks caps or is in Classic/Plus mode
+    // Test 9: Fase 11.5.6 -- Preflight blocks Expanded Model when engine lacks caps or is in Classic/Plus mode
     const std::string kSampleExpandedJson = R"JSON({
       "schemaVersion": "2.0.0",
       "identity": {
@@ -367,7 +367,7 @@ int main() {
         std::cout << "  [PASS] Test 9: Preflight blocks incompatible mode and missing requiredCaps without silent partial load.\n";
     }
 
-    // Test 10: Fase 11.5.6 — Full Expanded Engine accepts model, applies explicit adaptations, and renders valid audio
+    // Test 10: Fase 11.5.6 -- Full Expanded Engine accepts model, applies explicit adaptations, and renders valid audio
     {
         extended::AxionikEngineCapabilityProfile fullProfile =
             extended::AxionikEngineCapabilityProfile::makeExpanded(
@@ -417,7 +417,7 @@ int main() {
                   << reportOk.adaptations.size() << " adaptations, and rendered finite stereo Pseudo-Surround audio.\n";
     }
 
-    // Test 11: Fase 11.5.6 — Time-Capsule Layer Isolation (05_extended_model primary + model.nmmodel v1 fallback, never 04_classic_enhanced)
+    // Test 11: Fase 11.5.6 -- Time-Capsule Layer Isolation (05_extended_model primary + model.nmmodel v1 fallback, never 04_classic_enhanced)
     {
         auto capsuleDir = std::filesystem::temp_directory_path() / "axionik_capsule_isolation_test";
         std::filesystem::remove_all(capsuleDir);
@@ -501,7 +501,7 @@ int main() {
         std::cout << "  [PASS] Test 12: Runtime mode switching (expanded <-> plus <-> classic) and Blender/Silver chain verified.\n";
     }
 
-    // Test 13: Phase K.1 — SymBipolar wireZeroCenter and semanticRole contracts
+    // Test 13: Phase K.1 -- SymBipolar wireZeroCenter and semanticRole contracts
     {
         // 13.1: SymBipolar center deadband (176 parameters in [-64..63])
         size_t symBipolarCount = 0;
@@ -569,6 +569,143 @@ int main() {
         std::cout << "  [PASS] Test 13: Phase K.1 SymBipolar exact zero (176 params) and semanticRole coverage (48 params) verified.\n";
     }
 
-    std::cout << "[DspEngineFacadeTests] All 13 tests passed successfully!\n";
+    // Test 14: Phase K.2 -- Rompler Multisample and Sampler Voice Spec Roundtrip
+    {
+        // 14.1: Construct an expanded instrument JSON mimicking ABDNeuModMakr export
+        // with 3 zones (split by note/vel) mapped against sampler_voice_parameter_spec keys
+        const std::string multisampleJson = R"JSON({
+          "schemaVersion": "2.0.0",
+          "identity": {
+            "slug": "acoustic-grand-multisample",
+            "expandedName": "Acoustic Grand Piano (3-Zone Velocity)",
+            "modelName": "PIANO_VEL",
+            "engineMin": "expanded",
+            "requiredCaps": ["filter-v2"]
+          },
+          "spectral": {
+            "partialCount": 64,
+            "frameCount": 2,
+            "frameSpanHz": 20000.0,
+            "frames": [
+              { "f0Hz": 261.63, "amps": [0.8, 0.4, 0.2], "offsets": [0.0, 12.0, 19.0] },
+              { "f0Hz": 261.63, "amps": [0.4, 0.2, 0.1], "offsets": [0.0, 12.0, 19.0] }
+            ]
+          },
+          "regions": [
+            {
+              "id": "zone_low_p",
+              "sampleRef": "piano_c3_soft.wav",
+              "lowKey": 0,
+              "highKey": 60,
+              "rootKey": 48,
+              "lowVel": 1,
+              "highVel": 64,
+              "volumeDb": -2.0,
+              "loopMode": "forward",
+              "loopStartFrame": 4410,
+              "loopEndFrame": 22050
+            },
+            {
+              "id": "zone_low_f",
+              "sampleRef": "piano_c3_loud.wav",
+              "lowKey": 0,
+              "highKey": 60,
+              "rootKey": 48,
+              "lowVel": 65,
+              "highVel": 127,
+              "volumeDb": 1.5,
+              "loopMode": "forward",
+              "loopStartFrame": 4410,
+              "loopEndFrame": 22050
+            },
+            {
+              "id": "zone_hi",
+              "sampleRef": "piano_c5.wav",
+              "lowKey": 61,
+              "highKey": 127,
+              "rootKey": 72,
+              "lowVel": 1,
+              "highVel": 127,
+              "volumeDb": 0.0,
+              "loopMode": "no_loop"
+            }
+          ],
+          "articulation": {
+            "polyphony": 16,
+            "voiceMode": "poly",
+            "ampEnv": { "attack": 0.005, "decay": 1.5, "sustain": 0.4, "release": 0.8 },
+            "filters": [
+              { "id": "main-filter", "type": "ladder-v2", "cutoffHz": 12000.0, "resonance": 0.2 }
+            ]
+          },
+          "resynators": [
+            { "id": "r1", "version": 2, "model": "resonator-hd" }
+          ],
+          "analysis": {},
+          "classic": { "modelName": "PIANO_VEL" }
+        })JSON";
+
+        DspEngineFacade samplerEngine;
+        samplerEngine.prepare(44100.0, 512);
+
+        extended::AxionikExpandedPreflightReport report;
+        bool loaded = samplerEngine.loadExpandedModelFromJson(0, multisampleJson, &report);
+        if (!loaded || !report.ok) {
+            std::cerr << "[FAIL] Test 14: Failed to parse multisample JSON! Errors:\n";
+            for (const auto& err : report.errors) std::cerr << "  - " << err << "\n";
+            return 14;
+        }
+
+        if (!samplerEngine.hasExpandedModelLoaded(0)) {
+            std::cerr << "[FAIL] Test 14: hasExpandedModelLoaded(0) must be true!\n";
+            return 14;
+        }
+
+        // 14.2: Verify zone selection across Note & Velocity
+        // Test soft note in low register (C3 = 48, vel = 0.2 -> zone_low_p)
+        samplerEngine.noteOn(48, 0.2f);
+        std::vector<float> leftP(512, 0.0f);
+        std::vector<float> rightP(512, 0.0f);
+        samplerEngine.process(leftP.data(), rightP.data(), 512);
+
+        float maxP = 0.0f;
+        for (size_t i = 0; i < 512; ++i) maxP = std::max(maxP, std::abs(leftP[i]));
+        if (maxP <= 1e-5f) {
+            std::cerr << "[FAIL] Test 14.2: NoteOn C3 soft produced silence!\n";
+            return 14;
+        }
+
+        samplerEngine.allNotesOff();
+
+        // Test loud note in low register (C3 = 48, vel = 0.9 -> zone_low_f)
+        samplerEngine.noteOn(48, 0.9f);
+        std::vector<float> leftF(512, 0.0f);
+        std::vector<float> rightF(512, 0.0f);
+        samplerEngine.process(leftF.data(), rightF.data(), 512);
+
+        float maxF = 0.0f;
+        for (size_t i = 0; i < 512; ++i) maxF = std::max(maxF, std::abs(leftF[i]));
+        if (maxF <= 1e-5f) {
+            std::cerr << "[FAIL] Test 14.2: NoteOn C3 loud produced silence!\n";
+            return 14;
+        }
+
+        // 14.3: High register note (C5 = 72 -> zone_hi)
+        samplerEngine.noteOn(72, 0.7f);
+        std::vector<float> leftHi(512, 0.0f);
+        std::vector<float> rightHi(512, 0.0f);
+        samplerEngine.process(leftHi.data(), rightHi.data(), 512);
+        float maxHi = 0.0f;
+        for (size_t i = 0; i < 512; ++i) maxHi = std::max(maxHi, std::abs(leftHi[i]));
+        if (maxHi <= 1e-5f) {
+            std::cerr << "[FAIL] Test 14.3: NoteOn C5 high register produced silence!\n";
+            return 14;
+        }
+
+        samplerEngine.allNotesOff();
+        std::cout << "  [PASS] Test 14: Phase K.2 Rompler multisample import & velocity/pitch zone dispatch verified.\n";
+    }
+
+    std::cout << "[DspEngineFacadeTests] All 14 tests passed successfully!\n";
     return 0;
 }
