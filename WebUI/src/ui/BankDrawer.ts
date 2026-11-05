@@ -1042,56 +1042,43 @@ export class BankDrawer {
     const foundModels: AxionikDbModelEntry[] = [];
     let ord = 1;
 
-    const inspectCapsuleDir = async (dir: FileSystemDirectoryHandle, sublib: string) => {
-      let manifestObj: any = null;
+    const inspectModelDir = async (dir: FileSystemDirectoryHandle, sublib: string) => {
       let expandedJsonText = '';
-      let hasV2 = false;
       let hasCover = false;
 
+      // The new on-disk layout is: <SubLibrary>/<Category>/<Model_Name>/axionik-expanded.json.
+      // No 05_extended_model capsule is required, so we only look for the JSON file.
       for await (const entry of (dir as IterDir).values()) {
-        if (entry.kind === 'file' && entry.name.toLowerCase() === 'manifest.json') {
-          try {
+        if (entry.kind === 'file') {
+          const lower = entry.name.toLowerCase();
+          if (lower === 'axionik-expanded.json') {
             const f = await (entry as FileSystemFileHandle).getFile();
-            manifestObj = JSON.parse(await f.text());
-          } catch {
-            // ignore
-          }
-        } else if (entry.kind === 'directory' && entry.name.toLowerCase() === '05_extended_model') {
-          for await (const extEntry of (entry as IterDir).values()) {
-            if (extEntry.kind === 'file') {
-              const lower = extEntry.name.toLowerCase();
-              if (lower === 'axionik-expanded.json') {
-                const f = await (extEntry as FileSystemFileHandle).getFile();
-                expandedJsonText = await f.text();
-                hasV2 = true;
-              } else if (lower === 'model.nmmodel' && !expandedJsonText) {
-                const f = await (extEntry as FileSystemFileHandle).getFile();
-                expandedJsonText = await f.text();
-              } else if (lower === 'cover.webp') {
-                hasCover = true;
-              }
-            }
+            expandedJsonText = await f.text();
+          } else if (lower === 'cover.webp') {
+            hasCover = true;
           }
         }
       }
 
-      if (!manifestObj && !expandedJsonText) return;
-      const cfg = manifestObj?.processConfig ?? {};
-      const cat = cfg.category || manifestObj?.category || 'Synth & Neutral';
-      const pSet = typeof cfg.parameterSet === 'number' ? cfg.parameterSet : mapAxionikCategoryToParameterSet(cat);
+      if (!expandedJsonText) return;
+
+      const parsed: any = JSON.parse(expandedJsonText);
+      const identity = parsed.identity || {};
+      const meta = parsed.remaster || parsed.meta || {};
+
       foundModels.push({
-        slug: dir.name,
-        name: manifestObj?.modelName || cfg.modelName || dir.name,
-        category: cat,
-        parameterSet: pSet,
-        zoneCount: Array.isArray(manifestObj?.zones) ? manifestObj.zones.length : 1,
-        complexity: cfg.complexity ?? 8,
+        slug: identity.slug || dir.name,
+        name: identity.expandedName || identity.modelName || dir.name,
+        category: identity.category || meta.category || 'Synth & Neutral',
+        parameterSet: typeof meta.parameterSet === 'number' ? meta.parameterSet : mapAxionikCategoryToParameterSet(identity.category || 'Synth & Neutral'),
+        zoneCount: Array.isArray(parsed.regions) ? parsed.regions.length : 1,
+        complexity: meta.complexity ?? 8,
         hasCover,
         folderPath: dir.name,
-        sublibrary: cfg.sublibrary || sublib,
-        sublibraryOrdinal: cfg.sublibraryOrdinal ?? ord++,
-        hasExpandedV2: hasV2,
-        expandedJson: expandedJsonText || undefined,
+        sublibrary: sublib,
+        sublibraryOrdinal: ord++,
+        hasExpandedV2: true,
+        expandedJson: expandedJsonText,
       });
     };
 
@@ -1100,17 +1087,17 @@ export class BankDrawer {
       const dir = entry as FileSystemDirectoryHandle;
       if (dir.name.toLowerCase() === 'models') {
         for await (const sub of (dir as IterDir).values()) {
-          if (sub.kind === 'directory') await inspectCapsuleDir(sub as FileSystemDirectoryHandle, 'Default');
+          if (sub.kind === 'directory') await inspectModelDir(sub as FileSystemDirectoryHandle, 'Default');
         }
       } else if (dir.name.toLowerCase() === 'banks') {
         for await (const bankSub of (dir as IterDir).values()) {
           if (bankSub.kind !== 'directory') continue;
           for await (const mDir of (bankSub as IterDir).values()) {
-            if (mDir.kind === 'directory') await inspectCapsuleDir(mDir as FileSystemDirectoryHandle, bankSub.name);
+            if (mDir.kind === 'directory') await inspectModelDir(mDir as FileSystemDirectoryHandle, bankSub.name);
           }
         }
       } else {
-        await inspectCapsuleDir(dir, 'Default');
+        await inspectModelDir(dir, 'Default');
       }
     }
 
@@ -1119,56 +1106,53 @@ export class BankDrawer {
   }
 
   private async scanAxionikFileList(fileList: FileList): Promise<void> {
-    const capsuleMap = new Map<string, { slug: string; sublib: string; manifest?: any; expandedJson?: string; hasV2?: boolean; hasCover?: boolean }>();
+    const capsuleMap = new Map<string, { slug: string; sublib: string; expandedJson?: string; hasV2?: boolean; hasCover?: boolean }>();
 
+    // New on-disk layout: <SubLibrary>/<Category>/<Model_Name>/axionik-expanded.json.
+    // The JSON file itself is the model container, so we index by the folder that
+    // directly contains it (no 05_extended_model required).
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
       const relPath = file.webkitRelativePath || file.name;
       const parts = relPath.split(/[/\\]/);
       const fileName = parts[parts.length - 1].toLowerCase();
 
-      if (fileName === 'manifest.json' && parts.length >= 2) {
-        const slug = parts[parts.length - 2];
-        const rec = capsuleMap.get(slug) ?? { slug, sublib: 'Default' };
+      if (fileName === 'axionik-expanded.json' && parts.length >= 2) {
+        const folder = parts[parts.length - 2];
+        const rec = capsuleMap.get(folder) ?? { slug: folder, sublib: 'Default' };
         try {
-          rec.manifest = JSON.parse(await file.text());
+          rec.expandedJson = await file.text();
+          rec.hasV2 = true;
         } catch {
           // ignore
         }
-        capsuleMap.set(slug, rec);
-      } else if ((fileName === 'axionik-expanded.json' || fileName === 'model.nmmodel') && parts.length >= 3 && parts[parts.length - 2].toLowerCase() === '05_extended_model') {
-        const slug = parts[parts.length - 3];
-        const rec = capsuleMap.get(slug) ?? { slug, sublib: 'Default' };
-        if (fileName === 'axionik-expanded.json' || !rec.expandedJson) {
-          rec.expandedJson = await file.text();
-          if (fileName === 'axionik-expanded.json') rec.hasV2 = true;
-        }
-        capsuleMap.set(slug, rec);
-      } else if (fileName === 'cover.webp' && parts.length >= 3 && parts[parts.length - 2].toLowerCase() === '05_extended_model') {
-        const slug = parts[parts.length - 3];
-        const rec = capsuleMap.get(slug) ?? { slug, sublib: 'Default' };
+        capsuleMap.set(folder, rec);
+      } else if (fileName === 'cover.webp' && parts.length >= 2) {
+        const folder = parts[parts.length - 2];
+        const rec = capsuleMap.get(folder) ?? { slug: folder, sublib: 'Default' };
         rec.hasCover = true;
-        capsuleMap.set(slug, rec);
+        capsuleMap.set(folder, rec);
       }
     }
 
     let ord = 1;
     const foundModels: AxionikDbModelEntry[] = [];
     for (const rec of capsuleMap.values()) {
-      const cfg = rec.manifest?.processConfig ?? {};
-      const cat = cfg.category || rec.manifest?.category || 'Synth & Neutral';
-      const pSet = typeof cfg.parameterSet === 'number' ? cfg.parameterSet : mapAxionikCategoryToParameterSet(cat);
+      const parsed: any = rec.expandedJson ? JSON.parse(rec.expandedJson) : null;
+      const identity = parsed?.identity || {};
+      const meta = parsed?.remaster || parsed?.meta || {};
+
       foundModels.push({
-        slug: rec.slug,
-        name: rec.manifest?.modelName || cfg.modelName || rec.slug,
-        category: cat,
-        parameterSet: pSet,
-        zoneCount: Array.isArray(rec.manifest?.zones) ? rec.manifest.zones.length : 1,
-        complexity: cfg.complexity ?? 8,
+        slug: identity.slug || rec.slug,
+        name: identity.expandedName || identity.modelName || rec.slug,
+        category: identity.category || meta.category || 'Synth & Neutral',
+        parameterSet: typeof meta.parameterSet === 'number' ? meta.parameterSet : mapAxionikCategoryToParameterSet(identity.category || 'Synth & Neutral'),
+        zoneCount: Array.isArray(parsed?.regions) ? parsed.regions.length : 1,
+        complexity: meta.complexity ?? 8,
         hasCover: Boolean(rec.hasCover),
         folderPath: rec.slug,
-        sublibrary: cfg.sublibrary || rec.sublib,
-        sublibraryOrdinal: cfg.sublibraryOrdinal ?? ord++,
+        sublibrary: rec.sublib,
+        sublibraryOrdinal: ord++,
         hasExpandedV2: Boolean(rec.hasV2),
         expandedJson: rec.expandedJson,
       });

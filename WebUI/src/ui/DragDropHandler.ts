@@ -1,14 +1,19 @@
 /**
  * ABDAxionikVS — DragDropHandler.ts
- * Ergonomic Drag & Drop management for models (.model, .nmmodel),
- * presets (.sound, .fxp), and zip archives (.zip, .modelzip).
- * Targeted drops on Resynator 1 / Resynator 2 or global canvas.
+ * Ergonomic Drag & Drop management for models (.model, .nmmodel), presets (.sound, .fxp),
+ * and zip archives (.zip, .modelzip). Targeted drops on Resynator 1 / Resynator 2 or the
+ * global canvas (including the expanded R1/R2 drawers opened as #r1-expanded / #r2-expanded).
+ *
+ * Supported drop payloads:
+ *  - a single `axionik-expanded.json` file          -> load it on the target Resynator
+ *  - a folder containing `axionik-expanded.json`    -> load the JSON found inside
+ *  - any other `.model`/`.nmmodel`/`.json`/`.scape`/`.sphere` file -> normal flow
  */
+import type { DragDropHandlerCallbacks } from './dragDropContracts.js';
 
-export interface DragDropHandlerCallbacks {
-  onDropModel: (file: File, resynator: 1 | 2) => void | Promise<void>;
-  onDropPreset: (file: File) => void | Promise<void>;
-  onDropZip: (file: File) => void | Promise<void>;
+export interface DroppedItem {
+  kind: 'file' | 'directory';
+  file?: File;
 }
 
 export class DragDropHandler {
@@ -42,18 +47,34 @@ export class DragDropHandler {
 
     const r1Panel = document.getElementById('r1-panel');
     const r2Panel = document.getElementById('r2-panel');
+    const r1Expanded = document.getElementById('r1-expanded');
+    const r2Expanded = document.getElementById('r2-expanded');
     const workspace = document.querySelector('.workspace-canvas') as HTMLElement | null;
 
-    // Resynator 1 panel target
+    // Resynator 1 panel target (also when the expanded R1 drawer is open)
     if (r1Panel) {
       this.bindTargetZone(r1Panel, (files) => {
         void this.handleFilesForResynator(files, 1);
       });
     }
 
-    // Resynator 2 panel target
+    // Resynator 2 panel target (also when the expanded R2 drawer is open)
     if (r2Panel) {
       this.bindTargetZone(r2Panel, (files) => {
+        void this.handleFilesForResynator(files, 2);
+      });
+    }
+
+    // Expanded R1 drawer panel
+    if (r1Expanded) {
+      this.bindTargetZone(r1Expanded, (files) => {
+        void this.handleFilesForResynator(files, 1);
+      });
+    }
+
+    // Expanded R2 drawer panel
+    if (r2Expanded) {
+      this.bindTargetZone(r2Expanded, (files) => {
         void this.handleFilesForResynator(files, 2);
       });
     }
@@ -110,42 +131,155 @@ export class DragDropHandler {
   }
 
   private async handleFilesForResynator(files: FileList, resynator: 1 | 2): Promise<void> {
-    const file = files[0];
-    if (!file) return;
+    const payload = this.resolveDroppedFileList(files);
 
-    const lowerName = file.name.toLowerCase();
-    if (
-      lowerName.endsWith('.model') ||
-      lowerName.endsWith('.nmmodel') ||
-      lowerName.endsWith('.json') ||
-      lowerName.endsWith('.scape') ||
-      lowerName.endsWith('.sphere')
-    ) {
-      await this.callbacks.onDropModel(file, resynator);
-    } else if (lowerName.endsWith('.sound') || lowerName.endsWith('.fxp')) {
-      await this.callbacks.onDropPreset(file);
-      this.showToast(`[DRAG & DROP] Loaded preset "${file.name}"`);
-    } else if (lowerName.endsWith('.zip') || lowerName.endsWith('.modelzip') || lowerName.endsWith('.nmpack')) {
-      await this.callbacks.onDropZip(file);
-      this.showToast(`[DRAG & DROP] Imported archive "${file.name}"`);
+    const target = this.determinePrimaryTarget([payload], resynator);
+    if (!target) return;
+
+    if (target.kind === 'file') {
+      this.tryDropModelFile(target.file!, resynator);
+      return;
+    }
+
+    // Folder: load the axionik-expanded.json found inside (JSON only, since the
+    // Resynator v2 engine consumes the JSON document).
+    const inside = await this.findAxionikExpandedJsonInDirectory(payload, target.file!);
+    if (inside) {
+      await this.callbacks.onDropModel(inside, resynator);
     } else {
-      this.showToast(`[DRAG & DROP] Unknown file format "${file.name}"`);
+      this.showToast(`[DRAG & DROP] No axionik-expanded.json found in "${target.file!.name}"`);
     }
   }
 
   private async handleGlobalFiles(files: FileList): Promise<void> {
-    const file = files[0];
-    if (!file) return;
+    const payload = this.resolveDroppedFileList(files);
 
+    const target = this.determinePrimaryTarget([payload], 1);
+    if (!target) return;
+
+    if (target.kind === 'file') {
+      // Neutral canvas: drop the model directly on R1 (legacy behaviour).
+      this.tryDropModelFile(target.file!, 1);
+    } else {
+      const inside = await this.findAxionikExpandedJsonInDirectory(payload, target.file!);
+      if (inside) {
+        await this.callbacks.onDropModel(inside, 1);
+      } else {
+        this.showToast(`[DRAG & DROP] No axionik-expanded.json found in "${target.file!.name}"`);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------
+
+  /**
+   * Normalise a `FileList` into a single `{ kind, file }` drop item.
+   * Chromium may deliver folders through the non-standard DataTransferItemList API
+   * (webkitGetAsEntry / getAsFile); fall back to the plain FileList when that API is
+   * unavailable, so folder drops always degrade to the first file.
+   */
+  private resolveDroppedFileList(files: FileList): DroppedItem {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawItems = (files as any).items;
+    if (rawItems && rawItems.length > 0) {
+      for (let i = 0; i < rawItems.length; i++) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const item = rawItems[i] as DataTransferItem & { webkitGetAsEntry?: () => any };
+        if (typeof item.webkitGetAsEntry === 'function') {
+          const entry = item.webkitGetAsEntry();
+          if (entry) {
+            return { kind: entry.isDirectory ? 'directory' : 'file' } as DroppedItem;
+          }
+        }
+      }
+    }
+
+    // Fall back to the standard FileList (always filled for file drops).
+    return { kind: 'file', file: files[0] } as DroppedItem;
+  }
+
+  /**
+   * Pick the first entry relevant for a model drop on `resynator`.
+   * The callback `onDropModel` receives a single File, so we hand it the
+   * axionik-expanded.json (or the folder itself when nothing matches).
+   */
+  private determinePrimaryTarget(payload: DroppedItem[], _resynator: 1 | 2): DroppedItem | null {
+    for (const item of payload) {
+      if (item.kind === 'file' && item.file) {
+        const name = item.file.name.toLowerCase();
+        if (name === 'axionik-expanded.json' || name === 'model.nmmodel' || name.endsWith('.json')) {
+          return item;
+        }
+      } else if (item.kind === 'directory') {
+        // A directory is always a usable target for a model drop; the file path
+        // inside it will be resolved by the caller so it can fetch the JSON.
+        return item;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Search a directory (recursively, depth-first) for `axionik-expanded.json`
+   * and return it as a File. When nothing is found inside, fall back to the
+   * directory root's own file so folder drops never get stuck.
+   */
+  private async findAxionikExpandedJsonInDirectory(
+    root: DroppedItem,
+    fallback: File,
+  ): Promise<File> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const searchDir = async (dir: DroppedItem, path: string): Promise<File | null> => {
+      if (dir.kind !== 'file' || !dir.file) return null;
+
+      const name = dir.file.name.toLowerCase();
+      if (name === 'axionik-expanded.json') return dir.file;
+
+      // Only directories can contain entries; files are leaves.
+      const entry = dir as any;
+      if (entry.kind !== 'directory' || !entry.createReader) return null;
+
+      const reader = entry.createReader();
+      return new Promise((resolve) => {
+        reader.readEntries((subEntries) => {
+          for (let i = 0; i < subEntries.length; i++) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sub = subEntries[i] as any;
+            if (sub.kind === 'file') {
+              const file = sub.file ? sub.file() : null;
+              if (file && file.name.toLowerCase() === 'axionik-expanded.json') {
+                resolve(file);
+                return;
+              }
+            } else if (sub.kind === 'directory') {
+              const candidate = searchDir({ kind: 'file', file: null }, path + '/' + sub.name);
+              if (candidate) {
+                resolve(candidate);
+                return;
+              }
+            }
+          }
+          resolve(null);
+        }, () => resolve(null));
+      });
+    };
+
+    return searchDir(root, '').then((found) => found ?? fallback) as unknown as File;
+  }
+
+  private async tryDropModelFile(file: File, _resynator: 1 | 2): Promise<void> {
     const lowerName = file.name.toLowerCase();
-    if (lowerName.endsWith('.sound') || lowerName.endsWith('.fxp')) {
-      await this.callbacks.onDropPreset(file);
+    if (lowerName.endsWith('.json') || lowerName.endsWith('.model') || lowerName.endsWith('.nmmodel')) {
+      this.callbacks.onDropModel(file, _resynator);
+    } else if (lowerName.endsWith('.scape') || lowerName.endsWith('.sphere')) {
+      this.callbacks.onDropModel(file, _resynator);
+    } else if (lowerName.endsWith('.sound') || lowerName.endsWith('.fxp')) {
+      this.callbacks.onDropPreset(file);
       this.showToast(`[DRAG & DROP] Loaded preset "${file.name}"`);
-    } else if (lowerName.endsWith('.model') || lowerName.endsWith('.nmmodel') || lowerName.endsWith('.json')) {
-      // Default to Resynator 1 when dropped on neutral canvas
-      await this.callbacks.onDropModel(file, 1);
     } else if (lowerName.endsWith('.zip') || lowerName.endsWith('.modelzip') || lowerName.endsWith('.nmpack')) {
-      await this.callbacks.onDropZip(file);
+      this.callbacks.onDropZip(file);
       this.showToast(`[DRAG & DROP] Imported archive "${file.name}"`);
     } else {
       this.showToast(`[DRAG & DROP] Unknown file format "${file.name}"`);
