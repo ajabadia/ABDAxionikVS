@@ -143,7 +143,7 @@ export class ControllersPanel {
       hasRecorder: false,
       springReturn: true,
       restX: 0.5,
-      restY: 0.0,
+      restY: 0.5,
       size: 110,
       className: 'borderless',
       labels: {
