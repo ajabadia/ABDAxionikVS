@@ -114,13 +114,18 @@ export class DragDropHandler {
     if (!file) return;
 
     const lowerName = file.name.toLowerCase();
-    if (lowerName.endsWith('.model') || lowerName.endsWith('.nmmodel') || lowerName.endsWith('.scape') || lowerName.endsWith('.sphere')) {
+    if (
+      lowerName.endsWith('.model') ||
+      lowerName.endsWith('.nmmodel') ||
+      lowerName.endsWith('.json') ||
+      lowerName.endsWith('.scape') ||
+      lowerName.endsWith('.sphere')
+    ) {
       await this.callbacks.onDropModel(file, resynator);
-      this.showToast(`[DRAG & DROP] Loaded model "${file.name}" into Resynator ${resynator}`);
     } else if (lowerName.endsWith('.sound') || lowerName.endsWith('.fxp')) {
       await this.callbacks.onDropPreset(file);
       this.showToast(`[DRAG & DROP] Loaded preset "${file.name}"`);
-    } else if (lowerName.endsWith('.zip') || lowerName.endsWith('.modelzip')) {
+    } else if (lowerName.endsWith('.zip') || lowerName.endsWith('.modelzip') || lowerName.endsWith('.nmpack')) {
       await this.callbacks.onDropZip(file);
       this.showToast(`[DRAG & DROP] Imported archive "${file.name}"`);
     } else {
@@ -136,11 +141,10 @@ export class DragDropHandler {
     if (lowerName.endsWith('.sound') || lowerName.endsWith('.fxp')) {
       await this.callbacks.onDropPreset(file);
       this.showToast(`[DRAG & DROP] Loaded preset "${file.name}"`);
-    } else if (lowerName.endsWith('.model') || lowerName.endsWith('.nmmodel')) {
+    } else if (lowerName.endsWith('.model') || lowerName.endsWith('.nmmodel') || lowerName.endsWith('.json')) {
       // Default to Resynator 1 when dropped on neutral canvas
       await this.callbacks.onDropModel(file, 1);
-      this.showToast(`[DRAG & DROP] Loaded model "${file.name}" into Resynator 1`);
-    } else if (lowerName.endsWith('.zip') || lowerName.endsWith('.modelzip')) {
+    } else if (lowerName.endsWith('.zip') || lowerName.endsWith('.modelzip') || lowerName.endsWith('.nmpack')) {
       await this.callbacks.onDropZip(file);
       this.showToast(`[DRAG & DROP] Imported archive "${file.name}"`);
     } else {

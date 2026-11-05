@@ -264,6 +264,83 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
                     static_cast<float>(prop.value));
             }
         }
+    } else if (type == "SET_ENGINE_MODE") {
+        juce::String mode = obj->getProperty("mode").toString();
+        bool ok = false;
+        {
+            const juce::ScopedLock sl(processor_.getCallbackLock());
+            ok = processor_.getDspEngine().setEngineMode(mode.toStdString());
+        }
+        if (webComponent_ != nullptr) {
+            auto activeSv = processor_.getDspEngine().getEngineMode();
+            auto compileSv = DspEngineFacade::getCompileTargetMode();
+            juce::String activeMode(activeSv.data(), activeSv.size());
+            juce::String compileMode(compileSv.data(), compileSv.size());
+            juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { "
+                              "  window.WebBridge.notify({ type: 'ENGINE_MODE_CHANGED', mode: '" + activeMode +
+                              "', compileTargetMode: '" + compileMode + "', ok: " + (ok ? "true" : "false") + " }); }";
+            webComponent_->getWebBrowser().evaluateJavascript(js);
+        }
+    } else if (type == "LOAD_EXPANDED_MODEL_JSON") {
+        int resynator = static_cast<int>(obj->getProperty("resynator"));
+        int slot = (resynator == 2) ? 1 : 0;
+        juce::String jsonText = obj->getProperty("json").toString();
+        extended::AxionikExpandedPreflightReport report;
+        bool ok = false;
+        juce::String modelName = "Expanded Model";
+        {
+            const juce::ScopedLock sl(processor_.getCallbackLock());
+            ok = processor_.getDspEngine().loadExpandedModelFromJson(slot, jsonText.toStdString(), &report);
+            if (ok && processor_.getDspEngine().getExpandedModelDoc(slot) != nullptr) {
+                modelName = processor_.getDspEngine().getExpandedModelDoc(slot)->identity.expandedName;
+            }
+        }
+        if (webComponent_ != nullptr) {
+            juce::String firstError = report.errors.empty() ? "" : juce::String(report.errors.front()).replace("'", "\\'");
+            juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { "
+                              "  window.WebBridge.notify({ type: 'EXPANDED_MODEL_PREFLIGHT', resynator: " + juce::String(slot + 1) +
+                              ", ok: " + (ok ? "true" : "false") +
+                              ", modelName: '" + modelName.replace("'", "\\'") + "'" +
+                              ", adaptationsCount: " + juce::String(static_cast<int>(report.adaptations.size())) +
+                              ", firstError: '" + firstError + "' }); }";
+            webComponent_->getWebBrowser().evaluateJavascript(js);
+        }
+    } else if (type == "LOAD_EXPANDED_MODEL_SLUG") {
+        int resynator = static_cast<int>(obj->getProperty("resynator"));
+        int slot = (resynator == 2) ? 1 : 0;
+        juce::String slug = obj->getProperty("slug").toString();
+        extended::AxionikExpandedPreflightReport report;
+        bool ok = false;
+        juce::String modelName = slug;
+        {
+            const juce::ScopedLock sl(processor_.getCallbackLock());
+            ok = processor_.getDspEngine().loadExpandedModelBySlug(slot, slug.toStdString(), &report);
+            if (ok && processor_.getDspEngine().getExpandedModelDoc(slot) != nullptr) {
+                modelName = processor_.getDspEngine().getExpandedModelDoc(slot)->identity.expandedName;
+            }
+        }
+        if (webComponent_ != nullptr) {
+            juce::String firstError = report.errors.empty() ? "" : juce::String(report.errors.front()).replace("'", "\\'");
+            juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { "
+                              "  window.WebBridge.notify({ type: 'EXPANDED_MODEL_PREFLIGHT', resynator: " + juce::String(slot + 1) +
+                              ", ok: " + (ok ? "true" : "false") +
+                              ", modelName: '" + modelName.replace("'", "\\'") + "'" +
+                              ", adaptationsCount: " + juce::String(static_cast<int>(report.adaptations.size())) +
+                              ", firstError: '" + firstError + "' }); }";
+            webComponent_->getWebBrowser().evaluateJavascript(js);
+        }
+    } else if (type == "SET_BANK_FOLDER_PATH") {
+        juce::String bankKind = obj->getProperty("bank").toString();
+        juce::String folderPath = obj->getProperty("path").toString();
+        {
+            const juce::ScopedLock sl(processor_.getCallbackLock());
+            if (bankKind == "axionik") {
+                processor_.getDspEngine().setAxionikDbPath(folderPath.toStdString());
+            } else {
+                processor_.getDspEngine().setNeuronDbPath(folderPath.toStdString());
+            }
+        }
+        sendBankCatalogSync();
     } else if (type == "SCAN_BANK" || type == "REFRESH_BANK") {
         if (!isUiReady_) {
             isUiReady_ = true;
@@ -275,6 +352,16 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
         AX_LOG("[EDITOR] WebUI reported UI_READY!");
         processor_.syncApvtsFromDspEngine();
         sendBankCatalogSync();
+        if (webComponent_ != nullptr) {
+            auto activeSv = processor_.getDspEngine().getEngineMode();
+            auto compileSv = DspEngineFacade::getCompileTargetMode();
+            juce::String activeMode(activeSv.data(), activeSv.size());
+            juce::String compileMode(compileSv.data(), compileSv.size());
+            juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { "
+                              "  window.WebBridge.notify({ type: 'ENGINE_MODE_CHANGED', mode: '" + activeMode +
+                              "', compileTargetMode: '" + compileMode + "', ok: true }); }";
+            webComponent_->getWebBrowser().evaluateJavascript(js);
+        }
     }
 }
 

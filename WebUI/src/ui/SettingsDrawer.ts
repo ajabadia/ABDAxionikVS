@@ -17,7 +17,8 @@ import { t, getLocale, setLocale, type Locale } from '../i18n/index.js';
 
 export interface SettingsDrawerOptions {
   onClose: () => void;
-  onConfigureFolder: () => void;
+  onConfigureFolder: (bank?: 'neuron' | 'axionik') => void;
+  onSelectEngineMode?: (mode: 'classic' | 'plus' | 'expanded') => void;
   onSelectTheme: (theme: string) => void;
   onZoom: (zoom: number) => void;
   currentTheme?: string;
@@ -162,15 +163,18 @@ export class SettingsDrawer {
           </div>
         </div>
 
-        <!-- 5. NeuronDB Library Configuration -->
+        <!-- 5. NeuronDB & AxionikDB Library Configuration -->
         <div class="synth-panel-card" style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3);">
-          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${t('settings.libraryCard')}</div>
+          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${t('settings.libraryCard')} (NEURONDB V1 & AXIONIKDB V2)</div>
           <p style="font-size: var(--text-sm); color: var(--color-text-muted); margin: 0;">
             ${t('settings.libraryDesc')}
           </p>
-          <div style="display: flex; gap: var(--space-2);">
+          <div style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
             <button type="button" class="btn btn-xs btn-outline" id="btn-settings-config-folder">
-              ${ICONS.folder} ${t('settings.configureFolderBtn')}
+              ${ICONS.folder} NeuronDB (Classic / Plus)
+            </button>
+            <button type="button" class="btn btn-xs btn-outline" id="btn-settings-config-axionik-folder">
+              ${ICONS.folder} AxionikDB (Expanded v2)
             </button>
           </div>
         </div>
@@ -182,7 +186,11 @@ export class SettingsDrawer {
     });
 
     root.querySelector('#btn-settings-config-folder')?.addEventListener('click', () => {
-      options.onConfigureFolder();
+      options.onConfigureFolder('neuron');
+    });
+
+    root.querySelector('#btn-settings-config-axionik-folder')?.addEventListener('click', () => {
+      options.onConfigureFolder('axionik');
     });
 
     const oracleBtn = root.querySelector('#btn-settings-oracle-clip') as HTMLButtonElement | null;

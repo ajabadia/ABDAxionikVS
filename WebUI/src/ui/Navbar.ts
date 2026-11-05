@@ -28,6 +28,7 @@ export interface NavbarCallbacks {
   onToggleSettings?: () => void;
   onSelectPreset?: () => void;
   onSelectModel?: (resynator: 1 | 2) => void;
+  onSelectEngineMode?: (mode: 'classic' | 'plus' | 'expanded') => void;
   onSelectTheme: (theme: string) => void;
   onToggleTheme: () => void;
   onZoom: (zoomLevel: number) => void;
@@ -44,6 +45,8 @@ export class AxionikNavbar {
   private cpuLoadEl: HTMLElement | null = null;
   private currentTheme: string = 'ms2000';
   private currentZoom: number = 1.0;
+  private currentEngineMode: 'classic' | 'plus' | 'expanded' = 'expanded';
+  private compileTargetMode: 'classic' | 'plus' | 'expanded' = 'expanded';
   private unsubscribeLocale: (() => void) | null = null;
 
   constructor(container: HTMLElement, callbacks: NavbarCallbacks) {
@@ -142,10 +145,29 @@ export class AxionikNavbar {
 
     const menus = this.buildMenuDefinition();
 
-    // Center HUD Slot: Active Preset Name
+    // Center HUD Slot: Engine Mode Selector (CLASSIC | PLUS | EXPANDED) + Active Preset Name
+    // Solo la versión más alta (compileTargetMode === 'expanded') muestra el selector en pantalla
+    // permitiendo bajar a plus o classic; las versiones classic/plus ocultan el selector.
+    const showModeSelector = this.compileTargetMode === 'expanded';
+    const isClassic = this.currentEngineMode === 'classic';
+    const isPlus = this.currentEngineMode === 'plus';
+    const isExpanded = this.currentEngineMode === 'expanded';
+
     const centerSlot = document.createElement('div');
     centerSlot.className = 'nav-hud-center';
     centerSlot.innerHTML = `
+      <div class="hud-pill hud-mode-selector" id="nav-engine-mode-group" role="group" aria-label="${t('navbar.engineModeLabel')}" style="${showModeSelector ? '' : 'display: none;'}">
+        <span class="hud-label">${t('navbar.engineModeLabel')}</span>
+        <button type="button" class="hud-mode-btn ${isClassic ? 'active' : ''}" id="btn-mode-classic" data-engine-mode="classic" aria-pressed="${isClassic}" title="${t('navbar.modeClassicTitle')}">
+          ${t('navbar.modeClassic')}
+        </button>
+        <button type="button" class="hud-mode-btn ${isPlus ? 'active' : ''}" id="btn-mode-plus" data-engine-mode="plus" aria-pressed="${isPlus}" title="${t('navbar.modePlusTitle')}">
+          ${t('navbar.modePlus')}
+        </button>
+        <button type="button" class="hud-mode-btn ${isExpanded ? 'active' : ''}" id="btn-mode-extended" data-engine-mode="expanded" aria-pressed="${isExpanded}" title="${t('navbar.modeExtendedTitle')}">
+          ${t('navbar.modeExtended')}
+        </button>
+      </div>
       <div class="hud-pill preset-slot-tag" id="nav-preset-pill" style="cursor: pointer;" title="${t('navbar.presetPillTitle')}">
         <span class="hud-label">${t('navbar.presetLabel')}</span>
         <span class="hud-value" id="hud-preset-name">000 InitSound</span>
@@ -233,6 +255,17 @@ export class AxionikNavbar {
     centerSlot.querySelector('#nav-preset-pill')?.addEventListener('click', () => {
       this.callbacks.onSelectPreset?.();
     });
+
+    const bindModeBtn = (btnId: string, mode: 'classic' | 'plus' | 'expanded') => {
+      centerSlot.querySelector(`#${btnId}`)?.addEventListener('click', () => {
+        if (this.compileTargetMode !== 'expanded') return;
+        this.setEngineMode(mode);
+        this.callbacks.onSelectEngineMode?.(mode);
+      });
+    };
+    bindModeBtn('btn-mode-classic', 'classic');
+    bindModeBtn('btn-mode-plus', 'plus');
+    bindModeBtn('btn-mode-extended', 'expanded');
 
     // Click on right HUD buttons
     rightSlot.querySelector('#btn-nav-nuke')?.addEventListener('click', () => {
@@ -406,6 +439,35 @@ export class AxionikNavbar {
     this.updateActiveValues();
   }
 
+  public setEngineMode(
+    mode: 'classic' | 'plus' | 'expanded',
+    compileTarget?: 'classic' | 'plus' | 'expanded'
+  ): void {
+    if (compileTarget) {
+      this.compileTargetMode = compileTarget;
+    }
+    this.currentEngineMode = mode;
+
+    const group = this.container.querySelector('#nav-engine-mode-group') as HTMLElement | null;
+    if (group) {
+      group.style.display = this.compileTargetMode === 'expanded' ? '' : 'none';
+    }
+    const updateBtn = (btnId: string, active: boolean) => {
+      const btn = this.container.querySelector(`#${btnId}`) as HTMLElement | null;
+      if (btn) {
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      }
+    };
+    updateBtn('btn-mode-classic', mode === 'classic');
+    updateBtn('btn-mode-plus', mode === 'plus');
+    updateBtn('btn-mode-extended', mode === 'expanded');
+  }
+
+  public getEngineMode(): 'classic' | 'plus' | 'expanded' {
+    return this.currentEngineMode;
+  }
+
   public setButtonActive(btnId: string, active: boolean): void {
     const btn = this.container.querySelector(`#${btnId}`) as HTMLElement | null;
     if (btn) {
@@ -417,6 +479,28 @@ export class AxionikNavbar {
 
   public toggleMatrix(): void {
     this.callbacks.onToggleMatrix();
+  }
+
+  public setModelName(resynator: 1 | 2, name: string): void {
+    if (resynator === 1 && this.r1ModelNameEl) {
+      this.r1ModelNameEl.textContent = name;
+    } else if (resynator === 2 && this.r2ModelNameEl) {
+      this.r2ModelNameEl.textContent = name;
+    }
+  }
+
+  public setVoices(voices: number): void {
+    if (this.activeVoicesEl) {
+      this.activeVoicesEl.textContent = `${voices} / 12`;
+    }
+  }
+
+  public toggleNuke(): void {
+    this.callbacks.onToggleNuke?.();
+  }
+
+  public setNukeActive(active: boolean): void {
+    this.setButtonActive('btn-nav-nuke', active);
   }
 
   public toggleMidiLearn(): void {

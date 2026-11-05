@@ -197,6 +197,49 @@ input[type="range"] {
   overflow: hidden;
 }
 
+/* ── Engine Mode Selector Pill in Header (CLASSIC | PLUS | EXTENDED) ── */
+.nav-hud-center .hud-mode-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  font-size: 10px;
+  flex-shrink: 0;
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-md);
+}
+
+.hud-mode-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.hud-mode-btn.active {
+  background: var(--color-accent);
+  color: var(--color-bg-base);
+  border-color: var(--color-accent);
+}
+
+.hud-mode-btn.is-conditioned-disabled,
+.hud-mode-btn:disabled {
+  opacity: 0.38;
+  filter: grayscale(0.6);
+  cursor: not-allowed;
+  border-style: dashed;
+  border-color: var(--color-panel-border-dim);
+}
+
 .nav-hud-center #hud-preset-name {
   overflow: hidden;
   text-overflow: ellipsis;

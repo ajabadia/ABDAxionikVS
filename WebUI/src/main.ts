@@ -308,8 +308,13 @@ const bootstrapAxionikApp = async () => {
   const openSettingsDrawer = () => {
     const content = SettingsDrawer.createContent({
       onClose: () => drawerManager.close(),
-      onConfigureFolder: () => bankDrawer.promptConfigureFolder(),
-      onSelectTheme: (theme) => {
+      onConfigureFolder: (bank) => bankDrawer.promptConfigureFolder(bank),
+      onSelectEngineMode: (mode) => {
+      WebBridge.setEngineMode(mode);
+      bankDrawer?.setEngineMode(mode);
+      dragDropHandler?.showToast(`[ENGINE MODE] ${mode.toUpperCase()}`);
+    },
+    onSelectTheme: (theme) => {
         applyTheme(theme);
       },
       onZoom: (zoom) => {
@@ -739,6 +744,25 @@ const bootstrapAxionikApp = async () => {
       nukeDrawer?.syncAll();
       console.log(`[ABDAxionikVS] Assigned Model #${slot} (${modelName}, ParSet ${parSet}) to Resynator ${targetR}`);
     },
+    onSelectExpandedModel: (entry, resynator) => {
+      const targetR = resynator || targetResynatorForModelPick;
+      const parSet = entry.parameterSet ?? 0;
+      if (targetR === 1) {
+        r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+      } else {
+        r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+      }
+      if (entry.expandedJson) {
+        WebBridge.loadExpandedModelJson(targetR, entry.expandedJson);
+      } else {
+        WebBridge.loadExpandedModelSlug(entry.slug, targetR);
+      }
+      updateResynatorModelUI(targetR, 900 + targetR, `[EXP] ${entry.name}`);
+      navbar?.setModelName(targetR, `[EXP] ${entry.name}`);
+      nukeDrawer?.syncAll();
+    },
     onSelectPreset: (slot, name) => {
       const pInfo = getCanonicalPresetInfo(slot);
       const displayName = name || pInfo.name;
@@ -869,6 +893,11 @@ const bootstrapAxionikApp = async () => {
       targetResynatorForModelPick = resynator;
       bankDrawer.open('models', resynator === 1 ? 'r1' : 'r2');
     },
+    onSelectEngineMode: (mode) => {
+      WebBridge.setEngineMode(mode);
+      bankDrawer?.setEngineMode(mode);
+      dragDropHandler?.showToast(`[ENGINE MODE] ${mode.toUpperCase()}`);
+    },
     onSelectTheme: (theme) => {
       applyTheme(theme);
     },
@@ -933,8 +962,25 @@ const bootstrapAxionikApp = async () => {
   });
 
   // 7. Gestor Drag & Drop para modelos, presets y paquetes zip
-  new DragDropHandler({
-    onDropModel: (file, targetR) => {
+  const dragDropHandler = new DragDropHandler({
+    onDropModel: async (file, targetR) => {
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.json') || lower.endsWith('.nmmodel')) {
+        if (navbar?.getEngineMode() !== 'expanded') {
+          dragDropHandler.showToast(
+            `[MODE MISMATCH] Classic/Plus mode only supports .model v1. Switch to EXPANDED for Resynator v2 models.`,
+            4200
+          );
+          return;
+        }
+        try {
+          const text = await file.text();
+          WebBridge.loadExpandedModelJson(targetR, text);
+        } catch (_err) {
+          dragDropHandler.showToast(`[PREFLIGHT ERROR] Could not read "${file.name}"`);
+        }
+        return;
+      }
       const match = file.name.match(/^(\d{1,4})/);
       const slot = match ? parseInt(match[1], 10) : (targetR === 1 ? 42 : 511);
       const cleanName = file.name.replace(/\.[^/.]+$/, '');
@@ -1088,6 +1134,32 @@ const bootstrapAxionikApp = async () => {
         if (msg.index === 271) {
           silverPanel?.updateSilverToggle(msg.value > 0.5);
         }
+      }
+    } else if (msg.type === 'ENGINE_MODE_CHANGED') {
+      const rawMode = String(msg.mode || 'expanded');
+      const normMode: 'classic' | 'plus' | 'expanded' =
+        rawMode === 'classic' ? 'classic' : rawMode === 'plus' || rawMode === 'classic-enhanced' ? 'plus' : 'expanded';
+      const rawCompile = String(msg.compileTargetMode || 'expanded');
+      const normCompile: 'classic' | 'plus' | 'expanded' =
+        rawCompile === 'classic' ? 'classic' : rawCompile === 'plus' ? 'plus' : 'expanded';
+      navbar?.setEngineMode(normMode, normCompile);
+      bankDrawer?.setEngineMode(normMode);
+    } else if (msg.type === 'EXPANDED_MODEL_PREFLIGHT') {
+      const rSlot: 1 | 2 = msg.resynator === 2 ? 2 : 1;
+      if (msg.ok) {
+        const mName = String(msg.modelName || 'Expanded Model');
+        const adaptCount = Number(msg.adaptationsCount || 0);
+        updateResynatorModelUI(rSlot, 900 + rSlot, `[EXP] ${mName}`);
+        navbar?.setModelName(rSlot, `[EXP] ${mName}`);
+        dragDropHandler.showToast(
+          adaptCount > 0
+            ? `[RESYNATOR ${rSlot} V2] Loaded "${mName}" (${adaptCount} adaptations applied)`
+            : `[RESYNATOR ${rSlot} V2] Loaded "${mName}"`,
+          3600
+        );
+      } else {
+        const errText = String(msg.firstError || 'Preflight rejected model');
+        dragDropHandler.showToast(`[PREFLIGHT BLOCKED R${rSlot}] ${errText}`, 4800);
       }
     } else if (msg.type === 'MIDI_LEARN_STATE') {
       midiLearnStore.syncFromHost(msg as any);

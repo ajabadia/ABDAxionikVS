@@ -223,6 +223,10 @@ export class HardwareDumpsDrawer implements HardwareDumpsContracts {
     return this.drawerManager.getCurrentDrawerId() === 'hardware-dumps';
   }
 
+  public getUnreadCount(): number {
+    return this.unreadCount;
+  }
+
   public open(): void {
     this.refreshLiveInspector();
     this.drawerManager.openCustom('hardware-dumps', this.mainPanel!, () => {

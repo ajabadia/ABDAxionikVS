@@ -172,6 +172,24 @@ WASM_EXPORT int axionik_load_model_slot(void* handle, int resynatorSlot, int mod
     return 0;
 }
 
+WASM_EXPORT int axionik_set_engine_mode(void* handle, const char* modeStr) {
+    if (auto* engine = static_cast<abd::axionik::DspEngineFacade*>(handle)) {
+        if (modeStr) {
+            return engine->setEngineMode(modeStr) ? 1 : 0;
+        }
+    }
+    return 0;
+}
+
+WASM_EXPORT int axionik_load_expanded_model_json(void* handle, int resynatorSlot, const char* jsonText) {
+    if (auto* engine = static_cast<abd::axionik::DspEngineFacade*>(handle)) {
+        if (jsonText) {
+            return engine->loadExpandedModelFromJson(resynatorSlot, jsonText, nullptr) ? 1 : 0;
+        }
+    }
+    return 0;
+}
+
 WASM_EXPORT int axionik_set_calibration(void* handle, const char* id, float value) {
     if (auto* engine = static_cast<abd::axionik::DspEngineFacade*>(handle)) {
         if (id) {

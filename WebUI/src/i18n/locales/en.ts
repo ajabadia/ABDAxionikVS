@@ -40,6 +40,18 @@ export const axionikEn = {
     nuke: 'NUKE',
     neuronDb: 'NeuronDB',
 
+    // Engine Mode Selector (Header HUD: Classic / Plus / Extended)
+    engineModeLabel: 'MODE:',
+    modeClassic: 'CLASSIC',
+    modePlus: 'PLUS',
+    modeExtended: 'EXTENDED',
+    modeClassicTitle:
+      'CLASSIC Mode (Active): 100% faithful Hartmann Neuron / NeuronVS engine (.scape + .sphere, 7 Parset engines, Silver Filter & FX, 10 Blender modes).',
+    modePlusTitle:
+      'PLUS Mode (Pending): Classic Resynator 1 & 2 (.scape/.sphere) + Independent Filter v2 & Expanded FX v2 chain. Disabled until new filters and effects are finalized.',
+    modeExtendedTitle:
+      'EXTENDED Mode (Pending): Proprietary Resynator v2 (Unified Spectral Surface HD, Sonic Matter Shapers, Hybrid 96kHz PCM Transient, TempoSync REX, Quad 4.0) + Filter v2 & FX v2. Disabled while testing Resynator v2.',
+
     // Axionik About Dialog
     aboutTitle: 'ABDAxionikVS',
     aboutSubtitle: 'Hartmann Neuron / NeuronVS Faithful Modern Virtual Synthesizer',

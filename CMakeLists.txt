@@ -10,6 +10,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(AXIONIK_TARGET_MODEL 2 CACHE STRING "0=classic (100% legacy NeuronVS), 1=plus (4K upgraded), 2=expanded (Unified Spectral Surface v2)")
+add_compile_definitions(AXIONIK_TARGET_MODEL=${AXIONIK_TARGET_MODEL})
+
 if(MSVC)
     add_compile_options(/MP4)
 endif()

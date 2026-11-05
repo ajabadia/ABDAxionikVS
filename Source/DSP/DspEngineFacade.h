@@ -18,6 +18,7 @@
 #include "VoicePool.h"
 #include "BlockRenderer.h"
 #include "StickPlayer.h"
+#include "Extended/AxionikExpandedSynthesizer.h"
 #include <functional>
 
 namespace abd::axionik {
@@ -50,6 +51,9 @@ public:
     bool loadModel(int slot, const std::filesystem::path& modelFolder);
     bool loadModelBySlot(int slot, int modelIndex) {
         if (!bridge_) return false;
+        if (slot >= 0 && slot < 2) {
+            expandedSynths_[static_cast<size_t>(slot)].clearModel();
+        }
         voicePool_.reset();
         activeVoices_ = 0;
         bool ok = bankAdapter_.loadModelBySlot(slot, modelIndex, bridge_->getEngineState());
@@ -60,6 +64,94 @@ public:
             antiPopRemaining_ = antiPopTotalSamples_;
         }
         return ok;
+    }
+
+    // =========================================================================
+    // Fase B (11.5.6): Modelos Extendidos (05_extended_model/axionik-expanded.json)
+    // =========================================================================
+    void setEngineCapabilityProfile(const extended::AxionikEngineCapabilityProfile& profile) noexcept {
+        engineProfile_ = profile;
+    }
+    [[nodiscard]] const extended::AxionikEngineCapabilityProfile& getEngineCapabilityProfile() const noexcept {
+        return engineProfile_;
+    }
+
+    /// Modo máximo permitido por el binario compilado (`AXIONIK_TARGET_MODEL`: 0=classic, 1=plus, 2=expanded).
+    [[nodiscard]] static constexpr std::string_view getCompileTargetMode() noexcept {
+#if AXIONIK_TARGET_MODEL == 0
+        return "classic";
+#elif AXIONIK_TARGET_MODEL == 1
+        return "plus";
+#else
+        return "expanded";
+#endif
+    }
+
+    /// Cambia el modo activo del motor en caliente.
+    /// Solo la compilación `expanded` (`AXIONIK_TARGET_MODEL == 2`) puede conmutar hacia abajo (`plus` / `classic`).
+    bool setEngineMode(std::string_view modeStr) noexcept;
+
+    [[nodiscard]] std::string_view getEngineMode() const noexcept {
+        return engineProfile_.generation;
+    }
+
+    /// Carga y valida con preflight un documento axionik-expanded.json v2.0.0 en R1 (0) o R2 (1).
+    /// Si preflightExpandedModelForAxionik devuelve ok == false, bloquea la carga sin cargar parcialmente.
+    bool loadExpandedModelFromJson(
+        int slot,
+        std::string_view jsonText,
+        extended::AxionikExpandedPreflightReport* outReport = nullptr
+    );
+
+    /// Fallback v1: Carga un model.nmmodel (+ extended_map.json opcional) desde 05_extended_model/
+    bool loadExpandedModelFromLegacyNmModelJson(
+        int slot,
+        std::string_view nmmodelJson,
+        std::string_view extendedMapJson = {},
+        extended::AxionikExpandedPreflightReport* outReport = nullptr
+    );
+
+    /// Carga desde carpeta Time-Capsule o 05_extended_model/ respetando aislamiento estricto de capas:
+    /// - Primaria: 05_extended_model/axionik-expanded.json
+    /// - Fallback: 05_extended_model/model.nmmodel (+ extended_map.json)
+    /// - Jamás mezcla con 04_classic_enhanced/
+    bool loadExpandedModelFolder(
+        int slot,
+        const std::filesystem::path& folderOrCapsulePath,
+        extended::AxionikExpandedPreflightReport* outReport = nullptr
+    );
+
+    /// Carga un modelo extendido de AxionikDB por su slug en R1 (0) o R2 (1).
+    bool loadExpandedModelBySlug(
+        int slot,
+        const std::string& slug,
+        extended::AxionikExpandedPreflightReport* outReport = nullptr
+    ) {
+        auto folder = bankAdapter_.resolveAxionikModelFolder(slug);
+        if (folder.empty()) return false;
+        return loadExpandedModelFolder(slot, folder, outReport);
+    }
+
+    void setNeuronDbPath(const std::filesystem::path& path) {
+        bankAdapter_.setNeuronDbPath(path);
+    }
+
+    void setAxionikDbPath(const std::filesystem::path& path) {
+        bankAdapter_.setAxionikDbPath(path);
+    }
+
+    [[nodiscard]] const extended::AxionikExpandedPreflightReport& getLastExpandedPreflightReport(int slot) const noexcept {
+        return lastExpandedReports_[(slot == 1) ? 1 : 0];
+    }
+
+    [[nodiscard]] bool hasExpandedModelLoaded(int slot) const noexcept {
+        if (slot < 0 || slot > 1) return false;
+        return expandedSynths_[static_cast<size_t>(slot)].hasLoadedModel();
+    }
+
+    [[nodiscard]] const extended::AxionikExpandedModelDoc* getExpandedModelDoc(int slot) const noexcept {
+        if (slot < 0 || slot > 1 || !expandedSynths_[static_cast<size_t>(slot)].hasLoadedModel()) return nullptr;
+        return &expandedSynths_[static_cast<size_t>(slot)].getLoadedModel();
     }
 
     /// Carga de presets completos (.sound)
@@ -217,6 +309,12 @@ private:
     NeuronBankAdapter bankAdapter_;
     VoicePool voicePool_;
     BlockRenderer blockRenderer_;
+
+    extended::AxionikEngineCapabilityProfile engineProfile_{
+        extended::AxionikEngineCapabilityProfile::makeForCompileTarget()
+    };
+    std::array<extended::AxionikExpandedSynthesizer, 2> expandedSynths_{};
+    std::array<extended::AxionikExpandedPreflightReport, 2> lastExpandedReports_{};
 };
 
 } // namespace abd::axionik

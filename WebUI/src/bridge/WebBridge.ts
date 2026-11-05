@@ -16,6 +16,8 @@ export type OutgoingBridgeMessage =
   | { type: 'LOAD_PRESET_SCRIPT'; script: string }
   | { type: 'LOAD_PRESET_SLOT'; slot: number }
   | { type: 'LOAD_MODEL_SLOT'; slot: number; resynator: 1 | 2 }
+  | { type: 'SET_ENGINE_MODE'; mode: 'classic' | 'plus' | 'expanded' }
+  | { type: 'LOAD_EXPANDED_MODEL_JSON'; resynator: 1 | 2; json: string }
   | { type: 'INIT_PRESET' }
   | { type: 'MIDI_CC'; cc: number; value: number }
   | { type: 'SET_MASTER_VOLUME'; volume: number }
@@ -252,6 +254,23 @@ class WebBridgeImpl {
 
   public loadModelSlot(slot: number, resynator: 1 | 2) {
     this.send({ type: 'LOAD_MODEL_SLOT', slot, resynator });
+  }
+
+  public setEngineMode(mode: 'classic' | 'plus' | 'expanded') {
+    this.setUIState('engineMode', mode);
+    this.send({ type: 'SET_ENGINE_MODE', mode });
+  }
+
+  public loadExpandedModelJson(resynator: 1 | 2, json: string) {
+    this.send({ type: 'LOAD_EXPANDED_MODEL_JSON', resynator, json });
+  }
+
+  public loadExpandedModelSlug(slug: string, resynator: 1 | 2) {
+    this.send({ type: 'LOAD_EXPANDED_MODEL_SLUG', resynator, slug } as any);
+  }
+
+  public setBankFolderPath(bank: 'neuron' | 'axionik', path: string) {
+    this.send({ type: 'SET_BANK_FOLDER_PATH', bank, path } as any);
   }
 
   public initPreset() {

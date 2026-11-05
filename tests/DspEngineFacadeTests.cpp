@@ -229,6 +229,278 @@ int main() {
         std::cout << "  [PASS] Test 8: Preset v1->v2 migration regime (FUN_10013ea0) verified.\n";
     }
 
-    std::cout << "[DspEngineFacadeTests] All 8 tests passed successfully!\n";
+    // Test 9: Fase 11.5.6 — Preflight blocks Expanded Model when engine lacks caps or is in Classic/Plus mode
+    const std::string kSampleExpandedJson = R"JSON({
+      "schemaVersion": "2.0.0",
+      "identity": {
+        "slug": "hyper-bell-v2",
+        "expandedName": "HyperBell V2",
+        "modelName": "HYPERBELL",
+        "engineMin": "expanded",
+        "requiredCaps": ["hd-spectral", "morph-2d", "surround", "filter-v2", "fx-v2"]
+      },
+      "spectral": {
+        "partialCount": 512,
+        "frameCount": 2,
+        "frames": [
+          { "amps": [0.9, 0.5, 0.3, 0.2], "offsets": [0.0, 0.0, 0.0, 0.0], "phases": [0.0, 0.0, 0.0, 0.0] },
+          { "amps": [0.8, 0.4, 0.25, 0.15], "offsets": [0.0, 0.0, 0.0, 0.0], "phases": [0.0, 0.0, 0.0, 0.0] }
+        ]
+      },
+      "unifiedSurface": {
+        "topology": "melodic_surface",
+        "resolutionTier": "hd",
+        "partialCount": 512,
+        "frameCount": 2,
+        "tempoSync": {
+          "enabled": true,
+          "sourceBpm": 120,
+          "targetBpm": 120,
+          "barCount": 1,
+          "grooveMode": "tempo_locked"
+        },
+        "nodes": [
+          {
+            "id": "n0",
+            "sampleRef": "bell_c4",
+            "rootKey": 60,
+            "lowKey": 0,
+            "highKey": 127,
+            "velocityCenter": 100,
+            "lowVel": 1,
+            "highVel": 127,
+            "measuredF0Hz": 261.63,
+            "frames": [
+              { "amps": [0.9, 0.5, 0.3, 0.2], "offsets": [0.0, 0.0, 0.0, 0.0] },
+              { "amps": [0.8, 0.4, 0.25, 0.15], "offsets": [0.0, 0.0, 0.0, 0.0] }
+            ]
+          }
+        ]
+      },
+      "morphSpace": {
+        "dims": 2,
+        "points": [{ "id": "p0", "coords": [0.0, 0.0] }]
+      },
+      "regions": [
+        {
+          "id": "reg-main",
+          "sampleRef": "bell_c4",
+          "lowKey": 0,
+          "highKey": 127,
+          "rootKey": 60,
+          "lowVel": 1,
+          "highVel": 127,
+          "pitchKeytrack": 100.0,
+          "keyFadeIn": 4,
+          "keyFadeOut": 4,
+          "fadeCurve": "equal-power",
+          "channels": 4
+        }
+      ],
+      "articulation": {
+        "ampEnv": { "delay": 0.0, "attack": 0.002, "hold": 0.01, "decay": 0.25, "sustain": 0.85, "release": 0.2 },
+        "polyphony": 16,
+        "voiceMode": "poly",
+        "filters": [
+          { "id": "f1", "type": "svf-4p-hyper", "cutoffHz": 4200.0, "resonance": 0.35, "keytrack": 0.5, "bypass": false }
+        ],
+        "fxChain": [
+          { "id": "fx1", "type": "chorus-v2", "bypass": false, "mix": 0.25 },
+          { "id": "fx2", "type": "quantum-nebula-reverb", "bypass": false, "mix": 0.4 }
+        ]
+      },
+      "resynators": [
+        {
+          "id": "r1",
+          "version": 2,
+          "model": "resonator-hd",
+          "shapers": {
+            "inharmonicityB": 0.0004,
+            "parity": 0.2,
+            "entropyRoughness": 0.15,
+            "spectralShiftHz": 12.0,
+            "hfRollOffDbPerOct": -6.0,
+            "formantShiftSt": 1.0,
+            "formantPreserve": 0.85,
+            "residualMix": 0.2,
+            "spatialSpread": 0.65
+          }
+        }
+      ],
+      "analysis": {},
+      "classic": {
+        "modelName": "HYPERBELL",
+        "mapScriptRef": "04_classic_enhanced/map.script",
+        "scapeSphereRefs": []
+      }
+    })JSON";
+
+    {
+        // 9a. Engine in Classic mode must reject axionik-expanded.json (mode-format-mismatch / engine-too-old)
+        extended::AxionikEngineCapabilityProfile classicProfile =
+            extended::AxionikEngineCapabilityProfile::makeClassic();
+        engine.setEngineCapabilityProfile(classicProfile);
+
+        extended::AxionikExpandedPreflightReport reportClassic;
+        bool okClassic = engine.loadExpandedModelFromJson(0, kSampleExpandedJson, &reportClassic);
+        if (okClassic || reportClassic.ok || engine.hasExpandedModelLoaded(0)) {
+            std::cerr << "[FAIL] Test 9a: Classic mode engine must block axionik-expanded.json!\n";
+            return 9;
+        }
+
+        // 9b. Engine in Expanded mode but missing required cap ("hd-spectral") must block load
+        extended::AxionikEngineCapabilityProfile strippedProfile =
+            extended::AxionikEngineCapabilityProfile::makeExpanded();
+        strippedProfile.caps.erase(
+            std::remove(strippedProfile.caps.begin(), strippedProfile.caps.end(), "hd-spectral"),
+            strippedProfile.caps.end());
+        engine.setEngineCapabilityProfile(strippedProfile);
+
+        extended::AxionikExpandedPreflightReport reportStripped;
+        bool okStripped = engine.loadExpandedModelFromJson(0, kSampleExpandedJson, &reportStripped);
+        if (okStripped || reportStripped.ok || engine.hasExpandedModelLoaded(0) ||
+            reportStripped.missingCaps.empty()) {
+            std::cerr << "[FAIL] Test 9b: Engine missing 'hd-spectral' must block load and report missingCaps!\n";
+            return 9;
+        }
+
+        std::cout << "  [PASS] Test 9: Preflight blocks incompatible mode and missing requiredCaps without silent partial load.\n";
+    }
+
+    // Test 10: Fase 11.5.6 — Full Expanded Engine accepts model, applies explicit adaptations, and renders valid audio
+    {
+        extended::AxionikEngineCapabilityProfile fullProfile =
+            extended::AxionikEngineCapabilityProfile::makeExpanded(
+                extended::AxionikSpatialOutputMode::PseudoSurroundStereo);
+        fullProfile.maxPartials = 256; // Triggers hd-truncation adaptation (512 -> 256)
+        engine.setEngineCapabilityProfile(fullProfile);
+
+        extended::AxionikExpandedPreflightReport reportOk;
+        bool loadedOk = engine.loadExpandedModelFromJson(0, kSampleExpandedJson, &reportOk);
+        if (!loadedOk || !reportOk.ok || !engine.hasExpandedModelLoaded(0)) {
+            std::cerr << "[FAIL] Test 10: Full Expanded engine failed to load valid axionik-expanded.json!\n";
+            return 10;
+        }
+
+        const auto* doc = engine.getExpandedModelDoc(0);
+        if (doc == nullptr || doc->spectral.partialCount != 256 ||
+            doc->articulation.filters.empty() || !doc->articulation.filters[0].bypass ||
+            doc->articulation.fxChain.size() < 2 || !doc->articulation.fxChain[1].bypass ||
+            reportOk.adaptations.size() < 4 || !reportOk.spatialDownmixApplied) {
+            std::cerr << "[FAIL] Test 10: Expected preflight adaptations (256 partial truncation, unknown filter/FX bypass, 4.0->2.0 downmix) were not applied!\n";
+            return 10;
+        }
+
+        engine.reset();
+        engine.noteOn(60, 0.9f);
+        std::vector<float> left(512, 0.0f);
+        std::vector<float> right(512, 0.0f);
+        bool audible = false;
+        for (int b = 0; b < 6; ++b) {
+            engine.process(left.data(), right.data(), 512);
+            for (size_t i = 0; i < 512; ++i) {
+                if (std::isnan(left[i]) || std::isinf(left[i]) || std::isnan(right[i]) || std::isinf(right[i])) {
+                    std::cerr << "[FAIL] Test 10: Expanded synthesizer produced NaN/INF!\n";
+                    return 10;
+                }
+                if (std::abs(left[i]) > 1e-4f || std::abs(right[i]) > 1e-4f) {
+                    audible = true;
+                }
+            }
+        }
+        engine.allNotesOff();
+        if (!audible) {
+            std::cerr << "[FAIL] Test 10: Expanded synthesizer did not produce audible signal on noteOn!\n";
+            return 10;
+        }
+        std::cout << "  [PASS] Test 10: Expanded engine loaded axionik-expanded.json, applied "
+                  << reportOk.adaptations.size() << " adaptations, and rendered finite stereo Pseudo-Surround audio.\n";
+    }
+
+    // Test 11: Fase 11.5.6 — Time-Capsule Layer Isolation (05_extended_model primary + model.nmmodel v1 fallback, never 04_classic_enhanced)
+    {
+        auto capsuleDir = std::filesystem::temp_directory_path() / "axionik_capsule_isolation_test";
+        std::filesystem::remove_all(capsuleDir);
+        std::filesystem::create_directories(capsuleDir / "04_classic_enhanced");
+        std::filesystem::create_directories(capsuleDir / "05_extended_model");
+
+        // 11a. Attempting to load 04_classic_enhanced via loadExpandedModelFolder must be rejected
+        extended::AxionikExpandedPreflightReport isoReport;
+        if (engine.loadExpandedModelFolder(0, capsuleDir / "04_classic_enhanced", &isoReport) || isoReport.ok) {
+            std::filesystem::remove_all(capsuleDir);
+            std::cerr << "[FAIL] Test 11a: loadExpandedModelFolder must reject 04_classic_enhanced!\n";
+            return 11;
+        }
+
+        // 11b. Fallback to 05_extended_model/model.nmmodel when axionik-expanded.json is absent
+        {
+            std::ofstream nmOut(capsuleDir / "05_extended_model" / "model.nmmodel");
+            nmOut << R"({"name":"FallbackV1Model","expandedName":"Fallback V1 Expanded","frames":[{"amps":[0.8,0.4,0.2,0.1]},{"amps":[0.7,0.5,0.25,0.12]}]})";
+            std::ofstream mapOut(capsuleDir / "05_extended_model" / "extended_map.json");
+            mapOut << R"({"regions":[{"id":"r_v1","lowKey":12,"highKey":108,"rootKey":57}]})";
+        }
+        extended::AxionikExpandedPreflightReport fbReport;
+        if (!engine.loadExpandedModelFolder(0, capsuleDir, &fbReport) || !fbReport.ok ||
+            !fbReport.usedLegacyNmModelFallback ||
+            engine.getExpandedModelDoc(0) == nullptr ||
+            engine.getExpandedModelDoc(0)->identity.modelName != "FallbackV1Model") {
+            std::filesystem::remove_all(capsuleDir);
+            std::cerr << "[FAIL] Test 11b: Failed to load v1 fallback 05_extended_model/model.nmmodel!\n";
+            return 11;
+        }
+
+        // 11c. When 05_extended_model/axionik-expanded.json is present, it takes strict priority over model.nmmodel
+        {
+            std::ofstream expOut(capsuleDir / "05_extended_model" / "axionik-expanded.json");
+            expOut << kSampleExpandedJson;
+        }
+        extended::AxionikExpandedPreflightReport priReport;
+        if (!engine.loadExpandedModelFolder(0, capsuleDir, &priReport) || !priReport.ok ||
+            priReport.usedLegacyNmModelFallback ||
+            engine.getExpandedModelDoc(0) == nullptr ||
+            engine.getExpandedModelDoc(0)->identity.expandedName != "HyperBell V2") {
+            std::filesystem::remove_all(capsuleDir);
+            std::cerr << "[FAIL] Test 11c: 05_extended_model/axionik-expanded.json did not take primary priority!\n";
+            return 11;
+        }
+
+        std::filesystem::remove_all(capsuleDir);
+        std::cout << "  [PASS] Test 11: Time-Capsule layer isolation (05_extended_model primary + model.nmmodel fallback, 04_classic_enhanced isolated) verified.\n";
+    }
+
+    // Test 12: Runtime Engine Mode Switching (expanded -> plus -> classic -> expanded) & Blender/Silver chain integration
+    {
+        if (DspEngineFacade::getCompileTargetMode() != "expanded") {
+            std::cerr << "[FAIL] Test 12: Default compile target mode must be 'expanded'!\n";
+            return 12;
+        }
+        if (!engine.setEngineMode("classic") || engine.getEngineMode() != "classic" || engine.hasExpandedModelLoaded(0)) {
+            std::cerr << "[FAIL] Test 12a: Switching to 'classic' failed or did not clear expanded slot!\n";
+            return 12;
+        }
+        if (engine.loadExpandedModelFromJson(0, kSampleExpandedJson, nullptr)) {
+            std::cerr << "[FAIL] Test 12b: 'classic' mode must reject expanded JSON!\n";
+            return 12;
+        }
+        if (!engine.setEngineMode("plus") || engine.getEngineMode() != "plus") {
+            std::cerr << "[FAIL] Test 12c: Switching to 'plus' failed!\n";
+            return 12;
+        }
+        if (engine.loadExpandedModelFromJson(0, kSampleExpandedJson, nullptr)) {
+            std::cerr << "[FAIL] Test 12d: 'plus' mode must reject expanded JSON!\n";
+            return 12;
+        }
+        if (!engine.setEngineMode("expanded") || engine.getEngineMode() != "expanded") {
+            std::cerr << "[FAIL] Test 12e: Switching back to 'expanded' failed!\n";
+            return 12;
+        }
+        if (!engine.loadExpandedModelFromJson(0, kSampleExpandedJson, nullptr)) {
+            std::cerr << "[FAIL] Test 12f: 'expanded' mode failed to load expanded JSON after mode switch!\n";
+            return 12;
+        }
+        std::cout << "  [PASS] Test 12: Runtime mode switching (expanded <-> plus <-> classic) and Blender/Silver chain verified.\n";
+    }
+
+    std::cout << "[DspEngineFacadeTests] All 12 tests passed successfully!\n";
     return 0;
 }

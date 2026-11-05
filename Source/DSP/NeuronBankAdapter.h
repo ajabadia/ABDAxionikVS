@@ -25,6 +25,82 @@ class NeuronBankAdapter {
 public:
     NeuronBankAdapter() {
         discoverNeuronDbPath();
+        discoverAxionikDbPath();
+    }
+
+    /// Busca automáticamente la carpeta AxionikDB (modelos Resynator v2 / Time-Capsules)
+    std::filesystem::path discoverAxionikDbPath() {
+#ifdef __EMSCRIPTEN__
+        return {};
+#else
+        if (!cachedAxionikDbPath_.empty() && std::filesystem::exists(cachedAxionikDbPath_)) {
+            return cachedAxionikDbPath_;
+        }
+
+        const std::vector<std::filesystem::path> searchCandidates = {
+            R"(D:\desarrollos\ABDSynths\ABDAxionikVS\AxionikDB)",
+            R"(D:\desarrollos\ABDSynths\AxionikDB)",
+            R"(D:\desarrollos\ABDSynths\ABDNeuModMakr\AxionikDB)",
+            "./AxionikDB",
+            "../AxionikDB",
+            "../../AxionikDB",
+            "../../../AxionikDB",
+            "../../../../AxionikDB"
+        };
+
+        for (const auto& path : searchCandidates) {
+            if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
+                cachedAxionikDbPath_ = path;
+                return cachedAxionikDbPath_;
+            }
+        }
+
+        return {};
+#endif
+    }
+
+    void setAxionikDbPath(const std::filesystem::path& path) {
+        if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
+            cachedAxionikDbPath_ = path;
+        }
+    }
+
+    [[nodiscard]] const std::filesystem::path& getAxionikDbPath() const noexcept {
+        return cachedAxionikDbPath_;
+    }
+
+    /// Resuelve la carpeta Time-Capsule de un modelo de AxionikDB por su slug
+    [[nodiscard]] std::filesystem::path resolveAxionikModelFolder(const std::string& slug) {
+#ifdef __EMSCRIPTEN__
+        (void)slug;
+        return {};
+#else
+        if (slug.empty()) return {};
+        if (cachedAxionikDbPath_.empty()) {
+            discoverAxionikDbPath();
+        }
+        if (cachedAxionikDbPath_.empty()) return {};
+
+        auto directModels = cachedAxionikDbPath_ / "Models" / slug;
+        if (std::filesystem::exists(directModels) && std::filesystem::is_directory(directModels)) {
+            return directModels;
+        }
+        auto directRoot = cachedAxionikDbPath_ / slug;
+        if (std::filesystem::exists(directRoot) && std::filesystem::is_directory(directRoot)) {
+            return directRoot;
+        }
+        auto banksDir = cachedAxionikDbPath_ / "Banks";
+        if (std::filesystem::exists(banksDir) && std::filesystem::is_directory(banksDir)) {
+            for (const auto& sub : std::filesystem::directory_iterator(banksDir)) {
+                if (!sub.is_directory()) continue;
+                auto cand1 = sub.path() / slug;
+                if (std::filesystem::exists(cand1) && std::filesystem::is_directory(cand1)) return cand1;
+                auto cand2 = sub.path() / "Models" / slug;
+                if (std::filesystem::exists(cand2) && std::filesystem::is_directory(cand2)) return cand2;
+            }
+        }
+        return {};
+#endif
     }
 
     /// Busca automáticamente la carpeta NeuronDB en rutas estándar y locales
@@ -223,6 +299,9 @@ public:
                    << R"(,"parameterCount":445})";
             }
         }
+        ss << R"(],"axionikFolderName":")" << escapeJson(cachedAxionikDbPath_.empty() ? "AxionikDB" : cachedAxionikDbPath_.string())
+           << R"(","axionikModels":[)";
+        appendAxionikModelsJson(ss);
         ss << R"(]})";
         return ss.str();
     }
@@ -442,7 +521,105 @@ public:
     }
 
 private:
+    static std::string extractSimpleJsonField(const std::string& json, const std::string& key) {
+        std::string needle = "\"" + key + "\"";
+        auto pos = json.find(needle);
+        if (pos == std::string::npos) return {};
+        auto colon = json.find(':', pos + needle.size());
+        if (colon == std::string::npos) return {};
+        auto q1 = json.find('"', colon + 1);
+        if (q1 == std::string::npos) return {};
+        auto q2 = json.find('"', q1 + 1);
+        if (q2 == std::string::npos) return {};
+        return json.substr(q1 + 1, q2 - q1 - 1);
+    }
+
+    void appendAxionikModelsJson(std::ostringstream& ss) {
+#ifndef __EMSCRIPTEN__
+        if (cachedAxionikDbPath_.empty()) {
+            discoverAxionikDbPath();
+        }
+        if (cachedAxionikDbPath_.empty() || !std::filesystem::exists(cachedAxionikDbPath_)) return;
+
+        bool firstAx = true;
+        int ordCounter = 1;
+
+        auto emitCapsuleFolder = [&](const std::filesystem::path& folder, const std::string& sublib) {
+            auto v2Path = folder / "05_extended_model" / "axionik-expanded.json";
+            auto v1Path = folder / "05_extended_model" / "model.nmmodel";
+            auto manifestPath = folder / "manifest.json";
+            bool hasV2 = std::filesystem::exists(v2Path);
+            bool hasV1 = std::filesystem::exists(v1Path);
+            bool hasManifest = std::filesystem::exists(manifestPath);
+            if (!hasV2 && !hasV1 && !hasManifest) return;
+
+            std::string slug = folder.filename().string();
+            std::string name = slug;
+            std::string category = "Synth & Neutral";
+            if (hasManifest) {
+                std::ifstream mf(manifestPath);
+                std::string mfText((std::istreambuf_iterator<char>(mf)), std::istreambuf_iterator<char>());
+                auto mName = extractSimpleJsonField(mfText, "modelName");
+                if (!mName.empty()) name = mName;
+                auto cat = extractSimpleJsonField(mfText, "category");
+                if (!cat.empty()) category = cat;
+            } else if (hasV2) {
+                std::ifstream vf(v2Path);
+                std::string vfText((std::istreambuf_iterator<char>(vf)), std::istreambuf_iterator<char>());
+                auto eName = extractSimpleJsonField(vfText, "expandedName");
+                if (!eName.empty()) name = eName;
+                auto cat = extractSimpleJsonField(vfText, "category");
+                if (!cat.empty()) category = cat;
+            }
+            bool hasCover = std::filesystem::exists(folder / "05_extended_model" / "cover.webp");
+
+            if (!firstAx) ss << ",";
+            firstAx = false;
+            ss << R"({"slug":")" << escapeJson(slug)
+               << R"(","name":")" << escapeJson(name)
+               << R"(","category":")" << escapeJson(category)
+               << R"(","parameterSet":0,"zoneCount":1,"complexity":8,"hasCover":)" << (hasCover ? "true" : "false")
+               << R"(,"hasExpandedV2":)" << (hasV2 ? "true" : "false")
+               << R"(,"sublibrary":")" << escapeJson(sublib)
+               << R"(","sublibraryOrdinal":)" << ordCounter++
+               << R"(,"folderPath":")" << escapeJson(folder.string()) << R"("})";
+        };
+
+        auto banksDir = cachedAxionikDbPath_ / "Banks";
+        if (std::filesystem::exists(banksDir) && std::filesystem::is_directory(banksDir)) {
+            for (const auto& subEntry : std::filesystem::directory_iterator(banksDir)) {
+                if (!subEntry.is_directory()) continue;
+                std::string subName = subEntry.path().filename().string();
+                for (const auto& mEntry : std::filesystem::directory_iterator(subEntry.path())) {
+                    if (!mEntry.is_directory()) continue;
+                    if (mEntry.path().filename() == "Models") {
+                        for (const auto& deep : std::filesystem::directory_iterator(mEntry.path())) {
+                            if (deep.is_directory()) emitCapsuleFolder(deep.path(), subName);
+                        }
+                    } else {
+                        emitCapsuleFolder(mEntry.path(), subName);
+                    }
+                }
+            }
+        }
+
+        auto modelsDir = std::filesystem::exists(cachedAxionikDbPath_ / "Models")
+                             ? (cachedAxionikDbPath_ / "Models")
+                             : cachedAxionikDbPath_;
+        if (std::filesystem::exists(modelsDir) && std::filesystem::is_directory(modelsDir)) {
+            for (const auto& entry : std::filesystem::directory_iterator(modelsDir)) {
+                if (!entry.is_directory()) continue;
+                if (entry.path().filename() == "Banks" || entry.path().filename() == "Models") continue;
+                emitCapsuleFolder(entry.path(), "Default");
+            }
+        }
+#else
+        (void)ss;
+#endif
+    }
+
     std::filesystem::path cachedNeuronDbPath_;
+    std::filesystem::path cachedAxionikDbPath_;
     std::unique_ptr<NeuronModel> r1Model_;
     std::unique_ptr<NeuronModel> r2Model_;
 };

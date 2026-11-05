@@ -8,11 +8,58 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <fstream>
+#include <sstream>
 
 namespace abd::axionik {
 
+namespace {
+[[nodiscard]] std::string readFileText(const std::filesystem::path& path) {
+  std::ifstream ifs(path, std::ios::in | std::ios::binary);
+  if (!ifs.is_open()) return {};
+  std::ostringstream oss;
+  oss << ifs.rdbuf();
+  return oss.str();
+}
+} // namespace
+
 DspEngineFacade::DspEngineFacade() {
   bridge_ = std::make_unique<ParameterEngineBridge>(store_);
+  // Conectar los Resynators v2 (modo expanded) a la entrada de voces del BlockRenderer
+  // para que pasen por Blender -> Slicer -> Silver (Filtros + FreqFX + TimeFX) -> Master FX
+  blockRenderer_.setExpandedVoiceRenderCallback(
+      [this](float* leftAcc, float* rightAcc, size_t blockSize,
+             float blenderAmount, int /*blenderType*/) {
+        const bool exp0 = expandedSynths_[0].hasLoadedModel();
+        const bool exp1 = expandedSynths_[1].hasLoadedModel();
+        if (!exp0 && !exp1) return;
+
+        using namespace abd::axionik::ParamIdx;
+        const float* p = bridge_ ? bridge_->getEffectiveSlots() : nullptr;
+        const bool r1On = getSlotRaw(p, SlotIdx::R1Switch, R1Switch) > 0.5f;
+        const bool r2On = getSlotRaw(p, SlotIdx::R2Switch, R2Switch) > 0.5f;
+
+        float gainR1 = 1.0f;
+        float gainR2 = 1.0f;
+        if (exp0 && exp1) {
+          gainR1 = 1.0f - std::clamp(blenderAmount, 0.0f, 1.0f);
+          gainR2 = std::clamp(blenderAmount, 0.0f, 1.0f);
+        }
+
+        if (exp0 && r1On && gainR1 > 1e-5f) {
+          const float morphX1 = getSlotNorm(p, SlotIdx::R1L1Scape1Value, R1L1Scape1Value);
+          const float morphY1 = getSlotNorm(p, SlotIdx::R1L1Sphere1Value, R1L1Sphere1Value);
+          expandedSynths_[0].processStereoAdd(leftAcc, rightAcc, blockSize,
+                                              morphX1, morphY1, gainR1);
+        }
+        if (exp1 && r2On && gainR2 > 1e-5f) {
+          const float morphX2 = getSlotNorm(p, SlotIdx::R2L1Scape1Value, R2L1Scape1Value);
+          const float morphY2 = getSlotNorm(p, SlotIdx::R2L1Sphere1Value, R2L1Sphere1Value);
+          expandedSynths_[1].processStereoAdd(leftAcc, rightAcc, blockSize,
+                                              morphX2, morphY2, gainR2);
+        }
+      });
+
   // Inicializar con preset 000 de librería o embebido 000 InitSound y modelo
   // 511 (sinew)
   if (!bankAdapter_.loadPresetBySlot(0, currentPreset_)) {
@@ -33,20 +80,38 @@ void DspEngineFacade::prepare(double sampleRate, size_t maxBlockSize) {
   voicePool_.setSampleRate(sampleRate_);
   blockRenderer_.prepare(sampleRate_, maxBlockSize_);
   stickPlayer_.prepare(sampleRate_);
+  expandedSynths_[0].prepare(sampleRate_, maxBlockSize_);
+  expandedSynths_[1].prepare(sampleRate_, maxBlockSize_);
 }
 
 void DspEngineFacade::reset() {
   voicePool_.reset();
   blockRenderer_.reset();
   stickPlayer_.reset();
+  expandedSynths_[0].reset();
+  expandedSynths_[1].reset();
   activeVoices_ = 0;
 }
 
 void DspEngineFacade::noteOn(uint8_t note, float velocity) {
-  const auto &r1Zone = bankAdapter_.getZone(0, note);
-  const auto &r2Zone = bankAdapter_.getZone(1, note);
-  voicePool_.noteOn(note, velocity, r1Zone, r2Zone, 1.0f);
-  activeVoices_ = voicePool_.getActiveVoiceCount();
+  const bool exp0 = expandedSynths_[0].hasLoadedModel();
+  const bool exp1 = expandedSynths_[1].hasLoadedModel();
+
+  if (exp0) {
+    expandedSynths_[0].noteOn(note, velocity);
+  }
+  if (exp1) {
+    expandedSynths_[1].noteOn(note, velocity);
+  }
+  if (!exp0 || !exp1) {
+    const auto &r1Zone = bankAdapter_.getZone(0, note);
+    const auto &r2Zone = bankAdapter_.getZone(1, note);
+    voicePool_.noteOn(note, velocity, r1Zone, r2Zone, 1.0f);
+  }
+
+  activeVoices_ = voicePool_.getActiveVoiceCount() +
+                  expandedSynths_[0].getActiveVoiceCount() +
+                  expandedSynths_[1].getActiveVoiceCount();
 
   if (stickPlayer_.hasEvents() &&
       (!stickPlayer_.isPlaying() || activeVoices_ <= 1)) {
@@ -56,11 +121,17 @@ void DspEngineFacade::noteOn(uint8_t note, float velocity) {
 
 void DspEngineFacade::noteOff(uint8_t note) {
   voicePool_.noteOff(note);
-  activeVoices_ = voicePool_.getActiveVoiceCount();
+  expandedSynths_[0].noteOff(note);
+  expandedSynths_[1].noteOff(note);
+  activeVoices_ = voicePool_.getActiveVoiceCount() +
+                  expandedSynths_[0].getActiveVoiceCount() +
+                  expandedSynths_[1].getActiveVoiceCount();
 }
 
 void DspEngineFacade::allNotesOff() {
   voicePool_.allNotesOff();
+  expandedSynths_[0].allNotesOff();
+  expandedSynths_[1].allNotesOff();
   stickPlayer_.stop();
   activeVoices_ = 0;
 }
@@ -74,14 +145,233 @@ void DspEngineFacade::setParamNormalized(uint32_t index,
   store_.setNormalizedValue(index, normalizedValue);
 }
 
+bool DspEngineFacade::setEngineMode(std::string_view modeStr) noexcept {
+  // Regla de variantes: solo la compilación más alta (AXIONIK_TARGET_MODEL == 2, expanded)
+  // puede bajar en caliente a plus o classic; las compilaciones classic o plus quedan fijas.
+#if AXIONIK_TARGET_MODEL == 0
+  if (modeStr != "classic") return false;
+#elif AXIONIK_TARGET_MODEL == 1
+  if (modeStr != "plus" && modeStr != "classic-enhanced") return false;
+#endif
+
+  if (modeStr == "classic") {
+    engineProfile_ = extended::AxionikEngineCapabilityProfile::makeClassic();
+    expandedSynths_[0].clearModel();
+    expandedSynths_[1].clearModel();
+    voicePool_.reset();
+    blockRenderer_.reset();
+    antiPopRemaining_ = antiPopTotalSamples_;
+    return true;
+  }
+  if (modeStr == "plus" || modeStr == "classic-enhanced") {
+    engineProfile_ = extended::AxionikEngineCapabilityProfile::makePlus();
+    expandedSynths_[0].clearModel();
+    expandedSynths_[1].clearModel();
+    voicePool_.reset();
+    blockRenderer_.reset();
+    antiPopRemaining_ = antiPopTotalSamples_;
+    return true;
+  }
+  if (modeStr == "expanded" || modeStr == "extended" || modeStr == "expanded-v1") {
+    engineProfile_ = extended::AxionikEngineCapabilityProfile::makeExpanded(
+        engineProfile_.spatialOutputMode);
+    voicePool_.reset();
+    blockRenderer_.reset();
+    antiPopRemaining_ = antiPopTotalSamples_;
+    return true;
+  }
+  return false;
+}
+
+bool DspEngineFacade::loadExpandedModelFromJson(
+    int slot,
+    std::string_view jsonText,
+    extended::AxionikExpandedPreflightReport* outReport) {
+  if (slot < 0 || slot > 1) return false;
+  const size_t s = static_cast<size_t>(slot);
+
+  extended::AxionikExpandedModelDoc parsedDoc;
+  extended::AxionikExpandedPreflightReport report =
+      extended::preflightExpandedModelForAxionik(jsonText, engineProfile_, &parsedDoc);
+  lastExpandedReports_[s] = report;
+  if (outReport != nullptr) {
+    *outReport = report;
+  }
+
+  if (!report.ok) {
+    // Bloqueo estricto: jamás cargar parcialmente en silencio cuando ok == false
+    expandedSynths_[s].clearModel();
+    return false;
+  }
+
+  extended::applyExpandedPreflightAdaptations(parsedDoc, engineProfile_);
+  voicePool_.reset();
+  expandedSynths_[s].prepare(sampleRate_, maxBlockSize_);
+  expandedSynths_[s].loadModel(parsedDoc);
+  blockRenderer_.reset();
+  antiPopRemaining_ = antiPopTotalSamples_;
+  return true;
+}
+
+bool DspEngineFacade::loadExpandedModelFromLegacyNmModelJson(
+    int slot,
+    std::string_view nmmodelJson,
+    std::string_view extendedMapJson,
+    extended::AxionikExpandedPreflightReport* outReport) {
+  if (slot < 0 || slot > 1) return false;
+  const size_t s = static_cast<size_t>(slot);
+
+  extended::AxionikExpandedModelDoc fallbackDoc;
+  if (!extended::parseLegacyNmModelV1Json(nmmodelJson, extendedMapJson, fallbackDoc)) {
+    extended::AxionikExpandedPreflightReport errReport;
+    errReport.ok = false;
+    errReport.errors.push_back(
+        "invalid-json: Fallback v1 model.nmmodel inválido o sin espectros utilizables.");
+    lastExpandedReports_[s] = errReport;
+    if (outReport != nullptr) *outReport = errReport;
+    expandedSynths_[s].clearModel();
+    return false;
+  }
+
+  // Serializar un sobre mínimo v2.0.0 para validar capacidades y targetMode con preflightExpandedModelForAxionik
+  std::ostringstream minJson;
+  minJson << "{\"schemaVersion\":\"2.0.0\","
+          << "\"identity\":{\"slug\":\"legacy-nmmodel-v1\",\"expandedName\":\"" << fallbackDoc.identity.expandedName
+          << "\",\"modelName\":\"" << fallbackDoc.identity.modelName
+          << "\",\"engineMin\":\"expanded\",\"requiredCaps\":[]},"
+          << "\"spectral\":{\"partialCount\":" << fallbackDoc.spectral.partialCount
+          << ",\"frameCount\":" << fallbackDoc.spectral.frameCount
+          << ",\"frames\":[{\"amps\":[0.5]}]},"
+          << "\"regions\":[{\"id\":\"r0\",\"sampleRef\":\"s0\",\"lowKey\":0,\"highKey\":127,\"rootKey\":60,\"lowVel\":1,\"highVel\":127}],"
+          << "\"articulation\":{\"ampEnv\":{\"delay\":0,\"attack\":0.01,\"hold\":0,\"decay\":0.1,\"sustain\":1,\"release\":0.1},\"filters\":[],\"fxChain\":[]},"
+          << "\"resynators\":[{\"id\":\"r1\",\"version\":2,\"model\":\"resonator-hd\"}],"
+          << "\"analysis\":{},\"classic\":{\"modelName\":\"FALLBACK\",\"mapScriptRef\":\"04_classic_enhanced/map.script\",\"scapeSphereRefs\":[]}}";
+
+  extended::AxionikExpandedPreflightReport report =
+      extended::preflightExpandedModelForAxionik(minJson.str(), engineProfile_, nullptr);
+  report.usedLegacyNmModelFallback = true;
+  report.warnings.push_back(
+      "legacy-nmmodel-v1-fallback: Cargado desde respaldo espectral v1 (05_extended_model/model.nmmodel).");
+  lastExpandedReports_[s] = report;
+  if (outReport != nullptr) {
+    *outReport = report;
+  }
+
+  if (!report.ok) {
+    expandedSynths_[s].clearModel();
+    return false;
+  }
+
+  extended::applyExpandedPreflightAdaptations(fallbackDoc, engineProfile_);
+  voicePool_.reset();
+  expandedSynths_[s].prepare(sampleRate_, maxBlockSize_);
+  expandedSynths_[s].loadModel(fallbackDoc);
+  blockRenderer_.reset();
+  antiPopRemaining_ = antiPopTotalSamples_;
+  return true;
+}
+
+bool DspEngineFacade::loadExpandedModelFolder(
+    int slot,
+    const std::filesystem::path& folderOrCapsulePath,
+    extended::AxionikExpandedPreflightReport* outReport) {
+  if (slot < 0 || slot > 1) return false;
+  const size_t s = static_cast<size_t>(slot);
+
+  // Aislamiento estricto: prohibido consumir 04_classic_enhanced/ como modelo extendido
+  if (folderOrCapsulePath.filename() == "04_classic_enhanced") {
+    extended::AxionikExpandedPreflightReport errReport;
+    errReport.ok = false;
+    errReport.errors.push_back(
+        "layer-isolation-violation: 04_classic_enhanced es exclusivo de los modos classic/plus y no puede cargarse en el motor expanded.");
+    lastExpandedReports_[s] = errReport;
+    if (outReport != nullptr) *outReport = errReport;
+    expandedSynths_[s].clearModel();
+    return false;
+  }
+
+  // Si se pasa directamente el fichero JSON o .nmmodel
+  if (std::filesystem::is_regular_file(folderOrCapsulePath)) {
+    if (folderOrCapsulePath.filename() == "axionik-expanded.json") {
+      return loadExpandedModelFromJson(slot, readFileText(folderOrCapsulePath), outReport);
+    }
+    if (folderOrCapsulePath.extension() == ".nmmodel") {
+      const auto mapPath = folderOrCapsulePath.parent_path() / "extended_map.json";
+      const std::string mapText = std::filesystem::exists(mapPath) ? readFileText(mapPath) : std::string{};
+      return loadExpandedModelFromLegacyNmModelJson(slot, readFileText(folderOrCapsulePath), mapText, outReport);
+    }
+  }
+
+  // Resolver subcarpeta 05_extended_model si folderOrCapsulePath es la raíz de una Time-Capsule
+  const std::filesystem::path extDir =
+      std::filesystem::exists(folderOrCapsulePath / "05_extended_model")
+          ? (folderOrCapsulePath / "05_extended_model")
+          : folderOrCapsulePath;
+
+  // 1. Fuente primaria: 05_extended_model/axionik-expanded.json
+  const std::filesystem::path primaryJsonPath = extDir / "axionik-expanded.json";
+  if (std::filesystem::exists(primaryJsonPath)) {
+    return loadExpandedModelFromJson(slot, readFileText(primaryJsonPath), outReport);
+  }
+
+  // 2. Respaldo espectral v1: 05_extended_model/model.nmmodel (+ extended_map.json)
+  const std::filesystem::path fallbackNmPath = extDir / "model.nmmodel";
+  if (std::filesystem::exists(fallbackNmPath)) {
+    const std::filesystem::path mapPath = extDir / "extended_map.json";
+    const std::string mapText = std::filesystem::exists(mapPath) ? readFileText(mapPath) : std::string{};
+    return loadExpandedModelFromLegacyNmModelJson(slot, readFileText(fallbackNmPath), mapText, outReport);
+  }
+
+  extended::AxionikExpandedPreflightReport errReport;
+  errReport.ok = false;
+  errReport.errors.push_back(
+      "not-expanded-model: No se encontró 05_extended_model/axionik-expanded.json ni 05_extended_model/model.nmmodel.");
+  lastExpandedReports_[s] = errReport;
+  if (outReport != nullptr) *outReport = errReport;
+  expandedSynths_[s].clearModel();
+  return false;
+}
+
 bool DspEngineFacade::loadModel(int slot,
                                 const std::filesystem::path &modelFolder) {
-  if (!bridge_)
+  if (!bridge_ || slot < 0 || slot > 1)
     return false;
+
+  const bool isExplicitExtendedDir =
+      (modelFolder.filename() == "05_extended_model") ||
+      (modelFolder.filename() == "axionik-expanded.json") ||
+      (modelFolder.extension() == ".nmmodel") ||
+      std::filesystem::exists(modelFolder / "axionik-expanded.json") ||
+      std::filesystem::exists(modelFolder / "model.nmmodel");
+
+  const bool hasCapsuleExtendedDir =
+      std::filesystem::exists(modelFolder / "05_extended_model" / "axionik-expanded.json") ||
+      std::filesystem::exists(modelFolder / "05_extended_model" / "model.nmmodel");
+
+  const bool isExpandedMode =
+      (engineProfile_.generation == "expanded" || engineProfile_.generation == "expanded-v1");
+
+  if (isExplicitExtendedDir || (hasCapsuleExtendedDir && isExpandedMode)) {
+    return loadExpandedModelFolder(slot, modelFolder, nullptr);
+  }
+
+  expandedSynths_[static_cast<size_t>(slot)].clearModel();
   voicePool_.reset();
   activeVoices_ = 0;
+
+  // En modo classic / plus sobre una Time-Capsule, enrutar exclusivamente a 04_classic_enhanced o 02_legacy_original
+  std::filesystem::path effectiveClassicFolder = modelFolder;
+  if (!std::filesystem::exists(modelFolder / "Model.dat") &&
+      !std::filesystem::exists(modelFolder / "model.dat")) {
+    if (std::filesystem::exists(modelFolder / "04_classic_enhanced")) {
+      effectiveClassicFolder = modelFolder / "04_classic_enhanced";
+    } else if (std::filesystem::exists(modelFolder / "02_legacy_original")) {
+      effectiveClassicFolder = modelFolder / "02_legacy_original";
+    }
+  }
+
   bool ok =
-      bankAdapter_.loadModel(slot, modelFolder, bridge_->getEngineState());
+      bankAdapter_.loadModel(slot, effectiveClassicFolder, bridge_->getEngineState());
   if (ok) {
     // Corrección Mac 1.56 (Stephan Bernsee): limpieza de estados y rampa
     // anti-pops de 2ms
@@ -133,10 +423,12 @@ bool DspEngineFacade::applyPreset(const SoundPreset &preset) {
   // 4. Cargar los modelos vinculados en R1 y R2 si existen en la librería
   if (bridge_) {
     if (preset.r1ModelIndex >= 0) {
+      expandedSynths_[0].clearModel();
       bankAdapter_.loadModelBySlot(0, preset.r1ModelIndex,
                                    bridge_->getEngineState());
     }
     if (preset.r2ModelIndex >= 0) {
+      expandedSynths_[1].clearModel();
       bankAdapter_.loadModelBySlot(1, preset.r2ModelIndex,
                                    bridge_->getEngineState());
     }
@@ -199,11 +491,11 @@ float DspEngineFacade::updateModulationAndPitch(const float *p,
       127.0f;
   voicePool_.setVelocitySwitchThresholds(r1VelSw, r2VelSw);
 
-  // Resynator enables
+  // Resynator enables (si hay un modelo v2 cargado en expandedSynths_[slot], silenciar la ranura v1 en voicePool_ para evitar doble disparo)
   bool r1On = getSlotRaw(p, SlotIdx::R1Switch, R1Switch) > 0.5f;
   bool r2On = getSlotRaw(p, SlotIdx::R2Switch, R2Switch) > 0.5f;
-  voicePool_.updateResynatorEnabled(0, r1On);
-  voicePool_.updateResynatorEnabled(1, r2On);
+  voicePool_.updateResynatorEnabled(0, r1On && !expandedSynths_[0].hasLoadedModel());
+  voicePool_.updateResynatorEnabled(1, r2On && !expandedSynths_[1].hasLoadedModel());
 
   // Global LFO calculation with symbolic table size
   constexpr double kNeuronLfoTableSize =
@@ -662,7 +954,9 @@ void DspEngineFacade::updatePeaksAndTelemetry(const float *leftChannel,
   }
   peakL_ = maxL;
   peakR_ = (rightChannel != nullptr) ? maxR : maxL;
-  activeVoices_ = voicePool_.getActiveVoiceCount();
+  activeVoices_ = voicePool_.getActiveVoiceCount() +
+                  expandedSynths_[0].getActiveVoiceCount() +
+                  expandedSynths_[1].getActiveVoiceCount();
 
   // Real measured CPU load smoothed with 1-pole IIR filter
   cpuUsage_ = cpuUsage_ * 0.9f + instantLoad * 0.1f;
@@ -693,7 +987,7 @@ void DspEngineFacade::process(float *leftChannel, float *rightChannel,
   // 5. Silver Rack & Master FX routing
   auto renderParams = updateSilverAndMasterFx(p, globalLfoSignal);
 
-  // 6. Block render
+  // 6. Block render (classic voicePool + Fase B Expanded Synthesizers injected before Blender/Slicer/Silver/MasterFX)
   blockRenderer_.process(leftChannel, rightChannel, numSamples, voicePool_,
                          renderParams.blenderNorm, renderParams.blenderType,
                          renderParams.slicerType, renderParams.slicerDepth,

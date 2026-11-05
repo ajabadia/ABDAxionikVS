@@ -26,10 +26,14 @@ import {
 import { createBankShell } from '@abdsynths/shared/components/bank/bankShell.js';
 import { bankCardHtml, bindBankCards } from '@abdsynths/shared/components/bank/bankCard.js';
 import { bankChipsHtml, bindBankChips, type BankChipItem } from '@abdsynths/shared/components/bank/bankChips.js';
+import {
+  type AxionikDbModelEntry,
+  mapAxionikCategoryToParameterSet,
+} from '@abdsynths/shared/contracts/axionikExpandedModel';
 import { getPresetCategoryInfo } from './presetCategories.js';
 import { t, onLocaleChange } from '../i18n/index.js';
 
-export { getPresetCategoryInfo };
+export { getPresetCategoryInfo, type AxionikDbModelEntry };
 
 export interface BankModelEntry {
   slot: number;
@@ -64,8 +68,10 @@ export interface BankSummary {
 
 export interface BankDrawerHandlers {
   onSelectModel: (slot: number, resynator: 1 | 2) => void;
+  onSelectExpandedModel?: (entry: AxionikDbModelEntry, resynator: 1 | 2) => void;
   onSelectPreset: (slot: number, name: string) => void;
   onConfigureNeuronDbFolder?: () => void;
+  onConfigureAxionikDbFolder?: () => void;
   onClearModels?: () => void;
 }
 
@@ -104,6 +110,8 @@ export function stickModesToComplexity(modes: number): number {
 
 const STORAGE_FOLDER_KEY = 'abdsynths_axionik_neurondb_folder';
 const STORAGE_BANK_KEY = 'abdsynths_axionik_neurondb_bank';
+const STORAGE_AXIONIK_FOLDER_KEY = 'abdsynths_axionik_axionikdb_folder';
+const STORAGE_AXIONIK_BANK_KEY = 'abdsynths_axionik_axionikdb_bank';
 
 export class BankDrawer {
   private drawerManager: DrawerManager;
@@ -113,8 +121,11 @@ export class BankDrawer {
   private cardUnbind: (() => void) | null = null;
   private chipsUnbind: (() => void) | null = null;
   private currentBank: BankSummary = { folderName: 'Default Library', models: [], presets: [] };
+  private axionikFolderName: string = 'AxionikDB';
+  private axionikModels: AxionikDbModelEntry[] = [];
+  private engineMode: 'classic' | 'plus' | 'expanded' = 'expanded';
   private dbEvaluation: NeuronDbEvaluation | null = null;
-  private activeTab: 'models' | 'presets' = 'models';
+  private activeTab: 'axionik' | 'models' | 'presets' = 'axionik';
   private preferredResynator: 1 | 2 = 1;
   private callerContext: 'r1' | 'r2' | 'global' = 'global';
   private selectedCategory: number | 'all' = 'all';
@@ -138,6 +149,7 @@ export class BankDrawer {
       title: t('bank.drawerTitle'),
       badge: t('bank.itemsCount', { count: 0 }),
       tabs: [
+        { id: 'axionik', label: 'AXIONIKDB (V2)', iconHtml: ICONS.database },
         { id: 'models', label: t('bank.modelsTab'), iconHtml: ICONS.database },
         { id: 'presets', label: t('bank.presetsTab'), iconHtml: ICONS.sliders },
       ],
@@ -152,15 +164,11 @@ export class BankDrawer {
       // The footer keeps the slot + status line (folder summary, refresh
       // record, selection) with no duplicated buttons.
       onTabChange: (tab) => {
-        this.setTab(tab as 'models' | 'presets');
+        this.setTab(tab as 'axionik' | 'models' | 'presets');
       },
       onSearch: (query) => {
         this.filterQuery = query;
-        if (this.activeTab === 'models') {
-          this.renderModels();
-        } else {
-          this.renderPresets();
-        }
+        this.renderActiveTab();
       },
       onHeaderAction: (action) => {
         if (action === 'refresh') {
@@ -205,7 +213,18 @@ export class BankDrawer {
       ?.setAttribute('style', 'font-size: var(--text-xs); color: var(--color-text-dim);');
     this.shell.setFootSlot('LIBRARY:');
     this.shell.setFooterStatus('No folder configured');
+    this.shell.setTabVisible('axionik', this.engineMode === 'expanded');
     this.renderToolbar();
+  }
+
+  private renderActiveTab(): void {
+    if (this.activeTab === 'axionik') {
+      this.renderAxionikModels();
+    } else if (this.activeTab === 'models') {
+      this.renderModels();
+    } else {
+      this.renderPresets();
+    }
   }
 
   private renderToolbar(): void {
@@ -216,8 +235,8 @@ export class BankDrawer {
         <!-- Category chips dynamically injected via renderCategoryChips -->
       </div>
 
-      <!-- Target Resynator Selector (visible on Models tab) -->
-      <div id="ndb-target-resynator-row" style="display: ${this.activeTab === 'models' ? 'flex' : 'none'}; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: var(--color-panel-surface); border-bottom: 1px solid var(--color-panel-border-dim);">
+      <!-- Target Resynator Selector (visible on Models / AxionikDB tabs) -->
+      <div id="ndb-target-resynator-row" style="display: ${this.activeTab !== 'presets' ? 'flex' : 'none'}; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: var(--color-panel-surface); border-bottom: 1px solid var(--color-panel-border-dim);">
         <span class="hud-label" id="ndb-target-label" style="font-size: 10px; font-weight: 700; color: var(--color-text-muted);">ASSIGN TARGET:</span>
         <div class="abd-pill-group" id="ndb-target-chips" style="gap: var(--space-2); margin: 0; padding: 0;">
           <button type="button" class="abd-pill abd-pill--sm ${this.preferredResynator === 1 ? 'active' : ''}" id="btn-target-r1">
@@ -278,45 +297,74 @@ export class BankDrawer {
     this.persistToLocalStorage();
     this.updateCounters();
     this.renderCategoryChips();
-    if (this.activeTab === 'models') {
-      this.renderModels();
-    } else {
-      this.renderPresets();
-    }
+    this.renderActiveTab();
   }
 
   public syncCatalogFromHost(data: {
     folderName?: string;
     models?: BankModelEntry[];
     presets?: BankPresetEntry[];
+    axionikFolderName?: string;
+    axionikModels?: AxionikDbModelEntry[];
   }): void {
-    if (!data || !Array.isArray(data.models) || !Array.isArray(data.presets)) return;
-    if (data.models.length === 0 && data.presets.length === 0) return;
+    if (!data) return;
 
-    this.currentBank = {
-      folderName: data.folderName || 'NeuronDB (Disk Sync)',
-      models: data.models,
-      presets: data.presets,
-    };
-    this.evaluateCurrentBank();
+    if (Array.isArray(data.axionikModels)) {
+      this.axionikFolderName = data.axionikFolderName || 'AxionikDB';
+      this.axionikModels = data.axionikModels.map((m) => ({
+        ...m,
+        parameterSet: m.parameterSet ?? mapAxionikCategoryToParameterSet(m.category || ''),
+      }));
+    }
+
+    if (Array.isArray(data.models) && Array.isArray(data.presets) && (data.models.length > 0 || data.presets.length > 0)) {
+      this.currentBank = {
+        folderName: data.folderName || 'NeuronDB (Disk Sync)',
+        models: data.models,
+        presets: data.presets,
+      };
+      this.evaluateCurrentBank();
+    }
 
     this.persistToLocalStorage();
     this.updateCounters();
     this.renderCategoryChips();
+    this.renderActiveTab();
+  }
 
-    if (this.activeTab === 'models') {
-      this.renderModels();
-    } else {
-      this.renderPresets();
+  public setEngineMode(mode: 'classic' | 'plus' | 'expanded'): void {
+    this.engineMode = mode;
+    if (!this.drawerElement) return;
+    const isExpanded = mode === 'expanded';
+    this.shell.setTabVisible('axionik', isExpanded);
+    if (!isExpanded && this.activeTab === 'axionik') {
+      this.activeTab = 'models';
+      this.shell.setTab('models');
+    } else if (isExpanded && this.activeTab === 'models' && this.axionikModels.length > 0) {
+      this.activeTab = 'axionik';
+      this.shell.setTab('axionik');
     }
+    this.updateCounters();
+    this.updateTargetRowUI();
+    this.renderCategoryChips();
+    this.renderActiveTab();
+  }
 
-    const models = this.currentBank.models;
-    const presets = this.currentBank.presets;
-    const inUse = this.dbEvaluation?.inUseModelCount ?? models.length;
-    this.shell.setFooterStatus(
-      `${this.currentBank.folderName} (${models.length} models · ${inUse} in use, ${presets.length} presets)`
-    );
-    console.log(`[BankDrawer] Synced ${models.length} models and ${presets.length} presets from native host.`);
+  public getEngineMode(): 'classic' | 'plus' | 'expanded' {
+    return this.engineMode;
+  }
+
+  public getAxionikModels(): AxionikDbModelEntry[] {
+    return this.axionikModels;
+  }
+
+  public setAxionikBank(folderName: string, models: AxionikDbModelEntry[]): void {
+    this.axionikFolderName = folderName;
+    this.axionikModels = models;
+    this.persistToLocalStorage();
+    this.updateCounters();
+    this.renderCategoryChips();
+    this.renderActiveTab();
   }
 
   public getBank(): BankSummary {
@@ -396,12 +444,7 @@ export class BankDrawer {
     this.persistToLocalStorage();
     this.updateCounters();
     this.renderCategoryChips();
-
-    if (this.activeTab === 'models') {
-      this.renderModels();
-    } else {
-      this.renderPresets();
-    }
+    this.renderActiveTab();
 
     // Persistent confirmation with timestamp: refreshing with identical data
     // changes no counters, so the time proves the click did something.
@@ -415,15 +458,23 @@ export class BankDrawer {
 
   private updateCounters(): void {
     if (!this.drawerElement) return;
+    const axCount = this.axionikModels.length;
     const mCount = this.currentBank.models.length;
     const pCount = this.currentBank.presets.length;
     const inUse = this.dbEvaluation?.inUseModelCount;
 
+    this.shell.setTabCount('axionik', axCount);
     this.shell.setTabCount('models', mCount);
     this.shell.setTabCount('presets', pCount);
 
-    const inUseSummary = typeof inUse === 'number' ? ` · ${inUse} in use` : '';
-    this.shell.setFooterStatus(`${this.currentBank.folderName} (${mCount} models${inUseSummary}, ${pCount} presets)`);
+    if (this.activeTab === 'axionik') {
+      this.shell.setFootSlot('AXIONIKDB:');
+      this.shell.setFooterStatus(`${this.axionikFolderName} (${axCount} Expanded v2 models · ${mCount} Classic v1 models, ${pCount} presets)`);
+    } else {
+      this.shell.setFootSlot('NEURONDB:');
+      const inUseSummary = typeof inUse === 'number' ? ` · ${inUse} in use` : '';
+      this.shell.setFooterStatus(`${this.currentBank.folderName} (${mCount} Classic v1 models${inUseSummary}, ${pCount} presets)`);
+    }
   }
 
   private updateTargetRowUI(): void {
@@ -434,7 +485,7 @@ export class BankDrawer {
     const btnR2 = this.drawerElement.querySelector('#btn-target-r2');
 
     if (!targetRow) return;
-    if (this.activeTab !== 'models') {
+    if (this.activeTab === 'presets') {
       targetRow.style.display = 'none';
       return;
     }
@@ -497,13 +548,14 @@ export class BankDrawer {
       return;
     }
 
-    // Compute live counts per parameterSet (0..9)
+    // Compute live counts per parameterSet (0..9) for whichever model tab is active
+    const activeModelList = this.activeTab === 'axionik' ? this.axionikModels : this.currentBank.models;
     const counts: Record<number, number> = {};
-    for (const m of this.currentBank.models) {
+    for (const m of activeModelList) {
       counts[m.parameterSet] = (counts[m.parameterSet] || 0) + 1;
     }
 
-    const items: BankChipItem[] = [{ id: 'all', label: 'All', count: this.currentBank.models.length }];
+    const items: BankChipItem[] = [{ id: 'all', label: 'All', count: activeModelList.length }];
     // All ten sets always: same pill row whatever the folder contains.
     for (let i = 0; i <= 9; i++) {
       const count = counts[i] || 0;
@@ -524,7 +576,7 @@ export class BankDrawer {
     this.chipsUnbind = bindBankChips(container, (id) => {
       this.selectedCategory = id === 'all' ? 'all' : parseInt(id || '0', 10);
       this.renderCategoryChips();
-      this.renderModels();
+      this.renderActiveTab();
     });
   }
 
@@ -600,6 +652,118 @@ export class BankDrawer {
     this.showTargetChoiceModal(slot, modelName);
   }
 
+  private handleExpandedModelLoadRequest(entry: AxionikDbModelEntry): void {
+    if (this.callerContext === 'r1') {
+      this.handlers.onSelectExpandedModel?.(entry, 1);
+      this.close();
+      return;
+    }
+    if (this.callerContext === 'r2') {
+      this.handlers.onSelectExpandedModel?.(entry, 2);
+      this.close();
+      return;
+    }
+    this.handlers.onSelectExpandedModel?.(entry, this.preferredResynator);
+    this.close();
+  }
+
+  private renderAxionikModels(): void {
+    if (!this.drawerElement) return;
+    const container = this.shell.contentEl;
+    const totalModels = this.axionikModels.length;
+
+    if (totalModels === 0) {
+      this.shell.setBadge('0 IN AXIONIKDB');
+      container.innerHTML = `
+        <div class="neurondb-empty-state" style="text-align: center; padding: var(--space-6); color: var(--color-text-dim);">
+          <div style="font-size: 28px; margin-bottom: var(--space-2);">${ICONS.database}</div>
+          <div style="font-weight: 700; color: var(--color-text-main); margin-bottom: var(--space-1);">No models loaded in AxionikDB (Resynator v2)</div>
+          <div style="font-size: var(--text-xs); margin-bottom: var(--space-4);">Select your AxionikDB folder (or export models from ABDNeuModMakr into AxionikDB/) to browse Expanded v2 models.</div>
+          <button type="button" class="btn btn-sm btn-primary" id="btn-empty-configure-axionik">
+            ${ICONS.folder} Configure AxionikDB Folder...
+          </button>
+        </div>
+      `;
+      container.querySelector('#btn-empty-configure-axionik')?.addEventListener('click', () => this.promptConfigureFolder('axionik'));
+      return;
+    }
+
+    let filtered = this.axionikModels;
+    if (this.selectedCategory !== 'all') {
+      filtered = filtered.filter((m) => m.parameterSet === this.selectedCategory);
+    }
+    if (this.filterQuery) {
+      const q = this.filterQuery.toLowerCase().trim();
+      filtered = filtered.filter(
+        (m) =>
+          (m.name || '').toLowerCase().includes(q) ||
+          (m.slug || '').toLowerCase().includes(q) ||
+          (m.category || '').toLowerCase().includes(q) ||
+          (m.sublibrary || '').toLowerCase().includes(q)
+      );
+    }
+
+    this.shell.setBadge(
+      filtered.length === totalModels
+        ? `${totalModels} IN AXIONIKDB`
+        : `${filtered.length} / ${totalModels} IN AXIONIKDB`
+    );
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div class="neurondb-empty-state" style="text-align: center; padding: var(--space-6); color: var(--color-text-dim);">
+          <span class="empty-icon">${ICONS.database}</span>
+          <span class="empty-msg">No AxionikDB v2 models matching filter</span>
+        </div>
+      `;
+      return;
+    }
+
+    const btnLabel =
+      this.callerContext === 'r1'
+        ? t('bank.loadModelR1')
+        : this.callerContext === 'r2'
+        ? t('bank.loadModelR2')
+        : t('common.load');
+
+    const grid = document.createElement('div');
+    grid.className = 'ndb-grid';
+    grid.innerHTML = filtered
+      .map((m, idx) => {
+        const catClass = `cat-${(m.parameterSet ?? 0) % 10}`;
+        const iconKey = `param${(m.parameterSet ?? 0) % 10}` as keyof typeof ICONS;
+        const subLabel = m.sublibrary || 'Default';
+        return bankCardHtml({
+          slot: idx,
+          catClass,
+          catLabel: m.category || 'Expanded v2',
+          name: m.name,
+          iconHtml: ICONS[iconKey] || ICONS.database,
+          badges: [
+            subLabel,
+            `${m.zoneCount || 1} Zones`,
+            m.hasExpandedV2 !== false ? 'RESYNATOR V2' : 'NMMODEL V1',
+          ],
+          actions: [{ id: 'load', label: btnLabel }],
+        });
+      })
+      .join('');
+    container.innerHTML = '';
+    container.appendChild(grid);
+
+    this.cardUnbind?.();
+    this.cardUnbind = bindBankCards(grid, {
+      onCardClick: (idx) => {
+        const entry = filtered[idx];
+        if (entry) this.handleExpandedModelLoadRequest(entry);
+      },
+      onAction: ({ slot: idx }) => {
+        const entry = filtered[idx];
+        if (entry) this.handleExpandedModelLoadRequest(entry);
+      },
+    });
+  }
+
   private renderModels(): void {
     if (!this.drawerElement) return;
     const container = this.shell.contentEl;
@@ -618,7 +782,7 @@ export class BankDrawer {
           </button>
         </div>
       `;
-      container.querySelector('#btn-empty-configure')?.addEventListener('click', () => this.promptConfigureFolder());
+      container.querySelector('#btn-empty-configure')?.addEventListener('click', () => this.promptConfigureFolder('neuron'));
       return;
     }
 
@@ -817,7 +981,8 @@ export class BankDrawer {
     });
   }
 
-  public promptConfigureFolder(): void {
+  public promptConfigureFolder(targetBank?: 'neuron' | 'axionik'): void {
+    const bankKind = targetBank ?? (this.activeTab === 'axionik' ? 'axionik' : 'neuron');
     const win = window as Window & {
       showDirectoryPicker?: (opts?: { mode?: 'read' }) => Promise<FileSystemDirectoryHandle>;
     };
@@ -826,7 +991,11 @@ export class BankDrawer {
       void (async () => {
         try {
           const dirHandle = await win.showDirectoryPicker!({ mode: 'read' });
-          await this.scanDirectoryHandle(dirHandle);
+          if (bankKind === 'axionik') {
+            await this.scanAxionikDirectoryHandle(dirHandle);
+          } else {
+            await this.scanDirectoryHandle(dirHandle);
+          }
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') return;
           console.warn('[BankDrawer] Directory selection aborted or error:', err);
@@ -846,11 +1015,160 @@ export class BankDrawer {
     fileInput.addEventListener('change', async () => {
       const fileList = fileInput.files;
       if (fileList && fileList.length > 0) {
-        await this.scanFileList(fileList);
+        if (bankKind === 'axionik') {
+          await this.scanAxionikFileList(fileList);
+        } else {
+          await this.scanFileList(fileList);
+        }
       }
       fileInput.remove();
     });
     fileInput.click();
+  }
+
+  private async scanAxionikDirectoryHandle(rootHandle: FileSystemDirectoryHandle): Promise<void> {
+    type IterDir = FileSystemDirectoryHandle & {
+      values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
+    };
+
+    const foundModels: AxionikDbModelEntry[] = [];
+    let ord = 1;
+
+    const inspectCapsuleDir = async (dir: FileSystemDirectoryHandle, sublib: string) => {
+      let manifestObj: any = null;
+      let expandedJsonText = '';
+      let hasV2 = false;
+      let hasCover = false;
+
+      for await (const entry of (dir as IterDir).values()) {
+        if (entry.kind === 'file' && entry.name.toLowerCase() === 'manifest.json') {
+          try {
+            const f = await (entry as FileSystemFileHandle).getFile();
+            manifestObj = JSON.parse(await f.text());
+          } catch {
+            // ignore
+          }
+        } else if (entry.kind === 'directory' && entry.name.toLowerCase() === '05_extended_model') {
+          for await (const extEntry of (entry as IterDir).values()) {
+            if (extEntry.kind === 'file') {
+              const lower = extEntry.name.toLowerCase();
+              if (lower === 'axionik-expanded.json') {
+                const f = await (extEntry as FileSystemFileHandle).getFile();
+                expandedJsonText = await f.text();
+                hasV2 = true;
+              } else if (lower === 'model.nmmodel' && !expandedJsonText) {
+                const f = await (extEntry as FileSystemFileHandle).getFile();
+                expandedJsonText = await f.text();
+              } else if (lower === 'cover.webp') {
+                hasCover = true;
+              }
+            }
+          }
+        }
+      }
+
+      if (!manifestObj && !expandedJsonText) return;
+      const cfg = manifestObj?.processConfig ?? {};
+      const cat = cfg.category || manifestObj?.category || 'Synth & Neutral';
+      const pSet = typeof cfg.parameterSet === 'number' ? cfg.parameterSet : mapAxionikCategoryToParameterSet(cat);
+      foundModels.push({
+        slug: dir.name,
+        name: manifestObj?.modelName || cfg.modelName || dir.name,
+        category: cat,
+        parameterSet: pSet,
+        zoneCount: Array.isArray(manifestObj?.zones) ? manifestObj.zones.length : 1,
+        complexity: cfg.complexity ?? 8,
+        hasCover,
+        folderPath: dir.name,
+        sublibrary: cfg.sublibrary || sublib,
+        sublibraryOrdinal: cfg.sublibraryOrdinal ?? ord++,
+        hasExpandedV2: hasV2,
+        expandedJson: expandedJsonText || undefined,
+      });
+    };
+
+    for await (const entry of (rootHandle as IterDir).values()) {
+      if (entry.kind !== 'directory' || entry.name.startsWith('.')) continue;
+      const dir = entry as FileSystemDirectoryHandle;
+      if (dir.name.toLowerCase() === 'models') {
+        for await (const sub of (dir as IterDir).values()) {
+          if (sub.kind === 'directory') await inspectCapsuleDir(sub as FileSystemDirectoryHandle, 'Default');
+        }
+      } else if (dir.name.toLowerCase() === 'banks') {
+        for await (const bankSub of (dir as IterDir).values()) {
+          if (bankSub.kind !== 'directory') continue;
+          for await (const mDir of (bankSub as IterDir).values()) {
+            if (mDir.kind === 'directory') await inspectCapsuleDir(mDir as FileSystemDirectoryHandle, bankSub.name);
+          }
+        }
+      } else {
+        await inspectCapsuleDir(dir, 'Default');
+      }
+    }
+
+    this.setAxionikBank(rootHandle.name, foundModels);
+    this.open();
+  }
+
+  private async scanAxionikFileList(fileList: FileList): Promise<void> {
+    const capsuleMap = new Map<string, { slug: string; sublib: string; manifest?: any; expandedJson?: string; hasV2?: boolean; hasCover?: boolean }>();
+
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      const relPath = file.webkitRelativePath || file.name;
+      const parts = relPath.split(/[/\\]/);
+      const fileName = parts[parts.length - 1].toLowerCase();
+
+      if (fileName === 'manifest.json' && parts.length >= 2) {
+        const slug = parts[parts.length - 2];
+        const rec = capsuleMap.get(slug) ?? { slug, sublib: 'Default' };
+        try {
+          rec.manifest = JSON.parse(await file.text());
+        } catch {
+          // ignore
+        }
+        capsuleMap.set(slug, rec);
+      } else if ((fileName === 'axionik-expanded.json' || fileName === 'model.nmmodel') && parts.length >= 3 && parts[parts.length - 2].toLowerCase() === '05_extended_model') {
+        const slug = parts[parts.length - 3];
+        const rec = capsuleMap.get(slug) ?? { slug, sublib: 'Default' };
+        if (fileName === 'axionik-expanded.json' || !rec.expandedJson) {
+          rec.expandedJson = await file.text();
+          if (fileName === 'axionik-expanded.json') rec.hasV2 = true;
+        }
+        capsuleMap.set(slug, rec);
+      } else if (fileName === 'cover.webp' && parts.length >= 3 && parts[parts.length - 2].toLowerCase() === '05_extended_model') {
+        const slug = parts[parts.length - 3];
+        const rec = capsuleMap.get(slug) ?? { slug, sublib: 'Default' };
+        rec.hasCover = true;
+        capsuleMap.set(slug, rec);
+      }
+    }
+
+    let ord = 1;
+    const foundModels: AxionikDbModelEntry[] = [];
+    for (const rec of capsuleMap.values()) {
+      const cfg = rec.manifest?.processConfig ?? {};
+      const cat = cfg.category || rec.manifest?.category || 'Synth & Neutral';
+      const pSet = typeof cfg.parameterSet === 'number' ? cfg.parameterSet : mapAxionikCategoryToParameterSet(cat);
+      foundModels.push({
+        slug: rec.slug,
+        name: rec.manifest?.modelName || cfg.modelName || rec.slug,
+        category: cat,
+        parameterSet: pSet,
+        zoneCount: Array.isArray(rec.manifest?.zones) ? rec.manifest.zones.length : 1,
+        complexity: cfg.complexity ?? 8,
+        hasCover: Boolean(rec.hasCover),
+        folderPath: rec.slug,
+        sublibrary: cfg.sublibrary || rec.sublib,
+        sublibraryOrdinal: cfg.sublibraryOrdinal ?? ord++,
+        hasExpandedV2: Boolean(rec.hasV2),
+        expandedJson: rec.expandedJson,
+      });
+    }
+
+    const folderName = fileList[0]?.webkitRelativePath?.split(/[/\\]/)[0] || 'AxionikDB';
+    this.setAxionikBank(folderName, foundModels);
+    this.open();
   }
 
   private async scanDirectoryHandle(rootHandle: FileSystemDirectoryHandle): Promise<void> {
@@ -1200,6 +1518,14 @@ export class BankDrawer {
         }))
       };
       localStorage.setItem(STORAGE_BANK_KEY, JSON.stringify(lightBank));
+      localStorage.setItem(STORAGE_AXIONIK_FOLDER_KEY, this.axionikFolderName);
+      localStorage.setItem(
+        STORAGE_AXIONIK_BANK_KEY,
+        JSON.stringify({
+          folderName: this.axionikFolderName,
+          models: this.axionikModels,
+        })
+      );
     } catch {
       // ignore storage quota errors
     }
@@ -1208,6 +1534,14 @@ export class BankDrawer {
   private restoreFromLocalStorage(): void {
     if (typeof localStorage === 'undefined') return;
     try {
+      const rawAxionik = localStorage.getItem(STORAGE_AXIONIK_BANK_KEY);
+      if (rawAxionik) {
+        const parsedAx = JSON.parse(rawAxionik);
+        if (parsedAx && Array.isArray(parsedAx.models)) {
+          this.axionikFolderName = parsedAx.folderName || 'AxionikDB';
+          this.axionikModels = parsedAx.models;
+        }
+      }
       const rawBank = localStorage.getItem(STORAGE_BANK_KEY);
       if (rawBank) {
         const parsed = JSON.parse(rawBank);
@@ -1256,28 +1590,28 @@ export class BankDrawer {
         btnTargetR2?.classList.add('active');
         btnTargetR1?.classList.remove('active');
       }
-      if (this.activeTab === 'models') {
-        this.renderModels();
+      if (this.activeTab !== 'presets') {
+        this.renderActiveTab();
       }
     }
   }
 
-  public setTab(tab: 'models' | 'presets'): void {
+  public setTab(tab: 'axionik' | 'models' | 'presets'): void {
     if (!this.drawerElement) return;
+    if (tab === 'axionik' && this.engineMode !== 'expanded') {
+      tab = 'models';
+    }
     this.activeTab = tab;
     // Silent tab paint: the shell only notifies on user clicks (onTabChange),
     // so this cannot loop back into setTab.
     this.shell.setTab(tab);
+    this.updateCounters();
     this.updateTargetRowUI();
     this.renderCategoryChips();
-    if (tab === 'models') {
-      this.renderModels();
-    } else {
-      this.renderPresets();
-    }
+    this.renderActiveTab();
   }
 
-  public toggle(tab?: 'models' | 'presets', context?: 'r1' | 'r2' | 'global' | 1 | 2): void {
+  public toggle(tab?: 'axionik' | 'models' | 'presets', context?: 'r1' | 'r2' | 'global' | 1 | 2): void {
     if (this.isOpen()) {
       this.close();
     } else {
@@ -1285,7 +1619,7 @@ export class BankDrawer {
     }
   }
 
-  public open(tab?: 'models' | 'presets', context?: 'r1' | 'r2' | 'global' | 1 | 2): void {
+  public open(tab?: 'axionik' | 'models' | 'presets', context?: 'r1' | 'r2' | 'global' | 1 | 2): void {
     if (!this.drawerElement) return;
 
     // Trigger async sync of live disk catalog from native host
@@ -1305,13 +1639,14 @@ export class BankDrawer {
     this.renderCategoryChips();
 
     if (tab) {
-      this.setTab(tab);
+      // In expanded mode, if a caller asks to open 'models' (generic model picker) and the user was on 'axionik', keep 'axionik'
+      const effectiveTab =
+        tab === 'models' && this.engineMode === 'expanded' && this.activeTab === 'axionik'
+          ? 'axionik'
+          : tab;
+      this.setTab(effectiveTab);
     } else {
-      if (this.activeTab === 'models') {
-        this.renderModels();
-      } else {
-        this.renderPresets();
-      }
+      this.renderActiveTab();
     }
 
     this.drawerManager.openCustom('bank', this.drawerElement);
@@ -1344,6 +1679,7 @@ export class BankDrawer {
     this.shell.setTitle(t('bank.drawerTitle'));
     this.shell.setSearchPlaceholder(t('bank.searchPlaceholder'));
     this.shell.setTabLabels({
+      axionik: 'AXIONIKDB (V2)',
       models: t('bank.modelsTab'),
       presets: t('bank.presetsTab'),
     });
@@ -1353,11 +1689,6 @@ export class BankDrawer {
 
     this.renderCategoryChips();
     this.updateTargetRowUI();
-
-    if (this.activeTab === 'models') {
-      this.renderModels();
-    } else {
-      this.renderPresets();
-    }
+    this.renderActiveTab();
   }
 }
