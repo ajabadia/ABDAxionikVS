@@ -32,6 +32,7 @@ import {
 } from '@abdsynths/shared/contracts/axionikExpandedModel';
 import { getPresetCategoryInfo } from './presetCategories.js';
 import { t, onLocaleChange } from '../i18n/index.js';
+import { parsePresetFile, type AxionikPreset } from './PresetModel.js';
 
 export { getPresetCategoryInfo, type AxionikDbModelEntry };
 
@@ -70,6 +71,7 @@ export interface BankDrawerHandlers {
   onSelectModel: (slot: number, resynator: 1 | 2) => void;
   onSelectExpandedModel?: (entry: AxionikDbModelEntry, resynator: 1 | 2) => void;
   onSelectPreset: (slot: number, name: string) => void;
+  onSelectAxionikPreset?: (preset: AxionikPreset) => void;
   onConfigureNeuronDbFolder?: () => void;
   onConfigureAxionikDbFolder?: () => void;
   onClearModels?: () => void;
@@ -112,6 +114,7 @@ const STORAGE_FOLDER_KEY = 'abdsynths_axionik_neurondb_folder';
 const STORAGE_BANK_KEY = 'abdsynths_axionik_neurondb_bank';
 const STORAGE_AXIONIK_FOLDER_KEY = 'abdsynths_axionik_axionikdb_folder';
 const STORAGE_AXIONIK_BANK_KEY = 'abdsynths_axionik_axionikdb_bank';
+const STORAGE_USER_PRESETS_KEY = 'abdsynths_axionik_user_presets';
 
 export class BankDrawer {
   private drawerManager: DrawerManager;
@@ -125,7 +128,9 @@ export class BankDrawer {
   private axionikModels: AxionikDbModelEntry[] = [];
   private engineMode: 'classic' | 'plus' | 'expanded' = 'expanded';
   private dbEvaluation: NeuronDbEvaluation | null = null;
-  private activeTab: 'axionik' | 'models' | 'presets' = 'axionik';
+  private activeTab: 'axionik' | 'models' | 'presets' | 'user-presets' = 'axionik';
+  private userPresets: AxionikPreset[] = [];
+  private userPresetsDirHandle: FileSystemDirectoryHandle | null = null;
   private preferredResynator: 1 | 2 = 1;
   private callerContext: 'r1' | 'r2' | 'global' = 'global';
   private selectedCategory: number | 'all' = 'all';
@@ -152,6 +157,7 @@ export class BankDrawer {
         { id: 'axionik', label: 'AXIONIKDB (V2)', iconHtml: ICONS.database },
         { id: 'models', label: t('bank.modelsTab'), iconHtml: ICONS.database },
         { id: 'presets', label: t('bank.presetsTab'), iconHtml: ICONS.sliders },
+        { id: 'user-presets', label: 'USER PRESETS (.AXPRESET)', iconHtml: ICONS.sliders },
       ],
       activeTab: this.activeTab,
       searchPlaceholder: t('bank.searchPlaceholder'),
@@ -164,7 +170,7 @@ export class BankDrawer {
       // The footer keeps the slot + status line (folder summary, refresh
       // record, selection) with no duplicated buttons.
       onTabChange: (tab) => {
-        this.setTab(tab as 'axionik' | 'models' | 'presets');
+        this.setTab(tab as 'axionik' | 'models' | 'presets' | 'user-presets');
       },
       onSearch: (query) => {
         this.filterQuery = query;
@@ -222,6 +228,8 @@ export class BankDrawer {
       this.renderAxionikModels();
     } else if (this.activeTab === 'models') {
       this.renderModels();
+    } else if (this.activeTab === 'user-presets') {
+      this.renderUserPresets();
     } else {
       this.renderPresets();
     }
@@ -1171,6 +1179,176 @@ export class BankDrawer {
     this.open();
   }
 
+
+  public registerUserPreset(preset: AxionikPreset): void {
+    const existingIdx = this.userPresets.findIndex(
+      (p) => p.meta.name.toLowerCase() === preset.meta.name.toLowerCase()
+    );
+    if (existingIdx >= 0) {
+      this.userPresets[existingIdx] = preset;
+    } else {
+      this.userPresets.unshift(preset);
+    }
+    this.persistToLocalStorage();
+    this.updateCounters();
+    if (this.activeTab === 'user-presets') {
+      this.renderActiveTab();
+    }
+  }
+
+  public async savePresetToDiskFolder(preset: AxionikPreset): Promise<boolean> {
+    this.registerUserPreset(preset);
+    if (!this.userPresetsDirHandle) {
+      return false;
+    }
+    try {
+      const fileName = `${preset.meta.name.replace(/[^a-zA-Z0-9_\- ]/g, '_').trim() || 'Preset'}.axpreset`;
+      const fileHandle = await this.userPresetsDirHandle.getFileHandle(fileName, { create: true });
+      const writable = await (fileHandle as any).createWritable();
+      await writable.write(JSON.stringify(preset, null, 2));
+      await writable.close();
+      this.shell.flashStatus(`Saved to folder: ${fileName}`, 'ok');
+      return true;
+    } catch (err) {
+      console.warn('[BankDrawer] Failed saving preset to user folder:', err);
+      return false;
+    }
+  }
+
+  private renderUserPresets(): void {
+    if (!this.drawerElement) return;
+    const container = this.shell.contentEl;
+    const totalPresets = this.userPresets.length;
+
+    if (totalPresets === 0) {
+      this.shell.setBadge('0 USER PRESETS');
+      container.innerHTML = `
+        <div class="neurondb-empty-state">
+          <span class="empty-icon">${ICONS.sliders}</span>
+          <span class="empty-msg">No custom .axpreset files saved yet</span>
+          <span class="ndb-dim" style="font-size: var(--text-xs); color: var(--color-text-dim); margin-top: var(--space-1);">Save your current sound using File → Save Preset (Ctrl+S) or select your Presets/ folder.</span>
+          <button type="button" class="btn btn-xs btn-primary ndb-empty-action" id="btn-configure-user-presets" style="margin-top: var(--space-3);">
+            <span class="btn-icon">${ICONS.folder}</span>
+            <span>Configure Presets Folder...</span>
+          </button>
+        </div>
+      `;
+      container.querySelector('#btn-configure-user-presets')?.addEventListener('click', () => this.promptConfigureUserPresetsFolder());
+      return;
+    }
+
+    const filtered = this.filterQuery
+      ? this.userPresets.filter((p) => {
+          const q = this.filterQuery.toLowerCase().trim();
+          return (
+            p.meta.name.toLowerCase().includes(q) ||
+            (p.meta.category && p.meta.category.toLowerCase().includes(q)) ||
+            (p.meta.author && p.meta.author.toLowerCase().includes(q)) ||
+            p.models?.resynator1?.name.toLowerCase().includes(q) ||
+            p.models?.resynator2?.name.toLowerCase().includes(q)
+          );
+        })
+      : this.userPresets;
+
+    this.shell.setBadge(
+      filtered.length === totalPresets
+        ? `${totalPresets} USER PRESETS`
+        : `${filtered.length} / ${totalPresets} USER PRESETS`
+    );
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div class="neurondb-empty-state">
+          <span class="empty-icon">${ICONS.sliders}</span>
+          <span class="empty-msg">No user presets found matching "${this.filterQuery}"</span>
+        </div>
+      `;
+      return;
+    }
+
+    const cardsHtml = filtered
+      .map((p, idx) => {
+        const catInfo = getPresetCategoryInfo(p.meta.category || 'User');
+        const r1Str = p.models?.resynator1 ? `R1: ${p.models.resynator1.name}` : 'R1: None';
+        const r2Str = p.models?.resynator2 ? `R2: ${p.models.resynator2.name}` : 'R2: None';
+        return bankCardHtml({
+          slot: idx,
+          catClass: catInfo.catClass,
+          catLabel: p.meta.category || 'User Preset',
+          name: p.meta.name,
+          iconHtml: catInfo.icon,
+          badges: ['EXTENDED', r1Str, r2Str],
+        });
+      })
+      .join('');
+
+    container.innerHTML = `<div class="ndb-grid ndb-preset-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3);">${cardsHtml}</div>`;
+
+    const grid = container.querySelector('.ndb-grid') as HTMLElement | null;
+    if (grid) {
+      this.cardUnbind?.();
+      this.cardUnbind = bindBankCards(grid, {
+        onCardDblClick: (idx) => {
+          const targetPreset = filtered[idx];
+          if (targetPreset) {
+            this.handlers.onSelectAxionikPreset?.(targetPreset);
+            this.close();
+          }
+        },
+        onAction: ({ slot: idx }) => {
+          const targetPreset = filtered[idx];
+          if (targetPreset) {
+            this.handlers.onSelectAxionikPreset?.(targetPreset);
+            this.close();
+          }
+        },
+      });
+    }
+  }
+
+  public async promptConfigureUserPresetsFolder(): Promise<void> {
+    const win = window as Window & {
+      showDirectoryPicker?: (opts?: { mode?: 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
+    };
+    if (typeof win.showDirectoryPicker === 'function') {
+      try {
+        const dirHandle = await win.showDirectoryPicker({ mode: 'readwrite' });
+        this.userPresetsDirHandle = dirHandle;
+        await this.scanUserPresetsDirectory(dirHandle);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.warn('[BankDrawer] User presets folder selection aborted or error:', err);
+      }
+    }
+  }
+
+  public async scanUserPresetsDirectory(dirHandle: FileSystemDirectoryHandle): Promise<void> {
+    type IterDir = FileSystemDirectoryHandle & {
+      values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
+    };
+    const loaded: AxionikPreset[] = [];
+    for await (const entry of (dirHandle as IterDir).values()) {
+      if (entry.kind === 'file' && (entry.name.endsWith('.axpreset') || entry.name.endsWith('.json'))) {
+        try {
+          const file = await (entry as FileSystemFileHandle).getFile();
+          const text = await file.text();
+          const parsed = parsePresetFile(text);
+          if (parsed) {
+            loaded.push(parsed);
+          }
+        } catch {
+          // ignore corrupted files
+        }
+      }
+    }
+    if (loaded.length > 0) {
+      for (const p of loaded) {
+        this.registerUserPreset(p);
+      }
+      this.shell.flashStatus(`Loaded ${loaded.length} presets from folder`, 'ok');
+    }
+  }
+
   private async scanDirectoryHandle(rootHandle: FileSystemDirectoryHandle): Promise<void> {
     type IterDir = FileSystemDirectoryHandle & {
       values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
@@ -1293,6 +1471,13 @@ export class BankDrawer {
         sourceCount: zoneCount,
         modelPath: dir.name
       });
+    }
+
+    // Check for Presets or UserPresets subfolder
+    const presetsDir = subDirs.get('Presets') || subDirs.get('presets') || subDirs.get('UserPresets');
+    if (presetsDir) {
+      this.userPresetsDirHandle = presetsDir;
+      await this.scanUserPresetsDirectory(presetsDir);
     }
 
     // Check for Sounds subfolder
@@ -1518,6 +1703,7 @@ export class BankDrawer {
         }))
       };
       localStorage.setItem(STORAGE_BANK_KEY, JSON.stringify(lightBank));
+      localStorage.setItem(STORAGE_USER_PRESETS_KEY, JSON.stringify(this.userPresets.slice(0, 100)));
       localStorage.setItem(STORAGE_AXIONIK_FOLDER_KEY, this.axionikFolderName);
       localStorage.setItem(
         STORAGE_AXIONIK_BANK_KEY,
@@ -1541,6 +1727,15 @@ export class BankDrawer {
           this.axionikFolderName = parsedAx.folderName || 'AxionikDB';
           this.axionikModels = parsedAx.models;
         }
+      }
+      const rawUserPresets = localStorage.getItem(STORAGE_USER_PRESETS_KEY);
+      if (rawUserPresets) {
+        try {
+          const parsedU = JSON.parse(rawUserPresets);
+          if (Array.isArray(parsedU)) {
+            this.userPresets = parsedU;
+          }
+        } catch {}
       }
       const rawBank = localStorage.getItem(STORAGE_BANK_KEY);
       if (rawBank) {
@@ -1596,7 +1791,7 @@ export class BankDrawer {
     }
   }
 
-  public setTab(tab: 'axionik' | 'models' | 'presets'): void {
+  public setTab(tab: 'axionik' | 'models' | 'presets' | 'user-presets'): void {
     if (!this.drawerElement) return;
     if (tab === 'axionik' && this.engineMode !== 'expanded') {
       tab = 'models';
@@ -1611,7 +1806,7 @@ export class BankDrawer {
     this.renderActiveTab();
   }
 
-  public toggle(tab?: 'axionik' | 'models' | 'presets', context?: 'r1' | 'r2' | 'global' | 1 | 2): void {
+  public toggle(tab?: 'axionik' | 'models' | 'presets' | 'user-presets', context?: 'r1' | 'r2' | 'global' | 1 | 2): void {
     if (this.isOpen()) {
       this.close();
     } else {
@@ -1619,7 +1814,7 @@ export class BankDrawer {
     }
   }
 
-  public open(tab?: 'axionik' | 'models' | 'presets', context?: 'r1' | 'r2' | 'global' | 1 | 2): void {
+  public open(tab?: 'axionik' | 'models' | 'presets' | 'user-presets', context?: 'r1' | 'r2' | 'global' | 1 | 2): void {
     if (!this.drawerElement) return;
 
     // Trigger async sync of live disk catalog from native host

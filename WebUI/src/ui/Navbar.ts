@@ -408,6 +408,10 @@ export class AxionikNavbar {
     }
   }
 
+  public getPresetName(): string {
+    return this.presetNameEl?.textContent?.trim() || '000 InitSound';
+  }
+
   public setModelNames(r1Name: string, r2Name: string): void {
     if (this.r1ModelNameEl) {
       this.r1ModelNameEl.textContent = r1Name;

@@ -42,6 +42,8 @@ import {
   getCanonicalPresetInfo,
 } from './ui/NeuronCatalogMetadata.js';
 import { setupKeyboardShortcuts } from './app/keyboardShortcuts.js';
+import { PresetSaveDialog } from './ui/PresetSaveDialog.js';
+import { downloadPresetFile, parsePresetFile, type AxionikPreset } from './ui/PresetModel.js';
 import { ThemeManager } from './utils/themeManager.js';
 import { initI18n, onLocaleChange } from './i18n/index.js';
 import { handleParamUpdate, type ParamUpdateCtx } from './app/paramUpdate.js';
@@ -726,6 +728,45 @@ const bootstrapAxionikApp = async () => {
     topLcdBar?.refreshAll();
   };
 
+
+  const applyAxionikPreset = (preset: AxionikPreset) => {
+    // 1. Cargar modelos R1 y R2
+    const r1Id = preset.models?.resynator1?.id ?? 511;
+    const r2Id = preset.models?.resynator2?.id ?? 511;
+    const r1Name = preset.models?.resynator1?.name || getCanonicalModelName(r1Id);
+    const r2Name = preset.models?.resynator2?.name || getCanonicalModelName(r2Id);
+
+    updateResynatorModelUI(1, r1Id, r1Name);
+    updateResynatorModelUI(2, r2Id, r2Name);
+    navbar?.setModelName(1, `#${String(r1Id).padStart(3, '0')} ${r1Name}`);
+    navbar?.setModelName(2, `#${String(r2Id).padStart(3, '0')} ${r2Name}`);
+
+    const r1Meta = MODEL_METADATA[r1Id];
+    const r1ParSet = r1Meta ? r1Meta[0] : (r1Id % 10);
+    r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'scape'));
+    r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'sphere'));
+
+    const r2Meta = MODEL_METADATA[r2Id];
+    const r2ParSet = r2Meta ? r2Meta[0] : (r2Id % 10);
+    r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
+    r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
+
+    // 2. Aplicar snapshot de parámetros
+    for (const [idxStr, val] of Object.entries(preset.parameters || {})) {
+      const idx = parseInt(idxStr, 10);
+      if (!isNaN(idx)) {
+        WebBridge.setParam(idx, val);
+      }
+    }
+
+    navbar?.setPresetName(preset.meta.name);
+    topLcdBar?.setPresetInfo(0, preset.meta.name);
+    shapersPanel?.syncAll();
+    nukeDrawer?.syncAll();
+    topLcdBar?.refreshAll();
+    console.log(`[ABDAxionikVS] Preset "${preset.meta.name}" cargado con éxito`);
+  };
+
   // 7. Gestor de Banco y Modelos NeuronDB (BankDrawer montado en el Drawer universal)
   bankDrawer = new BankDrawer(drawerManager, {
     onSelectModel: (slot, resynator) => {
@@ -803,6 +844,9 @@ const bootstrapAxionikApp = async () => {
     onConfigureNeuronDbFolder: () => {
       bankDrawer.promptConfigureFolder();
     },
+    onSelectAxionikPreset: (preset) => {
+      applyAxionikPreset(preset);
+    },
   });
 
   // 5b. Inicializar cajón superior deslizable <NUKE> Remote Control Unit
@@ -850,10 +894,101 @@ const bootstrapAxionikApp = async () => {
       fileInput.click();
     },
     onLoadPreset: () => {
-      bankDrawer.open('presets', 'global');
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.axpreset,.json';
+      fileInput.style.display = 'none';
+      document.body.appendChild(fileInput);
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files?.[0];
+        if (file) {
+          try {
+            const text = await file.text();
+            const preset = parsePresetFile(text);
+            if (preset) {
+              // 1. Cargar modelos R1 y R2
+              const r1Id = preset.models?.resynator1?.id ?? 511;
+              const r2Id = preset.models?.resynator2?.id ?? 511;
+              const r1Name = preset.models?.resynator1?.name || getCanonicalModelName(r1Id);
+              const r2Name = preset.models?.resynator2?.name || getCanonicalModelName(r2Id);
+
+              updateResynatorModelUI(1, r1Id, r1Name);
+              updateResynatorModelUI(2, r2Id, r2Name);
+              navbar?.setModelName(1, `#${String(r1Id).padStart(3, '0')} ${r1Name}`);
+              navbar?.setModelName(2, `#${String(r2Id).padStart(3, '0')} ${r2Name}`);
+
+              const r1Meta = MODEL_METADATA[r1Id];
+              const r1ParSet = r1Meta ? r1Meta[0] : (r1Id % 10);
+              r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'scape'));
+              r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'sphere'));
+
+              const r2Meta = MODEL_METADATA[r2Id];
+              const r2ParSet = r2Meta ? r2Meta[0] : (r2Id % 10);
+              r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
+              r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
+
+              // 2. Aplicar snapshot de parámetros
+              for (const [idxStr, val] of Object.entries(preset.parameters || {})) {
+                const idx = parseInt(idxStr, 10);
+                if (!isNaN(idx)) {
+                  WebBridge.setParam(idx, val);
+                }
+              }
+
+              navbar?.setPresetName(preset.meta.name);
+              topLcdBar?.setPresetInfo(0, preset.meta.name);
+              shapersPanel?.syncAll();
+              nukeDrawer?.syncAll();
+              topLcdBar?.refreshAll();
+              console.log(`[ABDAxionikVS] Preset "${preset.meta.name}" cargado con éxito desde archivo .axpreset`);
+            } else {
+              // Si no es un .axpreset v2, abrir el drawer de banco habitual
+              bankDrawer.open('presets', 'global');
+            }
+          } catch (err) {
+            console.error('[ABDAxionikVS] Error al leer preset:', err);
+            bankDrawer.open('presets', 'global');
+          }
+        }
+        fileInput.remove();
+      });
+      fileInput.click();
     },
     onSavePreset: () => {
-      console.log('[ABDAxionikVS] Save Preset: Custom preset export available via bank manager.');
+      const currentName = navbar ? navbar.getPresetName() : '000 InitSound';
+      const dialog = new PresetSaveDialog({
+        currentPresetName: currentName,
+        onSave: (name, category, author) => {
+          const r1Model = Math.round(WebBridge.getParam(ParamIdx.R1ModellIndex, 511));
+          const r2Model = Math.round(WebBridge.getParam(ParamIdx.R2ModellIndex, 511));
+          const r1Name = getCanonicalModelName(r1Model);
+          const r2Name = getCanonicalModelName(r2Model);
+
+          const preset: AxionikPreset = {
+            formatVersion: 2,
+            meta: {
+              name,
+              category,
+              author,
+              date: new Date().toISOString(),
+            },
+            engineMode: 'legacy',
+            models: {
+              resynator1: { id: r1Model, name: r1Name },
+              resynator2: { id: r2Model, name: r2Name },
+            },
+            parameters: WebBridge.getAllCachedParams(),
+            extendedState: {},
+          };
+
+          downloadPresetFile(preset);
+
+          navbar?.setPresetName(name);
+          topLcdBar?.setPresetInfo(0, name);
+          console.log(`[ABDAxionikVS] Preset "${name}" exportado correctamente como .axpreset`);
+        },
+      });
+      dialog.open();
     },
     onInitPreset: () => {
       WebBridge.clearCache();

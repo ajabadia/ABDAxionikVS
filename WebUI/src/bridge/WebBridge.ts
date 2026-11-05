@@ -211,6 +211,19 @@ class WebBridgeImpl {
     return this.paramCache.has(index) ? (this.paramCache.get(index) as number) : defaultValue;
   }
 
+  /**
+   * Snapshot of all cached parameters as a plain dictionary.
+   * Values are copies of what is in this.paramCache; indexes not in
+   * cache fall back to their default (0).
+   */
+  public getAllCachedParams(): Record<number, number> {
+    const out: Record<number, number> = {};
+    for (const [index, value] of this.paramCache.entries()) {
+      out[index] = value;
+    }
+    return out;
+  }
+
   public setUIState<T>(key: string, value: T): void {
     this.uiState.set(key, value);
   }
