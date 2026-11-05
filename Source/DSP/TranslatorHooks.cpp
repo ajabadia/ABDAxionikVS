@@ -108,9 +108,9 @@ void translateSubObject(void* self, const uint32_t* p) {
         }
     }
     // Campos específicos de tiempo y realimentación leídos por DSP FUN_10029e34:
-    st[0x20 / 4] = p[277]; // RM_ModFreq / Delay target L
-    st[0x28 / 4] = p[279]; // RM_XoverTime / Delay target R
-    const float fb = f32_bits(p[294]) * 0.99f; // SS_Feedback * 0.99
+    st[0x20 / 4] = p[SlotIdx::RM_ModFreq]; // RM_ModFreq / Delay target L
+    st[0x28 / 4] = p[SlotIdx::RM_XoverTime]; // RM_XoverTime / Delay target R
+    const float fb = f32_bits(p[SlotIdx::SS_Feedback]) * 0.99f; // SS_Feedback * 0.99
     st[0xB8 / 4] = f32_raw(fb);
 }
 

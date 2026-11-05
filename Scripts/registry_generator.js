@@ -35,6 +35,7 @@ const ARTEFACTOS = [
   { clave: 'presets_h', rel: 'Source/Generated/FactoryPresets.gen.h', desc: 'Presets de fábrica oficiales' },
   { clave: 'params_ts', rel: 'WebUI/src/generated/parameters.gen.ts', desc: 'Contrato TypeScript WebUI' },
   { clave: 'bridge_json', rel: 'WebUI/src/generated/bridge-protocol.json', desc: 'Esquema de mensajes del bridge' },
+  { clave: 'shared_spec', rel: '../ABDShared/Contracts/hartmann_neuron_parameter_spec.json', desc: 'Diccionario Canónico ABDShared v2.0' },
 ];
 
 const CHECK_ONLY = process.argv.includes('--check');
@@ -463,6 +464,177 @@ function generateBridgeProtocolJson() {
 }
 
 // =========================================================================
+// Artefacto 7: hartmann_neuron_parameter_spec.json (ABDShared v2.0)
+// =========================================================================
+function generateHartmannNeuronParameterSpec() {
+  const ccByParamIndex = new Map([
+    [52, 16],  // R1L1Scape1Value -> CC 16
+    [53, 17],  // R1L1Scape2Value -> CC 17
+    [42, 18],  // R1L1Sphere1Value -> CC 18
+    [43, 19],  // R1L1Sphere2Value -> CC 19
+    [132, 35], // R2L1Scape1Value -> CC 35
+    [133, 36], // R2L1Scape2Value -> CC 36
+    [122, 37], // R2L1Sphere1Value -> CC 37
+    [123, 39], // R2L1Sphere2Value -> CC 39
+    [262, 70], // BlenderAmount -> CC 70
+    [275, 71], // FilterReso -> CC 71
+    [274, 74], // FilterFreq -> CC 74
+  ]);
+
+  function getSemanticRole(key) {
+    if (key === 'SoundPan') return 'MasterPan';
+    if (key === 'SoundNumVoices') return 'Polyphony';
+    if (key === 'PitchBendRange') return 'PitchBendUp';
+
+    if (key === 'FilterType') return 'FilterType';
+    if (key === 'FilterFreq') return 'FilterCutoff';
+    if (key === 'FilterReso') return 'FilterResonance';
+    if (key === 'FilterKeyTrack') return 'FilterKeyTrack';
+    if (key === 'FilterCutoffVelocityDepth') return 'FilterVelSensitivity';
+    if (key === 'FilterEnvDepth') return 'FilterEnvDepth';
+    if (key === 'FilterEnvA') return 'FilterEnvAttack';
+    if (key === 'FilterEnvD') return 'FilterEnvDecay';
+    if (key === 'FilterEnvS') return 'FilterEnvSustain';
+    if (key === 'FilterEnvR') return 'FilterEnvRelease';
+
+    if (key === 'R1AmpEnvA' || key === 'R2AmpEnvA') return 'AmpEnvAttack';
+    if (key === 'R1AmpEnvD' || key === 'R2AmpEnvD') return 'AmpEnvDecay';
+    if (key === 'R1AmpEnvS' || key === 'R2AmpEnvS') return 'AmpEnvSustain';
+    if (key === 'R1AmpEnvR' || key === 'R2AmpEnvR') return 'AmpEnvRelease';
+    if (key === 'R1Volume' || key === 'R2Volume') return 'ZoneGainDb';
+    if (key === 'R1Semi' || key === 'R2Semi') return 'ZoneTuneSemitones';
+    if (key === 'R1Cents' || key === 'R2Cents') return 'ZoneTuneCents';
+    if (key === 'R1PitchKeyTrack' || key === 'R2PitchKeyTrack') return 'ZonePitchKeyTrack';
+
+    if (key === 'LFOSwitch') return 'Lfo1Switch';
+    if (key === 'LFODepth') return 'Lfo1Depth';
+    if (key === 'LFORate') return 'Lfo1Rate';
+    if (key === 'LFOWaveForm') return 'Lfo1Wave';
+
+    if (key.endsWith('StickPlayback')) return 'TriggerMode';
+
+    return undefined;
+  }
+
+  const parts = [
+    { id: 'r1', name: 'Resynator 1', scope: 'part', cardinality: 1, idPrefix: 'R1' },
+    { id: 'r2', name: 'Resynator 2', scope: 'part', cardinality: 1, idPrefix: 'R2' },
+    { id: 'blender', name: 'Blender Stage', scope: 'part', cardinality: 1, idPrefix: 'Blender' },
+    { id: 'silver', name: 'Silver Rack', scope: 'part', cardinality: 1, idPrefix: 'Silver' },
+    { id: 'shapers', name: 'Shapers & Envelopes', scope: 'part', cardinality: 1, idPrefix: 'Shaper' },
+    { id: 'controllers', name: 'Free Controllers & MIDI', scope: 'part', cardinality: 1, idPrefix: '' },
+    { id: 'master_fx', name: 'Master Spatial FX', scope: 'part', cardinality: 1, idPrefix: 'SoundMFX' }
+  ];
+
+  const specParams = [];
+
+  for (const p of parameters) {
+    const idx = p.index;
+    const key = p.key;
+    const grp = p.group;
+    const min = p.min;
+    const max = p.max;
+    const def = p.default;
+    const step = p.step;
+
+    let type = 'continuous';
+    let curve = 'Linear';
+    let wireZeroCenter = undefined;
+    let wireCodec = 'Value';
+
+    if (min === 0 && max === 1 && step === 1) {
+      type = 'boolean';
+    } else if (min < 0 && max > 0) {
+      type = 'bipolar';
+      wireCodec = 'Bipolar';
+      if (min === -64 && max === 63) {
+        curve = 'SymBipolar';
+        wireZeroCenter = 0;
+      }
+    } else if (step === 1 && (max - min) <= 12 && min >= 0) {
+      type = 'choice';
+      wireCodec = 'Enum';
+    } else if (step === 1) {
+      type = 'integer';
+    }
+
+    let unit = undefined;
+    if (key.includes('Semi')) unit = 'st';
+    else if (key.includes('Cents')) unit = 'cents';
+    else if (key === 'SoundPan') unit = 'pan';
+    else if (key.endsWith('Time') && (max >= 500)) unit = 'ms';
+    else if (key.includes('Depth') || key.includes('KeyTrack') || key.includes('Slope')) unit = '%';
+    else if (key.includes('Gain') || key === 'CR_Threshold') unit = 'dB';
+    else if (key === 'PitchBendRange') unit = 'st';
+    else if (key === 'LFORate' || key.includes('Freq')) unit = 'Hz';
+    else if (key.includes('VelocitySwitch')) unit = 'velocity';
+    else if (type === 'choice') unit = 'enum';
+    else if (min === 0 && max === 127) unit = 'normalized';
+
+    let scope = 'global';
+    if (grp === 'R1' || grp === 'R2') scope = 'part';
+
+    const entry = {
+      id: key,
+      name: key,
+      group: grp,
+      scope,
+      type,
+      min,
+      max,
+      default: def,
+      curve,
+      wire: 'Nrpn',
+      wireCodec,
+      nrpnMsb: idx >> 7,
+      nrpnLsb: idx & 0x7F,
+      sysex: true,
+    };
+
+    if (unit) entry.unit = unit;
+    if (wireZeroCenter !== undefined) entry.wireZeroCenter = wireZeroCenter;
+
+    if (ccByParamIndex.has(idx)) {
+      entry.cc = ccByParamIndex.get(idx);
+    }
+
+    if (p.isModDest && p.modDestIdx >= 0) {
+      entry.modDestId = p.modDestIdx;
+    }
+
+    const role = getSemanticRole(key);
+    if (role) {
+      entry.semanticRole = role;
+    }
+
+    if (p.isVstExposed && p.vstIndex >= 0) {
+      entry.binaryPacking = {
+        byteOffset: p.vstIndex * 4,
+        bitMask: 255,
+        bitShift: 0,
+        byteSize: 4,
+        encoding: 'Unsigned'
+      };
+    }
+
+    specParams.push(entry);
+  }
+
+  const doc = {
+    $schema: './parameter_dictionary.schema.json',
+    schemaVersion: '2.0.0',
+    id: 'hartmann_neuron',
+    displayName: 'Hartmann Neuron / NeuronVS',
+    topology: 'multi_part',
+    totalParameters: 445,
+    parts,
+    parameters: specParams
+  };
+
+  return JSON.stringify(doc, null, 2) + '\n';
+}
+
+// =========================================================================
 // Ejecución Principal & Manifiesto
 // =========================================================================
 const contentByClave = {
@@ -472,6 +644,7 @@ const contentByClave = {
   presets_h: generateFactoryPresetsHeader(),
   params_ts: generateParametersTs(),
   bridge_json: generateBridgeProtocolJson(),
+  shared_spec: generateHartmannNeuronParameterSpec(),
 };
 
 let hasErrors = false;
