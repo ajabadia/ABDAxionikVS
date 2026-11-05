@@ -6,6 +6,7 @@
 // ============================================================================
 
 #include "Translator.h"
+#include "AxionikParamIndices.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>

@@ -39,7 +39,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 1,
@@ -57,7 +59,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 2,
@@ -75,7 +79,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 3,
@@ -93,7 +99,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": "MasterPan"
   },
   {
     "index": 4,
@@ -111,7 +119,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 5,
@@ -129,7 +139,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "Polyphony"
   },
   {
     "index": 6,
@@ -147,7 +159,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 7,
@@ -165,7 +179,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 8,
@@ -183,7 +199,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 9,
@@ -201,7 +219,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 10,
@@ -219,7 +239,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 11,
@@ -237,7 +259,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 12,
@@ -255,7 +279,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 13,
@@ -273,7 +299,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 14,
@@ -291,7 +319,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 15,
@@ -309,7 +339,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 16,
@@ -327,7 +359,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 17,
@@ -345,7 +379,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 18,
@@ -363,7 +399,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 19,
@@ -381,7 +419,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 20,
@@ -399,7 +439,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 21,
@@ -417,7 +459,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 22,
@@ -435,7 +479,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 23,
@@ -453,7 +499,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 24,
@@ -471,7 +519,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 25,
@@ -489,7 +539,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 26,
@@ -507,7 +559,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 27,
@@ -525,7 +579,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 0,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "ZoneGainDb"
   },
   {
     "index": 28,
@@ -543,7 +599,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 29,
@@ -561,7 +619,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 30,
@@ -579,7 +639,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 31,
@@ -597,7 +659,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 32,
@@ -615,7 +679,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 33,
@@ -633,7 +699,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 34,
@@ -651,7 +719,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 1,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "ZoneTuneSemitones"
   },
   {
     "index": 35,
@@ -669,7 +739,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "ZoneTuneCents"
   },
   {
     "index": 36,
@@ -687,7 +759,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 37,
@@ -705,7 +779,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": "ZonePitchKeyTrack"
   },
   {
     "index": 38,
@@ -723,7 +799,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 39,
@@ -741,7 +819,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 40,
@@ -759,7 +839,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 41,
@@ -777,7 +859,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 42,
@@ -795,7 +879,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 4,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 43,
@@ -813,7 +899,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 5,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 44,
@@ -831,7 +919,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 45,
@@ -849,7 +939,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 46,
@@ -867,7 +959,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 47,
@@ -885,7 +979,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 48,
@@ -903,7 +999,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 49,
@@ -921,7 +1019,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 50,
@@ -939,7 +1039,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 51,
@@ -957,7 +1059,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 52,
@@ -975,7 +1079,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 2,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 53,
@@ -993,7 +1099,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 3,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 54,
@@ -1011,7 +1119,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 55,
@@ -1029,7 +1139,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 56,
@@ -1047,7 +1159,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 57,
@@ -1065,7 +1179,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 58,
@@ -1083,7 +1199,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 59,
@@ -1101,7 +1219,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 60,
@@ -1119,7 +1239,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 61,
@@ -1137,7 +1259,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 62,
@@ -1155,7 +1279,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 8,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 63,
@@ -1173,7 +1299,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 9,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 64,
@@ -1191,7 +1319,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 65,
@@ -1209,7 +1339,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 66,
@@ -1227,7 +1359,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 67,
@@ -1245,7 +1379,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 68,
@@ -1263,7 +1399,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 69,
@@ -1281,7 +1419,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 70,
@@ -1299,7 +1439,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 71,
@@ -1317,7 +1459,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 72,
@@ -1335,7 +1479,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 6,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 73,
@@ -1353,7 +1499,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 7,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 74,
@@ -1371,7 +1519,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 75,
@@ -1389,7 +1539,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 76,
@@ -1407,7 +1559,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 77,
@@ -1425,7 +1579,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 78,
@@ -1443,7 +1599,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 79,
@@ -1461,7 +1619,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 80,
@@ -1479,7 +1639,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 81,
@@ -1497,7 +1659,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 82,
@@ -1515,7 +1679,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 12,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 83,
@@ -1533,7 +1699,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 13,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 84,
@@ -1551,7 +1719,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 85,
@@ -1569,7 +1739,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 86,
@@ -1587,7 +1759,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 87,
@@ -1605,7 +1779,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 88,
@@ -1623,7 +1799,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 89,
@@ -1641,7 +1819,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 90,
@@ -1659,7 +1839,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 91,
@@ -1677,7 +1859,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 92,
@@ -1695,7 +1879,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 10,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 93,
@@ -1713,7 +1899,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 11,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 94,
@@ -1731,7 +1919,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 95,
@@ -1749,7 +1939,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 96,
@@ -1767,7 +1959,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 97,
@@ -1785,7 +1979,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 98,
@@ -1803,7 +1999,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 99,
@@ -1821,7 +2019,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 100,
@@ -1839,7 +2039,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 101,
@@ -1857,7 +2059,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 102,
@@ -1875,7 +2079,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 103,
@@ -1893,7 +2099,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 104,
@@ -1911,7 +2119,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 105,
@@ -1929,7 +2139,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 106,
@@ -1947,7 +2159,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 107,
@@ -1965,7 +2179,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 14,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "ZoneGainDb"
   },
   {
     "index": 108,
@@ -1983,7 +2199,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 109,
@@ -2001,7 +2219,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 110,
@@ -2019,7 +2239,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 111,
@@ -2037,7 +2259,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 112,
@@ -2055,7 +2279,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 113,
@@ -2073,7 +2299,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 114,
@@ -2091,7 +2319,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 15,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "ZoneTuneSemitones"
   },
   {
     "index": 115,
@@ -2109,7 +2339,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "ZoneTuneCents"
   },
   {
     "index": 116,
@@ -2127,7 +2359,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 117,
@@ -2145,7 +2379,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": "ZonePitchKeyTrack"
   },
   {
     "index": 118,
@@ -2163,7 +2399,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 119,
@@ -2181,7 +2419,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 120,
@@ -2199,7 +2439,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 121,
@@ -2217,7 +2459,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 122,
@@ -2235,7 +2479,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 18,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 123,
@@ -2253,7 +2499,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 19,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 124,
@@ -2271,7 +2519,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 125,
@@ -2289,7 +2539,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 126,
@@ -2307,7 +2559,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 127,
@@ -2325,7 +2579,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 128,
@@ -2343,7 +2599,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 129,
@@ -2361,7 +2619,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 130,
@@ -2379,7 +2639,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 131,
@@ -2397,7 +2659,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 132,
@@ -2415,7 +2679,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 16,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 133,
@@ -2433,7 +2699,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 17,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 134,
@@ -2451,7 +2719,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 135,
@@ -2469,7 +2739,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 136,
@@ -2487,7 +2759,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 137,
@@ -2505,7 +2779,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 138,
@@ -2523,7 +2799,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 139,
@@ -2541,7 +2819,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 140,
@@ -2559,7 +2839,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 141,
@@ -2577,7 +2859,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 142,
@@ -2595,7 +2879,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 22,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 143,
@@ -2613,7 +2899,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 23,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 144,
@@ -2631,7 +2919,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 145,
@@ -2649,7 +2939,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 146,
@@ -2667,7 +2959,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 147,
@@ -2685,7 +2979,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 148,
@@ -2703,7 +2999,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 149,
@@ -2721,7 +3019,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 150,
@@ -2739,7 +3039,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 151,
@@ -2757,7 +3059,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 152,
@@ -2775,7 +3079,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 20,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 153,
@@ -2793,7 +3099,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 21,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 154,
@@ -2811,7 +3119,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 155,
@@ -2829,7 +3139,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 156,
@@ -2847,7 +3159,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 157,
@@ -2865,7 +3179,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 158,
@@ -2883,7 +3199,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 159,
@@ -2901,7 +3219,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 160,
@@ -2919,7 +3239,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 161,
@@ -2937,7 +3259,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 162,
@@ -2955,7 +3279,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 26,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 163,
@@ -2973,7 +3299,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 27,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 164,
@@ -2991,7 +3319,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 165,
@@ -3009,7 +3339,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 166,
@@ -3027,7 +3359,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 167,
@@ -3045,7 +3379,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 168,
@@ -3063,7 +3399,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 169,
@@ -3081,7 +3419,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 170,
@@ -3099,7 +3439,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 171,
@@ -3117,7 +3459,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 172,
@@ -3135,7 +3479,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 24,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 173,
@@ -3153,7 +3499,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 25,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 174,
@@ -3171,7 +3519,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 175,
@@ -3189,7 +3539,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 176,
@@ -3207,7 +3559,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 177,
@@ -3225,7 +3579,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 178,
@@ -3243,7 +3599,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 179,
@@ -3261,7 +3619,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 180,
@@ -3279,7 +3639,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 181,
@@ -3297,7 +3659,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 182,
@@ -3315,7 +3679,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 28,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 183,
@@ -3333,7 +3699,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 29,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 184,
@@ -3351,7 +3719,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 30,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 185,
@@ -3369,7 +3739,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 31,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 186,
@@ -3387,7 +3759,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 187,
@@ -3405,7 +3779,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 188,
@@ -3423,7 +3799,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 189,
@@ -3441,7 +3819,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 190,
@@ -3459,7 +3839,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 191,
@@ -3477,7 +3859,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 192,
@@ -3495,7 +3879,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 193,
@@ -3513,7 +3899,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 194,
@@ -3531,7 +3919,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 195,
@@ -3549,7 +3939,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 196,
@@ -3567,7 +3959,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 197,
@@ -3585,7 +3979,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 198,
@@ -3603,7 +3999,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 199,
@@ -3621,7 +4019,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 200,
@@ -3639,7 +4039,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 32,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "AmpEnvAttack"
   },
   {
     "index": 201,
@@ -3657,7 +4059,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 33,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "AmpEnvDecay"
   },
   {
     "index": 202,
@@ -3675,7 +4079,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 34,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "AmpEnvSustain"
   },
   {
     "index": 203,
@@ -3693,7 +4099,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 35,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "AmpEnvRelease"
   },
   {
     "index": 204,
@@ -3711,7 +4119,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 205,
@@ -3729,7 +4139,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 36,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 206,
@@ -3747,7 +4159,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 37,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 207,
@@ -3765,7 +4179,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 38,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 208,
@@ -3783,7 +4199,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 39,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 209,
@@ -3801,7 +4219,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 210,
@@ -3819,7 +4239,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 211,
@@ -3837,7 +4259,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 212,
@@ -3855,7 +4279,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 40,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 213,
@@ -3873,7 +4299,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 41,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 214,
@@ -3891,7 +4319,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 42,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 215,
@@ -3909,7 +4339,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 43,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 216,
@@ -3927,7 +4359,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 217,
@@ -3945,7 +4379,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 218,
@@ -3963,7 +4399,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 219,
@@ -3981,7 +4419,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 220,
@@ -3999,7 +4439,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 221,
@@ -4017,7 +4459,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 222,
@@ -4035,7 +4479,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 223,
@@ -4053,7 +4499,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 224,
@@ -4071,7 +4519,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 225,
@@ -4089,7 +4539,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 226,
@@ -4107,7 +4559,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 227,
@@ -4125,7 +4579,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 228,
@@ -4143,7 +4599,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 229,
@@ -4161,7 +4619,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 230,
@@ -4179,7 +4639,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 44,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "AmpEnvAttack"
   },
   {
     "index": 231,
@@ -4197,7 +4659,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 45,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "AmpEnvDecay"
   },
   {
     "index": 232,
@@ -4215,7 +4679,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 46,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "AmpEnvSustain"
   },
   {
     "index": 233,
@@ -4233,7 +4699,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 47,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "AmpEnvRelease"
   },
   {
     "index": 234,
@@ -4251,7 +4719,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 235,
@@ -4269,7 +4739,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 48,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 236,
@@ -4287,7 +4759,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 49,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 237,
@@ -4305,7 +4779,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 50,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 238,
@@ -4323,7 +4799,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 51,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 239,
@@ -4341,7 +4819,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 240,
@@ -4359,7 +4839,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 241,
@@ -4377,7 +4859,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 242,
@@ -4395,7 +4879,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 243,
@@ -4413,7 +4899,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 244,
@@ -4431,7 +4919,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 245,
@@ -4449,7 +4939,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 246,
@@ -4467,7 +4959,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 247,
@@ -4485,7 +4979,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 248,
@@ -4503,7 +4999,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 249,
@@ -4521,7 +5019,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 250,
@@ -4539,7 +5039,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 251,
@@ -4557,7 +5059,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 252,
@@ -4575,7 +5079,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 253,
@@ -4593,7 +5099,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 254,
@@ -4611,7 +5119,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 255,
@@ -4629,7 +5139,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 256,
@@ -4647,7 +5159,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "Lfo1Switch"
   },
   {
     "index": 257,
@@ -4665,7 +5179,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 59,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "Lfo1Depth"
   },
   {
     "index": 258,
@@ -4683,7 +5199,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 60,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "Lfo1Rate"
   },
   {
     "index": 259,
@@ -4701,7 +5219,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 260,
@@ -4719,7 +5239,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "Lfo1Wave"
   },
   {
     "index": 261,
@@ -4737,7 +5259,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 262,
@@ -4755,7 +5279,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 56,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 263,
@@ -4773,7 +5299,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 264,
@@ -4791,7 +5319,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 265,
@@ -4809,7 +5339,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 266,
@@ -4827,7 +5359,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 267,
@@ -4845,7 +5379,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 268,
@@ -4863,7 +5399,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 57,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 269,
@@ -4881,7 +5419,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 58,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 270,
@@ -4899,7 +5439,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 271,
@@ -4917,7 +5459,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 272,
@@ -4935,7 +5479,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 273,
@@ -4953,7 +5499,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "FilterType"
   },
   {
     "index": 274,
@@ -4971,7 +5519,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 61,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "FilterCutoff"
   },
   {
     "index": 275,
@@ -4989,7 +5539,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 62,
     "isModDest": true,
     "isVstExposed": true,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "FilterResonance"
   },
   {
     "index": 276,
@@ -5007,7 +5559,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 277,
@@ -5025,7 +5579,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": "FilterKeyTrack"
   },
   {
     "index": 278,
@@ -5043,7 +5599,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": "FilterVelSensitivity"
   },
   {
     "index": 279,
@@ -5061,7 +5619,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 280,
@@ -5079,7 +5639,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 281,
@@ -5097,7 +5659,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 282,
@@ -5115,7 +5679,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 283,
@@ -5133,7 +5699,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 284,
@@ -5151,7 +5719,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 285,
@@ -5169,7 +5739,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 286,
@@ -5187,7 +5759,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 287,
@@ -5205,7 +5779,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 288,
@@ -5223,7 +5799,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 289,
@@ -5241,7 +5819,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 290,
@@ -5259,7 +5839,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 291,
@@ -5277,7 +5859,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 292,
@@ -5295,7 +5879,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 293,
@@ -5313,7 +5899,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 294,
@@ -5331,7 +5919,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 295,
@@ -5349,7 +5939,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 296,
@@ -5367,7 +5959,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 297,
@@ -5385,7 +5979,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 298,
@@ -5403,7 +5999,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 299,
@@ -5421,7 +6019,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 300,
@@ -5439,7 +6039,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 301,
@@ -5457,7 +6059,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 302,
@@ -5475,7 +6079,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 303,
@@ -5493,7 +6099,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 304,
@@ -5511,7 +6119,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 305,
@@ -5529,7 +6139,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 306,
@@ -5547,7 +6159,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 307,
@@ -5565,7 +6179,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 308,
@@ -5583,7 +6199,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 309,
@@ -5601,7 +6219,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 310,
@@ -5619,7 +6239,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 311,
@@ -5637,7 +6259,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 312,
@@ -5655,7 +6279,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 313,
@@ -5673,7 +6299,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 314,
@@ -5691,7 +6319,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 315,
@@ -5709,7 +6339,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 316,
@@ -5727,7 +6359,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 317,
@@ -5745,7 +6379,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 318,
@@ -5763,7 +6399,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 319,
@@ -5781,7 +6419,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 320,
@@ -5799,7 +6439,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 321,
@@ -5817,7 +6459,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 322,
@@ -5835,7 +6479,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 323,
@@ -5853,7 +6499,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 324,
@@ -5871,7 +6519,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 325,
@@ -5889,7 +6539,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 326,
@@ -5907,7 +6559,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 327,
@@ -5925,7 +6579,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 328,
@@ -5943,7 +6599,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 329,
@@ -5961,7 +6619,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 330,
@@ -5979,7 +6639,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "TriggerMode"
   },
   {
     "index": 331,
@@ -5997,7 +6659,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 332,
@@ -6015,7 +6679,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 333,
@@ -6033,7 +6699,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 334,
@@ -6051,7 +6719,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 335,
@@ -6069,7 +6739,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 336,
@@ -6087,7 +6759,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 337,
@@ -6105,7 +6779,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 338,
@@ -6123,7 +6799,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 339,
@@ -6141,7 +6819,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 340,
@@ -6159,7 +6839,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 341,
@@ -6177,7 +6859,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 342,
@@ -6195,7 +6879,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 343,
@@ -6213,7 +6899,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 344,
@@ -6231,7 +6919,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 345,
@@ -6249,7 +6939,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 346,
@@ -6267,7 +6959,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 347,
@@ -6285,7 +6979,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 348,
@@ -6303,7 +6999,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 349,
@@ -6321,7 +7019,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 350,
@@ -6339,7 +7039,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 351,
@@ -6357,7 +7059,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 352,
@@ -6375,7 +7079,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 353,
@@ -6393,7 +7099,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 354,
@@ -6411,7 +7119,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 355,
@@ -6429,7 +7139,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 52,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "FilterEnvAttack"
   },
   {
     "index": 356,
@@ -6447,7 +7159,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 53,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "FilterEnvDecay"
   },
   {
     "index": 357,
@@ -6465,7 +7179,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 54,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "FilterEnvSustain"
   },
   {
     "index": 358,
@@ -6483,7 +7199,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": 55,
     "isModDest": true,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": "FilterEnvRelease"
   },
   {
     "index": 359,
@@ -6501,7 +7219,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 360,
@@ -6519,7 +7239,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": "FilterEnvDepth"
   },
   {
     "index": 361,
@@ -6537,7 +7259,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 362,
@@ -6555,7 +7279,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 363,
@@ -6573,7 +7299,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 364,
@@ -6591,7 +7319,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 365,
@@ -6609,7 +7339,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 366,
@@ -6627,7 +7359,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 367,
@@ -6645,7 +7379,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 368,
@@ -6663,7 +7399,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 369,
@@ -6681,7 +7419,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 370,
@@ -6699,7 +7439,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 371,
@@ -6717,7 +7459,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 372,
@@ -6735,7 +7479,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 373,
@@ -6753,7 +7499,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 374,
@@ -6771,7 +7519,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 375,
@@ -6789,7 +7539,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 376,
@@ -6807,7 +7559,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 377,
@@ -6825,7 +7579,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 378,
@@ -6843,7 +7599,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 379,
@@ -6861,7 +7619,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 380,
@@ -6879,7 +7639,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 381,
@@ -6897,7 +7659,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 382,
@@ -6915,7 +7679,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 383,
@@ -6933,7 +7699,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 384,
@@ -6951,7 +7719,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 385,
@@ -6969,7 +7739,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 386,
@@ -6987,7 +7759,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 387,
@@ -7005,7 +7779,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 388,
@@ -7023,7 +7799,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 389,
@@ -7041,7 +7819,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 390,
@@ -7059,7 +7839,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 391,
@@ -7077,7 +7859,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 392,
@@ -7095,7 +7879,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 393,
@@ -7113,7 +7899,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 394,
@@ -7131,7 +7919,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 395,
@@ -7149,7 +7939,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 396,
@@ -7167,7 +7959,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 397,
@@ -7185,7 +7979,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 398,
@@ -7203,7 +7999,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 399,
@@ -7221,7 +8019,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 400,
@@ -7239,7 +8039,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 401,
@@ -7257,7 +8059,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 402,
@@ -7275,7 +8079,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 403,
@@ -7293,7 +8099,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 404,
@@ -7311,7 +8119,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 405,
@@ -7329,7 +8139,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 406,
@@ -7347,7 +8159,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 407,
@@ -7365,7 +8179,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 408,
@@ -7383,7 +8199,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 409,
@@ -7401,7 +8219,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 410,
@@ -7419,7 +8239,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 411,
@@ -7437,7 +8259,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 412,
@@ -7455,7 +8279,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": "PitchBendUp"
   },
   {
     "index": 413,
@@ -7473,7 +8299,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 414,
@@ -7491,7 +8319,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 415,
@@ -7509,7 +8339,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 416,
@@ -7527,7 +8359,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 417,
@@ -7545,7 +8379,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 418,
@@ -7563,7 +8399,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 419,
@@ -7581,7 +8419,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 420,
@@ -7599,7 +8439,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 421,
@@ -7617,7 +8459,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 422,
@@ -7635,7 +8479,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 423,
@@ -7653,7 +8499,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 424,
@@ -7671,7 +8519,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 425,
@@ -7689,7 +8539,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 426,
@@ -7707,7 +8559,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 427,
@@ -7725,7 +8579,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 428,
@@ -7743,7 +8599,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 429,
@@ -7761,7 +8619,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 430,
@@ -7779,7 +8639,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 431,
@@ -7797,7 +8659,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 432,
@@ -7815,7 +8679,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 433,
@@ -7833,7 +8699,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 434,
@@ -7851,7 +8719,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 435,
@@ -7869,7 +8739,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": true,
+    "semanticRole": ""
   },
   {
     "index": 436,
@@ -7887,7 +8759,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 437,
@@ -7905,7 +8779,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 438,
@@ -7923,7 +8799,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 439,
@@ -7941,7 +8819,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": true
+    "isDiscrete": true,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 440,
@@ -7959,7 +8839,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 441,
@@ -7977,7 +8859,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 442,
@@ -7995,7 +8879,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 443,
@@ -8013,7 +8899,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   },
   {
     "index": 444,
@@ -8031,7 +8919,9 @@ export const PARAM_DEFINITIONS: ParamDefinition[] = [
     "modDestIdx": -1,
     "isModDest": false,
     "isVstExposed": false,
-    "isDiscrete": false
+    "isDiscrete": false,
+    "isSymBipolar": false,
+    "semanticRole": ""
   }
 ];
 

@@ -501,6 +501,74 @@ int main() {
         std::cout << "  [PASS] Test 12: Runtime mode switching (expanded <-> plus <-> classic) and Blender/Silver chain verified.\n";
     }
 
-    std::cout << "[DspEngineFacadeTests] All 12 tests passed successfully!\n";
+    // Test 13: Phase K.1 — SymBipolar wireZeroCenter and semanticRole contracts
+    {
+        // 13.1: SymBipolar center deadband (176 parameters in [-64..63])
+        size_t symBipolarCount = 0;
+        for (uint32_t i = 0; i < kNumTotalParameters; ++i) {
+            const auto& desc = kParameterDescriptors[i];
+            if (desc.isSymBipolar) {
+                symBipolarCount++;
+                // At center norm=0.5f, must map exactly to raw 0.0f
+                float rawZero = normalizedToRaw(i, 0.5f);
+                if (std::abs(rawZero) > 1e-5f) {
+                    std::cerr << "[FAIL] Test 13.1: Param " << desc.key << " norm 0.5 must produce 0.0f, got " << rawZero << "\n";
+                    return 13;
+                }
+                // At raw=0.0f, must map exactly to norm 0.5f
+                float normHalf = rawToNormalized(i, 0.0f);
+                if (std::abs(normHalf - 0.5f) > 1e-5f) {
+                    std::cerr << "[FAIL] Test 13.1: Param " << desc.key << " raw 0.0 must produce 0.5f, got " << normHalf << "\n";
+                    return 13;
+                }
+                // Extremes: -64 -> 0.0, +63 -> 1.0
+                if (std::abs(rawToNormalized(i, -64.0f) - 0.0f) > 1e-5f ||
+                    std::abs(rawToNormalized(i, 63.0f) - 1.0f) > 1e-5f) {
+                    std::cerr << "[FAIL] Test 13.1: Param " << desc.key << " extremes mismatch!\n";
+                    return 13;
+                }
+            }
+        }
+        if (symBipolarCount != 176) {
+            std::cerr << "[FAIL] Test 13.1: Expected 176 SymBipolar parameters, found " << symBipolarCount << "\n";
+            return 13;
+        }
+
+        // 13.2: Semantic Roles coverage (48 parameters)
+        size_t roleCount = 0;
+        for (uint32_t i = 0; i < kNumTotalParameters; ++i) {
+            const auto& desc = kParameterDescriptors[i];
+            if (!desc.semanticRole.empty()) {
+                roleCount++;
+            }
+        }
+        if (roleCount != 48) {
+            std::cerr << "[FAIL] Test 13.2: Expected 48 parameters with semanticRole, found " << roleCount << "\n";
+            return 13;
+        }
+
+        // 13.3: Specific canonical roles verification
+        const auto* panDesc = getParamDescriptor(ParamIdx::SoundPan);
+        if (!panDesc || panDesc->semanticRole != "MasterPan" || !panDesc->isSymBipolar) {
+            std::cerr << "[FAIL] Test 13.3: SoundPan must have MasterPan semanticRole and isSymBipolar!\n";
+            return 13;
+        }
+
+        const auto* filterFreqDesc = getParamDescriptor(ParamIdx::FilterFreq);
+        if (!filterFreqDesc || filterFreqDesc->semanticRole != "FilterCutoff") {
+            std::cerr << "[FAIL] Test 13.3: FilterFreq must have FilterCutoff semanticRole!\n";
+            return 13;
+        }
+
+        const auto* r1AmpAttackDesc = getParamDescriptor(ParamIdx::R1AmpEnvA);
+        if (!r1AmpAttackDesc || r1AmpAttackDesc->semanticRole != "AmpEnvAttack") {
+            std::cerr << "[FAIL] Test 13.3: R1AmpEnvA must have AmpEnvAttack semanticRole!\n";
+            return 13;
+        }
+
+        std::cout << "  [PASS] Test 13: Phase K.1 SymBipolar exact zero (176 params) and semanticRole coverage (48 params) verified.\n";
+    }
+
+    std::cout << "[DspEngineFacadeTests] All 13 tests passed successfully!\n";
     return 0;
 }

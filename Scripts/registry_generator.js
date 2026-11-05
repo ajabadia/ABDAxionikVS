@@ -69,6 +69,41 @@ vstExposedRows.forEach(v => vstByName.set(v.name, v));
 const obsBySnddatIndex = new Map();
 observersRows.forEach(o => obsBySnddatIndex.set(parseInt(o.snddat_index, 10), o));
 
+function getSemanticRole(key) {
+  if (key === 'SoundPan') return 'MasterPan';
+  if (key === 'SoundNumVoices') return 'Polyphony';
+  if (key === 'PitchBendRange') return 'PitchBendUp';
+
+  if (key === 'FilterType') return 'FilterType';
+  if (key === 'FilterFreq') return 'FilterCutoff';
+  if (key === 'FilterReso') return 'FilterResonance';
+  if (key === 'FilterKeyTrack') return 'FilterKeyTrack';
+  if (key === 'FilterCutoffVelocityDepth') return 'FilterVelSensitivity';
+  if (key === 'FilterEnvDepth') return 'FilterEnvDepth';
+  if (key === 'FilterEnvA') return 'FilterEnvAttack';
+  if (key === 'FilterEnvD') return 'FilterEnvDecay';
+  if (key === 'FilterEnvS') return 'FilterEnvSustain';
+  if (key === 'FilterEnvR') return 'FilterEnvRelease';
+
+  if (key === 'R1AmpEnvA' || key === 'R2AmpEnvA') return 'AmpEnvAttack';
+  if (key === 'R1AmpEnvD' || key === 'R2AmpEnvD') return 'AmpEnvDecay';
+  if (key === 'R1AmpEnvS' || key === 'R2AmpEnvS') return 'AmpEnvSustain';
+  if (key === 'R1AmpEnvR' || key === 'R2AmpEnvR') return 'AmpEnvRelease';
+  if (key === 'R1Volume' || key === 'R2Volume') return 'ZoneGainDb';
+  if (key === 'R1Semi' || key === 'R2Semi') return 'ZoneTuneSemitones';
+  if (key === 'R1Cents' || key === 'R2Cents') return 'ZoneTuneCents';
+  if (key === 'R1PitchKeyTrack' || key === 'R2PitchKeyTrack') return 'ZonePitchKeyTrack';
+
+  if (key === 'LFOSwitch') return 'Lfo1Switch';
+  if (key === 'LFODepth') return 'Lfo1Depth';
+  if (key === 'LFORate') return 'Lfo1Rate';
+  if (key === 'LFOWaveForm') return 'Lfo1Wave';
+
+  if (key.endsWith('StickPlayback')) return 'TriggerMode';
+
+  return undefined;
+}
+
 // Procesar los 445 parámetros
 const parameters = presetSchemaRows.map(r => {
   const index = parseInt(r.index, 10);
@@ -95,6 +130,9 @@ const parameters = presetSchemaRows.map(r => {
   // Sanitizar identificador C++
   const safeId = key.replace(/[^a-zA-Z0-9_]/g, '_');
 
+  const isSymBipolar = (min === -64.0 && max === 63.0);
+  const semanticRole = getSemanticRole(key) || '';
+
   return {
     index,
     key,
@@ -112,6 +150,8 @@ const parameters = presetSchemaRows.map(r => {
     isModDest: modDestIdx >= 0,
     isVstExposed: vstIndex >= 0,
     isDiscrete: step === 1.0 && (max - min) < 20,
+    isSymBipolar,
+    semanticRole,
   };
 });
 
@@ -169,11 +209,14 @@ function generateParameterRegistryHeader() {
   lines.push('    bool isModDest;');
   lines.push('    bool isVstExposed;');
   lines.push('    bool isDiscrete;');
+  lines.push('    bool isSymBipolar;');
+  lines.push('    std::string_view semanticRole;');
   lines.push('};');
   lines.push('');
   lines.push('inline constexpr std::array<ParamDescriptor, kNumTotalParameters> kParameterDescriptors = {{');
   for (const p of parameters) {
-    lines.push(`    { ${p.index}, "${p.key}", "${p.group}", ${p.min.toFixed(4)}f, ${p.max.toFixed(4)}f, ${p.defaultValue.toFixed(4)}f, ${p.step.toFixed(4)}f, ${p.vstIndex}, ${p.slotInP}, ${p.modDestIdx}, ${p.isModDest ? 'true' : 'false'}, ${p.isVstExposed ? 'true' : 'false'}, ${p.isDiscrete ? 'true' : 'false'} },`);
+    const roleStr = p.semanticRole ? `"${p.semanticRole}"` : '""';
+    lines.push(`    { ${p.index}, "${p.key}", "${p.group}", ${p.min.toFixed(4)}f, ${p.max.toFixed(4)}f, ${p.defaultValue.toFixed(4)}f, ${p.step.toFixed(4)}f, ${p.vstIndex}, ${p.slotInP}, ${p.modDestIdx}, ${p.isModDest ? 'true' : 'false'}, ${p.isVstExposed ? 'true' : 'false'}, ${p.isDiscrete ? 'true' : 'false'}, ${p.isSymBipolar ? 'true' : 'false'}, ${roleStr} },`);
   }
   lines.push('}};');
   lines.push('');
@@ -223,23 +266,40 @@ function generateConversionHeader() {
   lines.push('');
   lines.push('/**');
   lines.push(' * Convierte un valor crudo a normalizado [0.0f, 1.0f]');
+  lines.push(' * Para parámetros SymBipolar [-64..63]: raw 0 -> exacto 0.5f');
   lines.push(' */');
   lines.push('inline float rawToNormalized(uint32_t index, float rawValue) noexcept {');
   lines.push('    if (index >= kNumTotalParameters) return 0.0f;');
   lines.push('    const auto& desc = kParameterDescriptors[index];');
   lines.push('    if (desc.max <= desc.min) return 0.0f;');
   lines.push('    float clamped = std::clamp(rawValue, desc.min, desc.max);');
+  lines.push('    if (desc.isSymBipolar) {');
+  lines.push('        if (clamped == 0.0f) return 0.5f;');
+  lines.push('        if (clamped > 0.0f) return 0.5f + 0.5f * (clamped / desc.max);');
+  lines.push('        return 0.5f - 0.5f * (clamped / desc.min);');
+  lines.push('    }');
   lines.push('    return (clamped - desc.min) / (desc.max - desc.min);');
   lines.push('}');
   lines.push('');
   lines.push('/**');
   lines.push(' * Convierte un valor normalizado [0.0f, 1.0f] a crudo cuantizado segun step y clamp');
+  lines.push(' * Para parámetros SymBipolar [-64..63]: norm 0.5f -> exacto 0.0f');
   lines.push(' * Aplica la regla estricta de FUN_10001170 del binario original');
   lines.push(' */');
   lines.push('inline float normalizedToRaw(uint32_t index, float normalized) noexcept {');
   lines.push('    if (index >= kNumTotalParameters) return 0.0f;');
   lines.push('    const auto& desc = kParameterDescriptors[index];');
   lines.push('    float norm = std::clamp(normalized, 0.0f, 1.0f);');
+  lines.push('    if (desc.isSymBipolar) {');
+  lines.push('        if (std::abs(norm - 0.5f) < 1e-6f) return 0.0f;');
+  lines.push('        float raw = (norm > 0.5f)');
+  lines.push('            ? (norm - 0.5f) * 2.0f * desc.max');
+  lines.push('            : (0.5f - norm) * 2.0f * desc.min;');
+  lines.push('        if (desc.step > 0.0f) {');
+  lines.push('            raw = std::round(raw / desc.step) * desc.step;');
+  lines.push('        }');
+  lines.push('        return std::clamp(raw, desc.min, desc.max);');
+  lines.push('    }');
   lines.push('    float raw = desc.min + norm * (desc.max - desc.min);');
   lines.push('    if (desc.step > 0.0f) {');
   lines.push('        raw = std::round((raw - desc.min) / desc.step) * desc.step + desc.min;');
