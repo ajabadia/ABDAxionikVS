@@ -285,6 +285,11 @@ export class ControllersPanel {
 
     bezel.addEventListener('pointerdown', (e: PointerEvent) => {
       e.preventDefault();
+      // No aferrar el foco del DOM al iniciar el arrastre: el teclado QWERTY
+      // sigue llegando a window (listener de atajos y teclado de melodía) mientras
+      // el control se mueve con el ratón.
+      // (La captura de puntero ya mantiene el flujo de eventos pointer sin que el
+      // elemento siga siendo el activo del documento.)
       bezel.setPointerCapture(e.pointerId);
       applyFromClientY(e.clientY);
 
