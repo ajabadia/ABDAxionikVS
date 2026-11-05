@@ -64,4 +64,4 @@ jobs:
       - name: Guard de direccion (nativo -> JS)
         env:
           ABD_SHARED_ROOT: ${{ runner.temp }}/ABDShared
-        run: node Tests/webviewBridgeDirectionTest.mjs
+        run: node tests/webviewBridgeDirectionTest.mjs
