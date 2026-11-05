@@ -227,7 +227,7 @@ export class EnvelopeDrawer {
             </div>
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); justify-items: center; padding: var(--space-2) 0;">
               ${renderKnobCell('amp-vol-m', 'amp-vol-v', g(pVol, 100), `MASTER VOL [${pVol}]`)}
-              ${renderKnobCell('amp-vel-m', 'amp-vel-v', g(pVelo, 0), `VELOCITY SENS [${pVelo}]`)}
+              ${renderKnobCell('amp-vel-m', 'amp-vel-v', g(pVelo, 0), `VELOCITY > VOLUME [${pVelo}]`)}
               ${renderKnobCell('amp-kt-m', 'amp-kt-v', g(pKeyT, 0), `AMP KEYTRACK [${pKeyT}]`)}
               ${renderKnobCell('amp-lfo-m', 'amp-lfo-v', g(pLfo, 0), `AMP LFO DEPTH [${pLfo}]`)}
             </div>
@@ -254,7 +254,7 @@ export class EnvelopeDrawer {
         initKnob(stageHost, 'amp-r-m', 'RELEASE', vR, 0, 127, pR, 'amp-r-v', false, (v) => { vR = v; syncAdsrCurve(); }, 46);
 
         initKnob(stageHost, 'amp-vol-m', 'VOLUME', g(pVol, 100), 0, 127, pVol, 'amp-vol-v', false, undefined, 42);
-        initKnob(stageHost, 'amp-vel-m', 'VELOCITY', g(pVelo, 0), -64, 63, pVelo, 'amp-vel-v', true, undefined, 42);
+        initKnob(stageHost, 'amp-vel-m', 'VEL > VOL', g(pVelo, 0), -64, 63, pVelo, 'amp-vel-v', true, undefined, 42);
         initKnob(stageHost, 'amp-kt-m', 'KEYTRACK', g(pKeyT, 0), -64, 63, pKeyT, 'amp-kt-v', true, undefined, 42);
         initKnob(stageHost, 'amp-lfo-m', 'LFO DEPTH', g(pLfo, 0), -64, 63, pLfo, 'amp-lfo-v', true, undefined, 42);
 
