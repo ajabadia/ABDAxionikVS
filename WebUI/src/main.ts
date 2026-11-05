@@ -243,10 +243,16 @@ const bootstrapAxionikApp = async () => {
   };
 
   // Funciones para abrir paneles expandidos (Resynator 1/2 y Silver Rack)
+  const modelParameterSet = (slotRaw: number): number => {
+    const meta = MODEL_METADATA[Math.round(slotRaw)];
+    return meta && typeof meta[0] === 'number' ? meta[0] : -1;
+  };
+
   const openR1Drawer = () => {
     const content = ResynatorDrawer.createContent({
       resynator: 1,
       modelName: currentR1ModelName,
+      parameterSet: modelParameterSet(WebBridge.getParam(ParamIdx.R1ModellIndex, 511)),
       onClose: () => drawerManager.close(),
       onSelectModel: (resynator) => {
         targetResynatorForModelPick = resynator;
@@ -260,6 +266,7 @@ const bootstrapAxionikApp = async () => {
     const content = ResynatorDrawer.createContent({
       resynator: 2,
       modelName: currentR2ModelName,
+      parameterSet: modelParameterSet(WebBridge.getParam(ParamIdx.R2ModellIndex, 511)),
       onClose: () => drawerManager.close(),
       onSelectModel: (resynator) => {
         targetResynatorForModelPick = resynator;

@@ -2,7 +2,7 @@
 // ABDAxionikVS — ResynatorDrawer.ts
 // Panel lateral deslizante (50vw) para controles ampliados de Resonador (R1 / R2):
 // - Switch R1/R2 [23/103], Volumen [27/107], Umbral Velocity Switch [41/121]
-// - Algoritmo Parset [24/104] (0..6)
+// - Parameter Set del modelo (0..9): metadato del análisis (ModelMaker), no parámetro de motor
 // - Afinación y Tamaño: Octave [33/113], Semi [34/114], Cents [35/115], ModelSizeOffset [32/112], SizeKeyTrack [31/111]
 // - Modulación de tono y volumen: PitchKeyTrack [37/117], PitchLfoDepth [36/116], AmpLfoDepth [28/108]
 // - Envolventes ADSR de Amplitud [200..203 / 230..233] y ResEnv [182..185 / 212..215]
@@ -17,10 +17,13 @@ import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 import { MultiStageShaperPad } from './MultiStageShaperPad.js';
+import { PARAMETER_SET_NAMES, getParameterSetName } from './ParameterSets.js';
 
 export interface ResynatorDrawerProps {
   resynator: 1 | 2;
   modelName: string;
+  /** Parameter Set (0..9) del modelo cargado; -1 si el metadato no lo declara. */
+  parameterSet?: number;
   onClose: () => void;
   onSelectModel?: (resynator: 1 | 2) => void;
 }
@@ -59,7 +62,10 @@ export class ResynatorDrawer {
     const pVelSw = isR1 ? ParamIdx.R1ModelVelocitySwitch : ParamIdx.R2ModelVelocitySwitch;
 
     const curSw = g(pSwitch, 1) > 0;
-    const curParset = 0; // el motor no expone parset por R: el selector es descriptivo
+    const parSet =
+      typeof props.parameterSet === 'number' && props.parameterSet >= 0 && props.parameterSet <= 9
+        ? props.parameterSet
+        : -1;
     const curVol = g(pVol, 100);
     const curAmpLfo = g(pAmpLfo, 0);
     const curSizeKt = g(pSizeKt, 0);
@@ -105,19 +111,11 @@ export class ResynatorDrawer {
     ];
     const curShaperMode = g(ParamIdx.TLFreeEnvMode, 0) + 1;
 
-    const parsetHtml = pillSelectorHtml(
-      [
-        { id: '0', label: '0: Additive / Formant' },
-        { id: '1', label: '1: FM Cross-Mod' },
-        { id: '2', label: '2: Harmonic Tilt' },
-        { id: '3', label: '3: Peak Shifter' },
-        { id: '4', label: '4: Saturation' },
-        { id: '5', label: '5: Ring Mod' },
-        { id: '6', label: '6: Dispersion' },
-      ],
-      String(curParset),
-      { id: `${rPrefix}-parset-pills`, size: 'xs', attrName: 'data-parset' }
-    );
+    const parsetHtml = `
+      <div style="display: flex; flex-wrap: wrap; gap: 4px;" role="list" aria-label="${rPrefix} Parameter Set ${parSet >= 0 ? parSet : 'desconocido'}">
+        ${PARAMETER_SET_NAMES.map((name, idx) => `<span class="abd-pill${idx === parSet ? ' active' : ''}" role="listitem" style="cursor: default;" title="Parameter Set ${idx}: ${name}">${idx}: ${name}</span>`).join('')}
+      </div>
+    `;
 
     const lfoWaveHtml = pillSelectorHtml(LFO_WAVEFORM_ITEMS, String(lfoWave), {
       id: `${rPrefix}-lfo-wave-pills`,
@@ -160,9 +158,10 @@ export class ResynatorDrawer {
       </div>
 
       <div class="drawer-scrollable-content" style="flex: 1; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); overflow-y: auto;">
-        <!-- 1. Algoritmo Parset (0..6) -->
+        <!-- 1. Parameter Set del modelo (0..9) — metadato fijado en el análisis, no parámetro de motor -->
         <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-2);">
-          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">PARSET SYNTHESIS ENGINE (FUN_10031d30)</div>
+          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">PARAMETER SET DEL MODELO${parSet >= 0 ? ` (${parSet}: ${getParameterSetName(parSet)})` : ' (sin metadato)'}</div>
+          <div style="font-size: 11px; color: var(--color-text-muted);">Algoritmo de resíntesis con el que Modelmaker analizó el modelo. Se fija en el análisis (10 sets) y no se edita en el motor.</div>
           ${parsetHtml}
         </div>
 
@@ -312,15 +311,6 @@ export class ResynatorDrawer {
       lfoToggleBtn.textContent = `LFO: ${next ? 'ACTIVE' : 'BYPASS'}`;
       WebBridge.setParam(ParamIdx.LFOSwitch, next ? 1 : 0);
     });
-
-    const parsetContainer = el.querySelector(`#${rPrefix}-parset-pills`) as HTMLElement | null;
-    if (parsetContainer) {
-      bindPillSelector(parsetContainer, (_id, btn) => {
-        parsetContainer.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        // Sin parámetro de motor para el parset: solo se refleja la selección en la UI.
-      }, 'data-parset');
-    }
 
     const lfoWaveContainer = el.querySelector(`#${rPrefix}-lfo-wave-pills`) as HTMLElement | null;
     if (lfoWaveContainer) {

@@ -9,6 +9,29 @@ import type { StickLabels } from './TrajectoryStick2D.js';
 
 import mnanJson from '../../../schemas/parameter_sets_mnan.json';
 
+/**
+ * Nombres canónicos de los 10 Parameter Sets del ModelMaker del Hartmann Neuron.
+ * El Parameter Set es el algoritmo de resíntesis con el que se analizó el modelo:
+ * se elige en el análisis (ModelMaker) y queda fijado en el modelo, no es un
+ * parámetro del .sound ni existe como control en tiempo real del motor.
+ */
+export const PARAMETER_SET_NAMES: readonly string[] = [
+  'Default Set',
+  'Stringed / Bowed',
+  'Plucked & Bells',
+  'Plucked & Picked',
+  'Carpet Shop',
+  'Piano etc.',
+  'Woodwinds',
+  'Extreme Pads',
+  'Loop Factory',
+  'Multipurpose',
+];
+
+export function getParameterSetName(setIndex: number): string {
+  return PARAMETER_SET_NAMES[setIndex] ?? `Set ${setIndex}`;
+}
+
 export interface ParameterSetData {
   scape: string[][];
   sphere: string[][];
