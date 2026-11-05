@@ -158,9 +158,19 @@ export class ControllersPanel {
         const pbRaw = Math.round(pbNormalized * 8192);
         WebBridge.pitchBend(pbRaw);
 
-        // Eje Y: Control 1 (Modulation Wheel CC 1 / ModulationDepth [416])
-        const modWheelRaw = Math.round(coord.y * 127);
-        WebBridge.modWheel(modWheelRaw);
+        // Eje Y en el hardware original Hartmann Neuron (Controller Data Entry Board):
+        // Reposo en el centro (coord.y = 0.5) -> valor 0 (sin modulación).
+        // - Hacia ARRIBA (coord.y 0.5 .. 1.0) -> Controller 1 Up (Modulation Wheel CC 01, 0..127)
+        // - Hacia ABAJO (coord.y 0.5 .. 0.0) -> Controller 1 Down (Breath / CC 02, 0..127)
+        if (coord.y >= 0.5) {
+          const upNorm = (coord.y - 0.5) * 2.0;
+          WebBridge.modWheel(Math.round(upNorm * 127));
+          WebBridge.sendMidiCC(2, 0);
+        } else {
+          const downNorm = (0.5 - coord.y) * 2.0;
+          WebBridge.modWheel(0);
+          WebBridge.sendMidiCC(2, Math.round(downNorm * 127));
+        }
       },
     });
   }
