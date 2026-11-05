@@ -178,7 +178,7 @@ export class EnvelopeDrawer {
         const pS = isR1 ? ParamIdx.R1AmpEnvS : ParamIdx.R2AmpEnvS;
         const pR = isR1 ? ParamIdx.R1AmpEnvR : ParamIdx.R2AmpEnvR;
         const pMode = isR1 ? ParamIdx.R1AmpEnvMode : ParamIdx.R2AmpEnvMode;
-        const pVelo = isR1 ? ParamIdx.R1AmpVeloDepth : ParamIdx.R2AmpVeloDepth;
+        const pVelo = isR1 ? ParamIdx.R1VolumeVelocityDepth : ParamIdx.R2VolumeVelocityDepth;
         const pKeyT = isR1 ? ParamIdx.R1AmpKeyTrack : ParamIdx.R2AmpKeyTrack;
         const pVol = isR1 ? ParamIdx.R1Volume : ParamIdx.R2Volume;
         const pLfo = isR1 ? ParamIdx.R1AmpLfoDepth : ParamIdx.R2AmpLfoDepth;
@@ -278,7 +278,7 @@ export class EnvelopeDrawer {
         const pS = isR1 ? ParamIdx.R1ResEnvS : ParamIdx.R2ResEnvS;
         const pR = isR1 ? ParamIdx.R1ResEnvR : ParamIdx.R2ResEnvR;
         const pMode = isR1 ? ParamIdx.R1ResEnvMode : ParamIdx.R2ResEnvMode;
-        const pVelo = isR1 ? ParamIdx.R1ResEnvVel : ParamIdx.R2ResEnvVel;
+        const pVelo = isR1 ? ParamIdx.R1ParaEnvVelocityDepth : ParamIdx.R2ParaEnvVelocityDepth;
         const baseDepth = isR1 ? ParamIdx.R1L1Sphere1EnvDepth : ParamIdx.R2L1Sphere1EnvDepth; // [188..199] or [218..229]
 
         let vA = g(pA, 20);
@@ -388,24 +388,24 @@ export class EnvelopeDrawer {
       // TAB 3: FREE (Free ADSR + Easy Destination Assignment)
       // ─────────────────────────────────────────────────────────
       if (activeTab === 'free') {
-        const pA = isR1 ? ParamIdx.Shaper1FreeA : ParamIdx.Shaper2FreeA;
-        const pD = isR1 ? ParamIdx.Shaper1FreeD : ParamIdx.Shaper2FreeD;
-        const pS = isR1 ? ParamIdx.Shaper1FreeS : ParamIdx.Shaper2FreeS;
-        const pR = isR1 ? ParamIdx.Shaper1FreeR : ParamIdx.Shaper2FreeR;
-        const pMode = isR1 ? ParamIdx.Shaper1FreeMode : ParamIdx.Shaper2FreeMode;
-        const pDepth = isR1 ? ParamIdx.Shaper1FreeDepth : ParamIdx.Shaper2FreeDepth;
-        const pVel = isR1 ? ParamIdx.Shaper1FreeVelocity : ParamIdx.Shaper2FreeVelocity;
+        const pA = isR1 ? ParamIdx.R1FreeEnvA : ParamIdx.R2FreeEnvA;
+        const pD = isR1 ? ParamIdx.R1FreeEnvD : ParamIdx.R2FreeEnvD;
+        const pS = isR1 ? ParamIdx.R1FreeEnvS : ParamIdx.R2FreeEnvS;
+        const pR = isR1 ? ParamIdx.R1FreeEnvR : ParamIdx.R2FreeEnvR;
+        const pMode = isR1 ? ParamIdx.R1FreeEnvMode : ParamIdx.R2FreeEnvMode;
+        const pDepth = isR1 ? ParamIdx.R1FreeEnvDepth : ParamIdx.R2FreeEnvDepth;
+        const pVel = isR1 ? ParamIdx.FreeADSR1VelocityDepth : ParamIdx.FreeADSR2VelocityDepth;
 
-        const pR1Pitch = isR1 ? ParamIdx.R1PitchShaper1FreeDepth : ParamIdx.R1PitchShaper2FreeDepth;
-        const pR2Pitch = isR1 ? ParamIdx.R2PitchShaper1FreeDepth : ParamIdx.R2PitchShaper2FreeDepth;
-        const pBlender = isR1 ? ParamIdx.BlenderShaper1FreeDepth : ParamIdx.BlenderShaper2FreeDepth;
+        const pR1Pitch = isR1 ? ParamIdx.R1FreeADSR1PitchDepth : ParamIdx.R1FreeADSR2PitchDepth;
+        const pR2Pitch = isR1 ? ParamIdx.R2FreeADSR1PitchDepth : ParamIdx.R2FreeADSR2PitchDepth;
+        const pBlender = isR1 ? ParamIdx.BlenderFreeADSR1Depth : ParamIdx.BlenderFreeADSR2Depth;
 
         let vA = g(pA, 32);
         let vD = g(pD, 68);
         let vS = g(pS, 54);
         let vR = g(pR, 72);
         const curMode = g(pMode, 0);
-        const curDest = Math.max(0, Math.min(5, g(ParamIdx.CurFreeEnvDest, 0)));
+        const curDest = Math.max(0, Math.min(5, g(ParamIdx.ShaperResySelect, 0)));
 
         const modeHtml = pillSelectorHtml(
           [
@@ -512,7 +512,7 @@ export class EnvelopeDrawer {
           const btn = btnEl as HTMLButtonElement;
           btn.addEventListener('click', () => {
             const destId = parseInt(btn.getAttribute('data-free-dest') || '0', 10);
-            WebBridge.setParam(ParamIdx.CurFreeEnvDest, destId);
+            WebBridge.setParam(ParamIdx.ShaperResySelect, destId);
             stageHost.querySelectorAll('button[data-free-dest]').forEach((b) => {
               const active = b === btn;
               b.classList.toggle('btn-primary', active);
@@ -537,7 +537,7 @@ export class EnvelopeDrawer {
       let t4 = g(ParamIdx.FreeEnvTime4, 80);
 
       const curType = g(ParamIdx.FreeEnvType, 0);
-      const curMode = g(ParamIdx.FreeEnvMode, 0);
+      const curMode = g(ParamIdx.TLFreeEnvMode, 0);
 
       const typeHtml = pillSelectorHtml(
         [
@@ -604,11 +604,11 @@ export class EnvelopeDrawer {
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-2); justify-items: center; padding-top: var(--space-2); border-top: 1px solid var(--color-panel-border-dim);">
-            ${renderKnobCell('m-4l-dep', 'v-4l-dep', g(ParamIdx.FreeEnvDepth, 127), 'MASTER DEPTH [251]')}
-            ${renderKnobCell('m-4l-vel', 'v-4l-vel', g(ParamIdx.FreeEnvVelocity, 0), 'VELOCITY [252]')}
-            ${renderKnobCell('m-4l-r1p', 'v-4l-r1p', g(ParamIdx.R1PitchFreeEnvDepth, 0), 'R1 PITCH [40]')}
-            ${renderKnobCell('m-4l-r2p', 'v-4l-r2p', g(ParamIdx.R2PitchFreeEnvDepth, 0), 'R2 PITCH [120]')}
-            ${renderKnobCell('m-4l-bld', 'v-4l-bld', g(ParamIdx.BlenderFreeEnvDepth, 0), 'BLENDER [266]')}
+            ${renderKnobCell('m-4l-dep', 'v-4l-dep', g(ParamIdx.TLFreeEnvDepth, 127), 'MASTER DEPTH [251]')}
+            ${renderKnobCell('m-4l-vel', 'v-4l-vel', g(ParamIdx.Free4Level4TimeVelocityDepth, 0), 'VELOCITY [252]')}
+            ${renderKnobCell('m-4l-r1p', 'v-4l-r1p', g(ParamIdx.R1Free4L4TPitchDepth, 0), 'R1 PITCH [40]')}
+            ${renderKnobCell('m-4l-r2p', 'v-4l-r2p', g(ParamIdx.R2Free4L4TPitchDepth, 0), 'R2 PITCH [120]')}
+            ${renderKnobCell('m-4l-bld', 'v-4l-bld', g(ParamIdx.BlenderFree4L4TDepth, 0), 'BLENDER [266]')}
           </div>
         </div>
       `;
@@ -674,11 +674,11 @@ export class EnvelopeDrawer {
         });
       }
 
-      initKnob(stageHost, 'm-4l-dep', 'DEPTH', g(ParamIdx.FreeEnvDepth, 127), -64, 63, ParamIdx.FreeEnvDepth, 'v-4l-dep', true, undefined, 40);
-      initKnob(stageHost, 'm-4l-vel', 'VELOCITY', g(ParamIdx.FreeEnvVelocity, 0), 0, 127, ParamIdx.FreeEnvVelocity, 'v-4l-vel', false, undefined, 40);
-      initKnob(stageHost, 'm-4l-r1p', 'R1 PITCH', g(ParamIdx.R1PitchFreeEnvDepth, 0), -64, 63, ParamIdx.R1PitchFreeEnvDepth, 'v-4l-r1p', true, undefined, 40);
-      initKnob(stageHost, 'm-4l-r2p', 'R2 PITCH', g(ParamIdx.R2PitchFreeEnvDepth, 0), -64, 63, ParamIdx.R2PitchFreeEnvDepth, 'v-4l-r2p', true, undefined, 40);
-      initKnob(stageHost, 'm-4l-bld', 'BLENDER', g(ParamIdx.BlenderFreeEnvDepth, 0), -64, 63, ParamIdx.BlenderFreeEnvDepth, 'v-4l-bld', true, undefined, 40);
+      initKnob(stageHost, 'm-4l-dep', 'DEPTH', g(ParamIdx.TLFreeEnvDepth, 127), -64, 63, ParamIdx.TLFreeEnvDepth, 'v-4l-dep', true, undefined, 40);
+      initKnob(stageHost, 'm-4l-vel', 'VELOCITY', g(ParamIdx.Free4Level4TimeVelocityDepth, 0), 0, 127, ParamIdx.Free4Level4TimeVelocityDepth, 'v-4l-vel', false, undefined, 40);
+      initKnob(stageHost, 'm-4l-r1p', 'R1 PITCH', g(ParamIdx.R1Free4L4TPitchDepth, 0), -64, 63, ParamIdx.R1Free4L4TPitchDepth, 'v-4l-r1p', true, undefined, 40);
+      initKnob(stageHost, 'm-4l-r2p', 'R2 PITCH', g(ParamIdx.R2Free4L4TPitchDepth, 0), -64, 63, ParamIdx.R2Free4L4TPitchDepth, 'v-4l-r2p', true, undefined, 40);
+      initKnob(stageHost, 'm-4l-bld', 'BLENDER', g(ParamIdx.BlenderFree4L4TDepth, 0), -64, 63, ParamIdx.BlenderFree4L4TDepth, 'v-4l-bld', true, undefined, 40);
 
       const typeEl = stageHost.querySelector('#env4l4t-type-pills') as HTMLElement | null;
       if (typeEl) {
@@ -694,7 +694,7 @@ export class EnvelopeDrawer {
         bindPillSelector(modeEl, (id, btn) => {
           modeEl.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
           btn.classList.add('active');
-          WebBridge.setParam(ParamIdx.FreeEnvMode, parseInt(id || '0', 10));
+          WebBridge.setParam(ParamIdx.TLFreeEnvMode, parseInt(id || '0', 10));
         }, 'data-mode');
       }
     };

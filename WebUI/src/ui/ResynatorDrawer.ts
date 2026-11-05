@@ -47,7 +47,6 @@ export class ResynatorDrawer {
     const g = (idx: number, def: number) => Math.round(WebBridge.getParam(idx, def));
 
     const pSwitch = isR1 ? ParamIdx.R1Switch : ParamIdx.R2Switch;
-    const pParset = isR1 ? ParamIdx.R1Parset : ParamIdx.R2Parset;
     const pVol = isR1 ? ParamIdx.R1Volume : ParamIdx.R2Volume;
     const pAmpLfo = isR1 ? ParamIdx.R1AmpLfoDepth : ParamIdx.R2AmpLfoDepth;
     const pSizeKt = isR1 ? ParamIdx.R1ModelSizeKeyTrack : ParamIdx.R2ModelSizeKeyTrack;
@@ -57,10 +56,10 @@ export class ResynatorDrawer {
     const pCents = isR1 ? ParamIdx.R1Cents : ParamIdx.R2Cents;
     const pPitchLfo = isR1 ? ParamIdx.R1PitchLfoDepth : ParamIdx.R2PitchLfoDepth;
     const pPitchKt = isR1 ? ParamIdx.R1PitchKeyTrack : ParamIdx.R2PitchKeyTrack;
-    const pVelSw = isR1 ? ParamIdx.R1VelSwitchValue : ParamIdx.R2VelSwitchValue;
+    const pVelSw = isR1 ? ParamIdx.R1ModelVelocitySwitch : ParamIdx.R2ModelVelocitySwitch;
 
     const curSw = g(pSwitch, 1) > 0;
-    const curParset = g(pParset, 0);
+    const curParset = 0; // el motor no expone parset por R: el selector es descriptivo
     const curVol = g(pVol, 100);
     const curAmpLfo = g(pAmpLfo, 0);
     const curSizeKt = g(pSizeKt, 0);
@@ -104,7 +103,7 @@ export class ResynatorDrawer {
       WebBridge.getParam(ParamIdx.FreeEnvLevel3, 32) / 63 || 0.5,
       WebBridge.getParam(ParamIdx.FreeEnvLevel4, 0) / 63 || 0.0,
     ];
-    const curShaperMode = g(ParamIdx.FreeEnvMode, 0) + 1;
+    const curShaperMode = g(ParamIdx.TLFreeEnvMode, 0) + 1;
 
     const parsetHtml = pillSelectorHtml(
       [
@@ -163,7 +162,7 @@ export class ResynatorDrawer {
       <div class="drawer-scrollable-content" style="flex: 1; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); overflow-y: auto;">
         <!-- 1. Algoritmo Parset (0..6) -->
         <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-2);">
-          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">PARSET SYNTHESIS ENGINE ([${pParset}], FUN_10031d30)</div>
+          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">PARSET SYNTHESIS ENGINE (FUN_10031d30)</div>
           ${parsetHtml}
         </div>
 
@@ -316,10 +315,10 @@ export class ResynatorDrawer {
 
     const parsetContainer = el.querySelector(`#${rPrefix}-parset-pills`) as HTMLElement | null;
     if (parsetContainer) {
-      bindPillSelector(parsetContainer, (id, btn) => {
+      bindPillSelector(parsetContainer, (_id, btn) => {
         parsetContainer.querySelectorAll('.abd-pill').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
-        WebBridge.setParam(pParset, parseInt(id || '0', 10));
+        // Sin parámetro de motor para el parset: solo se refleja la selección en la UI.
       }, 'data-parset');
     }
 
@@ -354,7 +353,7 @@ export class ResynatorDrawer {
           WebBridge.setParam(ParamIdx.FreeEnvLevel3, Math.round(st.levels[2] * 63));
           WebBridge.setParam(ParamIdx.FreeEnvLevel4, Math.round(st.levels[3] * 63));
 
-          WebBridge.setParam(ParamIdx.FreeEnvMode, Math.max(0, st.mode - 1));
+          WebBridge.setParam(ParamIdx.TLFreeEnvMode, Math.max(0, st.mode - 1));
         },
       });
     }

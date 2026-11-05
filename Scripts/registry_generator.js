@@ -456,22 +456,11 @@ function generateParametersTs() {
   lines.push(' */');
   lines.push('');
   lines.push('export interface ParamDefinition {');
-  lines.push('  index: number;');
-  lines.push('  key: string;');
-  lines.push('  safeId: string;');
-  lines.push('  group: string;');
-  lines.push('  min: number;');
-  lines.push('  max: number;');
-  lines.push('  default: number;');
-  lines.push('  defaultValue: number;');
-  lines.push('  step: number;');
-  lines.push('  vstIndex: number;');
-  lines.push('  vstDisplay: string;');
-  lines.push('  slotInP: number;');
-  lines.push('  modDestIdx: number;');
-  lines.push('  isModDest: boolean;');
-  lines.push('  isVstExposed: boolean;');
-  lines.push('  isDiscrete: boolean;');
+  for (const field of Object.keys(parameters[0])) {
+    const value = parameters[0][field];
+    const type = value === null ? 'unknown' : typeof value;
+    lines.push(`  ${field}: ${type === 'object' ? 'unknown' : type};`);
+  }
   lines.push('}');
   lines.push('');
   lines.push(`export const PARAM_DEFINITIONS: ParamDefinition[] = ${JSON.stringify(parameters, null, 2)};`);

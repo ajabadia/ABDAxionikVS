@@ -10,8 +10,8 @@ export interface ParamDefinition {
   group: string;
   min: number;
   max: number;
-  default: number;
   defaultValue: number;
+  default: number;
   step: number;
   vstIndex: number;
   vstDisplay: string;
@@ -20,6 +20,8 @@ export interface ParamDefinition {
   isModDest: boolean;
   isVstExposed: boolean;
   isDiscrete: boolean;
+  isSymBipolar: boolean;
+  semanticRole: string;
 }
 
 export const PARAM_DEFINITIONS: ParamDefinition[] = [

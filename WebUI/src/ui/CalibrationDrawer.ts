@@ -9,7 +9,7 @@
 
 import { ICONS } from './icons';
 import { DrawerManager } from './Drawers';
-import { onLocaleChange, getLocale, type Locale } from '../i18n/index';
+import { onLocaleChange, getLocale } from '../i18n/index';
 import {
   CALIBRATION_CATEGORIES,
   CALIBRATION_I18N,
@@ -18,7 +18,7 @@ import {
   type CalibrationLocale,
   type CalibrationParamDescriptor,
   calibrationStore,
-} from './CalibrationContracts.js';
+} from './calibrationContracts.js';
 
 function escapeHtml(str: string): string {
   return String(str ?? '')
@@ -40,7 +40,6 @@ export class CalibrationDrawer {
   private unsubStore: (() => void) | null = null;
   private unsubLocale: (() => void) | null = null;
   private onNavbarFilterChange: ((cat: CalibrationCategory | 'ALL') => void) | null = null;
-  private applyFilterFromNavbar: ((cat: CalibrationCategory | 'ALL') => void) | null = null;
 
   constructor(app: HTMLElement, drawerManager?: DrawerManager, locale?: CalibrationLocale) {
     this.drawerManager = drawerManager ?? new DrawerManager(app);
@@ -62,10 +61,6 @@ export class CalibrationDrawer {
   public setCategoryFilter(cat: CalibrationCategory | 'ALL'): void {
     this.selectedCategory = cat;
     this.render();
-  }
-
-  public setApplyFilterFromNavbar(fn: (cat: CalibrationCategory | 'ALL') => void): void {
-    this.applyFilterFromNavbar = fn;
   }
 
   public setLocale(locale: CalibrationLocale): void {
@@ -297,7 +292,7 @@ export class CalibrationDrawer {
     if (!this.onNavbarFilterChange) return;
     const chip = this.mainPanel?.querySelector('#nav-calib-filter-chip-inner') as HTMLElement | null;
     if (chip) {
-      const i18n = this.getCalibI18n();
+      const i18n = this.t();
       chip.innerHTML = `${ICONS.sliders} ${this.selectedCategory === 'ALL' ? i18n.allTab : this.selectedCategory}`;
     }
   }

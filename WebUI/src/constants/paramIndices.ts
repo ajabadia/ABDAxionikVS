@@ -238,6 +238,34 @@ export const ParamIdx = {
   FreeEnvType: 254,
   ShaperResySelect: 255,
 
+  // Env depth por capa [187..199 / 217..229] (registro C++)
+  R1ParaEnvVelocityDepth: 187,
+  R1L1Scape1EnvDepth: 188,
+  R1L1Scape2EnvDepth: 189,
+  R1L1Sphere1EnvDepth: 190,
+  R1L1Sphere2EnvDepth: 191,
+  R1L2Scape1EnvDepth: 192,
+  R1L2Scape2EnvDepth: 193,
+  R1L2Sphere1EnvDepth: 194,
+  R1L2Sphere2EnvDepth: 195,
+  R1L3Scape1EnvDepth: 196,
+  R1L3Scape2EnvDepth: 197,
+  R1L3Sphere1EnvDepth: 198,
+  R1L3Sphere2EnvDepth: 199,
+  R2ParaEnvVelocityDepth: 217,
+  R2L1Scape1EnvDepth: 218,
+  R2L1Scape2EnvDepth: 219,
+  R2L1Sphere1EnvDepth: 220,
+  R2L1Sphere2EnvDepth: 221,
+  R2L2Scape1EnvDepth: 222,
+  R2L2Scape2EnvDepth: 223,
+  R2L2Sphere1EnvDepth: 224,
+  R2L2Sphere2EnvDepth: 225,
+  R2L3Scape1EnvDepth: 226,
+  R2L3Scape2EnvDepth: 227,
+  R2L3Sphere1EnvDepth: 228,
+  R2L3Sphere2EnvDepth: 229,
+
   // Global
   LFOSwitch: 256,
   LFODepth: 257,
@@ -274,6 +302,7 @@ export const ParamIdx = {
   FilterEnvR: 358,
   FilterEnvMode: 359,
   FilterEnvDepth: 360,
+  FilterEnvVelocityDepth: 361,
   Shaper3Status: 362,
 
   // Mod / Controllers / NUKE Remote [411..428]

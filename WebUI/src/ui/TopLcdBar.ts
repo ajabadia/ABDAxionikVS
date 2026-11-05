@@ -164,7 +164,6 @@ export class TopLcdBar {
   private r2ModelName: string = 'sinew';
   private activeVoices: number = 0;
   private lastTouchedParamIdx: number = ParamIdx.FilterFreq;
-  private stickStatusText: string = 'IDLE';
 
   private paramMap: Map<number, ParamDefinition> = new Map();
   private menuTree: LcdMenuItem[] = [];
@@ -942,7 +941,6 @@ export class TopLcdBar {
   }
 
   public setStickRecorderStatus(status: 'IDLE' | 'REC' | 'PLAY', coord?: { x: number; y: number }): void {
-    this.stickStatusText = status;
     if (this.stickRecBadgeEl) {
       if (coord) {
         const xStr = formatGraphEditorValue(Math.round(coord.x * 127), 0, 127);

@@ -45,7 +45,6 @@ class WebBridgeImpl {
   private isNative: boolean = false;
   private paramCache: Map<number, number> = new Map();
   private uiState: Map<string, any> = new Map();
-  private earlyMessages: BridgeMessage[] = [];
 
   constructor() {
     this.seedDefaultEnvelopes();

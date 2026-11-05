@@ -9,7 +9,7 @@
 
 import { createSynthNavBar, CONTROL_ICONS, SysExIcon } from '@abdsynths/shared/components';
 import { ICONS } from './icons.js';
-import { t, getLocale, setLocale, onLocaleChange, applyI18n, type Locale } from '../i18n/index.js';
+import { t, getLocale, setLocale, onLocaleChange, type Locale } from '../i18n/index.js';
 
 export interface NavbarCallbacks {
   onConfigureFolder: () => void;

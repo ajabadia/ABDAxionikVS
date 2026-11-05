@@ -49,7 +49,7 @@ export class EffectsDrawer {
     let curFEnvR = Math.round(WebBridge.getParam(ParamIdx.FilterEnvR, 30));
     const curFEnvMode = Math.round(WebBridge.getParam(ParamIdx.FilterEnvMode, 0));
     const curFEnvDepth = Math.round(WebBridge.getParam(ParamIdx.FilterEnvDepth, 0));
-    const curFEnvTrigVel = Math.round(WebBridge.getParam(ParamIdx.FilterEnvTrigVelo, 0));
+    const curFEnvTrigVel = Math.round(WebBridge.getParam(ParamIdx.FilterEnvVelocityDepth, 0));
 
     const curFreqEnable = Math.round(WebBridge.getParam(ParamIdx.FreqFXSwitch, 0)) !== 0;
     const curFreqAlgo = Math.max(0, Math.min(4, Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0))));
@@ -796,7 +796,7 @@ export class EffectsDrawer {
     initMfxKnob('fenv-d-mount', 'FILT D [356]', curFEnvD, 0, 127, ParamIdx.FilterEnvD, 'fenv-d-val', false, '', (v) => { curFEnvD = v; syncFenvCurve(); });
     initMfxKnob('fenv-s-mount', 'FILT S [357]', curFEnvS, 0, 127, ParamIdx.FilterEnvS, 'fenv-s-val', false, '', (v) => { curFEnvS = v; syncFenvCurve(); });
     initMfxKnob('fenv-r-mount', 'FILT R [358]', curFEnvR, 0, 127, ParamIdx.FilterEnvR, 'fenv-r-val', false, '', (v) => { curFEnvR = v; syncFenvCurve(); });
-    initMfxKnob('fenv-tvel-mount', 'TRIG VELO [361]', curFEnvTrigVel, 0, 127, ParamIdx.FilterEnvTrigVelo, 'fenv-tvel-val');
+    initMfxKnob('fenv-tvel-mount', 'TRIG VELO [361]', curFEnvTrigVel, 0, 127, ParamIdx.FilterEnvVelocityDepth, 'fenv-tvel-val');
 
     const fenvModeContainer = root.querySelector('#fenv-mode-pills') as HTMLElement | null;
     if (fenvModeContainer) {
