@@ -43,5 +43,7 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
 
+      # El typecheck arrastra deuda previa: los tests deben reportar siempre.
       - name: Tests (vitest)
+        if: always()
         run: npx vitest run
