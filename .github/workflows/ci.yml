@@ -64,4 +64,4 @@ jobs:
       - name: Guard de direccion (nativo -> JS)
         env:
           ABD_SHARED_ROOT: ${{ runner.temp }}/ABDShared
-        run: node tests/webviewBridgeDirectionTest.mjs
+        run: node "$ABD_SHARED_ROOT/Code/WebView2Bridge/testing/runGuard.mjs" --source Source --emitters "" --expect-host PluginEditor.cpp --label ABDAxionikVS
