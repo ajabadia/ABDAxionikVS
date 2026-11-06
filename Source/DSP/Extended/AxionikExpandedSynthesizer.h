@@ -11,6 +11,13 @@
 //   - Phase-aligned Hybrid Transient splice (`hybridTransient`)
 //   - 6-Stage DAHDSR Envelope & Independent Synth Filter/FX Chain
 //   - Dual Spatial Bus: Discrete 4.0 Quad (`FL, FR, RL, RR`) & Pseudo-Surround Stereo
+//
+// FUENTE DE LA VERDAD (orden 2026-11-06): esta cabecera (+ AxionikExpandedModel.h
+// + el contrato axionikExpandedModel.ts + el vector dorado WASM) ES el Resynator
+// v2. `NeuronResynatorV2.h` está archivada (_archive/, nadie la compilaba y
+// divergía). `ResynatorV2Preview.ts` fue jubilado el 2026-11-06: el WASM es
+// el path de preescucha. No duplicar fórmulas fuera de aquí:
+// compilar a WASM vía tools/resynator-wasm/ (fachada `ResynatorV2Wasm.cpp`).
 // ============================================================================
 
 #pragma once
