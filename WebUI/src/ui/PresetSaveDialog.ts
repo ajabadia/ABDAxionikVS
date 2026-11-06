@@ -66,7 +66,7 @@ export class PresetSaveDialog {
 
         <div style="display: flex; flex-direction: column; gap: 6px;">
           <label style="font-size: 11px; opacity: 0.85;">Preset Name</label>
-          <input type="text" id="preset-name-input" value="${defaultName.replace(/"/g, '&quot;')}" style="
+          <input type="text" id="preset-name-input" maxlength="64" value="${defaultName.replace(/"/g, '&quot;')}" style="
             background: rgba(0, 0, 0, 0.4);
             border: 1px solid rgba(255, 255, 255, 0.2);
             color: #fff;
@@ -131,6 +131,20 @@ export class PresetSaveDialog {
       const name = nameInput?.value.trim() || 'Untitled';
       const category = catInput?.value.trim() || 'User';
       const author = authorInput?.value.trim() || 'User';
+
+      // Validacion de robustez: límite de longitud para el nombre del preset.
+      // MAX_PATH en Windows es 260, y considerando extension, prefijo y separadores,
+      // el nombre maxima recomendable es 64 caracteres.
+      if (name.length > 64) {
+        nameInput?.setCustomValidity('Name must be 64 characters or fewer.');
+        nameInput?.reportValidity();
+        return;
+      }
+      nameInput?.setCustomValidity('');
+      if (!name) {
+        nameInput?.reportValidity();
+        return;
+      }
 
       if (this.overlay && this.overlay.parentNode) {
         this.overlay.parentNode.removeChild(this.overlay);

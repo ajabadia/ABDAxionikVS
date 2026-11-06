@@ -95,9 +95,12 @@
  * - Los ids de los modelos (R1/R2) se reciben como numbers y pueden venir de
  *   `undefined`; en ese caso se usan `0` como id seguro, y el nombre por defecto
  *   es `"Unknown"`.
- * - Los valores numéricos dentro de `parameters` son normalizados para fines
- *   de persistencia; la conversión a escala de 16 bits y el redondeo se hace en
- *   el pipeline DSP (ver `WebUI/src/app/paramUpdate.ts`).
+ * - Los valores numéricos dentro de `parameters` son estrictamente validados:
+ *   se descartan todos los que no sean números finitos (`NaN`, `Infinity`),
+ *   evitando que un JSON corrupto con valores no finitos llegue al pipeline
+ *   DSP y desestabilice los filtros IIR o propague ruido no controlado.
+ *   La conversión a escala de 16 bits y el redondeo se hace en el pipeline DSP
+ *   (ver `WebUI/src/app/paramUpdate.ts`).
  */
 
 export interface AxionikPresetMeta {
@@ -164,7 +167,10 @@ function normalizeParameters(payload: unknown): Record<number, number> {
     const out: Record<number, number> = {};
     for (let i = 0; i < raw.length; i++) {
       const v = raw[i];
+      // Solo aceptan números finitos: NaN e Infinity son descartados explícitamente
+      // para que un JSON corrupto no llegue al pipeline DSP.
       if (typeof v === 'number' && Number.isFinite(v)) out[i] = v;
+      // NaN/Infinity ya son rechazados por Number.isFinite; cualquier otro tipo se descarta.
     }
     return out;
   }
@@ -176,6 +182,8 @@ function normalizeParameters(payload: unknown): Record<number, number> {
       if (Number.isInteger(idx) && Number.isFinite(v as number)) {
         out[idx] = v as number;
       }
+      // NaN/Infinity ya son descartados por Number.isFinite; cualquier otro tipo se ignora.
+      // NaN/Infinity ya son rechazados por Number.isFinite; cualquier otro tipo se descarta.
     }
     return out;
   }
