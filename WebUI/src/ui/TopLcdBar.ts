@@ -18,7 +18,7 @@
  *      - Fila 2: **7ª mini-pantalla ADSR `66×22 px`** (`C_DisplayButton #6 FLT ENV [355..358]`) + Pantalla LCD de `Silver & Multi-FX` (`createLcdScreen`, `C_PadGrid #2`) + Telemetría NRPN/SysEx y steppers de preset.
  */
 
-import { createLcdPanel, createLcdScreen } from '@abdsynths/shared/components';
+import { createLcdPanel, createLcdScreen, buildWriteCompletedNotice } from '@abdsynths/shared/components';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { PARAM_DEFINITIONS, type ParamDefinition } from '../generated/parameters.gen.js';
 import { ParamIdx } from '../constants/paramIndices.js';
@@ -913,6 +913,18 @@ export class TopLcdBar {
     this.refreshR2Screen();
     this.refreshSilverScreen();
     this.refreshMiniAdsrDisplays();
+  }
+
+
+  /**
+   * Muestra el aviso estandar de guardado completado segun el contrato de LCD_GUIDE.md (§5 y §5.7).
+   */
+  public flashWriteCompleted(programId?: string, programName?: string, durationMs: number = 2200): void {
+    const { line1, line2 } = buildWriteCompletedNotice({ programId, programName });
+    if (this.centerPanel) {
+      this.centerPanel.screen.preview(0, line1, { durationMs });
+      this.centerPanel.screen.preview(1, line2, { durationMs });
+    }
   }
 
   public setPresetInfo(slot: number, name: string): void {

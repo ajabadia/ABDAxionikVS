@@ -17,7 +17,17 @@ import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 import { MultiStageShaperPad } from './MultiStageShaperPad.js';
+import { ResynatorShapersPanel } from './ResynatorShapersPanel.js';
 import { PARAMETER_SET_NAMES, getParameterSetName } from './ParameterSets.js';
+
+const resynatorShapersPanels = new WeakMap<HTMLElement, ResynatorShapersPanel>();
+const activeResynatorDrawers = new Map<1 | 2, HTMLElement>();
+
+function parameterSetCaption(parameterSet: number): string {
+  return `PARAMETER SET DEL MODELO${
+    parameterSet >= 0 ? ` (${parameterSet}: ${getParameterSetName(parameterSet)})` : ' (sin metadato)'
+  }`;
+}
 
 export interface ResynatorDrawerProps {
   resynator: 1 | 2;
@@ -44,6 +54,58 @@ const LFO_WAVEFORM_ITEMS = [
 ];
 
 export class ResynatorDrawer {
+  /** Libera la suscripcion viva del panel cuando el DrawerManager cierra o reemplaza el drawer. */
+  public static destroyContent(content: HTMLElement): void {
+    resynatorShapersPanels.get(content)?.destroy();
+    resynatorShapersPanels.delete(content);
+    for (const [resynator, active] of activeResynatorDrawers) {
+      if (active === content) activeResynatorDrawers.delete(resynator);
+    }
+  }
+
+  /**
+   * Refresca la identidad visible del drawer abierto (nombre y Parameter Set)
+   * cuando el host carga un preset o cambia el modelo sin cerrarlo.
+   */
+  public static syncModelInfo(
+    resynator: 1 | 2,
+    modelName: string,
+    parameterSet: number,
+  ): void {
+    const content = activeResynatorDrawers.get(resynator);
+    if (!content) return;
+
+    const rPrefix = resynator === 1 ? 'R1' : 'R2';
+    const nameEl = content.querySelector(
+      `#${rPrefix}-resy-model-name`,
+    ) as HTMLElement | null;
+    if (nameEl) nameEl.textContent = modelName;
+
+    const selectBtn = content.querySelector('#btn-drawer-select-model') as HTMLButtonElement | null;
+    if (selectBtn) selectBtn.title = `Select / Change Model for ${rPrefix}: ${modelName}`;
+
+    const normalizedParSet =
+      Number.isInteger(parameterSet) && parameterSet >= 0 && parameterSet <= 9
+        ? parameterSet
+        : -1;
+
+    const caption = content.querySelector(
+      `#${rPrefix}-parset-caption`,
+    ) as HTMLElement | null;
+    if (caption) caption.textContent = parameterSetCaption(normalizedParSet);
+
+    const pills = content.querySelector(`#${rPrefix}-parset-pills`) as HTMLElement | null;
+    if (pills) {
+      pills.setAttribute(
+        'aria-label',
+        `${rPrefix} Parameter Set ${normalizedParSet >= 0 ? normalizedParSet : 'desconocido'}`,
+      );
+      pills.querySelectorAll<HTMLElement>('.abd-pill').forEach((pill, idx) => {
+        pill.classList.toggle('active', idx === normalizedParSet);
+      });
+    }
+  }
+
   public static createContent(props: ResynatorDrawerProps): HTMLElement {
     const isR1 = props.resynator === 1;
     const rPrefix = isR1 ? 'R1' : 'R2';
@@ -112,7 +174,7 @@ export class ResynatorDrawer {
     const curShaperMode = g(ParamIdx.TLFreeEnvMode, 0) + 1;
 
     const parsetHtml = `
-      <div style="display: flex; flex-wrap: wrap; gap: 4px;" role="list" aria-label="${rPrefix} Parameter Set ${parSet >= 0 ? parSet : 'desconocido'}">
+      <div id="${rPrefix}-parset-pills" style="display: flex; flex-wrap: wrap; gap: 4px;" role="list" aria-label="${rPrefix} Parameter Set ${parSet >= 0 ? parSet : 'desconocido'}">
         ${PARAMETER_SET_NAMES.map((name, idx) => `<span class="abd-pill${idx === parSet ? ' active' : ''}" role="listitem" style="cursor: default;" title="Parameter Set ${idx}: ${name}">${idx}: ${name}</span>`).join('')}
       </div>
     `;
@@ -146,7 +208,7 @@ export class ResynatorDrawer {
           <span class="drawer-icon">${ICONS.wave}</span>
           <span class="ndb-title-text">${rPrefix} EXPANDED CONTROLS</span>
           <button type="button" class="btn btn-xs btn-outline ndb-badge" id="btn-drawer-select-model" title="Select / Change Model for ${rPrefix}">
-            Model: <strong>${props.modelName}</strong>
+            Model: <strong id="${rPrefix}-resy-model-name">${props.modelName}</strong>
           </button>
         </div>
         <div class="drawer-header-actions" style="display: flex; align-items: center; gap: var(--space-2);">
@@ -160,7 +222,7 @@ export class ResynatorDrawer {
       <div class="drawer-scrollable-content" style="flex: 1; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); overflow-y: auto;">
         <!-- 1. Parameter Set del modelo (0..9) — metadato fijado en el análisis, no parámetro de motor -->
         <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-2);">
-          <div class="panel-caption" style="color: var(--color-accent); font-weight: 700;">PARAMETER SET DEL MODELO${parSet >= 0 ? ` (${parSet}: ${getParameterSetName(parSet)})` : ' (sin metadato)'}</div>
+          <div id="${rPrefix}-parset-caption" class="panel-caption" style="color: var(--color-accent); font-weight: 700;">${parameterSetCaption(parSet)}</div>
           <div style="font-size: 11px; color: var(--color-text-muted);">Algoritmo de resíntesis con el que Modelmaker analizó el modelo. Se fija en el análisis (10 sets) y no se edita en el motor.</div>
           ${parsetHtml}
         </div>
@@ -219,6 +281,9 @@ export class ResynatorDrawer {
 
         <!-- 5. Pad de Envolvente Multinivel 4L/4T (@abdsynths/shared) -->
         <div id="${rPrefix}-shaper-mount"></div>
+
+        <!-- 6. Sonic Matter Shapers del Resynator v2 (modelo expandido) -->
+        <div id="${rPrefix}-v2-shapers-mount"></div>
       </div>
     `;
 
@@ -348,6 +413,12 @@ export class ResynatorDrawer {
       });
     }
 
+    const v2ShapersMount = el.querySelector(`#${rPrefix}-v2-shapers-mount`) as HTMLElement | null;
+    if (v2ShapersMount) {
+      resynatorShapersPanels.set(el, new ResynatorShapersPanel(v2ShapersMount, props.resynator));
+    }
+
+    activeResynatorDrawers.set(props.resynator, el);
     return el;
   }
 }

@@ -13,6 +13,8 @@
 #include <iostream>
 #include <unordered_map>
 #include <sstream>
+#include <fstream>
+#include <iterator>
 #include <algorithm>
 #include "NeuronModel.h"
 #include "State/NeuronSound.h"
@@ -51,6 +53,8 @@ public:
         for (const auto& path : searchCandidates) {
             if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
                 cachedAxionikDbPath_ = path;
+                axionikCanonicalIndex_.clear();
+                axionikCanonicalIndexBuilt_ = false;
                 return cachedAxionikDbPath_;
             }
         }
@@ -62,6 +66,8 @@ public:
     void setAxionikDbPath(const std::filesystem::path& path) {
         if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
             cachedAxionikDbPath_ = path;
+            axionikCanonicalIndex_.clear();
+            axionikCanonicalIndexBuilt_ = false;
         }
     }
 
@@ -69,7 +75,7 @@ public:
         return cachedAxionikDbPath_;
     }
 
-    /// Resuelve la carpeta Time-Capsule de un modelo de AxionikDB por su slug
+    /// Resuelve la carpeta de un modelo de AxionikDB por su slug (búsqueda directa y recursiva)
     [[nodiscard]] std::filesystem::path resolveAxionikModelFolder(const std::string& slug) {
 #ifdef __EMSCRIPTEN__
         (void)slug;
@@ -81,6 +87,7 @@ public:
         }
         if (cachedAxionikDbPath_.empty()) return {};
 
+        // 1. Coincidencia directa por nombre de carpeta
         auto directModels = cachedAxionikDbPath_ / "Models" / slug;
         if (std::filesystem::exists(directModels) && std::filesystem::is_directory(directModels)) {
             return directModels;
@@ -89,17 +96,53 @@ public:
         if (std::filesystem::exists(directRoot) && std::filesystem::is_directory(directRoot)) {
             return directRoot;
         }
-        auto banksDir = cachedAxionikDbPath_ / "Banks";
-        if (std::filesystem::exists(banksDir) && std::filesystem::is_directory(banksDir)) {
-            for (const auto& sub : std::filesystem::directory_iterator(banksDir)) {
-                if (!sub.is_directory()) continue;
-                auto cand1 = sub.path() / slug;
-                if (std::filesystem::exists(cand1) && std::filesystem::is_directory(cand1)) return cand1;
-                auto cand2 = sub.path() / "Models" / slug;
-                if (std::filesystem::exists(cand2) && std::filesystem::is_directory(cand2)) return cand2;
+
+        // 2. Búsqueda recursiva por nombre de carpeta
+        std::error_code ec;
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(cachedAxionikDbPath_, std::filesystem::directory_options::skip_permission_denied, ec)) {
+            if (ec) break;
+            if (!entry.is_directory()) continue;
+            if (entry.path().filename().string() == slug) {
+                if (std::filesystem::exists(entry.path() / "axionik-expanded.json") ||
+                    std::filesystem::exists(entry.path() / "05_extended_model" / "axionik-expanded.json") ||
+                    std::filesystem::exists(entry.path() / "manifest.json")) {
+                    return entry.path();
+                }
             }
         }
-        return {};
+
+        // 3. Compatibilidad con presets: el host guarda `identity.slug` del JSON,
+        //    que puede diferir del nombre de carpeta (fmrhodes-hd-96k vs fmrhodes_HD).
+        if (!axionikCanonicalIndexBuilt_) {
+            axionikCanonicalIndexBuilt_ = true;
+            std::error_code slugEc;
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(cachedAxionikDbPath_, std::filesystem::directory_options::skip_permission_denied, slugEc)) {
+                if (slugEc) break;
+                if (!entry.is_directory()) continue;
+                auto folder = entry.path();
+                if (folder.filename().string() == "05_extended_model") continue;
+
+                auto jsonFile = folder / "axionik-expanded.json";
+                if (!std::filesystem::exists(jsonFile)) {
+                    jsonFile = folder / "05_extended_model" / "axionik-expanded.json";
+                }
+                if (!std::filesystem::exists(jsonFile)) {
+                    jsonFile = folder / "manifest.json";
+                }
+                if (!std::filesystem::exists(jsonFile)) continue;
+
+                std::ifstream in(jsonFile);
+                if (!in.is_open()) continue;
+                const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                const auto identitySlug = extractSimpleJsonField(text, "slug");
+                if (!identitySlug.empty()) {
+                    axionikCanonicalIndex_.emplace(identitySlug, folder);
+                }
+            }
+        }
+
+        const auto canonical = axionikCanonicalIndex_.find(slug);
+        return canonical == axionikCanonicalIndex_.end() ? std::filesystem::path{} : canonical->second;;
 #endif
     }
 
@@ -534,6 +577,24 @@ private:
         return json.substr(q1 + 1, q2 - q1 - 1);
     }
 
+    /// Lee un campo numérico simple. Devuelve `fallback` si falta o no es entero.
+    static int extractSimpleJsonIntField(const std::string& json, const std::string& key, int fallback) {
+        std::string needle = "\"" + key + "\"";
+        auto pos = json.find(needle);
+        if (pos == std::string::npos) return fallback;
+        auto colon = json.find(':', pos + needle.size());
+        if (colon == std::string::npos) return fallback;
+        auto valueStart = json.find_first_not_of(" \t\r\n", colon + 1);
+        if (valueStart == std::string::npos) return fallback;
+        try {
+            size_t parsed = 0;
+            const int value = std::stoi(json.substr(valueStart), &parsed);
+            return parsed > 0 ? value : fallback;
+        } catch (...) {
+            return fallback;
+        }
+    }
+
     void appendAxionikModelsJson(std::ostringstream& ss) {
 #ifndef __EMSCRIPTEN__
         if (cachedAxionikDbPath_.empty()) {
@@ -544,74 +605,85 @@ private:
         bool firstAx = true;
         int ordCounter = 1;
 
-        auto emitCapsuleFolder = [&](const std::filesystem::path& folder, const std::string& sublib) {
-            auto v2Path = folder / "05_extended_model" / "axionik-expanded.json";
-            auto v1Path = folder / "05_extended_model" / "model.nmmodel";
-            auto manifestPath = folder / "manifest.json";
-            bool hasV2 = std::filesystem::exists(v2Path);
-            bool hasV1 = std::filesystem::exists(v1Path);
-            bool hasManifest = std::filesystem::exists(manifestPath);
-            if (!hasV2 && !hasV1 && !hasManifest) return;
+        // Escaneo recursivo de modelos v2: busca cualquier axionik-expanded.json (con o sin 05_extended_model)
+        // o manifest.json, determinando automáticamente el sublibrary/grupo según la jerarquía de carpetas.
+        std::error_code ec;
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(cachedAxionikDbPath_, std::filesystem::directory_options::skip_permission_denied, ec)) {
+            if (ec) break;
+            if (!entry.is_regular_file()) continue;
+            const auto filename = entry.path().filename().string();
+            if (filename != "axionik-expanded.json" && filename != "manifest.json") continue;
 
-            std::string slug = folder.filename().string();
+            auto modelFolder = entry.path().parent_path();
+            if (modelFolder.filename().string() == "05_extended_model") {
+                modelFolder = modelFolder.parent_path();
+            }
+
+            // Evitar duplicados si una carpeta tiene tanto manifest.json como axionik-expanded.json
+            auto v2File = modelFolder / "axionik-expanded.json";
+            if (!std::filesystem::exists(v2File)) {
+                v2File = modelFolder / "05_extended_model" / "axionik-expanded.json";
+            }
+            if (filename == "manifest.json" && std::filesystem::exists(v2File)) {
+                continue; // Ya se procesará (o se ha procesado) por axionik-expanded.json
+            }
+
+            std::string slug = modelFolder.filename().string();
             std::string name = slug;
             std::string category = "Synth & Neutral";
-            if (hasManifest) {
+            std::string sublib = "Default";
+
+            // Derivar sublibrary / grupo relativo a AxionikDB / Models
+            try {
+                auto rel = std::filesystem::relative(modelFolder, cachedAxionikDbPath_);
+                auto it = rel.begin();
+                if (it != rel.end()) {
+                    auto firstComp = it->string();
+                    if (firstComp == "Models" || firstComp == "Banks") {
+                        ++it;
+                    }
+                    if (it != rel.end() && it != --rel.end()) {
+                        sublib = it->string(); // Carpeta de grupo (ej: Transformed_AI_BWE_96k)
+                    }
+                }
+            } catch (...) {}
+
+            // Extraer metadatos
+            auto manifestPath = modelFolder / "manifest.json";
+            int parameterSet = -1;
+            if (std::filesystem::exists(v2File)) {
+                std::ifstream vf(v2File);
+                std::string vfText((std::istreambuf_iterator<char>(vf)), std::istreambuf_iterator<char>());
+                auto eName = extractSimpleJsonField(vfText, "expandedName");
+                if (eName.empty()) eName = extractSimpleJsonField(vfText, "modelName");
+                if (!eName.empty()) name = eName;
+                auto cat = extractSimpleJsonField(vfText, "category");
+                if (!cat.empty()) category = cat;
+                parameterSet = extractSimpleJsonIntField(vfText, "parameterSet", -1);
+            } else if (std::filesystem::exists(manifestPath)) {
                 std::ifstream mf(manifestPath);
                 std::string mfText((std::istreambuf_iterator<char>(mf)), std::istreambuf_iterator<char>());
                 auto mName = extractSimpleJsonField(mfText, "modelName");
                 if (!mName.empty()) name = mName;
                 auto cat = extractSimpleJsonField(mfText, "category");
                 if (!cat.empty()) category = cat;
-            } else if (hasV2) {
-                std::ifstream vf(v2Path);
-                std::string vfText((std::istreambuf_iterator<char>(vf)), std::istreambuf_iterator<char>());
-                auto eName = extractSimpleJsonField(vfText, "expandedName");
-                if (!eName.empty()) name = eName;
-                auto cat = extractSimpleJsonField(vfText, "category");
-                if (!cat.empty()) category = cat;
+                parameterSet = extractSimpleJsonIntField(mfText, "parameterSet", -1);
             }
-            bool hasCover = std::filesystem::exists(folder / "05_extended_model" / "cover.webp");
+
+            bool hasCover = std::filesystem::exists(modelFolder / "cover.webp") ||
+                            std::filesystem::exists(modelFolder / "05_extended_model" / "cover.webp");
 
             if (!firstAx) ss << ",";
             firstAx = false;
             ss << R"({"slug":")" << escapeJson(slug)
                << R"(","name":")" << escapeJson(name)
                << R"(","category":")" << escapeJson(category)
-               << R"(","parameterSet":0,"zoneCount":1,"complexity":8,"hasCover":)" << (hasCover ? "true" : "false")
-               << R"(,"hasExpandedV2":)" << (hasV2 ? "true" : "false")
+               << R"(","parameterSet":)" << parameterSet
+               << R"(,"zoneCount":1,"complexity":8,"hasCover":)" << (hasCover ? "true" : "false")
+               << R"(,"hasExpandedV2":true)"
                << R"(,"sublibrary":")" << escapeJson(sublib)
                << R"(","sublibraryOrdinal":)" << ordCounter++
-               << R"(,"folderPath":")" << escapeJson(folder.string()) << R"("})";
-        };
-
-        auto banksDir = cachedAxionikDbPath_ / "Banks";
-        if (std::filesystem::exists(banksDir) && std::filesystem::is_directory(banksDir)) {
-            for (const auto& subEntry : std::filesystem::directory_iterator(banksDir)) {
-                if (!subEntry.is_directory()) continue;
-                std::string subName = subEntry.path().filename().string();
-                for (const auto& mEntry : std::filesystem::directory_iterator(subEntry.path())) {
-                    if (!mEntry.is_directory()) continue;
-                    if (mEntry.path().filename() == "Models") {
-                        for (const auto& deep : std::filesystem::directory_iterator(mEntry.path())) {
-                            if (deep.is_directory()) emitCapsuleFolder(deep.path(), subName);
-                        }
-                    } else {
-                        emitCapsuleFolder(mEntry.path(), subName);
-                    }
-                }
-            }
-        }
-
-        auto modelsDir = std::filesystem::exists(cachedAxionikDbPath_ / "Models")
-                             ? (cachedAxionikDbPath_ / "Models")
-                             : cachedAxionikDbPath_;
-        if (std::filesystem::exists(modelsDir) && std::filesystem::is_directory(modelsDir)) {
-            for (const auto& entry : std::filesystem::directory_iterator(modelsDir)) {
-                if (!entry.is_directory()) continue;
-                if (entry.path().filename() == "Banks" || entry.path().filename() == "Models") continue;
-                emitCapsuleFolder(entry.path(), "Default");
-            }
+               << R"(,"folderPath":")" << escapeJson(modelFolder.string()) << R"("})";
         }
 #else
         (void)ss;
@@ -620,6 +692,8 @@ private:
 
     std::filesystem::path cachedNeuronDbPath_;
     std::filesystem::path cachedAxionikDbPath_;
+    std::unordered_map<std::string, std::filesystem::path> axionikCanonicalIndex_;
+    bool axionikCanonicalIndexBuilt_{false};
     std::unique_ptr<NeuronModel> r1Model_;
     std::unique_ptr<NeuronModel> r2Model_;
 };

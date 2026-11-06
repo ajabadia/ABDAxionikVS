@@ -18,11 +18,14 @@
  * - `parameters`: snapshot de los parámetros normalizados, guardado como
  *   `Record<number, number>` mapeado por su índice (0..444). El persistido
  *   base equivale a una secuencia plana `[v0, v1, ..., v444]`.
- * - `extendedState?`: bloque adicional opcional para futuros modos de Resynator v2
- *   y efectos modulares, por ejemplo:
- *   - `resynatorV2?: Record<string, unknown>`
- *   - `extraEffects?: Record<string, unknown>`
- *   - `[key: string]: unknown`
+ * - `extendedState?`: contrato tipado `AxionikExtendedState`, presente solo cuando
+ *   `engineMode` es `"extended"`. Contiene:
+ *   - `schemaVersion: '2.0.0'`
+ *   - `r1ModelSlug?` / `r2ModelSlug?`: referencias a los modelos expandidos.
+ *   - `r1ModelName?` / `r2ModelName?`: nombres para restaurar la UI.
+ *   - `r1Shapers?` / `r2Shapers?`: los 9 moldeadores `AxionikResonatorShapers`.
+ *   - `tempoSync?`: sincronizacion de tempo del modelo extendido.
+ *   - `extra?`: reserva para futuros bloques.
  *
  * ## Compatibilidad con JSON legacy
  *
@@ -76,8 +79,11 @@
  *     "444": -0.2
  *   },
  *   "extendedState": {
- *     "resynatorV2": { "gain": 1.2 },
- *     "extraEffects": {}
+ *     "schemaVersion": "2.0.0",
+ *     "r1ModelName": "R1",
+ *     "r2ModelName": "R2",
+ *     "r1Shapers": { "residualMix": 0.15, "spatialSpread": 0.5 },
+ *     "r2Shapers": { "residualMix": 0.15, "spatialSpread": 0.5 }
  *   }
  * }
  * ```
@@ -116,6 +122,109 @@ export interface AxionikPresetModelRef {
   name: string;
 }
 
+/** Numero total de parametros del snapshot clasico (indices 0..444). */
+export const AXIONIK_PARAMETER_COUNT = 445;
+const MAX_PARAMETER_INDEX = AXIONIK_PARAMETER_COUNT - 1;
+
+/** Los 9 moldeadores fisicos/espectrales del Resynator v2 (`AxionikResonatorShapers`). */
+export interface AxionikResynatorShapersState {
+  inharmonicityB: number;
+  parity: number;
+  entropyRoughness: number;
+  spectralShiftHz: number;
+  hfRollOffDbPerOct: number;
+  formantShiftSt: number;
+  formantPreserve: number;
+  residualMix: number;
+  spatialSpread: number;
+}
+
+/**
+ * Valores seguros por defecto, espejo del agregado C++ `AxionikResonatorShapers{}`.
+ * Se usan cuando la UI guarda un preset extendido sin edicion de shapers.
+ */
+export const AXIONIK_RESYNATOR_SHAPERS_DEFAULTS: Readonly<AxionikResynatorShapersState> = Object.freeze({
+  inharmonicityB: 0,
+  parity: 0,
+  entropyRoughness: 0,
+  spectralShiftHz: 0,
+  hfRollOffDbPerOct: -6,
+  formantShiftSt: 0,
+  formantPreserve: 0.85,
+  residualMix: 0.15,
+  spatialSpread: 0.5,
+});
+
+/** Devuelve una copia mutable de los shapers por defecto. */
+export function createDefaultResynatorShapers(): AxionikResynatorShapersState {
+  return { ...AXIONIK_RESYNATOR_SHAPERS_DEFAULTS };
+}
+
+/** Sincronizacion de tempo del modelo extendido. */
+export interface AxionikTempoSyncState {
+  enabled: boolean;
+  sourceBpm: number;
+  targetBpm: number;
+  barCount: number;
+  grooveMode?: string;
+}
+
+/** Estado extendido v2 persistido junto al snapshot de parametros. */
+export interface AxionikExtendedState {
+  schemaVersion: '2.0.0';
+  r1ModelSlug?: string;
+  r2ModelSlug?: string;
+  r1ModelName?: string;
+  r2ModelName?: string;
+  r1Shapers?: Partial<AxionikResynatorShapersState>;
+  r2Shapers?: Partial<AxionikResynatorShapersState>;
+  tempoSync?: AxionikTempoSyncState;
+  embeddedModel?: {
+    r1?: Record<string, unknown> | null;
+    r2?: Record<string, unknown> | null;
+  };
+  extra?: Record<string, unknown>;
+}
+
+export interface ExtendedStateSaveInput {
+  r1ModelName?: string;
+  r2ModelName?: string;
+  r1ModelSlug?: string;
+  r2ModelSlug?: string;
+  r1Shapers?: Partial<AxionikResynatorShapersState> | null;
+  r2Shapers?: Partial<AxionikResynatorShapersState> | null;
+  embeddedModel?: {
+    r1?: Record<string, unknown> | null;
+    r2?: Record<string, unknown> | null;
+  };
+}
+
+/**
+ * Compone el `extendedState` que se persiste al guardar un preset extendido.
+ * Si el host no ha reportado shapers, completa con los defaults seguros del
+ * motor; asi el preset siempre contiene los 9 valores de cada Resynator v2.
+ */
+export function createExtendedStateForSave({
+  r1ModelName,
+  r2ModelName,
+  r1ModelSlug,
+  r2ModelSlug,
+  r1Shapers,
+  r2Shapers,
+  embeddedModel,
+}: ExtendedStateSaveInput): AxionikExtendedState {
+  return {
+    schemaVersion: '2.0.0',
+    ...(typeof r1ModelName === 'string' ? { r1ModelName } : {}),
+    ...(typeof r2ModelName === 'string' ? { r2ModelName } : {}),
+    ...(r1ModelSlug ? { r1ModelSlug } : {}),
+    ...(r2ModelSlug ? { r2ModelSlug } : {}),
+    r1Shapers: { ...createDefaultResynatorShapers(), ...(r1Shapers ?? {}) },
+    r2Shapers: { ...createDefaultResynatorShapers(), ...(r2Shapers ?? {}) },
+    ...(embeddedModel ? { embeddedModel } : {}),
+  };
+}
+
 export interface AxionikPreset {
   formatVersion: 2;
   meta: AxionikPresetMeta;
@@ -127,12 +236,8 @@ export interface AxionikPreset {
   };
   /** Snapshot de los parametros normalizados mapeados por su indice (0..444). */
   parameters: Record<number, number>;
-  /** Bloque extensible para Resynators v2 y futuros bloques modulares de efectos. */
-  extendedState?: {
-    resynatorV2?: Record<string, unknown>;
-    extraEffects?: Record<string, unknown>;
-    [key: string]: unknown;
-  };
+  /** Estado tipado de Resynator v2; solo se persiste en engineMode 'extended'. */
+  extendedState?: AxionikExtendedState;
 }
 
 /**
@@ -165,7 +270,7 @@ function normalizeParameters(payload: unknown): Record<number, number> {
 
   if (Array.isArray(raw)) {
     const out: Record<number, number> = {};
-    for (let i = 0; i < raw.length; i++) {
+    for (let i = 0; i < raw.length && i <= MAX_PARAMETER_INDEX; i++) {
       const v = raw[i];
       // Solo aceptan números finitos: NaN e Infinity son descartados explícitamente
       // para que un JSON corrupto no llegue al pipeline DSP.
@@ -179,7 +284,7 @@ function normalizeParameters(payload: unknown): Record<number, number> {
     const out: Record<number, number> = {};
     for (const [k, v] of Object.entries(raw)) {
       const idx = Number(k);
-      if (Number.isInteger(idx) && Number.isFinite(v as number)) {
+      if (Number.isInteger(idx) && idx >= 0 && idx <= MAX_PARAMETER_INDEX && Number.isFinite(v as number)) {
         out[idx] = v as number;
       }
       // NaN/Infinity ya son descartados por Number.isFinite; cualquier otro tipo se ignora.
@@ -216,7 +321,7 @@ export function createAxionikPresetV2({
   r2ModelName: string;
   engineMode?: 'classic' | 'plus' | 'extended' | 'legacy';
   meta?: Partial<AxionikPresetMeta>;
-  extendedState?: AxionikPreset['extendedState'];
+  extendedState?: AxionikExtendedState;
 }): AxionikPreset {
   return {
     formatVersion: 2,
@@ -299,6 +404,84 @@ export function parsePresetFile(content: string): AxionikPreset | null {
   return null;
 }
 
+const SHAPER_KEYS: ReadonlyArray<keyof AxionikResynatorShapersState> = [
+  'inharmonicityB',
+  'parity',
+  'entropyRoughness',
+  'spectralShiftHz',
+  'hfRollOffDbPerOct',
+  'formantShiftSt',
+  'formantPreserve',
+  'residualMix',
+  'spatialSpread',
+];
+
+/** Conserva solo los shapers numericos finitos; descarta NaN, Infinity y strings. */
+export function sanitizeResynatorShapers(value: unknown): Partial<AxionikResynatorShapersState> | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const out: Partial<AxionikResynatorShapersState> = {};
+  for (const key of SHAPER_KEYS) {
+    const n = raw[key];
+    if (typeof n === 'number' && Number.isFinite(n)) out[key] = n;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** Normaliza el bloque de tempoSync, descartando BPMs no finitos. */
+function sanitizeTempoSync(value: unknown): AxionikTempoSyncState | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const sourceBpm = raw.sourceBpm;
+  if (typeof sourceBpm !== 'number' || !Number.isFinite(sourceBpm) || sourceBpm <= 0) return undefined;
+
+  const targetRaw = raw.targetBpm;
+  const targetBpm =
+    typeof targetRaw === 'number' && Number.isFinite(targetRaw) && targetRaw > 0 ? targetRaw : sourceBpm;
+  const barRaw = raw.barCount;
+  const barCount =
+    typeof barRaw === 'number' && Number.isFinite(barRaw) ? Math.max(1, Math.trunc(barRaw)) : 1;
+
+  return {
+    enabled: raw.enabled === true,
+    sourceBpm,
+    targetBpm,
+    barCount,
+    ...(typeof raw.grooveMode === 'string' ? { grooveMode: raw.grooveMode } : {}),
+  };
+}
+
+/**
+ * Convierte el bloque `extendedState` de un JSON arbitrario al contrato tipado.
+ * Devuelve `undefined` si no es un objeto; el resultado siempre lleva
+ * `schemaVersion: '2.0.0'` para que un preset antiguo/corrupto no propague
+ * versiones desconocidas.
+ */
+export function sanitizeExtendedState(value: unknown): AxionikExtendedState | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const state: AxionikExtendedState = { schemaVersion: '2.0.0' };
+
+  if (typeof raw.r1ModelSlug === 'string' && raw.r1ModelSlug.trim()) state.r1ModelSlug = raw.r1ModelSlug.trim();
+  if (typeof raw.r2ModelSlug === 'string' && raw.r2ModelSlug.trim()) state.r2ModelSlug = raw.r2ModelSlug.trim();
+  if (typeof raw.r1ModelName === 'string') state.r1ModelName = raw.r1ModelName;
+  if (typeof raw.r2ModelName === 'string') state.r2ModelName = raw.r2ModelName;
+
+  const r1Shapers = sanitizeResynatorShapers(raw.r1Shapers);
+  if (r1Shapers) state.r1Shapers = r1Shapers;
+  const r2Shapers = sanitizeResynatorShapers(raw.r2Shapers);
+  if (r2Shapers) state.r2Shapers = r2Shapers;
+
+  const tempoSync = sanitizeTempoSync(raw.tempoSync);
+  if (tempoSync) state.tempoSync = tempoSync;
+
+  if (typeof raw.extra === 'object' && raw.extra !== null && !Array.isArray(raw.extra)) {
+    state.extra = raw.extra as Record<string, unknown>;
+  }
+
+  return state;
+}
+
 /**
  * Normaliza un objeto ya parseado a AxionikPreset, sin reformatear datos numericos.
  * Solo asegura que el objeto cumple el contrato getTypeScript para esto.
@@ -329,7 +512,7 @@ function sanitizeAxionikPreset(v: Record<string, unknown>): AxionikPreset {
       r2ModelName: 'Unknown',
       engineMode: 'extended',
       meta,
-      extendedState: v.extendedState as AxionikPreset['extendedState'],
+      extendedState: sanitizeExtendedState(v.extendedState),
     });
   }
 

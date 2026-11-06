@@ -850,11 +850,37 @@ input[type="range"] {
 }
 
 /* ── Bank Drawer Catalog Styling (Parity with ABDNeuModMakr) ─ */
-.bank-drawer-panel .ndb-grid {
+.bank-drawer-panel .ndb-grid,
+.bank-drawer-view .ndb-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: var(--space-3);
   padding: var(--space-4);
+}
+
+.bank-drawer-view .ndb-card {
+  min-height: 72px;
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-3);
+}
+
+.bank-drawer-view .ndb-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.bank-drawer-view .ndb-card-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.bank-drawer-view .ndb-card-actions .btn {
+  font-size: 11px;
+  padding: 4px 8px;
+  white-space: nowrap;
 }
 
 /* ── Performance Keyboard Strip (@abdsynths/midi-keyb) ──── */
@@ -2229,4 +2255,177 @@ select option {
   .top-lcd-zone__row2--console {
     grid-template-columns: minmax(128px, 1fr) minmax(140px, 1.5fr) auto;
   }
+}
+
+
+/* ── Extended 32-Category Color Palette (cat-0 .. cat-31) ──────────────── */
+:root {
+  --color-cat-10: #00f2fe;
+  --color-cat-11: #10b981;
+  --color-cat-12: #f59e0b;
+  --color-cat-13: #ef4444;
+  --color-cat-14: #8b5cf6;
+  --color-cat-15: #ec4899;
+  --color-cat-16: #84cc16;
+  --color-cat-17: #6366f1;
+  --color-cat-18: #14b8a6;
+  --color-cat-19: #fb7185;
+  --color-cat-20: #f43f5e;
+  --color-cat-21: #06b6d4;
+  --color-cat-22: #eab308;
+  --color-cat-23: #a855f7;
+  --color-cat-24: #34d399;
+  --color-cat-25: #38bdf8;
+  --color-cat-26: #f97316;
+  --color-cat-27: #3b82f6;
+  --color-cat-28: #d946ef;
+  --color-cat-29: #a1a1aa;
+  --color-cat-30: #a3e635;
+  --color-cat-31: #f472b6;
+}
+
+/* Category text & badge colors */
+.cat-10 { color: var(--color-cat-10); }
+.cat-11 { color: var(--color-cat-11); }
+.cat-12 { color: var(--color-cat-12); }
+.cat-13 { color: var(--color-cat-13); }
+.cat-14 { color: var(--color-cat-14); }
+.cat-15 { color: var(--color-cat-15); }
+.cat-16 { color: var(--color-cat-16); }
+.cat-17 { color: var(--color-cat-17); }
+.cat-18 { color: var(--color-cat-18); }
+.cat-19 { color: var(--color-cat-19); }
+.cat-20 { color: var(--color-cat-20); }
+.cat-21 { color: var(--color-cat-21); }
+.cat-22 { color: var(--color-cat-22); }
+.cat-23 { color: var(--color-cat-23); }
+.cat-24 { color: var(--color-cat-24); }
+.cat-25 { color: var(--color-cat-25); }
+.cat-26 { color: var(--color-cat-26); }
+.cat-27 { color: var(--color-cat-27); }
+.cat-28 { color: var(--color-cat-28); }
+.cat-29 { color: var(--color-cat-29); }
+.cat-30 { color: var(--color-cat-30); }
+.cat-31 { color: var(--color-cat-31); }
+
+/* Card icon & category tag */
+.ndb-card-icon.cat-10 { color: var(--color-cat-10); }
+.ndb-card-icon.cat-11 { color: var(--color-cat-11); }
+.ndb-card-icon.cat-12 { color: var(--color-cat-12); }
+.ndb-card-icon.cat-13 { color: var(--color-cat-13); }
+.ndb-card-icon.cat-14 { color: var(--color-cat-14); }
+.ndb-card-icon.cat-15 { color: var(--color-cat-15); }
+.ndb-card-icon.cat-16 { color: var(--color-cat-16); }
+.ndb-card-icon.cat-17 { color: var(--color-cat-17); }
+.ndb-card-icon.cat-18 { color: var(--color-cat-18); }
+.ndb-card-icon.cat-19 { color: var(--color-cat-19); }
+.ndb-card-icon.cat-20 { color: var(--color-cat-20); }
+.ndb-card-icon.cat-21 { color: var(--color-cat-21); }
+.ndb-card-icon.cat-22 { color: var(--color-cat-22); }
+.ndb-card-icon.cat-23 { color: var(--color-cat-23); }
+.ndb-card-icon.cat-24 { color: var(--color-cat-24); }
+.ndb-card-icon.cat-25 { color: var(--color-cat-25); }
+.ndb-card-icon.cat-26 { color: var(--color-cat-26); }
+.ndb-card-icon.cat-27 { color: var(--color-cat-27); }
+.ndb-card-icon.cat-28 { color: var(--color-cat-28); }
+.ndb-card-icon.cat-29 { color: var(--color-cat-29); }
+.ndb-card-icon.cat-30 { color: var(--color-cat-30); }
+.ndb-card-icon.cat-31 { color: var(--color-cat-31); }
+
+.ndb-card-cat.cat-10 { color: var(--color-cat-10); border-color: var(--color-cat-10); }
+.ndb-card-cat.cat-11 { color: var(--color-cat-11); border-color: var(--color-cat-11); }
+.ndb-card-cat.cat-12 { color: var(--color-cat-12); border-color: var(--color-cat-12); }
+.ndb-card-cat.cat-13 { color: var(--color-cat-13); border-color: var(--color-cat-13); }
+.ndb-card-cat.cat-14 { color: var(--color-cat-14); border-color: var(--color-cat-14); }
+.ndb-card-cat.cat-15 { color: var(--color-cat-15); border-color: var(--color-cat-15); }
+.ndb-card-cat.cat-16 { color: var(--color-cat-16); border-color: var(--color-cat-16); }
+.ndb-card-cat.cat-17 { color: var(--color-cat-17); border-color: var(--color-cat-17); }
+.ndb-card-cat.cat-18 { color: var(--color-cat-18); border-color: var(--color-cat-18); }
+.ndb-card-cat.cat-19 { color: var(--color-cat-19); border-color: var(--color-cat-19); }
+.ndb-card-cat.cat-20 { color: var(--color-cat-20); border-color: var(--color-cat-20); }
+.ndb-card-cat.cat-21 { color: var(--color-cat-21); border-color: var(--color-cat-21); }
+.ndb-card-cat.cat-22 { color: var(--color-cat-22); border-color: var(--color-cat-22); }
+.ndb-card-cat.cat-23 { color: var(--color-cat-23); border-color: var(--color-cat-23); }
+.ndb-card-cat.cat-24 { color: var(--color-cat-24); border-color: var(--color-cat-24); }
+.ndb-card-cat.cat-25 { color: var(--color-cat-25); border-color: var(--color-cat-25); }
+.ndb-card-cat.cat-26 { color: var(--color-cat-26); border-color: var(--color-cat-26); }
+.ndb-card-cat.cat-27 { color: var(--color-cat-27); border-color: var(--color-cat-27); }
+.ndb-card-cat.cat-28 { color: var(--color-cat-28); border-color: var(--color-cat-28); }
+.ndb-card-cat.cat-29 { color: var(--color-cat-29); border-color: var(--color-cat-29); }
+.ndb-card-cat.cat-30 { color: var(--color-cat-30); border-color: var(--color-cat-30); }
+.ndb-card-cat.cat-31 { color: var(--color-cat-31); border-color: var(--color-cat-31); }
+
+/* Card hover borders */
+.ndb-card.cat-10:hover { border-color: var(--color-cat-10); }
+.ndb-card.cat-11:hover { border-color: var(--color-cat-11); }
+.ndb-card.cat-12:hover { border-color: var(--color-cat-12); }
+.ndb-card.cat-13:hover { border-color: var(--color-cat-13); }
+.ndb-card.cat-14:hover { border-color: var(--color-cat-14); }
+.ndb-card.cat-15:hover { border-color: var(--color-cat-15); }
+.ndb-card.cat-16:hover { border-color: var(--color-cat-16); }
+.ndb-card.cat-17:hover { border-color: var(--color-cat-17); }
+.ndb-card.cat-18:hover { border-color: var(--color-cat-18); }
+.ndb-card.cat-19:hover { border-color: var(--color-cat-19); }
+.ndb-card.cat-20:hover { border-color: var(--color-cat-20); }
+.ndb-card.cat-21:hover { border-color: var(--color-cat-21); }
+.ndb-card.cat-22:hover { border-color: var(--color-cat-22); }
+.ndb-card.cat-23:hover { border-color: var(--color-cat-23); }
+.ndb-card.cat-24:hover { border-color: var(--color-cat-24); }
+.ndb-card.cat-25:hover { border-color: var(--color-cat-25); }
+.ndb-card.cat-26:hover { border-color: var(--color-cat-26); }
+.ndb-card.cat-27:hover { border-color: var(--color-cat-27); }
+.ndb-card.cat-28:hover { border-color: var(--color-cat-28); }
+.ndb-card.cat-29:hover { border-color: var(--color-cat-29); }
+.ndb-card.cat-30:hover { border-color: var(--color-cat-30); }
+.ndb-card.cat-31:hover { border-color: var(--color-cat-31); }
+
+/* Category chip colored borders and text in filter row */
+.ndb-chip.cat-0  { border-color: var(--color-cat-0);  color: var(--color-cat-0); }
+.ndb-chip.cat-1  { border-color: var(--color-cat-1);  color: var(--color-cat-1); }
+.ndb-chip.cat-2  { border-color: var(--color-cat-2);  color: var(--color-cat-2); }
+.ndb-chip.cat-3  { border-color: var(--color-cat-3);  color: var(--color-cat-3); }
+.ndb-chip.cat-4  { border-color: var(--color-cat-4);  color: var(--color-cat-4); }
+.ndb-chip.cat-5  { border-color: var(--color-cat-5);  color: var(--color-cat-5); }
+.ndb-chip.cat-6  { border-color: var(--color-cat-6);  color: var(--color-cat-6); }
+.ndb-chip.cat-7  { border-color: var(--color-cat-7);  color: var(--color-cat-7); }
+.ndb-chip.cat-8  { border-color: var(--color-cat-8);  color: var(--color-cat-8); }
+.ndb-chip.cat-9  { border-color: var(--color-cat-9);  color: var(--color-cat-9); }
+.ndb-chip.cat-10 { border-color: var(--color-cat-10); color: var(--color-cat-10); }
+.ndb-chip.cat-11 { border-color: var(--color-cat-11); color: var(--color-cat-11); }
+.ndb-chip.cat-12 { border-color: var(--color-cat-12); color: var(--color-cat-12); }
+.ndb-chip.cat-13 { border-color: var(--color-cat-13); color: var(--color-cat-13); }
+.ndb-chip.cat-14 { border-color: var(--color-cat-14); color: var(--color-cat-14); }
+.ndb-chip.cat-15 { border-color: var(--color-cat-15); color: var(--color-cat-15); }
+.ndb-chip.cat-16 { border-color: var(--color-cat-16); color: var(--color-cat-16); }
+.ndb-chip.cat-17 { border-color: var(--color-cat-17); color: var(--color-cat-17); }
+.ndb-chip.cat-18 { border-color: var(--color-cat-18); color: var(--color-cat-18); }
+.ndb-chip.cat-19 { border-color: var(--color-cat-19); color: var(--color-cat-19); }
+.ndb-chip.cat-20 { border-color: var(--color-cat-20); color: var(--color-cat-20); }
+.ndb-chip.cat-21 { border-color: var(--color-cat-21); color: var(--color-cat-21); }
+.ndb-chip.cat-22 { border-color: var(--color-cat-22); color: var(--color-cat-22); }
+.ndb-chip.cat-23 { border-color: var(--color-cat-23); color: var(--color-cat-23); }
+.ndb-chip.cat-24 { border-color: var(--color-cat-24); color: var(--color-cat-24); }
+.ndb-chip.cat-25 { border-color: var(--color-cat-25); color: var(--color-cat-25); }
+.ndb-chip.cat-26 { border-color: var(--color-cat-26); color: var(--color-cat-26); }
+.ndb-chip.cat-27 { border-color: var(--color-cat-27); color: var(--color-cat-27); }
+.ndb-chip.cat-28 { border-color: var(--color-cat-28); color: var(--color-cat-28); }
+.ndb-chip.cat-29 { border-color: var(--color-cat-29); color: var(--color-cat-29); }
+.ndb-chip.cat-30 { border-color: var(--color-cat-30); color: var(--color-cat-30); }
+.ndb-chip.cat-31 { border-color: var(--color-cat-31); color: var(--color-cat-31); }
+
+/* Card actions delete button */
+.btn-card-action[data-action="delete-preset"] {
+  background: transparent;
+  color: var(--color-danger, #ff4444);
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: var(--radius-sm, 3px);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+.btn-card-action[data-action="delete-preset"]:hover {
+  background: rgba(255, 68, 68, 0.15);
+  border-color: var(--color-danger, #ff4444);
+  color: #ff6666;
 }

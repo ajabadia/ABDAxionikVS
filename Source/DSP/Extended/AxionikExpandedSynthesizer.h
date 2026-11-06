@@ -140,6 +140,22 @@ public:
     [[nodiscard]] bool hasLoadedModel() const noexcept { return hasModel_; }
     [[nodiscard]] const AxionikExpandedModelDoc& getLoadedModel() const noexcept { return model_; }
 
+    /// Shapers del primer Resynator v2 no omitido por las adaptaciones de preflight.
+    [[nodiscard]] AxionikResonatorShapers getActiveShapers() const noexcept { return resolveActiveShapers(); }
+
+    /// Sustituye los shapers del primer Resynator v2 activo del modelo cargado.
+    /// RT-safe: solo asigna floats, no reserva memoria.
+    bool setActiveShapers(const AxionikResonatorShapers& shapers) noexcept {
+        if (!hasModel_) return false;
+        for (auto& resynator : model_.resynators) {
+            if (!resynator.skippedByAdaptation) {
+                resynator.shapers = shapers;
+                return true;
+            }
+        }
+        return false;
+    }
+
     void setHostBpm(float bpm) noexcept {
         hostBpm_ = std::clamp(bpm, 20.0f, 300.0f);
     }

@@ -129,6 +129,7 @@ export const axionikEn = {
     presetsTab: 'Presets',
     loadModelToR1: 'Load into Resynator 1',
     loadModelToR2: 'Load into Resynator 2',
+    loadPreset: 'Load Preset',
   },
 
   matrix: {

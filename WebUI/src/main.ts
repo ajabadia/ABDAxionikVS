@@ -18,6 +18,11 @@ import { MasterOutputPanel } from './ui/MasterOutputPanel.js';
 import { DrawerManager } from './ui/Drawers.js';
 import { TrajectoryStick2D } from './ui/TrajectoryStick2D.js';
 import { ResynatorDrawer } from './ui/ResynatorDrawer.js';
+import {
+  findExpandedModelCatalogEntry,
+  resolveResynatorModelIdentity,
+  type ResynatorModelIdentity,
+} from './ui/ResynatorModelIdentity.js';
 import { EffectsDrawer, type EffectsDrawerBlock } from './ui/EffectsDrawer.js';
 import { BlenderDrawer } from './ui/BlenderDrawer.js';
 import { BlenderPanel } from './ui/BlenderPanel.js';
@@ -43,10 +48,17 @@ import {
 } from './ui/NeuronCatalogMetadata.js';
 import { setupKeyboardShortcuts } from './app/keyboardShortcuts.js';
 import { PresetSaveDialog } from './ui/PresetSaveDialog.js';
-import { downloadPresetFile, parsePresetFile, type AxionikPreset } from './ui/PresetModel.js';
+import {
+  createExtendedStateForSave,
+  downloadPresetFile,
+  parsePresetFile,
+  type AxionikExtendedState,
+  type AxionikPreset,
+} from './ui/PresetModel.js';
 import { ThemeManager } from './utils/themeManager.js';
 import { initI18n, onLocaleChange } from './i18n/index.js';
 import { handleParamUpdate, type ParamUpdateCtx } from './app/paramUpdate.js';
+import { applyPresetExtendedState } from './app/applyPresetExtendedState.js';
 import {
   createMidiLearnStore,
   attachMidiLearnUI,
@@ -199,6 +211,11 @@ const bootstrapAxionikApp = async () => {
   let currentPresetName = '000 InitSound';
   let currentR1ModelName = '511 sinew';
   let currentR2ModelName = '511 sinew';
+  // Parameter Set resuelto de la identidad visible de cada Resynator. No se
+  // puede releer del índice clásico al abrir el drawer: un modelo expandido
+  // usa un slot sintético 900+R y su Parameter Set viene del catálogo v2.
+  let currentR1ParameterSet = -1;
+  let currentR2ParameterSet = -1;
 
   const applyTheme = (theme: string) => {
     themeManager.setTheme(theme);
@@ -211,7 +228,12 @@ const bootstrapAxionikApp = async () => {
     navbar?.setZoom(zoom);
   };
 
-  const updateResynatorModelUI = (resynator: 1 | 2, slot: number, name?: string) => {
+  const updateResynatorModelUI = (
+    resynator: 1 | 2,
+    slot: number,
+    name?: string,
+    parameterSet?: number,
+  ): ResynatorModelIdentity => {
     const isR1 = resynator === 1;
     const captionEl = document.getElementById(isR1 ? 'r1-model-caption' : 'r2-model-caption');
     const slotEl = document.getElementById(isR1 ? 'r1-model-slot' : 'r2-model-slot');
@@ -220,21 +242,20 @@ const bootstrapAxionikApp = async () => {
       slotEl.textContent = `#${String(slot).padStart(3, '0')}`;
     }
 
-    let modelName = name;
-    if (!modelName && bankDrawer) {
-      const found = bankDrawer.getBank().models.find((m) => m.slot === slot);
-      if (found && found.name) {
-        modelName = found.name;
-      }
-    }
-    if (!modelName) {
-      modelName = getCanonicalModelName(slot);
-    }
+    const identity = resolveResynatorModelIdentity({
+      slot,
+      name,
+      parameterSet,
+      catalog: bankDrawer?.getBank().models,
+    });
+    const modelName = identity.name;
 
     if (isR1) {
       currentR1ModelName = modelName;
+      currentR1ParameterSet = identity.parameterSet;
     } else {
       currentR2ModelName = modelName;
+      currentR2ParameterSet = identity.parameterSet;
     }
 
     if (captionEl) {
@@ -242,40 +263,37 @@ const bootstrapAxionikApp = async () => {
       captionEl.title = `Model #${slot}: ${modelName}`;
     }
     topLcdBar?.setModelInfo(resynator, slot, modelName);
+    ResynatorDrawer.syncModelInfo(resynator, modelName, identity.parameterSet);
+    return identity;
   };
 
   // Funciones para abrir paneles expandidos (Resynator 1/2 y Silver Rack)
-  const modelParameterSet = (slotRaw: number): number => {
-    const meta = MODEL_METADATA[Math.round(slotRaw)];
-    return meta && typeof meta[0] === 'number' ? meta[0] : -1;
-  };
-
   const openR1Drawer = () => {
     const content = ResynatorDrawer.createContent({
       resynator: 1,
       modelName: currentR1ModelName,
-      parameterSet: modelParameterSet(WebBridge.getParam(ParamIdx.R1ModellIndex, 511)),
+      parameterSet: currentR1ParameterSet,
       onClose: () => drawerManager.close(),
       onSelectModel: (resynator) => {
         targetResynatorForModelPick = resynator;
         bankDrawer?.open('models', 'r1');
       },
     });
-    drawerManager.openCustom('r1-expanded', content);
+    drawerManager.openCustom('r1-expanded', content, () => ResynatorDrawer.destroyContent(content));
   };
 
   const openR2Drawer = () => {
     const content = ResynatorDrawer.createContent({
       resynator: 2,
       modelName: currentR2ModelName,
-      parameterSet: modelParameterSet(WebBridge.getParam(ParamIdx.R2ModellIndex, 511)),
+      parameterSet: currentR2ParameterSet,
       onClose: () => drawerManager.close(),
       onSelectModel: (resynator) => {
         targetResynatorForModelPick = resynator;
         bankDrawer?.open('models', 'r2');
       },
     });
-    drawerManager.openCustom('r2-expanded', content);
+    drawerManager.openCustom('r2-expanded', content, () => ResynatorDrawer.destroyContent(content));
   };
 
   const openEffectsDrawer = (initialBlock: EffectsDrawerBlock = 'filter') => {
@@ -658,22 +676,17 @@ const bootstrapAxionikApp = async () => {
     const r2Slot = Math.round(values[ParamIdx.R2ModellIndex] ?? 511);
     updateResySwitchButton(1, (values[ParamIdx.R1Switch] ?? 1) > 0.5);
     updateResySwitchButton(2, (values[ParamIdx.R2Switch] ?? 1) > 0.5);
-    const r1Name = getCanonicalModelName(r1Slot);
-    const r2Name = getCanonicalModelName(r2Slot);
-
-    updateResynatorModelUI(1, r1Slot, r1Name);
-    updateResynatorModelUI(2, r2Slot, r2Name);
-    navbar.setModelName(1, `#${String(r1Slot).padStart(3, '0')} ${r1Name}`);
-    navbar.setModelName(2, `#${String(r2Slot).padStart(3, '0')} ${r2Name}`);
+    const r1Identity = updateResynatorModelUI(1, r1Slot);
+    const r2Identity = updateResynatorModelUI(2, r2Slot);
+    navbar.setModelName(1, `#${String(r1Slot).padStart(3, '0')} ${r1Identity.name}`);
+    navbar.setModelName(2, `#${String(r2Slot).padStart(3, '0')} ${r2Identity.name}`);
 
     // Update stick polar labels based on model parameter sets
-    const r1Meta = MODEL_METADATA[r1Slot];
-    const r1ParSet = r1Meta ? r1Meta[0] : (r1Slot % 10);
+    const r1ParSet = r1Identity.parameterSet >= 0 ? r1Identity.parameterSet : (r1Slot % 10);
     r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'scape'));
     r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'sphere'));
 
-    const r2Meta = MODEL_METADATA[r2Slot];
-    const r2ParSet = r2Meta ? r2Meta[0] : (r2Slot % 10);
+    const r2ParSet = r2Identity.parameterSet >= 0 ? r2Identity.parameterSet : (r2Slot % 10);
     r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
     r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
 
@@ -729,7 +742,26 @@ const bootstrapAxionikApp = async () => {
   };
 
 
+  /** Ajusta el motor y la UI al modo con el que se guardo el preset. */
+  const applyPresetEngineMode = (preset: AxionikPreset) => {
+    if (!preset.engineMode) return;
+    let uiMode: 'classic' | 'plus' | 'expanded';
+    if (preset.engineMode === 'classic') {
+      uiMode = 'classic';
+    } else if (preset.engineMode === 'plus') {
+      uiMode = 'plus';
+    } else if (preset.engineMode === 'extended') {
+      uiMode = 'expanded';
+    } else {
+      uiMode = 'classic'; // 'legacy' -> 'classic'
+    }
+    WebBridge.setEngineMode(uiMode);
+    navbar?.setEngineMode(uiMode);
+    bankDrawer?.setEngineMode(uiMode);
+  };
+
   const applyAxionikPreset = (preset: AxionikPreset) => {
+    applyPresetEngineMode(preset);
     // 1. Cargar modelos R1 y R2
     const r1Id = preset.models?.resynator1?.id ?? 511;
     const r2Id = preset.models?.resynator2?.id ?? 511;
@@ -761,6 +793,7 @@ const bootstrapAxionikApp = async () => {
 
     navbar?.setPresetName(preset.meta.name);
     topLcdBar?.setPresetInfo(0, preset.meta.name);
+    applyPresetExtendedState(preset);
     shapersPanel?.syncAll();
     nukeDrawer?.syncAll();
     topLcdBar?.refreshAll();
@@ -795,6 +828,12 @@ const bootstrapAxionikApp = async () => {
     onSelectExpandedModel: (entry, resynator) => {
       const targetR = resynator || targetResynatorForModelPick;
       const parSet = entry.parameterSet ?? 0;
+      const slotNum = 900 + targetR;
+      if (targetR === 1) {
+        WebBridge.setParam(ParamIdx.R1ModellIndex, slotNum);
+      } else {
+        WebBridge.setParam(ParamIdx.R2ModellIndex, slotNum);
+      }
       if (targetR === 1) {
         r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
         r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
@@ -807,7 +846,7 @@ const bootstrapAxionikApp = async () => {
       } else {
         WebBridge.loadExpandedModelSlug(entry.slug, targetR);
       }
-      updateResynatorModelUI(targetR, 900 + targetR, `[EXP] ${entry.name}`);
+      updateResynatorModelUI(targetR, 900 + targetR, `[EXP] ${entry.name}`, entry.parameterSet);
       navbar?.setModelName(targetR, `[EXP] ${entry.name}`);
       nukeDrawer?.syncAll();
     },
@@ -903,8 +942,12 @@ const bootstrapAxionikApp = async () => {
         const file = fileInput.files?.[0];
         if (file) {
           try {
-            const text = await file.text();            const preset = parsePresetFile(text);            if (preset) {              // 1. Ajustar modo del motor segun el preset (conserva los modelos cargados)
-              if (preset.engineMode) {                const engineMode = preset.engineMode as 'classic' | 'plus' | 'extended' | 'legacy';                let uiMode: 'classic' | 'plus' | 'expanded';                if (engineMode === 'classic') {                  uiMode = 'classic';                } else if (engineMode === 'plus') {                  uiMode = 'plus';                } else if (engineMode === 'extended') {                  uiMode = 'expanded';                } else {                  uiMode = 'classic'; // 'legacy' -> 'classic'                }                WebBridge.setEngineMode(uiMode);                navbar?.setEngineMode(uiMode);                bankDrawer?.setEngineMode(uiMode);              }
+            const text = await file.text();
+            const preset = parsePresetFile(text);
+            if (preset) {
+              // 1. Ajustar modo del motor segun el preset (conserva los modelos cargados)
+              applyPresetEngineMode(preset);
+
               // 2. Cargar modelos R1 y R2
               const r1Id = preset.models?.resynator1?.id ?? 511;
               const r2Id = preset.models?.resynator2?.id ?? 511;
@@ -934,6 +977,7 @@ const bootstrapAxionikApp = async () => {
                 }
               }
 
+              applyPresetExtendedState(preset);
               navbar?.setPresetName(preset.meta.name);
               topLcdBar?.setPresetInfo(0, preset.meta.name);
               shapersPanel?.syncAll();
@@ -955,17 +999,50 @@ const bootstrapAxionikApp = async () => {
     },
     onSavePreset: () => {
       const currentName = navbar ? navbar.getPresetName() : '000 InitSound';
+      const existingCategories = bankDrawer.getExistingUserCategories();
+      const currentEngineMode = navbar?.getEngineMode() || 'classic';
+      const isExtendedMode = (currentEngineMode as string) === 'expanded' || (currentEngineMode as string) === 'extended';
+
       const dialog = new PresetSaveDialog({
         currentPresetName: currentName,
-        onSave: (name, category, author) => {
+        existingCategories,
+        isExtendedMode,
+        onSave: (name, category, author, _colorSlot, embedModel) => {
           const currentEngineMode = navbar?.getEngineMode() || 'classic';
           const targetEngineMode: 'classic' | 'plus' | 'extended' =
             currentEngineMode === 'expanded' ? 'extended' : currentEngineMode;
 
           const r1Model = Math.round(WebBridge.getParam(ParamIdx.R1ModellIndex, 511));
           const r2Model = Math.round(WebBridge.getParam(ParamIdx.R2ModellIndex, 511));
-          const r1Name = getCanonicalModelName(r1Model);
-          const r2Name = getCanonicalModelName(r2Model);          const extendedState = targetEngineMode === 'extended'            ? {                r1ModelName: currentR1ModelName,                r2ModelName: currentR2ModelName,              }            : {};
+          const r1Name = currentR1ModelName || getCanonicalModelName(r1Model);
+          const r2Name = currentR2ModelName || getCanonicalModelName(r2Model);
+          let embeddedModelObj: { r1?: Record<string, unknown> | null; r2?: Record<string, unknown> | null } | undefined = undefined;
+          if (embedModel && targetEngineMode === 'extended') {
+            const axModels = bankDrawer.getAxionikModels();
+            const r1Slug = WebBridge.getActiveExpandedModelSlug(1);
+            const r2Slug = WebBridge.getActiveExpandedModelSlug(2);
+            const r1Entry = axModels.find((m) => m.slug === r1Slug || m.name === currentR1ModelName);
+            const r2Entry = axModels.find((m) => m.slug === r2Slug || m.name === currentR2ModelName);
+
+            let r1J: Record<string, unknown> | null = null;
+            let r2J: Record<string, unknown> | null = null;
+            if (r1Entry?.expandedJson) { try { r1J = JSON.parse(r1Entry.expandedJson); } catch {} }
+            if (r2Entry?.expandedJson) { try { r2J = JSON.parse(r2Entry.expandedJson); } catch {} }
+            embeddedModelObj = { r1: r1J, r2: r2J };
+          }
+
+          const extendedState: AxionikExtendedState | undefined =
+            targetEngineMode === 'extended'
+              ? createExtendedStateForSave({
+                  r1ModelName: currentR1ModelName,
+                  r2ModelName: currentR2ModelName,
+                  r1ModelSlug: WebBridge.getActiveExpandedModelSlug(1),
+                  r2ModelSlug: WebBridge.getActiveExpandedModelSlug(2),
+                  r1Shapers: WebBridge.getActiveResonatorShapers(1),
+                  r2Shapers: WebBridge.getActiveResonatorShapers(2),
+                  embeddedModel: embeddedModelObj,
+                })
+              : undefined;
 
           const preset: AxionikPreset = {
             formatVersion: 2,
@@ -981,7 +1058,7 @@ const bootstrapAxionikApp = async () => {
               resynator2: { id: r2Model, name: r2Name },
             },
             parameters: WebBridge.getAllCachedParams(),
-            extendedState,
+            ...(extendedState ? { extendedState } : {}),
           };
 
           WebBridge.savePreset(preset, preset.engineMode);
@@ -994,6 +1071,7 @@ const bootstrapAxionikApp = async () => {
 
           navbar?.setPresetName(name);
           topLcdBar?.setPresetInfo(0, name);
+          topLcdBar?.flashWriteCompleted(undefined, name);
           console.log(`[ABDAxionikVS] Preset "${name}" guardado como .axpreset (engineMode: ${preset.engineMode})`);
         },
       });
@@ -1082,12 +1160,10 @@ const bootstrapAxionikApp = async () => {
       const pInfo = getCanonicalPresetInfo(slot);
       navbar?.setPresetName(`${String(slot).padStart(3, '0')} ${pInfo.name}`);
       topLcdBar?.setPresetInfo(slot, `${String(slot).padStart(3, '0')} ${pInfo.name}`);
-      const r1Name = getCanonicalModelName(pInfo.r1Model);
-      const r2Name = getCanonicalModelName(pInfo.r2Model);
-      updateResynatorModelUI(1, pInfo.r1Model, r1Name);
-      updateResynatorModelUI(2, pInfo.r2Model, r2Name);
-      navbar?.setModelName(1, `#${String(pInfo.r1Model).padStart(3, '0')} ${r1Name}`);
-      navbar?.setModelName(2, `#${String(pInfo.r2Model).padStart(3, '0')} ${r2Name}`);
+      const r1Identity = updateResynatorModelUI(1, pInfo.r1Model);
+      const r2Identity = updateResynatorModelUI(2, pInfo.r2Model);
+      navbar?.setModelName(1, `#${String(pInfo.r1Model).padStart(3, '0')} ${r1Identity.name}`);
+      navbar?.setModelName(2, `#${String(pInfo.r2Model).padStart(3, '0')} ${r2Identity.name}`);
       WebBridge.seedPresetSlotEnvelopes(slot);
       WebBridge.loadPresetSlot(slot);
       shapersPanel?.syncAll();
@@ -1242,6 +1318,34 @@ const bootstrapAxionikApp = async () => {
     if (msg.type === 'BANK_CATALOG_SYNC') {
       // El payload viaja sin tipar por el bridge; se adapta a la forma que espera BankDrawer.
       bankDrawer.syncCatalogFromHost(msg as Parameters<BankDrawer['syncCatalogFromHost']>[0]);
+    } else if (msg.type === 'RESYNATOR_SHAPERS') {
+      if (
+        (msg.resynator === 1 || msg.resynator === 2) &&
+        msg.ok === true &&
+        typeof msg.modelName === 'string' &&
+        msg.modelName
+      ) {
+        const rSlot = msg.resynator;
+        const catalogEntry = findExpandedModelCatalogEntry(
+          bankDrawer?.getAxionikModels(),
+          {
+            slug: typeof msg.slug === 'string' ? msg.slug : undefined,
+            name: msg.modelName,
+          },
+        );
+        updateResynatorModelUI(
+          rSlot,
+          900 + rSlot,
+          `[EXP] ${msg.modelName}`,
+          catalogEntry?.parameterSet,
+        );
+        navbar?.setModelName(rSlot, `[EXP] ${msg.modelName}`);
+        if (rSlot === 1) {
+          WebBridge.setParam(ParamIdx.R1ModellIndex, 901);
+        } else {
+          WebBridge.setParam(ParamIdx.R2ModellIndex, 902);
+        }
+      }
     } else if (msg.type === 'PRESET_LOADED') {
       if (typeof msg.name === 'string' && msg.name) {
         currentPresetName = msg.name;
@@ -1250,12 +1354,10 @@ const bootstrapAxionikApp = async () => {
       }
       const r1 = typeof msg.r1Model === 'number' ? msg.r1Model : 511;
       const r2 = typeof msg.r2Model === 'number' ? msg.r2Model : 511;
-      const r1Name = getCanonicalModelName(r1);
-      const r2Name = getCanonicalModelName(r2);
-      updateResynatorModelUI(1, r1, r1Name);
-      updateResynatorModelUI(2, r2, r2Name);
-      navbar.setModelName(1, `#${String(r1).padStart(3, '0')} ${r1Name}`);
-      navbar.setModelName(2, `#${String(r2).padStart(3, '0')} ${r2Name}`);
+      const r1Identity = updateResynatorModelUI(1, r1);
+      const r2Identity = updateResynatorModelUI(2, r2);
+      navbar.setModelName(1, `#${String(r1).padStart(3, '0')} ${r1Identity.name}`);
+      navbar.setModelName(2, `#${String(r2).padStart(3, '0')} ${r2Identity.name}`);
 
       if (Array.isArray(msg.values)) {
         applyAllParamsToUI(msg.values);
@@ -1300,7 +1402,11 @@ const bootstrapAxionikApp = async () => {
       if (msg.ok) {
         const mName = String(msg.modelName || 'Expanded Model');
         const adaptCount = Number(msg.adaptationsCount || 0);
-        updateResynatorModelUI(rSlot, 900 + rSlot, `[EXP] ${mName}`);
+        const catalogEntry = findExpandedModelCatalogEntry(
+          bankDrawer?.getAxionikModels(),
+          { name: mName },
+        );
+        updateResynatorModelUI(rSlot, 900 + rSlot, `[EXP] ${mName}`, catalogEntry?.parameterSet);
         navbar?.setModelName(rSlot, `[EXP] ${mName}`);
         dragDropHandler.showToast(
           adaptCount > 0

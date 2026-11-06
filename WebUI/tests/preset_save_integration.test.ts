@@ -12,9 +12,12 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { WebBridge } from '../src/bridge/WebBridge.js';
+import { applyPresetExtendedState } from '../src/app/applyPresetExtendedState.js';
 import { PresetSaveDialog } from '../src/ui/PresetSaveDialog.js';
 import {
   createAxionikPresetV2,
+  createDefaultResynatorShapers,
+  createExtendedStateForSave,
   parsePresetFile,
   serializePreset,
   serializePresetForHost,
@@ -22,6 +25,7 @@ import {
   requestPresetSaveFromBridge,
   sanitizeFilename,
   type AxionikPreset,
+  type AxionikResynatorShapersState,
 } from '../src/ui/PresetModel.js';
 
 // jsdom needs a global document before PresetSaveDialog renders the modal.
@@ -213,6 +217,415 @@ describe('Preset load → parsePresetFile', () => {
 // ---------------------------------------------------------------------------
 // 4. PresetModel helpers (sanitizeFilename / requestPresetSaveFromBridge)
 // ---------------------------------------------------------------------------
+
+describe('Host Resynator v2 shaper state', () => {
+  it('caches and merges the shapers reported by the host', () => {
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 1, ok: false });
+
+    WebBridge.notify({
+      type: 'RESYNATOR_SHAPERS',
+      resynator: 1,
+      ok: true,
+      modelName: 'Pad Warm',
+      slug: 'pad-warm',
+      shapers: { inharmonicityB: 0.25, residualMix: 0.4 },
+    });
+
+    expect(WebBridge.getActiveResonatorShapers(1)).toEqual({
+      ...createDefaultResynatorShapers(),
+      inharmonicityB: 0.25,
+      residualMix: 0.4,
+    });
+    expect(WebBridge.getActiveExpandedModelSlug(1)).toBe('pad-warm');
+    expect(WebBridge.getActiveResonatorShapers(2)).toBeUndefined();
+  });
+
+  it('drops non-finite values and clears the cache on ok=false', () => {
+    WebBridge.notify({
+      type: 'RESYNATOR_SHAPERS',
+      resynator: 2,
+      ok: true,
+      slug: ' drum-kit ',
+      shapers: { parity: Number.NaN, spatialSpread: 0.8 },
+    });
+    expect(WebBridge.getActiveResonatorShapers(2)).toMatchObject({ parity: 0, spatialSpread: 0.8 });
+    expect(WebBridge.getActiveExpandedModelSlug(2)).toBe('drum-kit');
+
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 2, ok: false });
+    expect(WebBridge.getActiveResonatorShapers(2)).toBeUndefined();
+    expect(WebBridge.getActiveExpandedModelSlug(2)).toBeUndefined();
+  });
+});
+
+describe('Shaper preset round-trip', () => {
+  it('edits all nine shapers, saves the preset and reloads the same values', () => {
+    const editedR1: AxionikResynatorShapersState = {
+      inharmonicityB: 0.123,
+      parity: -0.45,
+      entropyRoughness: 0.33,
+      spectralShiftHz: -777,
+      hfRollOffDbPerOct: -12.5,
+      formantShiftSt: 7.25,
+      formantPreserve: 0.66,
+      residualMix: 0.44,
+      spatialSpread: 0.88,
+    };
+    const editedR2: AxionikResynatorShapersState = {
+      inharmonicityB: 0.321,
+      parity: 0.6,
+      entropyRoughness: 0.12,
+      spectralShiftHz: 250,
+      hfRollOffDbPerOct: -3,
+      formantShiftSt: -9.5,
+      formantPreserve: 0.2,
+      residualMix: 0.9,
+      spatialSpread: 0.1,
+    };
+
+    WebBridge.notify({
+      type: 'RESYNATOR_SHAPERS',
+      resynator: 1,
+      ok: true,
+      modelName: 'Roundtrip R1',
+      slug: 'roundtrip-r1',
+      shapers: createDefaultResynatorShapers(),
+    });
+    WebBridge.notify({
+      type: 'RESYNATOR_SHAPERS',
+      resynator: 2,
+      ok: true,
+      modelName: 'Roundtrip R2',
+      slug: 'roundtrip-r2',
+      shapers: createDefaultResynatorShapers(),
+    });
+
+    expect(WebBridge.setActiveResonatorShapers(1, editedR1)).toBe(true);
+    expect(WebBridge.setActiveResonatorShapers(2, editedR2)).toBe(true);
+
+    const extendedState = createExtendedStateForSave({
+      r1ModelName: 'Roundtrip R1',
+      r2ModelName: 'Roundtrip R2',
+      r1ModelSlug: WebBridge.getActiveExpandedModelSlug(1),
+      r2ModelSlug: WebBridge.getActiveExpandedModelSlug(2),
+      r1Shapers: WebBridge.getActiveResonatorShapers(1),
+      r2Shapers: WebBridge.getActiveResonatorShapers(2),
+    });
+
+    const preset = createAxionikPresetV2({
+      params: { 0: 1, 10: 2.5, 444: -1 },
+      r1ModelId: 12,
+      r1ModelName: 'Roundtrip R1',
+      r2ModelId: 34,
+      r2ModelName: 'Roundtrip R2',
+      engineMode: 'extended',
+      meta: {
+        name: 'Shaper Roundtrip',
+        category: 'User',
+        author: 'Test',
+        date: '2026-01-01T00:00:00Z',
+      },
+      extendedState,
+    });
+
+    expect(WebBridge.savePreset(preset, 'extended')).toBe(true);
+    const saved = serializePresetForHost(preset);
+    const reloaded = parsePresetFile(saved);
+
+    expect(reloaded).not.toBeNull();
+    expect(reloaded!.engineMode).toBe('extended');
+    expect(reloaded!.extendedState?.r1ModelSlug).toBe('roundtrip-r1');
+    expect(reloaded!.extendedState?.r2ModelSlug).toBe('roundtrip-r2');
+
+    for (const key of Object.keys(editedR1) as Array<keyof AxionikResynatorShapersState>) {
+      expect(reloaded!.extendedState?.r1Shapers?.[key]).toBe(editedR1[key]);
+      expect(reloaded!.extendedState?.r2Shapers?.[key]).toBe(editedR2[key]);
+    }
+    expect(Object.keys(reloaded!.extendedState?.r1Shapers ?? {})).toHaveLength(9);
+    expect(Object.keys(reloaded!.extendedState?.r2Shapers ?? {})).toHaveLength(9);
+
+    // Simula recargar el preset en una sesion limpia: el estado guardado vuelve
+    // a la cache que alimenta el motor y el siguiente guardado.
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 1, ok: false });
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 2, ok: false });
+    expect(
+      WebBridge.setActiveResonatorShapers(
+        1,
+        reloaded!.extendedState!.r1Shapers!,
+        reloaded!.extendedState!.r1ModelSlug,
+      ),
+    ).toBe(true);
+    expect(
+      WebBridge.setActiveResonatorShapers(
+        2,
+        reloaded!.extendedState!.r2Shapers!,
+        reloaded!.extendedState!.r2ModelSlug,
+      ),
+    ).toBe(true);
+    expect(WebBridge.getActiveResonatorShapers(1)).toEqual(editedR1);
+    expect(WebBridge.getActiveResonatorShapers(2)).toEqual(editedR2);
+
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 1, ok: false });
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 2, ok: false });
+  });
+});
+
+describe('Extended preset save -> reload integration', () => {
+  it('restores the expanded model slug and all nine shapers through the app reload path', () => {
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 1, ok: false });
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 2, ok: false });
+
+    // El host reporta los modelos expandidos activos antes de editar los shapers.
+    WebBridge.notify({
+      type: 'RESYNATOR_SHAPERS',
+      resynator: 1,
+      ok: true,
+      modelName: 'fmrhodes HD',
+      slug: 'fmrhodes-hd-96k',
+      shapers: createDefaultResynatorShapers(),
+    });
+    WebBridge.notify({
+      type: 'RESYNATOR_SHAPERS',
+      resynator: 2,
+      ok: true,
+      modelName: 'pad warm',
+      slug: 'pad-warm',
+      shapers: createDefaultResynatorShapers(),
+    });
+
+    const r1Shapers: AxionikResynatorShapersState = {
+      inharmonicityB: 0.11,
+      parity: -0.22,
+      entropyRoughness: 0.33,
+      spectralShiftHz: -444,
+      hfRollOffDbPerOct: -10.5,
+      formantShiftSt: 6.25,
+      formantPreserve: 0.77,
+      residualMix: 0.28,
+      spatialSpread: 0.91,
+    };
+    const r2Shapers: AxionikResynatorShapersState = {
+      inharmonicityB: 0.44,
+      parity: 0.55,
+      entropyRoughness: 0.66,
+      spectralShiftHz: 333,
+      hfRollOffDbPerOct: -2.5,
+      formantShiftSt: -8.75,
+      formantPreserve: 0.19,
+      residualMix: 0.81,
+      spatialSpread: 0.09,
+    };
+
+    expect(WebBridge.setActiveResonatorShapers(1, r1Shapers)).toBe(true);
+    expect(WebBridge.setActiveResonatorShapers(2, r2Shapers)).toBe(true);
+
+    const savedPreset = createAxionikPresetV2({
+      params: { 0: 1, 10: 2.5 },
+      r1ModelId: 900,
+      r1ModelName: 'fmrhodes HD',
+      r2ModelId: 901,
+      r2ModelName: 'pad warm',
+      engineMode: 'extended',
+      meta: {
+        name: 'Extended Reload IT',
+        category: 'User',
+        author: 'Test',
+        date: '2026-01-01T00:00:00Z',
+      },
+      extendedState: createExtendedStateForSave({
+        r1ModelName: 'fmrhodes HD',
+        r2ModelName: 'pad warm',
+        r1ModelSlug: WebBridge.getActiveExpandedModelSlug(1),
+        r2ModelSlug: WebBridge.getActiveExpandedModelSlug(2),
+        r1Shapers: WebBridge.getActiveResonatorShapers(1),
+        r2Shapers: WebBridge.getActiveResonatorShapers(2),
+      }),
+    });
+
+    expect(WebBridge.savePreset(savedPreset, 'extended')).toBe(true);
+    const reloaded = parsePresetFile(serializePresetForHost(savedPreset));
+    expect(reloaded).not.toBeNull();
+    expect(reloaded!.engineMode).toBe('extended');
+    expect(reloaded!.extendedState?.r1ModelSlug).toBe('fmrhodes-hd-96k');
+    expect(reloaded!.extendedState?.r2ModelSlug).toBe('pad-warm');
+    expect(reloaded!.extendedState?.r1Shapers).toEqual(r1Shapers);
+    expect(reloaded!.extendedState?.r2Shapers).toEqual(r2Shapers);
+
+    // Sesion limpia: ni el modelo ni los shapers quedan en la cache viva.
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 1, ok: false });
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 2, ok: false });
+    expect(WebBridge.getActiveExpandedModelSlug(1)).toBeUndefined();
+    expect(WebBridge.getActiveResonatorShapers(1)).toBeUndefined();
+
+    const loadSpy = vi.spyOn(WebBridge, 'loadExpandedModelSlug');
+    const shapersSpy = vi.spyOn(WebBridge, 'setActiveResonatorShapers');
+    try {
+      applyPresetExtendedState(reloaded!);
+
+      expect(loadSpy).toHaveBeenNthCalledWith(1, 'fmrhodes-hd-96k', 1);
+      expect(loadSpy).toHaveBeenNthCalledWith(2, 'pad-warm', 2);
+      expect(shapersSpy).toHaveBeenNthCalledWith(1, 1, r1Shapers, 'fmrhodes-hd-96k');
+      expect(shapersSpy).toHaveBeenNthCalledWith(2, 2, r2Shapers, 'pad-warm');
+
+      expect(WebBridge.getActiveExpandedModelSlug(1)).toBe('fmrhodes-hd-96k');
+      expect(WebBridge.getActiveExpandedModelSlug(2)).toBe('pad-warm');
+      expect(WebBridge.getActiveResonatorShapers(1)).toEqual(r1Shapers);
+      expect(WebBridge.getActiveResonatorShapers(2)).toEqual(r2Shapers);
+    } finally {
+      loadSpy.mockRestore();
+      shapersSpy.mockRestore();
+      WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 1, ok: false });
+      WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 2, ok: false });
+    }
+  });
+});
+
+describe('Extended preset reload edge cases', () => {
+  const clearCache = () => {
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 1, ok: false });
+    WebBridge.notify({ type: 'RESYNATOR_SHAPERS', resynator: 2, ok: false });
+  };
+
+  const makeExtendedPreset = (extendedState?: AxionikPreset['extendedState']) =>
+    createAxionikPresetV2({
+      params: { 0: 1 },
+      r1ModelId: 900,
+      r1ModelName: 'Edge R1',
+      r2ModelId: 901,
+      r2ModelName: 'Edge R2',
+      engineMode: 'extended',
+      meta: {
+        name: 'Edge Preset',
+        category: 'User',
+        author: 'Test',
+        date: '2026-01-01T00:00:00Z',
+      },
+      ...(extendedState ? { extendedState } : {}),
+    });
+
+  beforeEach(clearCache);
+
+  it('sends both model loads before applying either shaper set', () => {
+    const preset = makeExtendedPreset({
+      schemaVersion: '2.0.0',
+      r1ModelSlug: 'fmrhodes-hd-96k',
+      r2ModelSlug: 'pad-warm',
+      r1Shapers: createDefaultResynatorShapers(),
+      r2Shapers: createDefaultResynatorShapers(),
+    });
+
+    const sendSpy = vi.spyOn(WebBridge, 'send');
+    try {
+      applyPresetExtendedState(preset);
+
+      const messages = sendSpy.mock.calls.map(([message]) => message);
+      expect(messages.map((message) => message.type)).toEqual([
+        'LOAD_EXPANDED_MODEL_SLUG',
+        'LOAD_EXPANDED_MODEL_SLUG',
+        'SET_RESYNATOR_SHAPERS',
+        'SET_RESYNATOR_SHAPERS',
+      ]);
+      expect(messages[0]).toMatchObject({
+        type: 'LOAD_EXPANDED_MODEL_SLUG',
+        resynator: 1,
+        slug: 'fmrhodes-hd-96k',
+      });
+      expect(messages[1]).toMatchObject({
+        type: 'LOAD_EXPANDED_MODEL_SLUG',
+        resynator: 2,
+        slug: 'pad-warm',
+      });
+      expect(messages[2]).toMatchObject({
+        type: 'SET_RESYNATOR_SHAPERS',
+        resynator: 1,
+      });
+      expect(messages[3]).toMatchObject({
+        type: 'SET_RESYNATOR_SHAPERS',
+        resynator: 2,
+      });
+    } finally {
+      sendSpy.mockRestore();
+      clearCache();
+    }
+  });
+
+  it('is a no-op when an extended preset has no extendedState', () => {
+    const loadSpy = vi.spyOn(WebBridge, 'loadExpandedModelSlug');
+    const shapersSpy = vi.spyOn(WebBridge, 'setActiveResonatorShapers');
+    try {
+      expect(() => applyPresetExtendedState(makeExtendedPreset())).not.toThrow();
+      expect(loadSpy).not.toHaveBeenCalled();
+      expect(shapersSpy).not.toHaveBeenCalled();
+    } finally {
+      loadSpy.mockRestore();
+      shapersSpy.mockRestore();
+      clearCache();
+    }
+  });
+
+  it('forwards a missing model slug to the host and still restores shapers', () => {
+    const shapers: AxionikResynatorShapersState = {
+      ...createDefaultResynatorShapers(),
+      parity: 0.42,
+    };
+    const preset = makeExtendedPreset({
+      schemaVersion: '2.0.0',
+      r1ModelName: 'Missing Model',
+      r1ModelSlug: 'missing-model',
+      r1Shapers: shapers,
+    });
+
+    const loadSpy = vi.spyOn(WebBridge, 'loadExpandedModelSlug');
+    const shapersSpy = vi.spyOn(WebBridge, 'setActiveResonatorShapers');
+    try {
+      expect(() => applyPresetExtendedState(preset)).not.toThrow();
+      expect(loadSpy).toHaveBeenCalledWith('missing-model', 1);
+      expect(shapersSpy).toHaveBeenCalledWith(1, shapers, 'missing-model');
+      expect(WebBridge.getActiveExpandedModelSlug(1)).toBe('missing-model');
+      expect(WebBridge.getActiveResonatorShapers(1)?.parity).toBe(0.42);
+    } finally {
+      loadSpy.mockRestore();
+      shapersSpy.mockRestore();
+      clearCache();
+    }
+  });
+
+  it('does not retain the previous model reference for an untitled model', () => {
+    WebBridge.notify({
+      type: 'RESYNATOR_SHAPERS',
+      resynator: 1,
+      ok: true,
+      modelName: 'Previous Model',
+      slug: 'previous-model',
+      shapers: createDefaultResynatorShapers(),
+    });
+
+    const shapers: AxionikResynatorShapersState = {
+      ...createDefaultResynatorShapers(),
+      parity: -0.31,
+    };
+    const preset = makeExtendedPreset({
+      schemaVersion: '2.0.0',
+      r1ModelName: 'Untitled',
+      r1Shapers: shapers,
+    });
+
+    const loadSpy = vi.spyOn(WebBridge, 'loadExpandedModelSlug');
+    const shapersSpy = vi.spyOn(WebBridge, 'setActiveResonatorShapers');
+    try {
+      expect(WebBridge.getActiveExpandedModelSlug(1)).toBe('previous-model');
+      applyPresetExtendedState(preset);
+
+      expect(loadSpy).not.toHaveBeenCalled();
+      expect(shapersSpy).toHaveBeenCalledWith(1, shapers, null);
+      expect(WebBridge.getActiveExpandedModelSlug(1)).toBeUndefined();
+      expect(WebBridge.getActiveResonatorShapers(1)?.parity).toBe(-0.31);
+    } finally {
+      loadSpy.mockRestore();
+      shapersSpy.mockRestore();
+      clearCache();
+    }
+  });
+});
 
 describe('PresetModel helpers', () => {
   it('sanitizeFilename strips forbidden characters and collapses dots', () => {

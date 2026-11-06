@@ -7,6 +7,7 @@
 #include "AppLogger.h"
 #include "Generated/BuildVersion.gen.h"
 #include <WebView2Bridge/WebView2ResourceProvider.h>
+#include <cmath>
 
 #if JUCE_WINDOWS
 #ifndef WIN32_LEAN_AND_MEAN
@@ -195,15 +196,49 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
     } else if (type == "LOAD_PRESET_SCRIPT") {
         juce::String script = obj->getProperty("script").toString();
         processor_.loadPresetFromScript(script.toStdString());
+        sendResynatorShapersState(0);
+        sendResynatorShapersState(1);
     } else if (type == "LOAD_PRESET_SLOT") {
         int slot = static_cast<int>(obj->getProperty("slot"));
         processor_.loadPresetBySlot(slot);
+        sendResynatorShapersState(0);
+        sendResynatorShapersState(1);
     } else if (type == "LOAD_MODEL_SLOT") {
         int slot = static_cast<int>(obj->getProperty("slot"));
         int resynator = static_cast<int>(obj->getProperty("resynator"));
-        processor_.loadModelBySlot(resynator - 1, slot);
+        int targetSlot = (resynator == 2) ? 1 : 0;
+        processor_.loadModelBySlot(targetSlot, slot);
+        sendResynatorShapersState(targetSlot);
     } else if (type == "INIT_PRESET") {
         processor_.initPreset();
+        sendResynatorShapersState(0);
+        sendResynatorShapersState(1);
+    } else if (type == "SET_RESYNATOR_SHAPERS") {
+        int resynator = static_cast<int>(obj->getProperty("resynator"));
+        int slot = (resynator == 2) ? 1 : 0;
+        if (auto* shapersObj = obj->getProperty("shapers").getDynamicObject()) {
+            auto readFloat = [&](const char* key, float fallback) {
+                const juce::var value = shapersObj->getProperty(key);
+                if (!value.isInt() && !value.isDouble()) return fallback;
+                const double number = static_cast<double>(value);
+                return std::isfinite(number) ? static_cast<float>(number) : fallback;
+            };
+            extended::AxionikResonatorShapers shapers;
+            shapers.inharmonicityB = juce::jlimit(0.0f, 1.0f, readFloat("inharmonicityB", shapers.inharmonicityB));
+            shapers.parity = juce::jlimit(-1.0f, 1.0f, readFloat("parity", shapers.parity));
+            shapers.entropyRoughness = juce::jlimit(0.0f, 1.0f, readFloat("entropyRoughness", shapers.entropyRoughness));
+            shapers.spectralShiftHz = juce::jlimit(-4000.0f, 4000.0f, readFloat("spectralShiftHz", shapers.spectralShiftHz));
+            shapers.hfRollOffDbPerOct = juce::jlimit(-24.0f, 0.0f, readFloat("hfRollOffDbPerOct", shapers.hfRollOffDbPerOct));
+            shapers.formantShiftSt = juce::jlimit(-24.0f, 24.0f, readFloat("formantShiftSt", shapers.formantShiftSt));
+            shapers.formantPreserve = juce::jlimit(0.0f, 1.0f, readFloat("formantPreserve", shapers.formantPreserve));
+            shapers.residualMix = juce::jlimit(0.0f, 1.0f, readFloat("residualMix", shapers.residualMix));
+            shapers.spatialSpread = juce::jlimit(0.0f, 1.0f, readFloat("spatialSpread", shapers.spatialSpread));
+            {
+                const juce::ScopedLock sl(processor_.getCallbackLock());
+                processor_.getDspEngine().setActiveResonatorShapers(slot, shapers);
+            }
+        }
+        sendResynatorShapersState(slot);
     } else if (type == "PITCH_BEND") {
         float val = static_cast<float>(obj->getProperty("value"));
         processor_.setMidiPitchBend(val);
@@ -305,6 +340,7 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
                               ", firstError: '" + firstError + "' }); }";
             webComponent_->getWebBrowser().evaluateJavascript(js);
         }
+        sendResynatorShapersState(slot);
     } else if (type == "LOAD_EXPANDED_MODEL_SLUG") {
         int resynator = static_cast<int>(obj->getProperty("resynator"));
         int slot = (resynator == 2) ? 1 : 0;
@@ -329,6 +365,7 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
                               ", firstError: '" + firstError + "' }); }";
             webComponent_->getWebBrowser().evaluateJavascript(js);
         }
+        sendResynatorShapersState(slot);
     } else if (type == "SET_BANK_FOLDER_PATH") {
         juce::String bankKind = obj->getProperty("bank").toString();
         juce::String folderPath = obj->getProperty("path").toString();
@@ -361,6 +398,34 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
                               "  window.WebBridge.notify({ type: 'ENGINE_MODE_CHANGED', mode: '" + activeMode +
                               "', compileTargetMode: '" + compileMode + "', ok: true }); }";
             webComponent_->getWebBrowser().evaluateJavascript(js);
+        }
+        sendResynatorShapersState(0);
+        sendResynatorShapersState(1);
+    } else if (type == "PRESET_DELETE") {
+        juce::String presetName = obj->getProperty("name").toString();
+        if (presetName.isNotEmpty()) {
+            juce::String safeFileName = juce::File::createLegalFileName(presetName) + ".axpreset";
+            juce::File presetsDir;
+            {
+                auto axionikDbPath = processor_.getDspEngine().getBankAdapter().discoverAxionikDbPath();
+                if (!axionikDbPath.empty())
+                    presetsDir = juce::File(juce::String(axionikDbPath.string())).getChildFile("presets");
+            }
+            if (presetsDir.getFullPathName().isEmpty()) {
+                presetsDir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                                .getChildFile("ABDAxionikVS").getChildFile("Presets");
+            }
+            juce::File targetFile = presetsDir.getChildFile(safeFileName);
+            bool deleted = false;
+            if (targetFile.existsAsFile()) {
+                deleted = targetFile.deleteFile();
+                AX_LOG(juce::String("[PRESET_DELETE] Deleted preset file: ") + targetFile.getFullPathName() + (deleted ? " (OK)" : " (FAILED)"));
+            }
+            if (webComponent_ != nullptr) {
+                juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { "
+                                  "  window.WebBridge.notify({ type: 'PRESET_DELETED_NOTIFICATION', name: '" + presetName.replace("\\", "\\\\").replace("'", "\\'") + "', ok: " + (deleted ? "true" : "false") + " }); }";
+                webComponent_->getWebBrowser().evaluateJavascript(js);
+            }
         }
     } else if (type == "PRESET_SAVE") {
         juce::String payloadJson = obj->getProperty("payload").toString();
@@ -404,6 +469,42 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
     }
 }
 
+void AxionikEditor::sendResynatorShapersState(int slot) {
+    if (webComponent_ == nullptr || slot < 0 || slot > 1) return;
+
+    auto* root = new juce::DynamicObject();
+    root->setProperty("type", "RESYNATOR_SHAPERS");
+    root->setProperty("resynator", slot + 1);
+
+    const auto* doc = processor_.getDspEngine().getExpandedModelDoc(slot);
+    if (doc == nullptr) {
+        root->setProperty("ok", false);
+    } else {
+        const auto shapers = processor_.getDspEngine().getActiveResonatorShapers(slot);
+        auto* shapersObj = new juce::DynamicObject();
+        shapersObj->setProperty("inharmonicityB", shapers.inharmonicityB);
+        shapersObj->setProperty("parity", shapers.parity);
+        shapersObj->setProperty("entropyRoughness", shapers.entropyRoughness);
+        shapersObj->setProperty("spectralShiftHz", shapers.spectralShiftHz);
+        shapersObj->setProperty("hfRollOffDbPerOct", shapers.hfRollOffDbPerOct);
+        shapersObj->setProperty("formantShiftSt", shapers.formantShiftSt);
+        shapersObj->setProperty("formantPreserve", shapers.formantPreserve);
+        shapersObj->setProperty("residualMix", shapers.residualMix);
+        shapersObj->setProperty("spatialSpread", shapers.spatialSpread);
+        root->setProperty("ok", true);
+        root->setProperty("modelName", juce::String(doc->identity.expandedName));
+        const juce::String slug(doc->identity.slug);
+        if (slug.isNotEmpty() && slug != "untitled") {
+            root->setProperty("slug", slug);
+        }
+        root->setProperty("shapers", juce::var(shapersObj));
+    }
+
+    const juce::String json = juce::JSON::toString(juce::var(root), true);
+    const juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { window.WebBridge.notify(" + json + "); }";
+    webComponent_->getWebBrowser().evaluateJavascript(js);
+}
+
 void AxionikEditor::sendBankCatalogSync() {
     if (webComponent_ == nullptr) return;
     auto json = processor_.getNeuronDbCatalogJson();
@@ -439,6 +540,8 @@ void AxionikEditor::timerCallback() {
             isUiReady_ = true;
             processor_.syncApvtsFromDspEngine();
             sendBankCatalogSync();
+            sendResynatorShapersState(0);
+            sendResynatorShapersState(1);
         } else {
             return;
         }
@@ -471,6 +574,8 @@ void AxionikEditor::timerCallback() {
               "', r1Model: " + juce::String(presetEvt.r1Model) +
               ", r2Model: " + juce::String(presetEvt.r2Model) +
               ", values: " + valuesJson + " }); ";
+        sendResynatorShapersState(0);
+        sendResynatorShapersState(1);
     } else {
         // 2. Notificaciones de parámetros individuales modificados por Host Automation, MIDI CC o NRPN
         auto pending = processor_.drainPendingUiParamChanges();

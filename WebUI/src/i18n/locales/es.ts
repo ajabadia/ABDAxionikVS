@@ -130,6 +130,7 @@ export const axionikEs: typeof import('./en.js').axionikEn = {
     presetsTab: 'Presets',
     loadModelToR1: 'Cargar en Resynator 1',
     loadModelToR2: 'Cargar en Resynator 2',
+    loadPreset: 'Cargar Preset',
   },
 
   matrix: {

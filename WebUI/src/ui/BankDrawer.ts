@@ -26,10 +26,12 @@ import {
 import { createBankShell } from '@abdsynths/shared/components/bank/bankShell.js';
 import { bankCardHtml, bindBankCards } from '@abdsynths/shared/components/bank/bankCard.js';
 import { bankChipsHtml, bindBankChips, type BankChipItem } from '@abdsynths/shared/components/bank/bankChips.js';
+import type { AxionikDbModelEntry } from '@abdsynths/shared/contracts/axionikExpandedModel';
 import {
-  type AxionikDbModelEntry,
-  mapAxionikCategoryToParameterSet,
-} from '@abdsynths/shared/contracts/axionikExpandedModel';
+  PARAM_SET_NAMES,
+  PARAMETER_SETS,
+  resolveAxionikParameterSet,
+} from './AxionikParameterSet.js';
 import { getPresetCategoryInfo } from './presetCategories.js';
 import { t, onLocaleChange } from '../i18n/index.js';
 import { parsePresetFile, type AxionikPreset } from './PresetModel.js';
@@ -77,31 +79,7 @@ export interface BankDrawerHandlers {
   onClearModels?: () => void;
 }
 
-export const PARAM_SET_NAMES = [
-  'Default Set',
-  'Stringed / Bowed',
-  'Plucked & Bells',
-  'Plucked & Picked',
-  'Carpet Shop',
-  'Piano etc.',
-  'Woodwinds',
-  'Extreme Pads',
-  'Loop Factory',
-  'Multipurpose'
-];
-
-export const PARAMETER_SETS = [
-  { id: 0, name: 'Default Set', category: 'General' },
-  { id: 1, name: 'Stringed / Bowed', category: 'Strings' },
-  { id: 2, name: 'Plucked & Bells', category: 'Plucked' },
-  { id: 3, name: 'Plucked & Picked', category: 'Plucked' },
-  { id: 4, name: 'Carpet Shop', category: 'Pads' },
-  { id: 5, name: 'Piano etc.', category: 'Keys' },
-  { id: 6, name: 'Woodwinds', category: 'Wind' },
-  { id: 7, name: 'Extreme Pads', category: 'Pads' },
-  { id: 8, name: 'Loop Factory', category: 'Loops' },
-  { id: 9, name: 'Multipurpose', category: 'Multi' }
-];
+export { PARAM_SET_NAMES, PARAMETER_SETS };
 
 const STICK_TABLE = [4, 8, 8, 12, 16, 20, 32, 32, 48, 64];
 
@@ -134,7 +112,9 @@ export class BankDrawer {
   private preferredResynator: 1 | 2 = 1;
   private callerContext: 'r1' | 'r2' | 'global' = 'global';
   private selectedCategory: number | 'all' = 'all';
+  private selectedAxionikCategory: string = 'all';
   private selectedPresetCategory: string = 'all';
+  private selectedUserPresetCategory: string = 'all';
   private filterQuery: string = '';
   private unsubLocale: (() => void) | null = null;
 
@@ -154,10 +134,10 @@ export class BankDrawer {
       title: t('bank.drawerTitle'),
       badge: t('bank.itemsCount', { count: 0 }),
       tabs: [
-        { id: 'axionik', label: 'AXIONIKDB (V2)', iconHtml: ICONS.database },
         { id: 'models', label: t('bank.modelsTab'), iconHtml: ICONS.database },
+        { id: 'axionik', label: 'AXIONIKDB (V2)', iconHtml: ICONS.database },
         { id: 'presets', label: t('bank.presetsTab'), iconHtml: ICONS.sliders },
-        { id: 'user-presets', label: 'USER PRESETS (.AXPRESET)', iconHtml: ICONS.sliders },
+        { id: 'user-presets', label: 'PRESETS (V2 .AXPRESET)', iconHtml: ICONS.sliders },
       ],
       activeTab: this.activeTab,
       searchPlaceholder: t('bank.searchPlaceholder'),
@@ -321,7 +301,7 @@ export class BankDrawer {
       this.axionikFolderName = data.axionikFolderName || 'AxionikDB';
       this.axionikModels = data.axionikModels.map((m) => ({
         ...m,
-        parameterSet: m.parameterSet ?? mapAxionikCategoryToParameterSet(m.category || ''),
+        parameterSet: resolveAxionikParameterSet(m.category || '', m.parameterSet),
       }));
     }
 
@@ -493,7 +473,8 @@ export class BankDrawer {
     const btnR2 = this.drawerElement.querySelector('#btn-target-r2');
 
     if (!targetRow) return;
-    if (this.activeTab === 'presets') {
+    // Ocultar barra de selección de Resynator 1 / Resynator 2 en las dos pestañas de presets
+    if (this.activeTab === 'presets' || this.activeTab === 'user-presets') {
       targetRow.style.display = 'none';
       return;
     }
@@ -556,8 +537,64 @@ export class BankDrawer {
       return;
     }
 
-    // Compute live counts per parameterSet (0..9) for whichever model tab is active
-    const activeModelList = this.activeTab === 'axionik' ? this.axionikModels : this.currentBank.models;
+    if (this.activeTab === 'user-presets') {
+      const catCounts: Record<string, number> = {};
+      for (const p of this.userPresets) {
+        const c = p.meta.category || 'User';
+        catCounts[c] = (catCounts[c] || 0) + 1;
+      }
+      const items: BankChipItem[] = [
+        { id: 'all', label: 'All', count: this.userPresets.length },
+        ...Object.keys(catCounts)
+          .sort()
+          .map((cat) => ({
+            id: cat,
+            label: cat,
+            count: catCounts[cat],
+            catClass: getPresetCategoryInfo(cat).catClass,
+          })),
+      ];
+      container.innerHTML = bankChipsHtml(items, this.selectedUserPresetCategory);
+      this.chipsUnbind = bindBankChips(container, (id) => {
+        this.selectedUserPresetCategory = id;
+        this.renderCategoryChips();
+        this.renderUserPresets();
+      });
+      return;
+    }
+
+    if (this.activeTab === 'axionik') {
+      // Agrupar modelos v2 dinámicamente por Grupo/Sublibrería (carpetas: Transformed_AI_BWE_96k, Transformed_HD_96k, etc.)
+      const groupCounts: Record<string, number> = {};
+      for (const m of this.axionikModels) {
+        const grp = m.sublibrary || m.category || 'Default';
+        groupCounts[grp] = (groupCounts[grp] || 0) + 1;
+      }
+      const items: BankChipItem[] = [
+        { id: 'all', label: 'All', count: this.axionikModels.length },
+        ...Object.keys(groupCounts)
+          .sort()
+          .map((grp) => {
+            const catInfo = getPresetCategoryInfo(grp);
+            return {
+              id: grp,
+              label: grp,
+              count: groupCounts[grp],
+              catClass: catInfo.catClass,
+            };
+          }),
+      ];
+      container.innerHTML = bankChipsHtml(items, this.selectedAxionikCategory);
+      this.chipsUnbind = bindBankChips(container, (id) => {
+        this.selectedAxionikCategory = id;
+        this.renderCategoryChips();
+        this.renderAxionikModels();
+      });
+      return;
+    }
+
+    // Compute live counts per parameterSet (0..9) for classic models tab
+    const activeModelList = this.currentBank.models;
     const counts: Record<number, number> = {};
     for (const m of activeModelList) {
       counts[m.parameterSet] = (counts[m.parameterSet] || 0) + 1;
@@ -697,8 +734,8 @@ export class BankDrawer {
     }
 
     let filtered = this.axionikModels;
-    if (this.selectedCategory !== 'all') {
-      filtered = filtered.filter((m) => m.parameterSet === this.selectedCategory);
+    if (this.selectedAxionikCategory !== 'all') {
+      filtered = filtered.filter((m) => (m.sublibrary || m.category || 'Default') === this.selectedAxionikCategory);
     }
     if (this.filterQuery) {
       const q = this.filterQuery.toLowerCase().trim();
@@ -1042,64 +1079,72 @@ export class BankDrawer {
     const foundModels: AxionikDbModelEntry[] = [];
     let ord = 1;
 
-    const inspectModelDir = async (dir: FileSystemDirectoryHandle, sublib: string) => {
+    // Recorrido recursivo completo para encontrar axionik-expanded.json sin importar
+    // la profundidad ni la jerarquía de carpetas (SubLibrary -> Category -> Model).
+    const walkDirectory = async (dir: FileSystemDirectoryHandle, currentSublib: string) => {
       let expandedJsonText = '';
       let hasCover = false;
+      const subdirs: FileSystemDirectoryHandle[] = [];
 
-      // The new on-disk layout is: <SubLibrary>/<Category>/<Model_Name>/axionik-expanded.json.
-      // No 05_extended_model capsule is required, so we only look for the JSON file.
       for await (const entry of (dir as IterDir).values()) {
         if (entry.kind === 'file') {
           const lower = entry.name.toLowerCase();
           if (lower === 'axionik-expanded.json') {
-            const f = await (entry as FileSystemFileHandle).getFile();
-            expandedJsonText = await f.text();
+            try {
+              const f = await (entry as FileSystemFileHandle).getFile();
+              expandedJsonText = await f.text();
+            } catch (err) {
+              console.warn('[BankDrawer] Error reading axionik-expanded.json in', dir.name, err);
+            }
           } else if (lower === 'cover.webp') {
             hasCover = true;
           }
+        } else if (entry.kind === 'directory' && !entry.name.startsWith('.')) {
+          subdirs.push(entry as FileSystemDirectoryHandle);
         }
       }
 
-      if (!expandedJsonText) return;
+      if (expandedJsonText) {
+        try {
+          const parsed: any = JSON.parse(expandedJsonText);
+          const identity = parsed.identity || {};
+          const meta = parsed.remaster || parsed.meta || {};
 
-      const parsed: any = JSON.parse(expandedJsonText);
-      const identity = parsed.identity || {};
-      const meta = parsed.remaster || parsed.meta || {};
-
-      foundModels.push({
-        slug: identity.slug || dir.name,
-        name: identity.expandedName || identity.modelName || dir.name,
-        category: identity.category || meta.category || 'Synth & Neutral',
-        parameterSet: typeof meta.parameterSet === 'number' ? meta.parameterSet : mapAxionikCategoryToParameterSet(identity.category || 'Synth & Neutral'),
-        zoneCount: Array.isArray(parsed.regions) ? parsed.regions.length : 1,
-        complexity: meta.complexity ?? 8,
-        hasCover,
-        folderPath: dir.name,
-        sublibrary: sublib,
-        sublibraryOrdinal: ord++,
-        hasExpandedV2: true,
-        expandedJson: expandedJsonText,
-      });
-    };
-
-    for await (const entry of (rootHandle as IterDir).values()) {
-      if (entry.kind !== 'directory' || entry.name.startsWith('.')) continue;
-      const dir = entry as FileSystemDirectoryHandle;
-      if (dir.name.toLowerCase() === 'models') {
-        for await (const sub of (dir as IterDir).values()) {
-          if (sub.kind === 'directory') await inspectModelDir(sub as FileSystemDirectoryHandle, 'Default');
+          foundModels.push({
+            slug: identity.slug || dir.name,
+            name: identity.expandedName || identity.modelName || dir.name,
+            category: identity.category || meta.category || 'Synth & Neutral',
+            parameterSet: resolveAxionikParameterSet(
+              identity.category || meta.category || 'Synth & Neutral',
+              meta.parameterSet,
+            ),
+            zoneCount: Array.isArray(parsed.regions) ? parsed.regions.length : 1,
+            complexity: meta.complexity ?? 8,
+            hasCover,
+            folderPath: dir.name,
+            sublibrary: currentSublib || 'Default',
+            sublibraryOrdinal: ord++,
+            hasExpandedV2: true,
+            expandedJson: expandedJsonText,
+          });
+        } catch (err) {
+          console.warn('[BankDrawer] Error parsing JSON for model in', dir.name, err);
         }
-      } else if (dir.name.toLowerCase() === 'banks') {
-        for await (const bankSub of (dir as IterDir).values()) {
-          if (bankSub.kind !== 'directory') continue;
-          for await (const mDir of (bankSub as IterDir).values()) {
-            if (mDir.kind === 'directory') await inspectModelDir(mDir as FileSystemDirectoryHandle, bankSub.name);
+      }
+
+      for (const subdir of subdirs) {
+        let nextSublib = currentSublib;
+        const dirLower = dir.name.toLowerCase();
+        if (!currentSublib || currentSublib === 'Default' || dirLower === 'models' || dirLower === 'banks' || dirLower === 'axionikdb') {
+          if (dirLower !== 'models' && dirLower !== 'banks' && dirLower !== 'axionikdb') {
+            nextSublib = dir.name;
           }
         }
-      } else {
-        await inspectModelDir(dir, 'Default');
+        await walkDirectory(subdir, nextSublib);
       }
-    }
+    };
+
+    await walkDirectory(rootHandle, rootHandle.name.toLowerCase() === 'axionikdb' ? '' : rootHandle.name);
 
     this.setAxionikBank(rootHandle.name, foundModels);
     this.open();
@@ -1146,7 +1191,10 @@ export class BankDrawer {
         slug: identity.slug || rec.slug,
         name: identity.expandedName || identity.modelName || rec.slug,
         category: identity.category || meta.category || 'Synth & Neutral',
-        parameterSet: typeof meta.parameterSet === 'number' ? meta.parameterSet : mapAxionikCategoryToParameterSet(identity.category || 'Synth & Neutral'),
+        parameterSet: resolveAxionikParameterSet(
+          identity.category || meta.category || 'Synth & Neutral',
+          meta.parameterSet,
+        ),
         zoneCount: Array.isArray(parsed?.regions) ? parsed.regions.length : 1,
         complexity: meta.complexity ?? 8,
         hasCover: Boolean(rec.hasCover),
@@ -1163,6 +1211,75 @@ export class BankDrawer {
     this.open();
   }
 
+
+  public exportPresetBundle(preset: AxionikPreset): void {
+    const bundle: AxionikPreset = JSON.parse(JSON.stringify(preset));
+
+    if (bundle.engineMode === 'extended' && bundle.extendedState) {
+      const r1Slug = bundle.extendedState.r1ModelSlug;
+      const r2Slug = bundle.extendedState.r2ModelSlug;
+
+      const r1Entry = this.axionikModels.find((m) => m.slug === r1Slug || m.name === bundle.extendedState?.r1ModelName);
+      const r2Entry = this.axionikModels.find((m) => m.slug === r2Slug || m.name === bundle.extendedState?.r2ModelName);
+
+      let r1JsonObj: Record<string, unknown> | null = null;
+      let r2JsonObj: Record<string, unknown> | null = null;
+
+      if (r1Entry?.expandedJson) {
+        try { r1JsonObj = JSON.parse(r1Entry.expandedJson); } catch {}
+      }
+      if (r2Entry?.expandedJson) {
+        try { r2JsonObj = JSON.parse(r2Entry.expandedJson); } catch {}
+      }
+
+      bundle.extendedState.embeddedModel = {
+        r1: r1JsonObj,
+        r2: r2JsonObj,
+      };
+    }
+
+    const jsonStr = JSON.stringify(bundle, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeName = (preset.meta.name || 'Preset').replace(/[^a-zA-Z0-9_\- ]/g, '_').trim();
+    a.href = url;
+    a.download = `${safeName}.bundle.axpreset`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+
+    this.shell.flashStatus(`Exported "${preset.meta.name}" as self-contained bundle`, 'ok');
+  }
+
+  public async deleteUserPreset(presetName: string): Promise<boolean> {
+    const norm = presetName.toLowerCase().trim();
+    const idx = this.userPresets.findIndex((p) => p.meta.name.toLowerCase().trim() === norm);
+    if (idx < 0) return false;
+
+    this.userPresets.splice(idx, 1);
+    this.persistToLocalStorage();
+    this.updateCounters();
+
+    // Eliminar también en el Host C++ o sistema de archivos si hay handle
+    WebBridge.deletePreset(presetName);
+    if (this.userPresetsDirHandle) {
+      try {
+        const legalBase = presetName.replace(/[^a-zA-Z0-9_\- ]/g, '_').trim() || 'Preset';
+        await (this.userPresetsDirHandle as any).removeEntry(`${legalBase}.axpreset`);
+      } catch (err) {
+        console.warn('[BankDrawer] removeEntry error or not supported:', err);
+      }
+    }
+
+    this.shell.flashStatus(`Preset "${presetName}" deleted`, 'ok');
+    this.renderCategoryChips();
+    this.renderUserPresets();
+    return true;
+  }
 
   public registerUserPreset(preset: AxionikPreset): void {
     const existingIdx = this.userPresets.findIndex(
@@ -1236,18 +1353,22 @@ export class BankDrawer {
       return;
     }
 
-    const filtered = this.filterQuery
-      ? this.userPresets.filter((p) => {
-          const q = this.filterQuery.toLowerCase().trim();
-          return (
-            p.meta.name.toLowerCase().includes(q) ||
-            (p.meta.category && p.meta.category.toLowerCase().includes(q)) ||
-            (p.meta.author && p.meta.author.toLowerCase().includes(q)) ||
-            p.models?.resynator1?.name.toLowerCase().includes(q) ||
-            p.models?.resynator2?.name.toLowerCase().includes(q)
-          );
-        })
-      : this.userPresets;
+    let filtered = this.userPresets;
+    if (this.selectedUserPresetCategory !== 'all') {
+      filtered = filtered.filter((p) => (p.meta.category || 'User') === this.selectedUserPresetCategory);
+    }
+    if (this.filterQuery) {
+      const q = this.filterQuery.toLowerCase().trim();
+      filtered = filtered.filter((p) => {
+        return (
+          p.meta.name.toLowerCase().includes(q) ||
+          (p.meta.category && p.meta.category.toLowerCase().includes(q)) ||
+          (p.meta.author && p.meta.author.toLowerCase().includes(q)) ||
+          p.models?.resynator1?.name.toLowerCase().includes(q) ||
+          p.models?.resynator2?.name.toLowerCase().includes(q)
+        );
+      });
+    }
 
     this.shell.setBadge(
       filtered.length === totalPresets
@@ -1279,12 +1400,14 @@ export class BankDrawer {
           badges: [r1Str, r2Str, 'User Preset'],
           actions: [
             { id: 'load-user-preset', label: t('bank.loadPreset'), title: `${t('bank.loadPreset')} ${p.meta.name}` },
+            { id: 'export-bundle', label: '📦', title: `Exportar / Compartir "${p.meta.name}" (Self-Contained Bundle para ABDNeuModMkr)` },
+            { id: 'delete-preset', label: '🗑', title: `Delete preset "${p.meta.name}"` },
           ]
         });
       })
       .join('');
 
-    container.innerHTML = `<div class="ndb-grid ndb-preset-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3);">${cardsHtml}</div>`;
+    container.innerHTML = `<div class="ndb-grid ndb-preset-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3);">${cardsHtml}</div>`;
 
     const grid = container.querySelector('.ndb-grid') as HTMLElement | null;
     if (grid) {
@@ -1297,12 +1420,22 @@ export class BankDrawer {
             this.close();
           }
         },
-        onAction: ({ slot: idx }) => {
+        onAction: ({ slot: idx, action }) => {
           const targetPreset = filtered[idx];
-          if (targetPreset) {
-            this.handlers.onSelectAxionikPreset?.(targetPreset);
-            this.close();
+          if (!targetPreset) return;
+          if (action === 'export-bundle') {
+            this.exportPresetBundle(targetPreset);
+            return;
           }
+          if (action === 'delete-preset') {
+            const confirmed = window.confirm(`¿Eliminar el preset "${targetPreset.meta.name}" de forma definitiva?`);
+            if (confirmed) {
+              this.deleteUserPreset(targetPreset.meta.name);
+            }
+            return;
+          }
+          this.handlers.onSelectAxionikPreset?.(targetPreset);
+          this.close();
         },
       });
     }
@@ -1329,25 +1462,45 @@ export class BankDrawer {
       values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
     };
     const loaded: AxionikPreset[] = [];
-    for await (const entry of (dirHandle as IterDir).values()) {
-      if (entry.kind === 'file' && (entry.name.endsWith('.axpreset') || entry.name.endsWith('.json'))) {
-        try {
-          const file = await (entry as FileSystemFileHandle).getFile();
-          const text = await file.text();
-          const parsed = parsePresetFile(text);
-          if (parsed) {
-            loaded.push(parsed);
+
+    // Recorrido recursivo para encontrar presets en subcarpetas/grupos
+    const walkPresets = async (dir: FileSystemDirectoryHandle, parentGroup: string) => {
+      const subdirs: FileSystemDirectoryHandle[] = [];
+      for await (const entry of (dir as IterDir).values()) {
+        if (entry.kind === 'file' && (entry.name.endsWith('.axpreset') || entry.name.endsWith('.json'))) {
+          try {
+            const file = await (entry as FileSystemFileHandle).getFile();
+            const text = await file.text();
+            const parsed = parsePresetFile(text);
+            if (parsed) {
+              // Si el preset no tiene categoría explícita o es User, usar el nombre de la carpeta/grupo
+              if ((!parsed.meta.category || parsed.meta.category === 'User') && parentGroup) {
+                parsed.meta.category = parentGroup;
+              }
+              loaded.push(parsed);
+            }
+          } catch {
+            // ignore corrupted files
           }
-        } catch {
-          // ignore corrupted files
+        } else if (entry.kind === 'directory' && !entry.name.startsWith('.')) {
+          subdirs.push(entry as FileSystemDirectoryHandle);
         }
       }
-    }
+
+      for (const sub of subdirs) {
+        await walkPresets(sub, sub.name);
+      }
+    };
+
+    await walkPresets(dirHandle, '');
+
     if (loaded.length > 0) {
       for (const p of loaded) {
         this.registerUserPreset(p);
       }
       this.shell.flashStatus(`Loaded ${loaded.length} presets from folder`, 'ok');
+      this.renderCategoryChips();
+      this.renderActiveTab();
     }
   }
 
@@ -1769,6 +1922,21 @@ export class BankDrawer {
       this.updateCounters();
       this.renderCategoryChips();
     }
+  }
+
+  public getExistingUserCategories(): string[] {
+    const set = new Set<string>();
+    this.userPresets.forEach((p) => {
+      if (p.meta.category) set.add(p.meta.category);
+    });
+    this.axionikModels.forEach((m) => {
+      const g = m.sublibrary || m.category;
+      if (g) set.add(g);
+    });
+    this.currentBank.presets.forEach((p) => {
+      if (p.category) set.add(p.category);
+    });
+    return Array.from(set);
   }
 
   public isOpen(): boolean {

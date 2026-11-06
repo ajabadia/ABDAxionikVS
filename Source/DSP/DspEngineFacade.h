@@ -154,6 +154,25 @@ public:
         return &expandedSynths_[static_cast<size_t>(slot)].getLoadedModel();
     }
 
+    /// Shapers activos del modelo expandido cargado en R1 (0) o R2 (1).
+    /// Devuelve los defaults del motor si la ranura no tiene modelo expandido.
+    [[nodiscard]] extended::AxionikResonatorShapers getActiveResonatorShapers(int slot) const noexcept {
+        if (slot < 0 || slot > 1 || !expandedSynths_[static_cast<size_t>(slot)].hasLoadedModel()) {
+            return extended::AxionikResonatorShapers{};
+        }
+        return expandedSynths_[static_cast<size_t>(slot)].getActiveShapers();
+    }
+
+    /// Aplica los 9 shapers al Resynator v2 activo de la ranura (0=R1, 1=R2).
+    bool setActiveResonatorShapers(
+        int slot,
+        const extended::AxionikResonatorShapers& shapers) noexcept {
+        if (slot < 0 || slot > 1 || !expandedSynths_[static_cast<size_t>(slot)].hasLoadedModel()) {
+            return false;
+        }
+        return expandedSynths_[static_cast<size_t>(slot)].setActiveShapers(shapers);
+    }
+
     /// Voice introspection for hosts/tests (region routing, choke state).
     [[nodiscard]] int getExpandedVoiceRegionIndex(int slot, size_t voiceIdx) const noexcept {
         if (slot < 0 || slot > 1) return -1;

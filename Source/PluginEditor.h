@@ -25,6 +25,7 @@ private:
     void timerCallback() override;
     void handleJsEvent(const juce::var& msg);
     void sendBankCatalogSync();
+    void sendResynatorShapersState(int slot);
 
     AxionikProcessor& processor_;
     std::unique_ptr<abd::webview2::JuceWebView2Component> webComponent_;

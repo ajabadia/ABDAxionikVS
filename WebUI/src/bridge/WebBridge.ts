@@ -4,7 +4,13 @@
  */
 
 import { wasmBridge } from './BridgeWasm.js';
-import { serializePreset, type AxionikPreset } from '../ui/PresetModel.js';
+import {
+  createDefaultResynatorShapers,
+  sanitizeResynatorShapers,
+  serializePreset,
+  type AxionikPreset,
+  type AxionikResynatorShapersState,
+} from '../ui/PresetModel.js';
 
 export type OutgoingBridgeMessage =
   | { type: 'PARAM_SET'; index: number; value: number }
@@ -27,14 +33,27 @@ export type OutgoingBridgeMessage =
   | { type: 'UI_READY' }
   | { type: 'SEND_HARDWARE_DUMP'; target: 'HARDWARE_DUMP_CURRENT' | 'HARDWARE_DUMP_ALL_SOUNDS' | 'HARDWARE_DUMP_ALL_SETUPS' | 'HARDWARE_DUMP_ALL_MODELS' }
   | { type: 'HARDWARE_DUMP_RECEIVE'; target: string; data: number[] }
-  | { type: 'PRESET_SAVE'; payload: string };
+  | { type: 'PRESET_SAVE'; payload: string }
+  | {
+      type: 'SET_RESYNATOR_SHAPERS';
+      resynator: 1 | 2;
+      shapers: AxionikResynatorShapersState;
+    };
 
 export type IncomingBridgeMessage =
   | { type: 'PARAM_UPDATE'; index: number; value: number }
   | { type: 'PRESET_LOADED'; name: string; r1Model: number; r2Model: number; values: number[] }
   | { type: 'TELEMETRY'; cpuUsage: number; activeVoices: number; peakL: number; peakR: number }
   | { type: 'BANK_CATALOG_SYNC'; [key: string]: unknown }
-  | { type: 'HARDWARE_DUMP_RECEIVED'; target: string; raw: number[]; parsed: unknown };
+  | { type: 'HARDWARE_DUMP_RECEIVED'; target: string; raw: number[]; parsed: unknown }
+  | {
+      type: 'RESYNATOR_SHAPERS';
+      resynator: 1 | 2;
+      ok?: boolean;
+      modelName?: string;
+      slug?: string;
+      shapers?: Partial<AxionikResynatorShapersState>;
+    };
 
 export type BridgeMessage = OutgoingBridgeMessage | IncomingBridgeMessage | { type: string; [key: string]: any };
 
@@ -47,6 +66,10 @@ class WebBridgeImpl {
   private isNative: boolean = false;
   private paramCache: Map<number, number> = new Map();
   private uiState: Map<string, any> = new Map();
+  private hostShapers: Map<
+    1 | 2,
+    { modelName?: string; slug?: string; shapers: Partial<AxionikResynatorShapersState> }
+  > = new Map();
 
   constructor() {
     this.seedDefaultEnvelopes();
@@ -320,6 +343,19 @@ class WebBridgeImpl {
    * - En el navegador: se descarga el archivo .axpreset (Blob download).
    * - En Host C++/VST3: emite PRESET_SAVE para que el Host lo persista en su carpeta.
    */
+
+  /**
+   * Elimina un preset de usuario tanto en memoria como en disco (host C++ / carpeta).
+   */
+  public deletePreset(name: string): boolean {
+    try {
+      this.send({ type: 'PRESET_DELETE', name } as any);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   public savePreset(preset: AxionikPreset, engineMode?: 'classic' | 'plus' | 'extended' | 'legacy'): boolean {
     try {
       const json = serializePreset(preset);
@@ -339,13 +375,84 @@ class WebBridgeImpl {
     this.send({ type: 'SEND_HARDWARE_DUMP', target });
   }
 
+  /**
+   * Shapers activos reportados por el host para un Resynator v2. Devuelve
+   * `undefined` mientras el host no haya cargado un modelo expandido en esa
+   * ranura; en ese caso el preset usa los valores seguros por defecto.
+   */
+  public getActiveResonatorShapers(resynator: 1 | 2): AxionikResynatorShapersState | undefined {
+    const state = this.hostShapers.get(resynator);
+    if (!state) return undefined;
+    return { ...createDefaultResynatorShapers(), ...state.shapers };
+  }
+
+  /** Slug del modelo expandido activo reportado por el host, si esta cargado. */
+  public getActiveExpandedModelSlug(resynator: 1 | 2): string | undefined {
+    return this.hostShapers.get(resynator)?.slug;
+  }
+
+  /**
+   * Aplica shapers al Resynator v2 activo. Actualiza de inmediato la cache que
+   * usa el guardado de presets y envia SET_RESYNATOR_SHAPERS al host. El `slug`
+   * opcional conserva la referencia expandida al restaurar un preset; `null`
+   * borra la referencia anterior (modelo untitled).
+   */
+  public setActiveResonatorShapers(
+    resynator: 1 | 2,
+    shapers: Partial<AxionikResynatorShapersState>,
+    slug?: string | null,
+  ): boolean {
+    const sanitized = sanitizeResynatorShapers(shapers);
+    if (!sanitized) return false;
+
+    const previous = this.hostShapers.get(resynator);
+    const merged: AxionikResynatorShapersState = {
+      ...createDefaultResynatorShapers(),
+      ...sanitized,
+    };
+    let nextSlug = previous?.slug;
+    if (slug === null) {
+      nextSlug = undefined;
+    } else if (typeof slug === 'string' && slug.trim()) {
+      nextSlug = slug.trim();
+    }
+    this.hostShapers.set(resynator, {
+      shapers: merged,
+      ...(previous?.modelName ? { modelName: previous.modelName } : {}),
+      ...(nextSlug ? { slug: nextSlug } : {}),
+    });
+    this.send({ type: 'SET_RESYNATOR_SHAPERS', resynator, shapers: merged });
+    return true;
+  }
+
   public onMessage(handler: MessageHandler): () => void {
     this.handlers.add(handler);
     return () => this.handlers.delete(handler);
   }
 
   public notify(msg: BridgeMessage) {
-    if (msg.type === 'PARAM_UPDATE' && typeof msg.index === 'number' && typeof msg.value === 'number') {
+    if (msg.type === 'RESYNATOR_SHAPERS' && (msg.resynator === 1 || msg.resynator === 2)) {
+      if (msg.ok === false || !msg.shapers) {
+        this.hostShapers.delete(msg.resynator);
+      } else {
+        const shapers = sanitizeResynatorShapers(msg.shapers);
+        if (shapers) {
+          // El host omite el slug cuando el modelo es "untitled": no se debe
+          // conservar el de una carga anterior o el preset apuntaria a otro modelo.
+          const modelName =
+            typeof msg.modelName === 'string' && msg.modelName ? msg.modelName : undefined;
+          const slug =
+            typeof msg.slug === 'string' && msg.slug.trim()
+              ? msg.slug.trim()
+              : undefined;
+          this.hostShapers.set(msg.resynator, {
+            shapers,
+            ...(modelName ? { modelName } : {}),
+            ...(slug ? { slug } : {}),
+          });
+        }
+      }
+    } else if (msg.type === 'PARAM_UPDATE' && typeof msg.index === 'number' && typeof msg.value === 'number') {
       this.paramCache.set(msg.index, msg.value);
     } else if (msg.type === 'PRESET_LOADED' && Array.isArray(msg.values)) {
       for (let i = 0; i < msg.values.length; ++i) {

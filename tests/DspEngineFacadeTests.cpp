@@ -4,12 +4,15 @@
 // ============================================================================
 
 #include "DSP/DspEngineFacade.h"
+#include "DSP/NeuronBankAdapter.h"
 #include "DSP/Extended/AxionikExpandedSynthesizer.h"
 #include "DSP/AxionikParamIndices.h"
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <cassert>
+#include <filesystem>
+#include <fstream>
 #include <memory> // heap-allocated facades: sizeof(DspEngineFacade) ~2.6 MB; three on main's 8 MB stack overflow it
 
 using namespace abd::axionik;
@@ -987,6 +990,77 @@ int main() {
         std::cout << "  [PASS] Test 16: trigger dispatcher (first/legato/release) + per-group RR + mute choke verified.\n";
     }
 
-    std::cout << "[DspEngineFacadeTests] All 16 tests passed successfully!\n";
+    // Test 17: AxionikDB slug compatibility (folder name vs identity.slug)
+    {
+        const auto root = std::filesystem::temp_directory_path() / "axionik_slug_resolution_test";
+        std::filesystem::remove_all(root);
+        const auto modelFolder = root / "Models" / "Transformed_HD_96k" / "01_Keyboards_Piano" / "fmrhodes_HD";
+        std::filesystem::create_directories(modelFolder);
+        {
+            std::ofstream jsonOut(modelFolder / "axionik-expanded.json");
+            jsonOut << R"({"schemaVersion":"2.0.0","identity":{"slug":"fmrhodes-hd-96k","expandedName":"fmrhodes HD"}})";
+        }
+
+        NeuronBankAdapter adapter;
+        adapter.setAxionikDbPath(root);
+
+        const auto byFolder = adapter.resolveAxionikModelFolder("fmrhodes_HD");
+        const auto byIdentity = adapter.resolveAxionikModelFolder("fmrhodes-hd-96k");
+        std::error_code cmpEc;
+        const bool folderOk = std::filesystem::equivalent(byFolder, modelFolder, cmpEc) && !cmpEc;
+        cmpEc.clear();
+        const bool identityOk = std::filesystem::equivalent(byIdentity, modelFolder, cmpEc) && !cmpEc;
+
+        if (!folderOk || !identityOk) {
+            std::cerr << "[FAIL] Test 17: AxionikDB slug resolution (folder=" << byFolder.string()
+                      << ", identity=" << byIdentity.string() << ")\n";
+            std::filesystem::remove_all(root);
+            return 17;
+        }
+        std::filesystem::remove_all(root);
+        std::cout << "  [PASS] Test 17: AxionikDB resolves folder name and identity.slug.\n";
+    }
+
+    // Test 18: AxionikDB scan preserves the -1 sentinel and an explicit parameterSet
+    {
+        const auto root = std::filesystem::temp_directory_path() / "axionik_parameter_set_scan_test";
+        std::filesystem::remove_all(root);
+        const auto categoryFolder = root / "Models" / "Transformed_HD_96k" / "01_Keyboards_Piano";
+        const auto explicitFolder = categoryFolder / "ExplicitParameterSet";
+        const auto sentinelFolder = categoryFolder / "SentinelParameterSet";
+        std::filesystem::create_directories(explicitFolder);
+        std::filesystem::create_directories(sentinelFolder);
+        {
+            std::ofstream jsonOut(explicitFolder / "axionik-expanded.json");
+            jsonOut << R"({"schemaVersion":"2.0.0","identity":{"slug":"explicit-parameter-set","expandedName":"Explicit Parameter Set"},"parameterSet":5})";
+        }
+        {
+            std::ofstream jsonOut(sentinelFolder / "axionik-expanded.json");
+            jsonOut << R"({"schemaVersion":"2.0.0","identity":{"slug":"sentinel-parameter-set","expandedName":"Sentinel Parameter Set"}})";
+        }
+
+        NeuronBankAdapter adapter;
+        adapter.setNeuronDbPath(root);
+        adapter.setAxionikDbPath(root);
+        const std::string catalog = adapter.scanCatalogJson();
+
+        const std::string explicitEntry =
+            R"("slug":"ExplicitParameterSet","name":"Explicit Parameter Set","category":"Synth & Neutral","parameterSet":5)";
+        const std::string sentinelEntry =
+            R"("slug":"SentinelParameterSet","name":"Sentinel Parameter Set","category":"Synth & Neutral","parameterSet":-1)";
+        const bool explicitOk = catalog.find(explicitEntry) != std::string::npos;
+        const bool sentinelOk = catalog.find(sentinelEntry) != std::string::npos;
+
+        std::filesystem::remove_all(root);
+        if (!explicitOk || !sentinelOk) {
+            std::cerr << "[FAIL] Test 18: AxionikDB parameterSet scan (explicit=" << explicitOk
+                      << ", sentinel=" << sentinelOk << ")\n"
+                      << catalog << "\n";
+            return 18;
+        }
+        std::cout << "  [PASS] Test 18: AxionikDB scan keeps parameterSet=-1 when absent and reads explicit parameterSet=5.\n";
+    }
+
+    std::cout << "[DspEngineFacadeTests] All 18 tests passed successfully!\n";
     return 0;
 }
