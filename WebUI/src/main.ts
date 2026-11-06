@@ -1,110 +1,1197 @@
+/**
 // ─────────────────────────────────────────────────────────
 // ABDAxionikVS — main.ts
-// Frontend WebUI entry point: thin bootstrap orchestrator. The shell,
-// drawers, sticks, panels, presets, navbar, LCD bar, drag&drop and bridge
-// wiring each live in their own app/ module; bootstrap only creates them
-// in dependency order and connects the shared context.
-// Exact parity with ABDNeuModMakr and ABDSynths Ecosystem.
+// Frontend WebUI entry point
+// Desktop HUD with SynthNavBar, BankDrawer & DrawerManager
+// Exact parity with ABDNeuModMakr and ABDSynths Ecosystem
 // ─────────────────────────────────────────────────────────
+*/
+
 import './style.css';
-import { initI18n, onLocaleChange } from './i18n/index.js';
-import { ThemeManager } from './utils/themeManager.js';
+import { AxionikNavbar } from './ui/Navbar.js';
+import { BankDrawer } from './ui/BankDrawer.js';
+import { KeyboardStrip } from './ui/KeyboardStrip.js';
+import { ControllersPanel } from './ui/ControllersPanel.js';
+import { ShapersPanel } from './ui/ShapersPanel.js';
+import { SilverPanel, FREQ_ALGO_NAMES, TIME_ALGO_NAMES } from './ui/SilverPanel.js';
+import { MasterOutputPanel } from './ui/MasterOutputPanel.js';
 import { DrawerManager } from './ui/Drawers.js';
+import { TrajectoryStick2D } from './ui/TrajectoryStick2D.js';
+import { ResynatorDrawer } from './ui/ResynatorDrawer.js';
+import { EffectsDrawer, type EffectsDrawerBlock } from './ui/EffectsDrawer.js';
+import { BlenderDrawer } from './ui/BlenderDrawer.js';
+import { BlenderPanel } from './ui/BlenderPanel.js';
+import { FilterPanel } from './ui/FilterPanel.js';
+import { EnvelopeMasterPanel } from './ui/EnvelopeMasterPanel.js';
+import { EnvelopeDrawer, type EnvelopeDrawerTab } from './ui/EnvelopeDrawer.js';
+import { MatrixDrawer } from './ui/MatrixDrawer.js';
+import { NukeDrawer } from './ui/NukeDrawer.js';
+import { TopLcdBar } from './ui/TopLcdBar.js';
+import { SettingsDrawer } from './ui/SettingsDrawer.js';
+import { HardwareDumpsDrawer } from './ui/HardwareDumpsDrawer.js';
+import { type HardwareHostEvent } from './ui/hardwareDumpsContracts.js';
+import { CalibrationDrawer } from './ui/CalibrationDrawer.js';
+import { DragDropHandler } from './ui/DragDropHandler.js';
 import { WebBridge } from './bridge/WebBridge.js';
 import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
+import { ParamIdx } from './constants/paramIndices.js';
+import { getParameterSetStickLabels } from './ui/ParameterSets.js';
+import {
+  MODEL_METADATA,
+  getCanonicalModelName,
+  getCanonicalPresetInfo,
+} from './ui/NeuronCatalogMetadata.js';
 import { setupKeyboardShortcuts } from './app/keyboardShortcuts.js';
-import type { ParamUpdateCtx } from './app/paramUpdate.js';
-import { createInitialState, type AppCtx } from './app/context.js';
-import { buildShell, wireShellControls } from './app/shell.js';
-import { setupKeyboardStrip } from './app/keyboardStrip.js';
-import { createResynatorUi } from './app/resynatorUi.js';
-import { createDrawerOpeners } from './app/drawerOpeners.js';
-import { setupMidiLearn } from './app/midiLearn.js';
-import { setupAuxDrawers } from './app/auxDrawers.js';
-import { mountTrajectorySticks } from './app/sticks.js';
-import { mountPanels } from './app/panels.js';
-import { createBankDrawer } from './app/bankSetup.js';
-import { createNavbar } from './app/navbarSetup.js';
-import { setupTopLcdBar } from './app/topLcdSetup.js';
-import { createDragDrop } from './app/dragDrop.js';
-import { subscribeBridge } from './app/bridgeSubscriptions.js';
+import { PresetSaveDialog } from './ui/PresetSaveDialog.js';
+import { downloadPresetFile, parsePresetFile, type AxionikPreset } from './ui/PresetModel.js';
+import { ThemeManager } from './utils/themeManager.js';
+import { initI18n, onLocaleChange } from './i18n/index.js';
+import { handleParamUpdate, type ParamUpdateCtx } from './app/paramUpdate.js';
+import {
+  createMidiLearnStore,
+  attachMidiLearnUI,
+  createMidiLearnDrawerContent,
+} from '@abdsynths/shared/components';
 
 const bootstrapAxionikApp = async () => {
   const app = document.getElementById('app');
   if (!app) return;
 
-  // Internationalization (i18n)
+  // Initialize Internationalization (i18n)
   initI18n();
 
   // Themes
   const themeManager = new ThemeManager();
   themeManager.setTheme('ms2000');
 
-  // Static DOM skeleton
-  const shell = buildShell(app);
+  // 1. Contenedor de Navbar
+  const navContainer = document.createElement('header');
+  app.appendChild(navContainer);
 
-  // Shared mutable context: every module fills its part, reads the rest lazily.
-  const ctx: AppCtx = {
-    app,
-    navContainer: shell.navContainer,
-    lcdBarContainer: shell.lcdBarContainer,
-    drawerManager: new DrawerManager(app),
-    themeManager,
-    state: createInitialState(),
-    resynator: null,
-    navbar: null,
-    bankDrawer: null,
-    nukeDrawer: null,
-    hardwareDumpsDrawer: null,
-    calibrationDrawer: null,
-    topLcdBar: null,
-    controllersPanel: null,
-    silverPanel: null,
-    blenderPanel: null,
-    filterPanel: null,
-    envelopeMasterPanel: null,
-    shapersPanel: null,
-    sticks: { r1Scape: null, r1Sphere: null, r2Scape: null, r2Sphere: null },
-    midiLearnStore: null,
-    dragDropHandler: null,
-    paramUpdate: null,
-    drawerReopen: {},
+  // 1b. Franja fija superior de consolas LCD (Fase C: central + laterales, no colapsable, fija bajo la Navbar)
+  const lcdBarContainer = document.createElement('section');
+  lcdBarContainer.id = 'top-lcd-bar';
+  app.appendChild(lcdBarContainer);
+
+  // 2. Canvas principal del sintetizador (hace scroll por debajo del LCD superior fijo)
+  const workspace = document.createElement('main');
+  workspace.className = 'workspace-canvas';
+  workspace.innerHTML = `
+    <div class="workspace-layout">
+      <!-- 1. Fila Superior: Resynators (R1 y R2) + Silver Rack (3 bloques de 2 unidades = 6 unidades) -->
+      <div class="synth-row" id="row-top" data-row-id="row-top">
+        <!-- Columna Resynator 1 (2 unidades) -->
+        <section class="synth-panel-card resynator-column col-span-2" id="r1-panel">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08)); gap: 6px;">
+            <div style="display: flex; align-items: center; gap: var(--space-2); min-width: 0;">
+              <span class="stick-label">RESYNATOR 1</span>
+              <button type="button" class="btn btn-xs btn-primary active" id="btn-toggle-r1" title="Enable / Mute Resynator 1 [23]">R1 ON</button>
+              <span class="panel-caption resynator-model-caption" id="r1-model-caption" title="Loaded Model Name">511 sinew</span>
+            </div>
+            <div class="panel-actions" style="display: flex; align-items: center; gap: 4px;">
+              <button type="button" class="btn btn-xs btn-outline" id="btn-select-model-r1" title="Select / Change Model for Resynator 1">
+                MODEL: <strong id="r1-model-slot">#511</strong>
+              </button>
+              <button type="button" class="btn btn-xs btn-outline" id="btn-edit-r1" title="Expanded Controls">Edit</button>
+              <button type="button" class="btn btn-xs btn-outline btn-collapse-row" data-row="row-top" title="Colapsar / Descolapsar fila">▾</button>
+            </div>
+          </div>
+
+          <div class="panel-body r1-body" data-collapse-body style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); flex: 1;">
+            <div id="r1-scape-mount"></div>
+            <div id="r1-sphere-mount"></div>
+          </div>
+        </section>
+
+        <!-- Columna Resynator 2 (2 unidades) -->
+        <section class="synth-panel-card resynator-column col-span-2" id="r2-panel">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--color-panel-border-dim, rgba(255,255,255,0.08)); gap: 6px;">
+            <div style="display: flex; align-items: center; gap: var(--space-2); min-width: 0;">
+              <span class="stick-label">RESYNATOR 2</span>
+              <button type="button" class="btn btn-xs btn-primary active" id="btn-toggle-r2" title="Enable / Mute Resynator 2 [103]">R2 ON</button>
+              <span class="panel-caption resynator-model-caption" id="r2-model-caption" title="Loaded Model Name">511 sinew</span>
+            </div>
+            <div class="panel-actions" style="display: flex; align-items: center; gap: 4px;">
+              <button type="button" class="btn btn-xs btn-outline" id="btn-select-model-r2" title="Select / Change Model for Resynator 2">
+                MODEL: <strong id="r2-model-slot">#511</strong>
+              </button>
+              <button type="button" class="btn btn-xs btn-outline" id="btn-edit-r2" title="Expanded Controls">Edit</button>
+              <button type="button" class="btn btn-xs btn-outline btn-collapse-row" data-row="row-top" title="Colapsar / Descolapsar fila">▾</button>
+            </div>
+          </div>
+
+          <div class="panel-body r2-body" data-collapse-body style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); flex: 1;">
+            <div id="r2-scape-mount"></div>
+            <div id="r2-sphere-mount"></div>
+          </div>
+        </section>
+
+        <!-- Columna Silver (2 unidades) -->
+        <div id="silver-mount" class="col-span-2"></div>
+      </div>
+
+      <!-- 2. Fila Media: Shaper 1 (izq, span 2), Shaper 2 (centro, span 2), Shaper 3 (der, span 2) -->
+      <div class="synth-row" id="row-middle" data-row-id="row-middle">
+        <div id="shapers-mount" style="grid-column: 1 / -1; display: contents;"></div>
+      </div>
+
+      <!-- 3. Fila Inferior (12/12): Filter (1/12), Env Master (1/12), Blender (5/12), Controllers (4/12), Master (1/12) -->
+      <div class="synth-row" id="row-bottom" data-row-id="row-bottom">
+        <div id="filter-mount" class="col-span-half"></div>
+        <div id="envelope-master-mount" class="col-span-half"></div>
+        <div id="blender-mount" class="col-span-blender"></div>
+        <div id="controllers-mount" class="col-span-2"></div>
+        <div id="master-mount" class="col-span-half"></div>
+      </div>
+    </div>
+  `;
+  app.appendChild(workspace);
+
+  // 3. Franja inferior de teclado interactivo (@abdsynths/midi-keyb)
+  const keyboardSection = document.createElement('footer');
+  keyboardSection.className = 'keyboard-container keyboard-section';
+  app.appendChild(keyboardSection);
+
+  let controllersPanel: ControllersPanel | null = null;
+
+  new KeyboardStrip(keyboardSection, {
+    onNotePress: (midiNote, velocity) => {
+      WebBridge.noteOn(midiNote, velocity ?? 0.85);
+    },
+    onNoteRelease: (midiNote) => {
+      WebBridge.noteOff(midiNote);
+      controllersPanel?.setAftertouchLevel(0);
+    },
+    onPitchBend: (val) => {
+      WebBridge.pitchBend(val);
+    },
+    onModWheel: (val) => {
+      WebBridge.modWheel(val);
+    },
+    onAftertouch: (val) => {
+      const norm = val > 1.0 ? val / 127.0 : val;
+      controllersPanel?.setAftertouchLevel(norm);
+      WebBridge.channelPressure(Math.round(norm * 127));
+    },
+    onPanic: () => {
+      controllersPanel?.setAftertouchLevel(0);
+      WebBridge.allNotesOff();
+    },
+    onSustainChange: (active) => {
+      const raw = active ? 127 : 0;
+      controllersPanel?.setPedalLevel(active ? 1.0 : 0.0);
+      WebBridge.sendMidiCC(64, raw);
+      WebBridge.sendMidiCC(4, raw);
+    },
+  });
+
+  // 4. Gestor universal de paneles deslizantes (Drawers - 50vw desde la derecha)
+  const drawerManager = new DrawerManager(app);
+
+  let targetResynatorForModelPick: 1 | 2 = 1;
+  let bankDrawer: BankDrawer;
+  let navbar: AxionikNavbar | null = null;
+  let nukeDrawer: NukeDrawer | null = null;
+  let hardwareDumpsDrawer: HardwareDumpsDrawer | null = null;
+  let calibrationDrawer: CalibrationDrawer | null = null;
+  let topLcdBar: TopLcdBar | null = null;
+  let currentZoom = parseFloat(document.body.style.zoom) || 1.0;
+  let currentPresetName = '000 InitSound';
+  let currentR1ModelName = '511 sinew';
+  let currentR2ModelName = '511 sinew';
+
+  const applyTheme = (theme: string) => {
+    themeManager.setTheme(theme);
+    navbar?.setTheme(theme);
   };
 
-  setupKeyboardStrip(ctx, shell.keyboardSection);
-  ctx.resynator = createResynatorUi(ctx);
-  const openers = createDrawerOpeners(ctx);
-  ctx.midiLearnStore = setupMidiLearn(ctx);
-  setupAuxDrawers(ctx, openers);
-  mountTrajectorySticks(ctx);
-  mountPanels(ctx, openers);
-  wireShellControls(ctx, openers);
-  createBankDrawer(ctx);
-  createNavbar(ctx, openers);
-  setupTopLcdBar(ctx, openers);
-  ctx.dragDropHandler = createDragDrop(ctx);
+  const applyZoom = (zoom: number) => {
+    currentZoom = zoom;
+    document.body.style.zoom = String(zoom);
+    navbar?.setZoom(zoom);
+  };
 
-  // Atajos globales de teclado
-  setupKeyboardShortcuts(ctx.bankDrawer, ctx.navbar, openers.openSettingsDrawer);
+  const updateResynatorModelUI = (resynator: 1 | 2, slot: number, name?: string) => {
+    const isR1 = resynator === 1;
+    const captionEl = document.getElementById(isR1 ? 'r1-model-caption' : 'r2-model-caption');
+    const slotEl = document.getElementById(isR1 ? 'r1-model-slot' : 'r2-model-slot');
+
+    if (slotEl) {
+      slotEl.textContent = `#${String(slot).padStart(3, '0')}`;
+    }
+
+    let modelName = name;
+    if (!modelName && bankDrawer) {
+      const found = bankDrawer.getBank().models.find((m) => m.slot === slot);
+      if (found && found.name) {
+        modelName = found.name;
+      }
+    }
+    if (!modelName) {
+      modelName = getCanonicalModelName(slot);
+    }
+
+    if (isR1) {
+      currentR1ModelName = modelName;
+    } else {
+      currentR2ModelName = modelName;
+    }
+
+    if (captionEl) {
+      captionEl.textContent = modelName;
+      captionEl.title = `Model #${slot}: ${modelName}`;
+    }
+    topLcdBar?.setModelInfo(resynator, slot, modelName);
+  };
+
+  // Funciones para abrir paneles expandidos (Resynator 1/2 y Silver Rack)
+  const modelParameterSet = (slotRaw: number): number => {
+    const meta = MODEL_METADATA[Math.round(slotRaw)];
+    return meta && typeof meta[0] === 'number' ? meta[0] : -1;
+  };
+
+  const openR1Drawer = () => {
+    const content = ResynatorDrawer.createContent({
+      resynator: 1,
+      modelName: currentR1ModelName,
+      parameterSet: modelParameterSet(WebBridge.getParam(ParamIdx.R1ModellIndex, 511)),
+      onClose: () => drawerManager.close(),
+      onSelectModel: (resynator) => {
+        targetResynatorForModelPick = resynator;
+        bankDrawer?.open('models', 'r1');
+      },
+    });
+    drawerManager.openCustom('r1-expanded', content);
+  };
+
+  const openR2Drawer = () => {
+    const content = ResynatorDrawer.createContent({
+      resynator: 2,
+      modelName: currentR2ModelName,
+      parameterSet: modelParameterSet(WebBridge.getParam(ParamIdx.R2ModellIndex, 511)),
+      onClose: () => drawerManager.close(),
+      onSelectModel: (resynator) => {
+        targetResynatorForModelPick = resynator;
+        bankDrawer?.open('models', 'r2');
+      },
+    });
+    drawerManager.openCustom('r2-expanded', content);
+  };
+
+  const openEffectsDrawer = (initialBlock: EffectsDrawerBlock = 'filter') => {
+    const content = EffectsDrawer.createContent({
+      initialBlock,
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('effects-rack', content);
+  };
+
+  const openFilterDrawer = () => openEffectsDrawer('filter');
+  const openSilverDrawer = () => openEffectsDrawer('silver');
+  const openMasterFxDrawer = () => openEffectsDrawer('master');
+
+  const openBlenderDrawer = () => {
+    const content = BlenderDrawer.createContent({
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('blender-expanded', content);
+  };
+
+  const openMatrixDrawer = (initialTab: 'all' | 'controllers' | 'macros' | 'free' = 'all') => {
+    const content = MatrixDrawer.createContent({
+      initialTab,
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('matrix-expanded', content);
+  };
+
+  const openEnvelopeDrawer = (initialTab: EnvelopeDrawerTab = '4l4t', initialShaper: 1 | 2 = 1) => {
+    const content = EnvelopeDrawer.createContent({
+      initialShaper,
+      initialTab,
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('envelope-expanded', content);
+  };
+
+  const openSettingsDrawer = () => {
+    const content = SettingsDrawer.createContent({
+      onClose: () => drawerManager.close(),
+      onConfigureFolder: (bank) => bankDrawer.promptConfigureFolder(bank),
+      onSelectEngineMode: (mode) => {
+      WebBridge.setEngineMode(mode);
+      bankDrawer?.setEngineMode(mode);
+      dragDropHandler?.showToast(`[ENGINE MODE] ${mode.toUpperCase()}`);
+    },
+    onSelectTheme: (theme) => {
+        applyTheme(theme);
+      },
+      onZoom: (zoom) => {
+        applyZoom(zoom);
+      },
+      currentTheme: themeManager.getCurrentTheme(),
+      currentZoom,
+    });
+    drawerManager.openCustom('settings-expanded', content);
+  };
+
+  // Re-render open drawers reactively on language change without closing them
+  onLocaleChange(() => {
+    const curId = drawerManager.getCurrentDrawerId();
+    if (!curId) return;
+    if (curId === 'settings-expanded') {
+      openSettingsDrawer();
+    } else if (curId === 'r1-expanded') {
+      openR1Drawer();
+    } else if (curId === 'r2-expanded') {
+      openR2Drawer();
+    } else if (curId === 'effects-rack') {
+      openEffectsDrawer();
+    } else if (curId === 'blender-expanded') {
+      openBlenderDrawer();
+    } else if (curId === 'matrix-expanded') {
+      openMatrixDrawer();
+    } else if (curId === 'envelope-expanded') {
+      openEnvelopeDrawer();
+    } else if (curId === 'midi-learn-matrix') {
+      openMidiLearnDrawer();
+    }
+  });
+
+  // 4b. Sistema canónico N:M de MIDI Learn & CC/NRPN Mapping Matrix (ABDShared)
+  const midiLearnParameters = PARAM_DEFINITIONS.map((p) => ({
+    index: p.index,
+    name: p.vstDisplay || p.key,
+    group: p.group,
+    key: p.key,
+  }));
+
+  const midiLearnStore = createMidiLearnStore({
+    storageKey: 'abd.axionik.midiLearn.v1',
+    onSyncToHost: (payload) => {
+      WebBridge.send({
+        type: 'MIDI_LEARN_SYNC',
+        mappings: payload.mappings,
+        learningTargetIndex: payload.learningTargetIndex,
+        learningTargetKey: payload.learningTargetKey,
+        learnMode: payload.learnMode,
+      });
+    },
+    onApplyParam: (targetIndex, _targetKey, normVal) => {
+      const def = PARAM_DEFINITIONS[targetIndex];
+      const min = def ? def.min : 0;
+      const max = def ? def.max : 127;
+      const rawVal = Math.round(min + normVal * (max - min));
+      WebBridge.setParam(targetIndex, rawVal);
+    },
+  });
+
+  const openMidiLearnDrawer = (focusParamIndex = -1) => {
+    const content = createMidiLearnDrawerContent({
+      store: midiLearnStore,
+      parameters: midiLearnParameters,
+      focusParamIndex,
+      synthName: 'ABDAxionikVS',
+      onClose: () => drawerManager.close(),
+    });
+    drawerManager.openCustom('midi-learn-matrix', content);
+  };
+
+  hardwareDumpsDrawer = new HardwareDumpsDrawer(
+    app,
+    {
+      getPresetName: () => currentPresetName,
+      onApplyDecodedParams: (params, presetName) => {
+        if (presetName) {
+          currentPresetName = presetName;
+          navbar?.setPresetName(presetName);
+          topLcdBar?.setPresetInfo(0, presetName);
+        }
+        applyAllParamsToUI(params);
+        controllersPanel?.updateLabels();
+        silverPanel?.updateSilver();
+        shapersPanel?.syncAll();
+        nukeDrawer?.syncAll();
+        topLcdBar?.refreshAll();
+      },
+    },
+    drawerManager,
+  );
+
+  calibrationDrawer = new CalibrationDrawer(app, drawerManager);
+
+  attachMidiLearnUI({
+    store: midiLearnStore,
+    root: app,
+    getParamMeta: (idx) => {
+      const def = PARAM_DEFINITIONS[idx];
+      return def
+        ? { name: def.vstDisplay || def.key, group: def.group, key: def.key }
+        : { name: `Parameter #${idx}`, group: 'Synth', key: `param_${idx}` };
+    },
+    onOpenDrawer: (focusIdx) => {
+      openMidiLearnDrawer(focusIdx ?? -1);
+    },
+  });
+
+  midiLearnStore.subscribe((st: any) => {
+    navbar?.setMidiLearnState(Boolean(st.isLearning), st.mappings?.length ?? 0, st.learnRemainingSeconds ?? 0);
+  });
+
+  // 5. Instanciar los 4 controladores vectoriales 2D (Trajectory Sticks)
+  const r1ScapeMount = document.getElementById('r1-scape-mount');
+  const r1SphereMount = document.getElementById('r1-sphere-mount');
+  const r2ScapeMount = document.getElementById('r2-scape-mount');
+  const r2SphereMount = document.getElementById('r2-sphere-mount');
+
+  let r1ScapeStick: TrajectoryStick2D | null = null;
+  let r1SphereStick: TrajectoryStick2D | null = null;
+  let r2ScapeStick: TrajectoryStick2D | null = null;
+  let r2SphereStick: TrajectoryStick2D | null = null;
+
+  if (r1ScapeMount) {
+    r1ScapeMount.setAttribute('data-param-x', String(ParamIdx.R1L1Scape1Value));
+    r1ScapeMount.setAttribute('data-param-y', String(ParamIdx.R1L1Scape2Value));
+    r1ScapeStick = new TrajectoryStick2D(r1ScapeMount, {
+      label: 'SCAPE 1',
+      resynator: 1,
+      domain: 'scape',
+      labelsPerLayer: getParameterSetStickLabels(0, 'scape'),
+      onLayerChange: (layerIdx) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R1L1Scape1Value : (layerIdx === 1 ? ParamIdx.R1L2Scape1Value : ParamIdx.R1L3Scape1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R1L1Scape2Value : (layerIdx === 1 ? ParamIdx.R1L2Scape2Value : ParamIdx.R1L3Scape2Value);
+        r1ScapeMount.setAttribute('data-param-x', String(paramX));
+        r1ScapeMount.setAttribute('data-param-y', String(paramY));
+      },
+      onPositionChange: (layerIdx, coord) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R1L1Scape1Value : (layerIdx === 1 ? ParamIdx.R1L2Scape1Value : ParamIdx.R1L3Scape1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R1L1Scape2Value : (layerIdx === 1 ? ParamIdx.R1L2Scape2Value : ParamIdx.R1L3Scape2Value);
+        WebBridge.setParam(paramX, Math.round(coord.x * 127));
+        WebBridge.setParam(paramY, Math.round(coord.y * 127));
+      },
+    });
+  }
+
+  if (r1SphereMount) {
+    r1SphereMount.setAttribute('data-param-x', String(ParamIdx.R1L1Sphere1Value));
+    r1SphereMount.setAttribute('data-param-y', String(ParamIdx.R1L1Sphere2Value));
+    r1SphereStick = new TrajectoryStick2D(r1SphereMount, {
+      label: 'SPHERE 1',
+      resynator: 1,
+      domain: 'sphere',
+      labelsPerLayer: getParameterSetStickLabels(0, 'sphere'),
+      onLayerChange: (layerIdx) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R1L1Sphere1Value : (layerIdx === 1 ? ParamIdx.R1L2Sphere1Value : ParamIdx.R1L3Sphere1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R1L1Sphere2Value : (layerIdx === 1 ? ParamIdx.R1L2Sphere2Value : ParamIdx.R1L3Sphere2Value);
+        r1SphereMount.setAttribute('data-param-x', String(paramX));
+        r1SphereMount.setAttribute('data-param-y', String(paramY));
+      },
+      onPositionChange: (layerIdx, coord) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R1L1Sphere1Value : (layerIdx === 1 ? ParamIdx.R1L2Sphere1Value : ParamIdx.R1L3Sphere1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R1L1Sphere2Value : (layerIdx === 1 ? ParamIdx.R1L2Sphere2Value : ParamIdx.R1L3Sphere2Value);
+        WebBridge.setParam(paramX, Math.round(coord.x * 127));
+        WebBridge.setParam(paramY, Math.round(coord.y * 127));
+      },
+    });
+  }
+
+  if (r2ScapeMount) {
+    r2ScapeMount.setAttribute('data-param-x', String(ParamIdx.R2L1Scape1Value));
+    r2ScapeMount.setAttribute('data-param-y', String(ParamIdx.R2L1Scape2Value));
+    r2ScapeStick = new TrajectoryStick2D(r2ScapeMount, {
+      label: 'SCAPE 2',
+      resynator: 2,
+      domain: 'scape',
+      labelsPerLayer: getParameterSetStickLabels(0, 'scape'),
+      onLayerChange: (layerIdx) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R2L1Scape1Value : (layerIdx === 1 ? ParamIdx.R2L2Scape1Value : ParamIdx.R2L3Scape1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R2L1Scape2Value : (layerIdx === 1 ? ParamIdx.R2L2Scape2Value : ParamIdx.R2L3Scape2Value);
+        r2ScapeMount.setAttribute('data-param-x', String(paramX));
+        r2ScapeMount.setAttribute('data-param-y', String(paramY));
+      },
+      onPositionChange: (layerIdx, coord) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R2L1Scape1Value : (layerIdx === 1 ? ParamIdx.R2L2Scape1Value : ParamIdx.R2L3Scape1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R2L1Scape2Value : (layerIdx === 1 ? ParamIdx.R2L2Scape2Value : ParamIdx.R2L3Scape2Value);
+        WebBridge.setParam(paramX, Math.round(coord.x * 127));
+        WebBridge.setParam(paramY, Math.round(coord.y * 127));
+      },
+    });
+  }
+
+  if (r2SphereMount) {
+    r2SphereMount.setAttribute('data-param-x', String(ParamIdx.R2L1Sphere1Value));
+    r2SphereMount.setAttribute('data-param-y', String(ParamIdx.R2L1Sphere2Value));
+    r2SphereStick = new TrajectoryStick2D(r2SphereMount, {
+      label: 'SPHERE 2',
+      resynator: 2,
+      domain: 'sphere',
+      labelsPerLayer: getParameterSetStickLabels(0, 'sphere'),
+      onLayerChange: (layerIdx) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R2L1Sphere1Value : (layerIdx === 1 ? ParamIdx.R2L2Sphere1Value : ParamIdx.R2L3Sphere1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R2L1Sphere2Value : (layerIdx === 1 ? ParamIdx.R2L2Sphere2Value : ParamIdx.R2L3Sphere2Value);
+        r2SphereMount.setAttribute('data-param-x', String(paramX));
+        r2SphereMount.setAttribute('data-param-y', String(paramY));
+      },
+      onPositionChange: (layerIdx, coord) => {
+        const paramX = layerIdx === 0 ? ParamIdx.R2L1Sphere1Value : (layerIdx === 1 ? ParamIdx.R2L2Sphere1Value : ParamIdx.R2L3Sphere1Value);
+        const paramY = layerIdx === 0 ? ParamIdx.R2L1Sphere2Value : (layerIdx === 1 ? ParamIdx.R2L2Sphere2Value : ParamIdx.R2L3Sphere2Value);
+        WebBridge.setParam(paramX, Math.round(coord.x * 127));
+        WebBridge.setParam(paramY, Math.round(coord.y * 127));
+      },
+    });
+  }
+
+  // 6. Instanciar el bloque frontal de Controladores Hardware («Controllers»), Silver y Master Output
+  const controllersMount = document.getElementById('controllers-mount');
+  if (controllersMount) {
+    controllersPanel = new ControllersPanel(controllersMount, {
+      onEdit: () => openMatrixDrawer('controllers'),
+    });
+  }
+
+  let silverPanel: SilverPanel | null = null;
+  const silverMount = document.getElementById('silver-mount');
+  if (silverMount) {
+    silverPanel = new SilverPanel(silverMount, {
+      onEditSilver: () => openSilverDrawer(),
+      onEditSlicer: () => openBlenderDrawer(),
+    });
+  }
+
+  let blenderPanel: BlenderPanel | null = null;
+  const blenderMount = document.getElementById('blender-mount');
+  if (blenderMount) {
+    blenderPanel = new BlenderPanel(blenderMount, {
+      onEdit: () => openBlenderDrawer(),
+    });
+  }
+
+  let filterPanel: FilterPanel | null = null;
+  const filterMount = document.getElementById('filter-mount');
+  if (filterMount) {
+    filterPanel = new FilterPanel(filterMount, {
+      onEdit: () => openFilterDrawer(),
+    });
+  }
+
+  let envelopeMasterPanel: EnvelopeMasterPanel | null = null;
+  const envelopeMasterMount = document.getElementById('envelope-master-mount');
+  if (envelopeMasterMount) {
+    envelopeMasterPanel = new EnvelopeMasterPanel(envelopeMasterMount, {
+      onEdit: () => openEnvelopeDrawer('4l4t', 1),
+    });
+  }
+
+  const masterMount = document.getElementById('master-mount');
+  if (masterMount) {
+    new MasterOutputPanel(masterMount);
+  }
+
+  // 7. Instanciar el bloque central de SHAPERS (1, 2 y 3)
+  let shapersPanel: ShapersPanel | null = null;
+  const shapersMount = document.getElementById('shapers-mount');
+  if (shapersMount) {
+    shapersPanel = new ShapersPanel(shapersMount, {
+      onEditR1: openR1Drawer,
+      onEditR2: openR2Drawer,
+      onEditSilver: openSilverDrawer,
+      onEditFreeEnv: () => openEnvelopeDrawer('free', 1),
+      onEditShaper: (shaper, mode) => openEnvelopeDrawer(mode, shaper),
+      onEditShaper3: (mode) => openEffectsDrawer(mode === 'efx' ? 'master' : 'filter'),
+    });
+  }
+
+  // Conectar botones Edit R1, Edit R2, R1/R2 Switch, Model Selection, Edit Blender y Edit Silver Rack
+  const updateResySwitchButton = (resy: 1 | 2, enabled: boolean) => {
+    const btn = document.getElementById(resy === 1 ? 'btn-toggle-r1' : 'btn-toggle-r2');
+    if (!btn) return;
+    btn.classList.toggle('active', enabled);
+    btn.classList.toggle('btn-primary', enabled);
+    btn.classList.toggle('btn-outline', !enabled);
+    btn.textContent = `R${resy} ${enabled ? 'ON' : 'OFF'}`;
+  };
+
+  document.getElementById('btn-toggle-r1')?.addEventListener('click', () => {
+    const next = WebBridge.getParam(ParamIdx.R1Switch, 1) < 0.5;
+    updateResySwitchButton(1, next);
+    WebBridge.setParam(ParamIdx.R1Switch, next ? 1 : 0);
+  });
+  document.getElementById('btn-toggle-r2')?.addEventListener('click', () => {
+    const next = WebBridge.getParam(ParamIdx.R2Switch, 1) < 0.5;
+    updateResySwitchButton(2, next);
+    WebBridge.setParam(ParamIdx.R2Switch, next ? 1 : 0);
+  });
+  document.getElementById('btn-edit-r1')?.addEventListener('click', openR1Drawer);
+  document.getElementById('btn-edit-r2')?.addEventListener('click', openR2Drawer);
+  document.getElementById('btn-select-model-r1')?.addEventListener('click', () => {
+    targetResynatorForModelPick = 1;
+    bankDrawer?.open('models', 'r1');
+  });
+  document.getElementById('btn-select-model-r2')?.addEventListener('click', () => {
+    targetResynatorForModelPick = 2;
+    bankDrawer?.open('models', 'r2');
+  });
+  document.getElementById('btn-edit-silver')?.addEventListener('click', openSilverDrawer);
+  document.getElementById('btn-edit-blender')?.addEventListener('click', openBlenderDrawer);
+
+  // 8. Gestor de colapso y descolapso sincronizado por fila (Row Collapse)
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.btn-collapse-row') as HTMLButtonElement | null;
+    if (!btn) return;
+    const rowId = btn.getAttribute('data-row');
+    if (!rowId) return;
+    const rowEl = document.getElementById(rowId);
+    if (!rowEl) return;
+    const isCollapsed = rowEl.classList.toggle('is-row-collapsed');
+    const rowButtons = document.querySelectorAll<HTMLButtonElement>(`.btn-collapse-row[data-row="${rowId}"]`);
+    rowButtons.forEach((b) => {
+      b.textContent = isCollapsed ? '▴' : '▾';
+      b.setAttribute('title', isCollapsed ? 'Descolapsar fila' : 'Colapsar fila');
+    });
+  });
+
+  const applyAllParamsToUI = (values: number[]) => {
+    if (!Array.isArray(values) || values.length === 0) return;
+
+    // R1 Model & R2 Model + Switches
+    const r1Slot = Math.round(values[ParamIdx.R1ModellIndex] ?? 511);
+    const r2Slot = Math.round(values[ParamIdx.R2ModellIndex] ?? 511);
+    updateResySwitchButton(1, (values[ParamIdx.R1Switch] ?? 1) > 0.5);
+    updateResySwitchButton(2, (values[ParamIdx.R2Switch] ?? 1) > 0.5);
+    const r1Name = getCanonicalModelName(r1Slot);
+    const r2Name = getCanonicalModelName(r2Slot);
+
+    updateResynatorModelUI(1, r1Slot, r1Name);
+    updateResynatorModelUI(2, r2Slot, r2Name);
+    navbar.setModelName(1, `#${String(r1Slot).padStart(3, '0')} ${r1Name}`);
+    navbar.setModelName(2, `#${String(r2Slot).padStart(3, '0')} ${r2Name}`);
+
+    // Update stick polar labels based on model parameter sets
+    const r1Meta = MODEL_METADATA[r1Slot];
+    const r1ParSet = r1Meta ? r1Meta[0] : (r1Slot % 10);
+    r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'scape'));
+    r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'sphere'));
+
+    const r2Meta = MODEL_METADATA[r2Slot];
+    const r2ParSet = r2Meta ? r2Meta[0] : (r2Slot % 10);
+    r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
+    r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
+
+    // Blender, Filter y EnvMaster panels
+    blenderPanel?.updateAll(values);
+    filterPanel?.updateAll(values);
+    envelopeMasterPanel?.updateAll(values);
+
+    // Slicer & Silver FX en SilverPanel
+    const slicerMode = Math.round(values[ParamIdx.SlicerSwitchType] ?? 0);
+    const slicerDepth = Math.round(values[ParamIdx.SlicerDepth] ?? 0);
+    const slicerRate = Math.round(values[ParamIdx.SlicerRate] ?? 66);
+    silverPanel?.updateParam(ParamIdx.SlicerSwitchType, slicerMode);
+    silverPanel?.updateParam(ParamIdx.SlicerDepth, slicerDepth);
+    silverPanel?.updateParam(ParamIdx.SlicerRate, slicerRate);
+    silverPanel?.updateParam(ParamIdx.SilverSwitch, values[ParamIdx.SilverSwitch] ?? 1);
+    silverPanel?.updateSilver();
+
+    // Silver FX (los readouts ahora viven en SilverPanel, igual que en PARAM_UPDATE)
+    const freqAlgo = Math.max(0, Math.min(FREQ_ALGO_NAMES.length - 1, Math.round(values[ParamIdx.CurFreqFX] ?? 2)));
+    silverPanel?.updateFreqAlgoUi(freqAlgo);
+
+    const timeAlgo = Math.max(0, Math.min(TIME_ALGO_NAMES.length - 1, Math.round(values[ParamIdx.CurTimeFX] ?? 1)));
+    silverPanel?.updateTimeAlgoUi(timeAlgo);
+
+    // Sticks 2D Positions:
+    if (r1ScapeStick) {
+      r1ScapeStick.setPosition(0, Math.max(0, Math.min(1, (values[ParamIdx.R1L1Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L1Scape2Value] ?? 64) / 127)), false);
+      r1ScapeStick.setPosition(1, Math.max(0, Math.min(1, (values[ParamIdx.R1L2Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L2Scape2Value] ?? 64) / 127)), false);
+      r1ScapeStick.setPosition(2, Math.max(0, Math.min(1, (values[ParamIdx.R1L3Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L3Scape2Value] ?? 64) / 127)), false);
+    }
+
+    if (r1SphereStick) {
+      r1SphereStick.setPosition(0, Math.max(0, Math.min(1, (values[ParamIdx.R1L1Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L1Sphere2Value] ?? 64) / 127)), false);
+      r1SphereStick.setPosition(1, Math.max(0, Math.min(1, (values[ParamIdx.R1L2Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L2Sphere2Value] ?? 64) / 127)), false);
+      r1SphereStick.setPosition(2, Math.max(0, Math.min(1, (values[ParamIdx.R1L3Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R1L3Sphere2Value] ?? 64) / 127)), false);
+    }
+
+    if (r2ScapeStick) {
+      r2ScapeStick.setPosition(0, Math.max(0, Math.min(1, (values[ParamIdx.R2L1Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L1Scape2Value] ?? 64) / 127)), false);
+      r2ScapeStick.setPosition(1, Math.max(0, Math.min(1, (values[ParamIdx.R2L2Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L2Scape2Value] ?? 64) / 127)), false);
+      r2ScapeStick.setPosition(2, Math.max(0, Math.min(1, (values[ParamIdx.R2L3Scape1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L3Scape2Value] ?? 64) / 127)), false);
+    }
+
+    if (r2SphereStick) {
+      r2SphereStick.setPosition(0, Math.max(0, Math.min(1, (values[ParamIdx.R2L1Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L1Sphere2Value] ?? 64) / 127)), false);
+      r2SphereStick.setPosition(1, Math.max(0, Math.min(1, (values[ParamIdx.R2L2Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L2Sphere2Value] ?? 64) / 127)), false);
+      r2SphereStick.setPosition(2, Math.max(0, Math.min(1, (values[ParamIdx.R2L3Sphere1Value] ?? 64) / 127)), Math.max(0, Math.min(1, (values[ParamIdx.R2L3Sphere2Value] ?? 64) / 127)), false);
+    }
+
+    nukeDrawer?.syncAll();
+    topLcdBar?.refreshAll();
+  };
+
+
+  const applyAxionikPreset = (preset: AxionikPreset) => {
+    // 1. Cargar modelos R1 y R2
+    const r1Id = preset.models?.resynator1?.id ?? 511;
+    const r2Id = preset.models?.resynator2?.id ?? 511;
+    const r1Name = preset.models?.resynator1?.name || getCanonicalModelName(r1Id);
+    const r2Name = preset.models?.resynator2?.name || getCanonicalModelName(r2Id);
+
+    updateResynatorModelUI(1, r1Id, r1Name);
+    updateResynatorModelUI(2, r2Id, r2Name);
+    navbar?.setModelName(1, `#${String(r1Id).padStart(3, '0')} ${r1Name}`);
+    navbar?.setModelName(2, `#${String(r2Id).padStart(3, '0')} ${r2Name}`);
+
+    const r1Meta = MODEL_METADATA[r1Id];
+    const r1ParSet = r1Meta ? r1Meta[0] : (r1Id % 10);
+    r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'scape'));
+    r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'sphere'));
+
+    const r2Meta = MODEL_METADATA[r2Id];
+    const r2ParSet = r2Meta ? r2Meta[0] : (r2Id % 10);
+    r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
+    r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
+
+    // 2. Aplicar snapshot de parámetros
+    for (const [idxStr, val] of Object.entries(preset.parameters || {})) {
+      const idx = parseInt(idxStr, 10);
+      if (!isNaN(idx)) {
+        WebBridge.setParam(idx, val);
+      }
+    }
+
+    navbar?.setPresetName(preset.meta.name);
+    topLcdBar?.setPresetInfo(0, preset.meta.name);
+    shapersPanel?.syncAll();
+    nukeDrawer?.syncAll();
+    topLcdBar?.refreshAll();
+    console.log(`[ABDAxionikVS] Preset "${preset.meta.name}" cargado con éxito`);
+  };
+
+  // 7. Gestor de Banco y Modelos NeuronDB (BankDrawer montado en el Drawer universal)
+  bankDrawer = new BankDrawer(drawerManager, {
+    onSelectModel: (slot, resynator) => {
+      const targetR = resynator || targetResynatorForModelPick;
+      const model = bankDrawer.getBank().models.find((m) => m.slot === slot);
+      const modelName = model ? model.name : `Model #${String(slot).padStart(3, '0')}`;
+      updateResynatorModelUI(targetR, slot, modelName);
+      navbar.setModelName(targetR, `#${String(slot).padStart(3, '0')} ${modelName}`);
+
+      // Actualizar dinámicamente las etiquetas mnAN de los 4 polos según el Parameter Set del modelo
+      const parSet = model ? model.parameterSet : (slot % 10);
+      if (targetR === 1) {
+        r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+        WebBridge.setParam(ParamIdx.R1ModellIndex, slot);
+      } else {
+        r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+        WebBridge.setParam(ParamIdx.R2ModellIndex, slot);
+      }
+
+      WebBridge.loadModelSlot(slot, targetR);
+      nukeDrawer?.syncAll();
+      console.log(`[ABDAxionikVS] Assigned Model #${slot} (${modelName}, ParSet ${parSet}) to Resynator ${targetR}`);
+    },
+    onSelectExpandedModel: (entry, resynator) => {
+      const targetR = resynator || targetResynatorForModelPick;
+      const parSet = entry.parameterSet ?? 0;
+      if (targetR === 1) {
+        r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+      } else {
+        r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+      }
+      if (entry.expandedJson) {
+        WebBridge.loadExpandedModelJson(targetR, entry.expandedJson);
+      } else {
+        WebBridge.loadExpandedModelSlug(entry.slug, targetR);
+      }
+      updateResynatorModelUI(targetR, 900 + targetR, `[EXP] ${entry.name}`);
+      navbar?.setModelName(targetR, `[EXP] ${entry.name}`);
+      nukeDrawer?.syncAll();
+    },
+    onSelectPreset: (slot, name) => {
+      const pInfo = getCanonicalPresetInfo(slot);
+      const displayName = name || pInfo.name;
+      navbar.setPresetName(`${String(slot).padStart(3, '0')} ${displayName}`);
+
+      const r1Name = getCanonicalModelName(pInfo.r1Model);
+      const r2Name = getCanonicalModelName(pInfo.r2Model);
+      updateResynatorModelUI(1, pInfo.r1Model, r1Name);
+      updateResynatorModelUI(2, pInfo.r2Model, r2Name);
+      navbar.setModelName(1, `#${String(pInfo.r1Model).padStart(3, '0')} ${r1Name}`);
+      navbar.setModelName(2, `#${String(pInfo.r2Model).padStart(3, '0')} ${r2Name}`);
+
+      const r1Meta = MODEL_METADATA[pInfo.r1Model];
+      const r1ParSet = r1Meta ? r1Meta[0] : (pInfo.r1Model % 10);
+      r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'scape'));
+      r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'sphere'));
+
+      const r2Meta = MODEL_METADATA[pInfo.r2Model];
+      const r2ParSet = r2Meta ? r2Meta[0] : (pInfo.r2Model % 10);
+      r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
+      r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
+
+      WebBridge.seedPresetSlotEnvelopes(slot);
+      WebBridge.loadPresetSlot(slot);
+      shapersPanel?.syncAll();
+      nukeDrawer?.syncAll();
+      topLcdBar?.setPresetInfo(slot, `${String(slot).padStart(3, '0')} ${displayName}`);
+      topLcdBar?.refreshAll();
+      console.log(`[ABDAxionikVS] Loaded Sound Preset #${slot} "${displayName}" (R1: #${pInfo.r1Model} ${r1Name}, R2: #${pInfo.r2Model} ${r2Name})`);
+    },
+    onConfigureNeuronDbFolder: () => {
+      bankDrawer.promptConfigureFolder();
+    },
+    onSelectAxionikPreset: (preset) => {
+      applyAxionikPreset(preset);
+    },
+  });
+
+  // 5b. Inicializar cajón superior deslizable <NUKE> Remote Control Unit
+  nukeDrawer = new NukeDrawer(app, {
+    onToggleOpen: (open) => {
+      if (open) {
+        drawerManager.close();
+      }
+      navbar?.setNukeActive(open);
+    },
+    onEdit: () => {
+      openMatrixDrawer('macros');
+    },
+    onLocalParamChange: (idx, val) => {
+      handleParamUpdate(idx, val, paramUpdateCtx);
+      if (idx >= 363 && idx <= 428) {
+        controllersPanel?.updateLabels();
+      }
+      if ((idx >= 271 && idx <= 278) || idx === 281 || idx === 282 || idx === 327 || idx === 328) {
+        silverPanel?.updateSilver(idx);
+      }
+    },
+  });
+
+  // 6. Inicializar Navbar Universal (SynthNavBar)
+  navbar = new AxionikNavbar(navContainer, {
+    onConfigureFolder: () => {
+      bankDrawer.promptConfigureFolder();
+    },
+    onImportModelFolder: () => {
+      bankDrawer.promptConfigureFolder();
+    },
+    onImportModelZip: () => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.zip,.modelzip';
+      fileInput.style.display = 'none';
+      document.body.appendChild(fileInput);
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files?.[0]) {
+          console.log(`[ABDAxionikVS] Model package selected: ${fileInput.files[0].name}`);
+        }
+        fileInput.remove();
+      });
+      fileInput.click();
+    },
+    onLoadPreset: () => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.axpreset,.json';
+      fileInput.style.display = 'none';
+      document.body.appendChild(fileInput);
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files?.[0];
+        if (file) {
+          try {
+            const text = await file.text();            const preset = parsePresetFile(text);            if (preset) {              // 1. Ajustar modo del motor segun el preset (conserva los modelos cargados)
+              if (preset.engineMode) {                const engineMode = preset.engineMode as 'classic' | 'plus' | 'extended' | 'legacy';                let uiMode: 'classic' | 'plus' | 'expanded';                if (engineMode === 'classic') {                  uiMode = 'classic';                } else if (engineMode === 'plus') {                  uiMode = 'plus';                } else if (engineMode === 'extended') {                  uiMode = 'expanded';                } else {                  uiMode = 'classic'; // 'legacy' -> 'classic'                }                WebBridge.setEngineMode(uiMode);                navbar?.setEngineMode(uiMode);                bankDrawer?.setEngineMode(uiMode);              }
+              // 2. Cargar modelos R1 y R2
+              const r1Id = preset.models?.resynator1?.id ?? 511;
+              const r2Id = preset.models?.resynator2?.id ?? 511;
+              const r1Name = preset.models?.resynator1?.name || getCanonicalModelName(r1Id);
+              const r2Name = preset.models?.resynator2?.name || getCanonicalModelName(r2Id);
+
+              updateResynatorModelUI(1, r1Id, r1Name);
+              updateResynatorModelUI(2, r2Id, r2Name);
+              navbar?.setModelName(1, `#${String(r1Id).padStart(3, '0')} ${r1Name}`);
+              navbar?.setModelName(2, `#${String(r2Id).padStart(3, '0')} ${r2Name}`);
+
+              const r1Meta = MODEL_METADATA[r1Id];
+              const r1ParSet = r1Meta ? r1Meta[0] : (r1Id % 10);
+              r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'scape'));
+              r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r1ParSet, 'sphere'));
+
+              const r2Meta = MODEL_METADATA[r2Id];
+              const r2ParSet = r2Meta ? r2Meta[0] : (r2Id % 10);
+              r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'scape'));
+              r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(r2ParSet, 'sphere'));
+
+              // 2. Aplicar snapshot de parámetros
+              for (const [idxStr, val] of Object.entries(preset.parameters || {})) {
+                const idx = parseInt(idxStr, 10);
+                if (!isNaN(idx)) {
+                  WebBridge.setParam(idx, val);
+                }
+              }
+
+              navbar?.setPresetName(preset.meta.name);
+              topLcdBar?.setPresetInfo(0, preset.meta.name);
+              shapersPanel?.syncAll();
+              nukeDrawer?.syncAll();
+              topLcdBar?.refreshAll();
+              console.log(`[ABDAxionikVS] Preset "${preset.meta.name}" cargado con éxito desde archivo .axpreset`);
+            } else {
+              // Si no es un .axpreset v2, abrir el drawer de banco habitual
+              bankDrawer.open('presets', 'global');
+            }
+          } catch (err) {
+            console.error('[ABDAxionikVS] Error al leer preset:', err);
+            bankDrawer.open('presets', 'global');
+          }
+        }
+        fileInput.remove();
+      });
+      fileInput.click();
+    },
+    onSavePreset: () => {
+      const currentName = navbar ? navbar.getPresetName() : '000 InitSound';
+      const dialog = new PresetSaveDialog({
+        currentPresetName: currentName,
+        onSave: (name, category, author) => {
+          const currentEngineMode = navbar?.getEngineMode() || 'classic';
+          const targetEngineMode: 'classic' | 'plus' | 'extended' =
+            currentEngineMode === 'expanded' ? 'extended' : currentEngineMode;
+
+          const r1Model = Math.round(WebBridge.getParam(ParamIdx.R1ModellIndex, 511));
+          const r2Model = Math.round(WebBridge.getParam(ParamIdx.R2ModellIndex, 511));
+          const r1Name = getCanonicalModelName(r1Model);
+          const r2Name = getCanonicalModelName(r2Model);          const extendedState = targetEngineMode === 'extended'            ? {                r1ModelName: currentR1ModelName,                r2ModelName: currentR2ModelName,              }            : {};
+
+          const preset: AxionikPreset = {
+            formatVersion: 2,
+            meta: {
+              name,
+              category,
+              author,
+              date: new Date().toISOString(),
+            },
+            engineMode: targetEngineMode,
+            models: {
+              resynator1: { id: r1Model, name: r1Name },
+              resynator2: { id: r2Model, name: r2Name },
+            },
+            parameters: WebBridge.getAllCachedParams(),
+            extendedState,
+          };
+
+          WebBridge.savePreset(preset, preset.engineMode);
+
+          if (!WebBridge.isHostConnected) {
+            downloadPresetFile(preset);
+          }
+
+          bankDrawer.registerUserPreset(preset);
+
+          navbar?.setPresetName(name);
+          topLcdBar?.setPresetInfo(0, name);
+          console.log(`[ABDAxionikVS] Preset "${name}" guardado como .axpreset (engineMode: ${preset.engineMode})`);
+        },
+      });
+      dialog.open();
+    },
+    onInitPreset: () => {
+      WebBridge.clearCache();
+      WebBridge.initPreset();
+      navbar?.setPresetName('000 InitSound');
+      navbar?.setModelName(1, '511 sinew');
+      navbar?.setModelName(2, '511 sinew');
+      updateResynatorModelUI(1, 511, '511 sinew');
+      updateResynatorModelUI(2, 511, '511 sinew');
+      topLcdBar?.setPresetInfo(0, '000 InitSound');
+      shapersPanel?.syncAll();
+      nukeDrawer?.syncAll();
+      topLcdBar?.refreshAll();
+      console.log('[ABDAxionikVS] Sound initialized to factory default.');
+    },
+    onToggleBank: () => {
+      bankDrawer.toggle('models', 'global');
+    },
+    onToggleNuke: () => {
+      nukeDrawer?.toggle();
+    },
+    onToggleMatrix: () => {
+      openMatrixDrawer();
+    },
+    onToggleMidiLearn: () => {
+      openMidiLearnDrawer();
+    },
+    onToggleHardwareDumps: () => {
+      hardwareDumpsDrawer?.toggle();
+    },
+    onToggleCalibration: () => {
+      calibrationDrawer?.toggle();
+    },
+    onToggleMfx: () => {
+      openMasterFxDrawer();
+    },
+    onToggleSettings: () => {
+      openSettingsDrawer();
+    },
+    onSelectPreset: () => {
+      bankDrawer.open('presets', 'global');
+    },
+    onSelectModel: (resynator) => {
+      targetResynatorForModelPick = resynator;
+      bankDrawer.open('models', resynator === 1 ? 'r1' : 'r2');
+    },
+    onSelectEngineMode: (mode) => {
+      WebBridge.setEngineMode(mode);
+      bankDrawer?.setEngineMode(mode);
+      dragDropHandler?.showToast(`[ENGINE MODE] ${mode.toUpperCase()}`);
+    },
+    onSelectTheme: (theme) => {
+      applyTheme(theme);
+    },
+    onToggleTheme: () => {
+      const nextTheme = themeManager.cycleTheme();
+      navbar?.setTheme(nextTheme);
+    },
+    onZoom: (zoomLevel) => {
+      applyZoom(zoomLevel);
+    },
+  });
+
+  // Sincronizar estado inicial de tema y zoom en la Navbar
+  navbar.setTheme(themeManager.getCurrentTheme());
+  navbar.setZoom(currentZoom);
+
+  // 6b. Inicializar Consola LCD Panorámica Superior Fija (Fase C)
+  topLcdBar = new TopLcdBar(lcdBarContainer, {
+    onOpenBankPresets: () => bankDrawer.open('presets', 'global'),
+    onOpenBankModels: (resynator) => {
+      targetResynatorForModelPick = resynator;
+      bankDrawer.open('models', resynator === 1 ? 'r1' : 'r2');
+    },
+    onOpenR1Drawer: openR1Drawer,
+    onOpenR2Drawer: openR2Drawer,
+    onOpenBlenderDrawer: openBlenderDrawer,
+    onOpenSilverDrawer: openSilverDrawer,
+    onOpenEnvelopeDrawer: () => openEnvelopeDrawer(),
+    onOpenMatrixDrawer: () => openMatrixDrawer(),
+    onSelectPresetSlot: (slot) => {
+      const pInfo = getCanonicalPresetInfo(slot);
+      navbar?.setPresetName(`${String(slot).padStart(3, '0')} ${pInfo.name}`);
+      topLcdBar?.setPresetInfo(slot, `${String(slot).padStart(3, '0')} ${pInfo.name}`);
+      const r1Name = getCanonicalModelName(pInfo.r1Model);
+      const r2Name = getCanonicalModelName(pInfo.r2Model);
+      updateResynatorModelUI(1, pInfo.r1Model, r1Name);
+      updateResynatorModelUI(2, pInfo.r2Model, r2Name);
+      navbar?.setModelName(1, `#${String(pInfo.r1Model).padStart(3, '0')} ${r1Name}`);
+      navbar?.setModelName(2, `#${String(pInfo.r2Model).padStart(3, '0')} ${r2Name}`);
+      WebBridge.seedPresetSlotEnvelopes(slot);
+      WebBridge.loadPresetSlot(slot);
+      shapersPanel?.syncAll();
+      nukeDrawer?.syncAll();
+      topLcdBar?.refreshAll();
+    },
+    onInitSound: () => {
+      WebBridge.clearCache();
+      WebBridge.initPreset();
+      navbar?.setPresetName('000 InitSound');
+      navbar?.setModelName(1, '511 sinew');
+      navbar?.setModelName(2, '511 sinew');
+      updateResynatorModelUI(1, 511, '511 sinew');
+      updateResynatorModelUI(2, 511, '511 sinew');
+      topLcdBar?.setPresetInfo(0, '000 InitSound');
+      shapersPanel?.syncAll();
+      nukeDrawer?.syncAll();
+      topLcdBar?.refreshAll();
+    },
+    onSelectAdsrTarget: (shaper, mode) => {
+      shapersPanel?.selectEnvelopeTarget(shaper, mode);
+    },
+  });
+
+  // 7. Gestor Drag & Drop para modelos, presets y paquetes zip
+  const dragDropHandler = new DragDropHandler({
+    onDropModel: async (file, targetR) => {
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.json') || lower.endsWith('.nmmodel')) {
+        if (navbar?.getEngineMode() !== 'expanded') {
+          dragDropHandler.showToast(
+            `[MODE MISMATCH] Classic/Plus mode only supports .model v1. Switch to EXPANDED for Resynator v2 models.`,
+            4200
+          );
+          return;
+        }
+        try {
+          const text = await file.text();
+          WebBridge.loadExpandedModelJson(targetR, text);
+        } catch (_err) {
+          dragDropHandler.showToast(`[PREFLIGHT ERROR] Could not read "${file.name}"`);
+        }
+        return;
+      }
+      const match = file.name.match(/^(\d{1,4})/);
+      const slot = match ? parseInt(match[1], 10) : (targetR === 1 ? 42 : 511);
+      const cleanName = file.name.replace(/\.[^/.]+$/, '');
+      navbar.setModelName(targetR, `#${String(slot).padStart(3, '0')} ${cleanName}`);
+      updateResynatorModelUI(targetR, slot, cleanName);
+
+      const parSet = (slot % 10);
+      if (targetR === 1) {
+        r1ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r1SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+        WebBridge.setParam(ParamIdx.R1ModellIndex, slot);
+      } else {
+        r2ScapeStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'scape'));
+        r2SphereStick?.setAllLayerLabels(getParameterSetStickLabels(parSet, 'sphere'));
+        WebBridge.setParam(ParamIdx.R2ModellIndex, slot);
+      }
+      WebBridge.loadModelSlot(slot, targetR);
+      console.log(`[ABDAxionikVS] DragDrop: Loaded model "${file.name}" to R${targetR} (Slot ${slot}, ParSet ${parSet})`);
+    },
+    onDropPreset: async (file) => {
+      let presetName = file.name.replace(/\.[^/.]+$/, '');
+      try {
+        const text = await file.text();
+        WebBridge.loadPresetScript(text);
+        const lines = text.split('\n');
+        for (const line of lines.slice(0, 30)) {
+          const m = line.match(/(?:soundname|name|preset)\s*[:=]?\s*["']?([^"'\r\n]+)["']?/i);
+          if (m && m[1].trim()) {
+            presetName = m[1].trim();
+            break;
+          }
+        }
+      } catch (_err) {
+        // En caso de preset binario / fxp, mantener nombre de fichero
+      }
+      navbar.setPresetName(presetName);
+      console.log(`[ABDAxionikVS] DragDrop: Loaded preset "${presetName}"`);
+    },
+    onDropZip: (file) => {
+      console.log(`[ABDAxionikVS] DragDrop: Model package dropped "${file.name}"`);
+    },
+  });
+
+  // 8. Atajos globales de teclado
+  setupKeyboardShortcuts(bankDrawer, navbar, openSettingsDrawer);
 
   // Contexto para el manejador PARAM_UPDATE (módulo app/paramUpdate.ts)
   const paramUpdateCtx: ParamUpdateCtx = {
-    updateResySwitchButton: (resy, enabled) => {
-      ctx.resynator?.updateSwitchButton(resy, enabled);
-    },
-    updateResynatorModelUI: (resynator, slot, name) => {
-      ctx.resynator?.updateModelUI(resynator, slot, name);
-    },
-    setModelName: (r, text) => ctx.navbar?.setModelName(r, text),
-    r1ScapeStick: ctx.sticks.r1Scape,
-    r1SphereStick: ctx.sticks.r1Sphere,
-    r2ScapeStick: ctx.sticks.r2Scape,
-    r2SphereStick: ctx.sticks.r2Sphere,
+    updateResySwitchButton,
+    updateResynatorModelUI,
+    setModelName: (r, text) => navbar?.setModelName(r, text),
+    r1ScapeStick,
+    r1SphereStick,
+    r2ScapeStick,
+    r2SphereStick,
     blender: {
       slider: null,
       sliderLabel: null,
       setIdx: (v) => {
-        ctx.blenderPanel?.updateAlgoUi(v);
+        blenderPanel?.updateAlgoUi(v);
       },
     },
     slicer: {
@@ -113,7 +1200,7 @@ const bootstrapAxionikApp = async () => {
       rateSlider: null,
       rateLabel: null,
       setIdx: (v) => {
-        ctx.silverPanel?.updateSlicerModeUi(v);
+        silverPanel?.updateSlicerModeUi(v);
       },
     },
     filter: {
@@ -124,42 +1211,126 @@ const bootstrapAxionikApp = async () => {
     },
     freqFx: {
       setIdx: (v) => {
-        ctx.silverPanel?.updateFreqAlgoUi(v);
+        silverPanel?.updateFreqAlgoUi(v);
       },
     },
     timeFx: {
       setIdx: (v) => {
-        ctx.silverPanel?.updateTimeAlgoUi(v);
+        silverPanel?.updateTimeAlgoUi(v);
       },
     },
-    shapersPanel: ctx.shapersPanel,
-    silverPanel: ctx.silverPanel,
-    blenderPanel: ctx.blenderPanel,
-    filterPanel: ctx.filterPanel,
-    envelopeMasterPanel: ctx.envelopeMasterPanel,
-    nukeDrawer: ctx.nukeDrawer,
+    shapersPanel,
+    silverPanel,
+    blenderPanel,
+    filterPanel,
+    envelopeMasterPanel,
+    nukeDrawer,
   };
-  ctx.paramUpdate = paramUpdateCtx;
 
-  subscribeBridge(ctx);
+  // 8. Suscribir cambios locales de parámetros (cualquier knob/stick/selector o edición desde el propio LCD)
+  WebBridge.onLocalParamSet((idx, val) => {
+    handleParamUpdate(idx, val, paramUpdateCtx);
+    topLcdBar?.onParamUpdated(idx, val, true);
+    hardwareDumpsDrawer?.onParamUpdated();
+    if (idx >= 363 && idx <= 428) {
+      controllersPanel?.updateLabels();
+    }
+  });
 
-  // Re-render the open drawer reactively on language change without closing it.
-  onLocaleChange(() => {
-    openers.reopenCurrentDrawer();
+  // 9. Suscribir telemetría y actualización de parámetros del bridge nativo
+  WebBridge.onMessage((msg) => {
+    if (msg.type === 'BANK_CATALOG_SYNC') {
+      // El payload viaja sin tipar por el bridge; se adapta a la forma que espera BankDrawer.
+      bankDrawer.syncCatalogFromHost(msg as Parameters<BankDrawer['syncCatalogFromHost']>[0]);
+    } else if (msg.type === 'PRESET_LOADED') {
+      if (typeof msg.name === 'string' && msg.name) {
+        currentPresetName = msg.name;
+        navbar.setPresetName(msg.name);
+        topLcdBar?.setPresetInfo(0, msg.name);
+      }
+      const r1 = typeof msg.r1Model === 'number' ? msg.r1Model : 511;
+      const r2 = typeof msg.r2Model === 'number' ? msg.r2Model : 511;
+      const r1Name = getCanonicalModelName(r1);
+      const r2Name = getCanonicalModelName(r2);
+      updateResynatorModelUI(1, r1, r1Name);
+      updateResynatorModelUI(2, r2, r2Name);
+      navbar.setModelName(1, `#${String(r1).padStart(3, '0')} ${r1Name}`);
+      navbar.setModelName(2, `#${String(r2).padStart(3, '0')} ${r2Name}`);
+
+      if (Array.isArray(msg.values)) {
+        applyAllParamsToUI(msg.values);
+      }
+      controllersPanel?.updateLabels();
+      silverPanel?.updateSilver();
+      shapersPanel?.syncAll();
+      nukeDrawer?.syncAll();
+      topLcdBar?.refreshAll();
+      hardwareDumpsDrawer?.refreshLiveInspector();
+      navbar?.setHardwareDumpsUnread(hardwareDumpsDrawer?.getUnreadCount() ?? 0);
+    } else if (msg.type === 'TELEMETRY') {
+      if (typeof msg.activeVoices === 'number') {
+        navbar.setVoices(msg.activeVoices);
+        topLcdBar?.setVoices(msg.activeVoices);
+      }
+      if (typeof msg.cpuUsage === 'number') navbar.setCpuLoad(msg.cpuUsage);
+    } else if (msg.type === 'PARAM_UPDATE') {
+      handleParamUpdate(msg.index, msg.value, paramUpdateCtx);
+      topLcdBar?.onParamUpdated(msg.index, msg.value, true);
+      hardwareDumpsDrawer?.onParamUpdated();
+      if (msg.index >= 363 && msg.index <= 428) {
+        controllersPanel?.updateLabels();
+      }
+      if ((msg.index >= 271 && msg.index <= 278) || msg.index === 281 || msg.index === 282 || msg.index === 327 || msg.index === 328) {
+        silverPanel?.updateSilver(msg.index);
+        if (msg.index === 271) {
+          silverPanel?.updateSilverToggle(msg.value > 0.5);
+        }
+      }
+    } else if (msg.type === 'ENGINE_MODE_CHANGED') {
+      const rawMode = String(msg.mode || 'expanded');
+      const normMode: 'classic' | 'plus' | 'expanded' =
+        rawMode === 'classic' ? 'classic' : rawMode === 'plus' || rawMode === 'classic-enhanced' ? 'plus' : 'expanded';
+      const rawCompile = String(msg.compileTargetMode || 'expanded');
+      const normCompile: 'classic' | 'plus' | 'expanded' =
+        rawCompile === 'classic' ? 'classic' : rawCompile === 'plus' ? 'plus' : 'expanded';
+      navbar?.setEngineMode(normMode, normCompile);
+      bankDrawer?.setEngineMode(normMode);
+    } else if (msg.type === 'EXPANDED_MODEL_PREFLIGHT') {
+      const rSlot: 1 | 2 = msg.resynator === 2 ? 2 : 1;
+      if (msg.ok) {
+        const mName = String(msg.modelName || 'Expanded Model');
+        const adaptCount = Number(msg.adaptationsCount || 0);
+        updateResynatorModelUI(rSlot, 900 + rSlot, `[EXP] ${mName}`);
+        navbar?.setModelName(rSlot, `[EXP] ${mName}`);
+        dragDropHandler.showToast(
+          adaptCount > 0
+            ? `[RESYNATOR ${rSlot} V2] Loaded "${mName}" (${adaptCount} adaptations applied)`
+            : `[RESYNATOR ${rSlot} V2] Loaded "${mName}"`,
+          3600
+        );
+      } else {
+        const errText = String(msg.firstError || 'Preflight rejected model');
+        dragDropHandler.showToast(`[PREFLIGHT BLOCKED R${rSlot}] ${errText}`, 4800);
+      }
+    } else if (msg.type === 'MIDI_LEARN_STATE') {
+      midiLearnStore.syncFromHost(msg as any);
+    } else if (msg.type === 'MIDI_ACTIVITY') {
+      midiLearnStore.recordActivity(msg as any);
+    } else if (typeof msg.type === 'string' && msg.type.startsWith('HARDWARE_')) {
+      hardwareDumpsDrawer?.onMessage(msg as unknown as HardwareHostEvent);
+      if (msg.type === 'HARDWARE_RX_COMPLETE' && msg.count != null && typeof msg.count === 'number') {
+        navbar?.setHardwareDumpsUnread(msg.count);
+      }
+    }
   });
 
   if ((import.meta as any).env?.DEV) {
-    (window as any).__axionikSticks = {
-      r1ScapeStick: ctx.sticks.r1Scape,
-      r1SphereStick: ctx.sticks.r1Sphere,
-      r2ScapeStick: ctx.sticks.r2Scape,
-      r2SphereStick: ctx.sticks.r2Sphere,
-    };
+    (window as any).__axionikSticks = { r1ScapeStick, r1SphereStick, r2ScapeStick, r2SphereStick };
   }
 
   // Notificar al host nativo que la WebUI está montada y lista para recibir telemetría
   WebBridge.send({ type: 'UI_READY' });
-  const initMlState = ctx.midiLearnStore.getState();
+  const initMlState = midiLearnStore.getState();
   if (initMlState.mappings.length > 0 || initMlState.isLearning) {
     WebBridge.send({
       type: 'MIDI_LEARN_SYNC',

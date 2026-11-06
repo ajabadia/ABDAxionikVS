@@ -362,6 +362,45 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
                               "', compileTargetMode: '" + compileMode + "', ok: true }); }";
             webComponent_->getWebBrowser().evaluateJavascript(js);
         }
+    } else if (type == "PRESET_SAVE") {
+        juce::String payloadJson = obj->getProperty("payload").toString();
+        juce::String presetName;
+        {
+            juce::var parsedJson;
+            auto parseResult = juce::JSON::parse(payloadJson, parsedJson);
+            if (parseResult.wasOk() && parsedJson.isObject()) {
+                presetName = parsedJson["meta"]["name"].toString();
+            }
+        }
+        if (presetName.isEmpty()) presetName = "Untitled Preset";
+        // El nombre viaja dentro de un literal JS entre comillas simples: sanearlo.
+        presetName = presetName.replace("\\", "\\\\").replace("'", "\\'").replace("\r", "").replace("\n", "");
+
+        // Sanear nombre de archivo
+        juce::String safeFileName = juce::File::createLegalFileName(presetName) + ".axpreset";
+
+        // Carpeta de presets de usuario: AxionikDB/presets si se resuelve, si no Documentos.
+        juce::File presetsDir;
+        {
+            auto axionikDbPath = processor_.getDspEngine().getBankAdapter().discoverAxionikDbPath();
+            if (!axionikDbPath.empty())
+                presetsDir = juce::File(juce::String(axionikDbPath.string())).getChildFile("presets");
+        }
+        if (presetsDir.getFullPathName().isEmpty()) {
+            presetsDir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                            .getChildFile("ABDAxionikVS").getChildFile("Presets");
+        }
+        presetsDir.createDirectory();
+
+        juce::File targetFile = presetsDir.getChildFile(safeFileName);
+        bool written = targetFile.replaceWithText(payloadJson);
+        AX_LOG(juce::String("[PRESET_SAVE] Saved preset to: ") + targetFile.getFullPathName() + (written ? " (OK)" : " (FAILED)"));
+
+        if (written && webComponent_ != nullptr) {
+            juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { "
+                              "  window.WebBridge.notify({ type: 'PRESET_SAVED_NOTIFICATION', name: '" + presetName + "', path: '" + targetFile.getFullPathName().replace("\\", "\\\\") + "' }); }";
+            webComponent_->getWebBrowser().evaluateJavascript(js);
+        }
     }
 }
 
