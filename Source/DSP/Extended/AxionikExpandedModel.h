@@ -313,11 +313,15 @@ struct AxionikRegion {
     std::string fadeCurve{"equal-power"}; // "linear" | "equal-power" | "spectral-morph"
     std::string roundRobinGroup{};
     int roundRobinIndex{0};
+    // Choke/mute group (0 = none; equal ids choke each other).
+    int muteGroup{0};
     std::string loopMode{"no_loop"};
     size_t loopStartFrame{0};
     size_t loopEndFrame{0};
     float loopCrossfadeMs{0.0f};
     int channels{2};
+    // Fase loop-1: source-audio rate for mapping loop sample-frames to spectral frames.
+    float sampleRate{44100.0f};
     AxionikHybridTransient hybridTransient{};
     bool hasAmpEnvOverride{false};
     AxionikDahdsr ampEnvOverride{};
@@ -920,7 +924,9 @@ inline AxionikExpandedPreflightReport preflightExpandedModelForAxionik(
         reg.fadeCurve = jr.getString("fadeCurve", "equal-power");
         reg.roundRobinGroup = jr.getString("roundRobinGroup", "");
         reg.roundRobinIndex = static_cast<int>(jr.getNumber("roundRobinIndex", 0.0));
+        reg.muteGroup = static_cast<int>(std::max(0.0, jr.getNumber("muteGroup", 0.0)));
         reg.channels = static_cast<int>(std::max(1.0, jr.getNumber("channels", 2.0)));
+        reg.sampleRate = static_cast<float>(std::max(8000.0, jr.getNumber("sampleRate", 44100.0)));
         if (const auto* jl = jr.find("loop"); jl && jl->isObject()) {
             reg.loopMode = jl->getString("mode", "no_loop");
             reg.loopStartFrame = static_cast<size_t>(std::max(0.0, jl->getNumber("startFrame", 0.0)));

@@ -4,6 +4,7 @@
  */
 
 import { wasmBridge } from './BridgeWasm.js';
+import { serializePreset, type AxionikPreset } from '../ui/PresetModel.js';
 
 export type OutgoingBridgeMessage =
   | { type: 'PARAM_SET'; index: number; value: number }
@@ -25,7 +26,8 @@ export type OutgoingBridgeMessage =
   | { type: 'SCAN_BANK' }
   | { type: 'UI_READY' }
   | { type: 'SEND_HARDWARE_DUMP'; target: 'HARDWARE_DUMP_CURRENT' | 'HARDWARE_DUMP_ALL_SOUNDS' | 'HARDWARE_DUMP_ALL_SETUPS' | 'HARDWARE_DUMP_ALL_MODELS' }
-  | { type: 'HARDWARE_DUMP_RECEIVE'; target: string; data: number[] };
+  | { type: 'HARDWARE_DUMP_RECEIVE'; target: string; data: number[] }
+  | { type: 'PRESET_SAVE'; payload: string };
 
 export type IncomingBridgeMessage =
   | { type: 'PARAM_UPDATE'; index: number; value: number }
@@ -306,6 +308,31 @@ class WebBridgeImpl {
 
   public scanBank() {
     this.send({ type: 'SCAN_BANK' });
+  }
+
+  /** True if the bridge is connected to a Host (JUCE WebView2 / chrome.webview). */
+  public get isHostConnected(): boolean {
+    return this.isNative;
+  }
+
+  /**
+   * Guarda/descarga el preset desde la WebUI.
+   * - En el navegador: se descarga el archivo .axpreset (Blob download).
+   * - En Host C++/VST3: emite PRESET_SAVE para que el Host lo persista en su carpeta.
+   */
+  public savePreset(preset: AxionikPreset, engineMode?: 'classic' | 'plus' | 'extended' | 'legacy'): boolean {
+    try {
+      const json = serializePreset(preset);
+      const msg: Record<string, unknown> = {
+        type: 'PRESET_SAVE',
+        payload: json,
+        engineMode,
+      };
+      this.send(msg as BridgeMessage);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   public sendHardwareDump(target: 'HARDWARE_DUMP_CURRENT' | 'HARDWARE_DUMP_ALL_SOUNDS' | 'HARDWARE_DUMP_ALL_SETUPS' | 'HARDWARE_DUMP_ALL_MODELS') {

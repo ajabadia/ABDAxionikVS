@@ -34,6 +34,67 @@ namespace abd::axionik::extended {
 inline constexpr size_t kMaxExpandedVoices   = 16;
 inline constexpr size_t kMaxPartialsPerVoice = 256;
 inline constexpr float  kTwoPi               = 6.28318530717958647692f;
+// Fase loop-1: synth spectral-frame clock (frames/sec at rateScale 1).
+inline constexpr float  kExpandedFramesPerSec = 8.0f;
+
+/** Loop bounds in spectral-frame units. `hasLoop` false = legacy clamp. */
+struct RegionLoopBounds { float start{0.0f}; float end{0.0f}; bool hasLoop{false}; };
+
+/**
+ * Maps region loop points (source-audio sample frames) to spectral-frame
+ * units on the synth frame clock. Only the five looping vocabularies
+ * qualify; anything else (or degenerate bounds) keeps legacy behavior.
+ */
+inline RegionLoopBounds regionLoopBoundsFrames(const AxionikRegion& reg, size_t nFrames) noexcept {
+    RegionLoopBounds out;
+    if (nFrames < 2) return out;
+    const float last = static_cast<float>(nFrames - 1);
+    const float rate = reg.sampleRate > 0.0f ? reg.sampleRate : 44100.0f;
+    const float a = std::clamp((static_cast<float>(reg.loopStartFrame) / rate) * kExpandedFramesPerSec, 0.0f, last);
+    const float b = std::clamp((static_cast<float>(reg.loopEndFrame) / rate) * kExpandedFramesPerSec, 0.0f, last);
+    const bool loopable = reg.loopMode == "loop_continuous" || reg.loopMode == "loop_sustain" ||
+        reg.loopMode == "ping_pong" || reg.loopMode == "loop_backward" || reg.loopMode == "one_shot";
+    if (!loopable || b <= a) return out;
+    out.start = a;
+    out.end = b;
+    out.hasLoop = true;
+    return out;
+}
+
+struct RegionLoopStep { float pos; int dir; bool finished; };
+
+/**
+ * Advances a frame position inside [a, b] per loop mode. Pure: unit-testable.
+ * ping_pong reflects and flips dir; loop_backward keeps dir -1;
+ * one_shot reports finished at the end; continuous/sustain wrap around.
+ */
+inline RegionLoopStep wrapRegionLoopPos(float pos, float a, float b, const std::string& mode, int dir) noexcept {
+    const float span = b - a;
+    if (span <= 0.0f) return {b, 1, mode == "one_shot"};
+    if (mode == "ping_pong") {
+        int d = (dir >= 0) ? 1 : -1;
+        float p = pos;
+        for (int i = 0; i < 2 && (p > b || p < a); ++i) {
+            if (p > b) { p = b - (p - b); d = -1; }
+            else if (p < a) { p = a + (a - p); d = 1; }
+        }
+        return {std::clamp(p, a, b), d, false};
+    }
+    if (mode == "loop_backward") {
+        float p = pos;
+        while (p < a) p += span;
+        while (p > b) p -= span;
+        return {p, -1, false};
+    }
+    if (mode == "one_shot") {
+        if (pos >= b) return {b, 1, true};
+        if (pos < a) return {a, 1, false};
+        return {pos, 1, false};
+    }
+    float p = a + std::fmod(pos - a, span);
+    if (p < a) p += span;
+    return {p, 1, false};
+}
 
 class AxionikExpandedSynthesizer {
 public:
@@ -53,8 +114,13 @@ public:
             v.noteAge = 0;
             v.lpStateL = 0.0f;
             v.lpStateR = 0.0f;
+            v.loopPos = 0.0f;
+            v.loopDir = 1;
+            v.loopInit = false;
         }
         rrCounter_ = 0;
+        rrGroupKeys_.fill({});
+        rrGroupCounters_.fill(0);
         decorrelDelayIdx_ = 0;
         decorrelLineL_.fill(0.0f);
         decorrelLineR_.fill(0.0f);
@@ -82,12 +148,63 @@ public:
         if (!hasModel_) return;
         const int vel127 = std::clamp(static_cast<int>( std::lround(velocityNorm * 127.0f) ), 1, 127);
 
-        // Select matching region via ExtendedRegionDispatcher
-        int matchedRegionIdx = dispatchRegion(note, vel127, "attack");
+        // Trigger priority via ExtendedRegionDispatcher: `first` only when
+        // nothing is sounding, `legato` only over held voices, `attack`
+        // otherwise. (`release` regions spawn from noteOff.)
+        const bool anyActive = anyVoiceActive();
+        int matchedRegionIdx = -1;
+        if (!anyActive) matchedRegionIdx = dispatchRegion(note, vel127, "first");
+        if (matchedRegionIdx < 0 && anyActive) matchedRegionIdx = dispatchRegion(note, vel127, "legato");
+        if (matchedRegionIdx < 0) matchedRegionIdx = dispatchRegion(note, vel127, "attack");
         if (matchedRegionIdx < 0 && !model_.regions.empty()) {
             matchedRegionIdx = 0;
         }
+        startVoice(note, velocityNorm, matchedRegionIdx);
+    }
 
+    void noteOff(uint8_t note) noexcept {
+        float relVel = 0.5f;
+        for (auto& v : voices_) {
+            if (v.active && !v.releasing && v.note == note) {
+                relVel = v.velocityNorm;
+                v.releasing = true;
+                v.releaseStartLevel = v.envLevel;
+                v.releaseElapsedSec = 0.0f;
+            }
+        }
+        // `release`-trigger regions (edge blips, piano dampers, hats on
+        // pedal lift) spawn a voice on key release.
+        const int vel127 = std::clamp(static_cast<int>( std::lround(relVel * 127.0f) ), 1, 127);
+        const int matchedRegionIdx = dispatchRegion(note, vel127, "release");
+        if (matchedRegionIdx >= 0) {
+            startVoice(note, relVel, matchedRegionIdx);
+        }
+    }
+
+    [[nodiscard]] int getVoiceRegionIndex(size_t voiceIdx) const noexcept {
+        if (voiceIdx >= voices_.size()) return -1;
+        const auto& v = voices_[voiceIdx];
+        return v.active ? v.regionIndex : -1;
+    }
+
+    [[nodiscard]] bool isVoiceReleasing(size_t voiceIdx) const noexcept {
+        if (voiceIdx >= voices_.size()) return false;
+        return voices_[voiceIdx].active && voices_[voiceIdx].releasing;
+    }
+
+    [[nodiscard]] bool anyVoiceActive() const noexcept {
+        for (const auto& v : voices_) {
+            if (v.active) return true;
+        }
+        return false;
+    }
+
+    void startVoice(uint8_t note, float velocityNorm, int matchedRegionIdx) noexcept {
+        // Bounds guard: an empty model yields no region (previously UB via
+        // regions[-1]/regions[0] indexing in the legacy fallback path).
+        if (matchedRegionIdx < 0 ||
+            static_cast<size_t>(matchedRegionIdx) >= model_.regions.size()) return;
+        const int vel127 = std::clamp(static_cast<int>( std::lround(velocityNorm * 127.0f) ), 1, 127);
         // Allocate voice (steal oldest if full)
         size_t voiceIdx = 0;
         uint64_t maxAge = 0;
@@ -122,6 +239,9 @@ public:
         v.noteAge = ++globalNoteCounter_;
         v.lpStateL = 0.0f;
         v.lpStateR = 0.0f;
+        v.loopPos = 0.0f;
+        v.loopDir = 1;
+        v.loopInit = false;
 
         // Calculate Key × Velocity crossfade gain
         v.regionCrossfadeGain = (matchedRegionIdx >= 0)
@@ -145,14 +265,25 @@ public:
                 v.phases[p] = f0Frame.phases[p];
             }
         }
-    }
 
-    void noteOff(uint8_t note) noexcept {
-        for (auto& v : voices_) {
-            if (v.active && !v.releasing && v.note == note) {
-                v.releasing = true;
-                v.releaseStartLevel = v.envLevel;
-                v.releaseElapsedSec = 0.0f;
+        // Mute/choke group: the new voice silences same-group voices
+        // (closed hi-hat chokes open hi-hat; 0 = no group).
+        if (matchedRegionIdx >= 0 &&
+            static_cast<size_t>(matchedRegionIdx) < model_.regions.size()) {
+            const int mg = model_.regions[static_cast<size_t>(matchedRegionIdx)].muteGroup;
+            if (mg != 0) {
+                for (size_t i = 0; i < voices_.size(); ++i) {
+                    if (i == voiceIdx) continue;
+                    auto& o = voices_[i];
+                    if (!o.active || o.releasing) continue;
+                    if (o.regionIndex < 0 ||
+                        static_cast<size_t>(o.regionIndex) >= model_.regions.size()) continue;
+                    if (model_.regions[static_cast<size_t>(o.regionIndex)].muteGroup == mg) {
+                        o.releasing = true;
+                        o.releaseStartLevel = o.envLevel;
+                        o.releaseElapsedSec = 0.0f;
+                    }
+                }
             }
         }
     }
@@ -246,6 +377,10 @@ private:
         float envLevel{0.0f};
         float lpStateL{0.0f};
         float lpStateR{0.0f};
+        // Fase loop-1: stateful loop cursor (only used when the region loops).
+        float loopPos{0.0f};
+        int loopDir{1};
+        bool loopInit{false};
         uint64_t noteAge{0};
         std::array<float, kMaxPartialsPerVoice> phases{};
     };
@@ -256,6 +391,8 @@ private:
     bool hasModel_{false};
     uint64_t globalNoteCounter_{0};
     uint32_t rrCounter_{0};
+    std::array<std::string, 16> rrGroupKeys_{};
+    std::array<uint32_t, 16> rrGroupCounters_{};
     uint32_t noiseRng_{0x13579BDFu};
     float filterLpL_{0.0f};
     float filterLpR_{0.0f};
@@ -284,17 +421,71 @@ private:
         return 20000.0f;
     }
 
+    uint32_t& rrCounterFor(const std::string& grp) noexcept {
+        static constexpr size_t kMaxRrGroups = 16;
+        if (!grp.empty()) {
+            for (size_t i = 0; i < kMaxRrGroups; ++i) {
+                if (i < rrGroupKeys_.size() && rrGroupKeys_[i] == grp) return rrGroupCounters_[i];
+            }
+            for (size_t i = 0; i < kMaxRrGroups; ++i) {
+                if (i >= rrGroupKeys_.size()) break;
+                if (rrGroupKeys_[i].empty()) {
+                    rrGroupKeys_[i] = grp;
+                    rrGroupCounters_[i] = 0;
+                    return rrGroupCounters_[i];
+                }
+            }
+        }
+        return rrCounter_;
+    }
+
     [[nodiscard]] int dispatchRegion(uint8_t note, int vel127, std::string_view triggerMode) noexcept {
+        auto triggerMatch = [&](const AxionikRegion& r) {
+            return r.trigger == triggerMode || (triggerMode == "attack" && r.trigger.empty());
+        };
+        auto zoneMatch = [&](const AxionikRegion& r) {
+            return note >= r.lowKey && note <= r.highKey && vel127 >= r.lowVel && vel127 <= r.highVel;
+        };
+        int firstMatch = -1;
+        for (size_t i = 0; i < model_.regions.size(); ++i) {
+            if (triggerMatch(model_.regions[i]) && zoneMatch(model_.regions[i])) {
+                firstMatch = static_cast<int>(i);
+                break;
+            }
+        }
+        if (firstMatch < 0) return -1;
+        // Round-robin rotates inside the first matching group (first-group
+        // wins on pathological group overlaps); ungrouped regions share the
+        // legacy global counter.
+        const std::string& grp = model_.regions[static_cast<size_t>(firstMatch)].roundRobinGroup;
         std::vector<int> candidates;
         for (size_t i = 0; i < model_.regions.size(); ++i) {
             const auto& r = model_.regions[i];
-            if (r.trigger != triggerMode && !(triggerMode == "attack" && r.trigger.empty())) continue;
-            if (note >= r.lowKey && note <= r.highKey && vel127 >= r.lowVel && vel127 <= r.highVel) {
-                candidates.push_back(static_cast<int>(i));
-            }
+            if (!triggerMatch(r) || !zoneMatch(r)) continue;
+            if (grp.empty() ? !r.roundRobinGroup.empty() : r.roundRobinGroup != grp) continue;
+            candidates.push_back(static_cast<int>(i));
         }
         if (candidates.empty()) return -1;
-        const size_t pick = (rrCounter_++) % candidates.size();
+        // Honor explicit roundRobinIndex order when every candidate sets one.
+        bool allIndexed = true;
+        for (int ci : candidates) {
+            if (model_.regions[static_cast<size_t>(ci)].roundRobinIndex == 0) { allIndexed = false; break; }
+        }
+        if (allIndexed && candidates.size() > 1) {
+            for (size_t a = 1; a < candidates.size(); ++a) {
+                const int key = candidates[a];
+                const int keyIdx = model_.regions[static_cast<size_t>(key)].roundRobinIndex;
+                size_t b = a;
+                while (b > 0 &&
+                    model_.regions[static_cast<size_t>(candidates[b - 1])].roundRobinIndex > keyIdx) {
+                    candidates[b] = candidates[b - 1];
+                    --b;
+                }
+                candidates[b] = key;
+            }
+        }
+        uint32_t& ctr = rrCounterFor(grp);
+        const size_t pick = (ctr++) % candidates.size();
         return candidates[pick];
     }
 
@@ -400,11 +591,41 @@ private:
         }
 
         const size_t nFrames = spec->frames.size();
-        const float framePos = std::clamp(
-            (v.elapsedSec * rateScale * 8.0f) + morphX * static_cast<float>(nFrames > 1 ? nFrames - 1 : 0),
-            0.0f,
-            static_cast<float>(nFrames - 1)
-        );
+        const float lastFrame = static_cast<float>(nFrames > 1 ? nFrames - 1 : 0);
+        // Fase loop-1: stateful loop cursor. no_loop (or degenerate bounds)
+        // keeps the exact legacy formula (parity); looping modes wrap the
+        // cursor inside the mapped bounds. Stick morphX offsets the loop
+        // entry point at note start and is then frozen for looped voices.
+        float framePos = 0.0f;
+        {
+            const float basePos = std::clamp(
+                (v.elapsedSec * rateScale * kExpandedFramesPerSec) + morphX * lastFrame,
+                0.0f,
+                lastFrame);
+            const AxionikRegion fallbackReg{};
+            const AxionikRegion& rr = reg ? *reg : fallbackReg;
+            const RegionLoopBounds lb = regionLoopBoundsFrames(rr, nFrames);
+            if (!lb.hasLoop) {
+                framePos = basePos;
+            } else {
+                if (!v.loopInit) {
+                    v.loopDir = (rr.loopMode == "loop_backward") ? -1 : 1;
+                    v.loopPos = (v.loopDir < 0) ? lb.end : std::clamp(basePos, lb.start, lb.end);
+                    v.loopInit = true;
+                }
+                const float step = rateScale * kExpandedFramesPerSec * invSampleRate_;
+                v.loopPos += step * static_cast<float>(v.loopDir);
+                const RegionLoopStep st = wrapRegionLoopPos(v.loopPos, lb.start, lb.end, rr.loopMode, v.loopDir);
+                v.loopPos = st.pos;
+                v.loopDir = st.dir;
+                if (st.finished) {
+                    v.releasing = true;
+                    v.releaseStartLevel = v.envLevel;
+                    v.releaseElapsedSec = 0.0f;
+                }
+                framePos = v.loopPos;
+            }
+        }
         const size_t idx0 = static_cast<size_t>(framePos);
         const size_t idx1 = std::min(idx0 + 1, nFrames - 1);
         const float frac = framePos - static_cast<float>(idx0);
@@ -447,7 +668,11 @@ private:
             const float rawA0 = f0.amps[p];
             const float rawA1 = (p < f1.amps.size()) ? f1.amps[p] : rawA0;
             const float rawAmp = rawA0 + (rawA1 - rawA0) * frac;
-            const float formAmp = f0.amps[fIdx];
+            // Formant path interpolates across frames exactly like the raw
+            // path (previously it read the f0 frame only).
+            const float formAmp0 = f0.amps[fIdx];
+            const float formAmp1 = (fIdx < f1.amps.size()) ? f1.amps[fIdx] : formAmp0;
+            const float formAmp = formAmp0 + (formAmp1 - formAmp0) * frac;
             float amp = rawAmp * (1.0f - formantPreserve) + formAmp * formantPreserve;
             if (amp <= 1e-6f) continue;
 
@@ -475,7 +700,8 @@ private:
 
             const float stiff = (B > 0.0f) ? std::sqrt(1.0f + B * n * n) : 1.0f;
             const float off0 = (p < f0.offsets.size()) ? f0.offsets[p] : 0.0f;
-            const float partialHz = baseFreqHz * n * stiff + off0 + shiftHz;
+            const float off1 = (p < f1.offsets.size()) ? f1.offsets[p] : off0;
+            const float partialHz = baseFreqHz * n * stiff + (off0 + (off1 - off0) * frac) + shiftHz;
             if (partialHz <= 10.0f || partialHz >= nyquist) continue;
 
             v.phases[p] += kTwoPi * partialHz * invSampleRate_;

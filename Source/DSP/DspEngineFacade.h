@@ -154,6 +154,17 @@ public:
         return &expandedSynths_[static_cast<size_t>(slot)].getLoadedModel();
     }
 
+    /// Voice introspection for hosts/tests (region routing, choke state).
+    [[nodiscard]] int getExpandedVoiceRegionIndex(int slot, size_t voiceIdx) const noexcept {
+        if (slot < 0 || slot > 1) return -1;
+        return expandedSynths_[static_cast<size_t>(slot)].getVoiceRegionIndex(voiceIdx);
+    }
+
+    [[nodiscard]] bool isExpandedVoiceReleasing(int slot, size_t voiceIdx) const noexcept {
+        if (slot < 0 || slot > 1) return false;
+        return expandedSynths_[static_cast<size_t>(slot)].isVoiceReleasing(voiceIdx);
+    }
+
     /// Carga de presets completos (.sound)
     bool loadPreset(const std::filesystem::path& soundFolder);
     bool loadPresetFromScript(const std::string& scriptText);

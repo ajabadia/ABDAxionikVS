@@ -4,15 +4,19 @@
 // ============================================================================
 
 #include "DSP/DspEngineFacade.h"
+#include "DSP/Extended/AxionikExpandedSynthesizer.h"
 #include "DSP/AxionikParamIndices.h"
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <cassert>
+#include <memory> // heap-allocated facades: sizeof(DspEngineFacade) ~2.6 MB; three on main's 8 MB stack overflow it
 
 using namespace abd::axionik;
 
 int main() {
+    std::cout << std::unitbuf;
+    std::cerr << "[main] enter sizeof(Facade)=" << sizeof(DspEngineFacade) << std::endl;
     std::cout << "[DspEngineFacadeTests] Starting unit tests...\n";
 
     DspEngineFacade engine;
@@ -601,9 +605,7 @@ int main() {
               "lowVel": 1,
               "highVel": 64,
               "volumeDb": -2.0,
-              "loopMode": "forward",
-              "loopStartFrame": 4410,
-              "loopEndFrame": 22050
+              "loop": { "mode": "loop_continuous", "startFrame": 4410, "endFrame": 22050, "crossfadeMs": 0 }
             },
             {
               "id": "zone_low_f",
@@ -614,9 +616,7 @@ int main() {
               "lowVel": 65,
               "highVel": 127,
               "volumeDb": 1.5,
-              "loopMode": "forward",
-              "loopStartFrame": 4410,
-              "loopEndFrame": 22050
+              "loop": { "mode": "loop_continuous", "startFrame": 4410, "endFrame": 22050, "crossfadeMs": 0 }
             },
             {
               "id": "zone_hi",
@@ -627,7 +627,7 @@ int main() {
               "lowVel": 1,
               "highVel": 127,
               "volumeDb": 0.0,
-              "loopMode": "no_loop"
+              "loop": { "mode": "no_loop", "startFrame": 0, "endFrame": 0, "crossfadeMs": 0 }
             }
           ],
           "articulation": {
@@ -645,28 +645,52 @@ int main() {
           "classic": { "modelName": "PIANO_VEL" }
         })JSON";
 
-        DspEngineFacade samplerEngine;
-        samplerEngine.prepare(44100.0, 512);
+        auto samplerEngine = std::make_unique<DspEngineFacade>();
+        samplerEngine->prepare(44100.0, 512);
 
         extended::AxionikExpandedPreflightReport report;
-        bool loaded = samplerEngine.loadExpandedModelFromJson(0, multisampleJson, &report);
+        bool loaded = samplerEngine->loadExpandedModelFromJson(0, multisampleJson, &report);
         if (!loaded || !report.ok) {
             std::cerr << "[FAIL] Test 14: Failed to parse multisample JSON! Errors:\n";
             for (const auto& err : report.errors) std::cerr << "  - " << err << "\n";
             return 14;
         }
 
-        if (!samplerEngine.hasExpandedModelLoaded(0)) {
+        if (!samplerEngine->hasExpandedModelLoaded(0)) {
             std::cerr << "[FAIL] Test 14: hasExpandedModelLoaded(0) must be true!\n";
             return 14;
         }
 
+        // 14.1b: Loop transfer — nested `loop` object (ABDNeuModMakr shape)
+        // must survive parsing instead of defaulting to no_loop/0.
+        {
+            const auto* doc = samplerEngine->getExpandedModelDoc(0);
+            if (!doc) {
+                std::cerr << "[FAIL] Test 14.1b: getExpandedModelDoc(0) must not be null!\n";
+                return 14;
+            }
+            if (doc->regions.size() != 3) {
+                std::cerr << "[FAIL] Test 14.1b: expected 3 regions!\n";
+                return 14;
+            }
+            if (doc->regions[0].loopMode != "loop_continuous" ||
+                doc->regions[0].loopStartFrame != 4410 ||
+                doc->regions[0].loopEndFrame != 22050) {
+                std::cerr << "[FAIL] Test 14.1b: zone_low_p loop was not transferred (mode/start/end)!\n";
+                return 14;
+            }
+            if (doc->regions[2].loopMode != "no_loop") {
+                std::cerr << "[FAIL] Test 14.1b: zone_hi must stay no_loop!\n";
+                return 14;
+            }
+        }
+
         // 14.2: Verify zone selection across Note & Velocity
         // Test soft note in low register (C3 = 48, vel = 0.2 -> zone_low_p)
-        samplerEngine.noteOn(48, 0.2f);
+        samplerEngine->noteOn(48, 0.2f);
         std::vector<float> leftP(512, 0.0f);
         std::vector<float> rightP(512, 0.0f);
-        samplerEngine.process(leftP.data(), rightP.data(), 512);
+        samplerEngine->process(leftP.data(), rightP.data(), 512);
 
         float maxP = 0.0f;
         for (size_t i = 0; i < 512; ++i) maxP = std::max(maxP, std::abs(leftP[i]));
@@ -675,13 +699,13 @@ int main() {
             return 14;
         }
 
-        samplerEngine.allNotesOff();
+        samplerEngine->allNotesOff();
 
         // Test loud note in low register (C3 = 48, vel = 0.9 -> zone_low_f)
-        samplerEngine.noteOn(48, 0.9f);
+        samplerEngine->noteOn(48, 0.9f);
         std::vector<float> leftF(512, 0.0f);
         std::vector<float> rightF(512, 0.0f);
-        samplerEngine.process(leftF.data(), rightF.data(), 512);
+        samplerEngine->process(leftF.data(), rightF.data(), 512);
 
         float maxF = 0.0f;
         for (size_t i = 0; i < 512; ++i) maxF = std::max(maxF, std::abs(leftF[i]));
@@ -691,10 +715,10 @@ int main() {
         }
 
         // 14.3: High register note (C5 = 72 -> zone_hi)
-        samplerEngine.noteOn(72, 0.7f);
+        samplerEngine->noteOn(72, 0.7f);
         std::vector<float> leftHi(512, 0.0f);
         std::vector<float> rightHi(512, 0.0f);
-        samplerEngine.process(leftHi.data(), rightHi.data(), 512);
+        samplerEngine->process(leftHi.data(), rightHi.data(), 512);
         float maxHi = 0.0f;
         for (size_t i = 0; i < 512; ++i) maxHi = std::max(maxHi, std::abs(leftHi[i]));
         if (maxHi <= 1e-5f) {
@@ -702,10 +726,267 @@ int main() {
             return 14;
         }
 
-        samplerEngine.allNotesOff();
+        samplerEngine->allNotesOff();
         std::cout << "  [PASS] Test 14: Phase K.2 Rompler multisample import & velocity/pitch zone dispatch verified.\n";
     }
+    // Test 15: Phase loop-1 -- region loop bounds mapping + wrap math (pure).
+    {
+        // 4410/22050 @44100Hz on the 8 fps synth clock -> [0.8, 4.0] of 64 frames.
+        extended::AxionikRegion loopReg;
+        loopReg.loopMode = "loop_continuous";
+        loopReg.loopStartFrame = 4410;
+        loopReg.loopEndFrame = 22050;
+        loopReg.sampleRate = 44100.0f;
+        const extended::RegionLoopBounds lb =
+            extended::regionLoopBoundsFrames(loopReg, 64);
+        if (!lb.hasLoop || std::abs(lb.start - 0.8f) > 1e-4f || std::abs(lb.end - 4.0f) > 1e-4f) {
+            std::cerr << "[FAIL] Test 15: loop bounds mapping wrong (" << lb.start << ", " << lb.end << ")!\n";
+            return 15;
+        }
+        // continuous wraps around: 4.5 in [0.8, 4.0] -> 1.3
+        {
+            const auto st = extended::wrapRegionLoopPos(4.5f, 0.8f, 4.0f, "loop_continuous", 1);
+            if (std::abs(st.pos - 1.3f) > 1e-4f || st.dir != 1 || st.finished) {
+                std::cerr << "[FAIL] Test 15: continuous wrap wrong!\n";
+                return 15;
+            }
+        }
+        // ping_pong reflects and flips direction: 4.5 -> 3.5, dir -1
+        {
+            const auto st = extended::wrapRegionLoopPos(4.5f, 0.8f, 4.0f, "ping_pong", 1);
+            if (std::abs(st.pos - 3.5f) > 1e-4f || st.dir != -1 || st.finished) {
+                std::cerr << "[FAIL] Test 15: ping_pong reflect wrong!\n";
+                return 15;
+            }
+        }
+        // one_shot ends at the bound and reports finished
+        {
+            const auto st = extended::wrapRegionLoopPos(4.2f, 0.8f, 4.0f, "one_shot", 1);
+            if (std::abs(st.pos - 4.0f) > 1e-4f || !st.finished) {
+                std::cerr << "[FAIL] Test 15: one_shot finish wrong!\n";
+                return 15;
+            }
+            const auto st2 = extended::wrapRegionLoopPos(2.0f, 0.8f, 4.0f, "one_shot", 1);
+            if (st2.finished) {
+                std::cerr << "[FAIL] Test 15: one_shot must not finish mid-loop!\n";
+                return 15;
+            }
+        }
+        // backward keeps dir -1 and wraps from below
+        {
+            const auto st = extended::wrapRegionLoopPos(0.5f, 0.8f, 4.0f, "loop_backward", -1);
+            if (std::abs(st.pos - (0.8f + (0.5f + 3.2f - 0.8f))) > 1e-4f || st.dir != -1) {
+                std::cerr << "[FAIL] Test 15: backward wrap wrong!\n";
+                return 15;
+            }
+        }
+        // no_loop / degenerate bounds keep legacy (no loop)
+        {
+            extended::AxionikRegion noLoop;
+            noLoop.loopMode = "no_loop";
+            if (extended::regionLoopBoundsFrames(noLoop, 64).hasLoop) {
+                std::cerr << "[FAIL] Test 15: no_loop must not loop!\n";
+                return 15;
+            }
+            extended::AxionikRegion deg = loopReg;
+            deg.loopMode = "loop_continuous";
+            deg.loopStartFrame = 99999;
+            deg.loopEndFrame = 99999;
+            if (extended::regionLoopBoundsFrames(deg, 64).hasLoop) {
+                std::cerr << "[FAIL] Test 15: degenerate bounds must not loop!\n";
+                return 15;
+            }
+        }
+        std::cout << "  [PASS] Test 15: Phase loop-1 region loop mapping + wrap math verified.\n";
+    }
+    // Test 16: Trigger dispatcher (first/legato/release), per-group
+    // round-robin honoring roundRobinIndex, and mute-group choke.
+    {
+        std::cerr << "[16] enter" << std::endl;
+        const std::string trigJson = R"JSON({
+          "schemaVersion": "2.0.0",
+          "identity": {
+            "slug": "trigger-lab",
+            "expandedName": "Trigger Lab",
+            "modelName": "TRIGLAB",
+            "engineMin": "expanded",
+            "requiredCaps": ["filter-v2"]
+          },
+          "spectral": {
+            "partialCount": 64,
+            "frameCount": 2,
+            "frameSpanHz": 20000.0,
+            "frames": [
+              { "f0Hz": 261.63, "amps": [0.8, 0.4, 0.2], "offsets": [0.0, 12.0, 19.0] },
+              { "f0Hz": 261.63, "amps": [0.4, 0.2, 0.1], "offsets": [0.0, 12.0, 19.0] }
+            ]
+          },
+          "regions": [
+            { "id": "rr_a", "sampleRef": "a.wav", "lowKey": 60, "highKey": 60, "rootKey": 60,
+              "lowVel": 1, "highVel": 127, "roundRobinGroup": "g", "roundRobinIndex": 2 },
+            { "id": "rr_b", "sampleRef": "b.wav", "lowKey": 60, "highKey": 60, "rootKey": 60,
+              "lowVel": 1, "highVel": 127, "roundRobinGroup": "g", "roundRobinIndex": 1 },
+            { "id": "first_c", "sampleRef": "c.wav", "lowKey": 61, "highKey": 61, "rootKey": 61,
+              "lowVel": 1, "highVel": 127, "trigger": "first" },
+            { "id": "legato_d", "sampleRef": "d.wav", "lowKey": 62, "highKey": 62, "rootKey": 62,
+              "lowVel": 1, "highVel": 127, "trigger": "legato" },
+            { "id": "attack_e", "sampleRef": "e.wav", "lowKey": 62, "highKey": 62, "rootKey": 62,
+              "lowVel": 1, "highVel": 127 },
+            { "id": "hat_closed", "sampleRef": "hc.wav", "lowKey": 63, "highKey": 63, "rootKey": 63,
+              "lowVel": 1, "highVel": 127, "muteGroup": 7 },
+            { "id": "hat_open", "sampleRef": "ho.wav", "lowKey": 64, "highKey": 64, "rootKey": 64,
+              "lowVel": 1, "highVel": 127, "muteGroup": 7 },
+            { "id": "attack_g", "sampleRef": "g.wav", "lowKey": 67, "highKey": 67, "rootKey": 67,
+              "lowVel": 1, "highVel": 127 },
+            { "id": "damper", "sampleRef": "r.wav", "lowKey": 67, "highKey": 67, "rootKey": 67,
+              "lowVel": 1, "highVel": 127, "trigger": "release" },
+            { "id": "solo_e", "sampleRef": "s.wav", "lowKey": 66, "highKey": 66, "rootKey": 66,
+              "lowVel": 1, "highVel": 127, "roundRobinGroup": "h" }
+          ],
+          "articulation": {
+            "polyphony": 16,
+            "voiceMode": "poly",
+            "ampEnv": { "attack": 0.005, "decay": 0.2, "sustain": 0.8, "release": 0.4 },
+            "filters": [
+              { "id": "main-filter", "type": "ladder-v2", "cutoffHz": 12000.0, "resonance": 0.2 }
+            ]
+          },
+          "resynators": [
+            { "id": "r1", "version": 2, "model": "resonator-hd" }
+          ],
+          "analysis": {},
+          "classic": { "modelName": "TRIGLAB" }
+        })JSON";
 
-    std::cout << "[DspEngineFacadeTests] All 14 tests passed successfully!\n";
+        auto trigEngine = std::make_unique<DspEngineFacade>();
+        trigEngine->prepare(44100.0, 512);
+
+        extended::AxionikExpandedPreflightReport trigReport;
+        if (!trigEngine->loadExpandedModelFromJson(0, trigJson, &trigReport) || !trigReport.ok) {
+            std::cerr << "[FAIL] Test 16: trigger-lab model failed to load!\n";
+            return 16;
+        }
+        // 16.0: muteGroup + RR fields survive parsing.
+        {
+            const auto* doc = trigEngine->getExpandedModelDoc(0);
+            if (!doc || doc->regions.size() != 10) {
+                std::cerr << "[FAIL] Test 16.0: expected 10 regions!\n";
+                return 16;
+            }
+            if (doc->regions[5].muteGroup != 7 || doc->regions[6].muteGroup != 7 ||
+                doc->regions[4].muteGroup != 0) {
+                std::cerr << "[FAIL] Test 16.0: muteGroup not transferred!\n";
+                return 16;
+            }
+            if (doc->regions[2].trigger != "first" || doc->regions[3].trigger != "legato" ||
+                doc->regions[8].trigger != "release") {
+                std::cerr << "[FAIL] Test 16.0: triggers not transferred!\n";
+                return 16;
+            }
+        }
+        auto findVoiceByRegion = [&](int regionIdx) -> int {
+            for (size_t i = 0; i < 16; ++i) {
+                if (trigEngine->getExpandedVoiceRegionIndex(0, i) == regionIdx) return static_cast<int>(i);
+            }
+            return -1;
+        };
+        std::vector<float> tL(512, 0.0f), tR(512, 0.0f);
+
+        std::cerr << "[16] loaded" << std::endl;
+        // 16.1: per-group RR honors roundRobinIndex order (rr_b idx1 first).
+        trigEngine->noteOn(60, 0.8f);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(1) < 0) {
+            std::cerr << "[FAIL] Test 16.1: first RR pick must be rr_b (roundRobinIndex 1)!\n";
+            return 16;
+        }
+        trigEngine->allNotesOff();
+        trigEngine->noteOn(60, 0.8f);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(0) < 0) {
+            std::cerr << "[FAIL] Test 16.1: second RR pick must be rr_a (roundRobinIndex 2)!\n";
+            return 16;
+        }
+        trigEngine->allNotesOff();
+        std::cerr << "[16] 16.1 ok" << std::endl;
+
+        // 16.2: groups rotate independently (group h untouched by group g).
+        trigEngine->noteOn(66, 0.8f);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(9) < 0) {
+            std::cerr << "[FAIL] Test 16.2: solo_e (group h) must sound!\n";
+            return 16;
+        }
+        trigEngine->noteOn(60, 0.8f);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(1) < 0) {
+            std::cerr << "[FAIL] Test 16.2: group g counter must wrap back to rr_b!\n";
+            return 16;
+        }
+        trigEngine->allNotesOff();
+        std::cerr << "[16] 16.2 ok" << std::endl;
+        trigEngine->noteOn(63, 0.8f);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(5) < 0) {
+            std::cerr << "[FAIL] Test 16.3: hat_closed must sound!\n";
+            return 16;
+        }
+        trigEngine->noteOn(64, 0.8f);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(6) < 0) {
+            std::cerr << "[FAIL] Test 16.3: hat_open must sound!\n";
+            return 16;
+        }
+        {
+            const int closedSlot = findVoiceByRegion(5);
+            if (closedSlot < 0 || !trigEngine->isExpandedVoiceReleasing(0, static_cast<size_t>(closedSlot))) {
+                std::cerr << "[FAIL] Test 16.3: hat_closed must be choked (releasing)!\n";
+                return 16;
+            }
+        }
+        trigEngine->allNotesOff();
+        std::cerr << "[16] 16.3 ok" << std::endl;
+
+        // 16.4: first/legato gates.
+        trigEngine->noteOn(61, 0.8f);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(2) < 0) {
+            std::cerr << "[FAIL] Test 16.4: 'first' region must fire with nothing held!\n";
+            return 16;
+        }
+        trigEngine->noteOn(62, 0.8f);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(3) < 0) {
+            std::cerr << "[FAIL] Test 16.4: 'legato' region must fire over held voices!\n";
+            return 16;
+        }
+        trigEngine->allNotesOff();
+        trigEngine->noteOn(62, 0.8f);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(3) >= 0 || findVoiceByRegion(4) < 0) {
+            std::cerr << "[FAIL] Test 16.4: 'legato' must NOT fire with nothing held (attack_e instead)!\n";
+            return 16;
+        }
+        trigEngine->allNotesOff();
+        std::cerr << "[16] 16.4 ok" << std::endl;
+        // 16.5: release trigger spawns a voice on noteOff.
+        trigEngine->noteOn(67, 0.8f);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(7) < 0) {
+            std::cerr << "[FAIL] Test 16.5: attack_g must sound on noteOn!\n";
+            return 16;
+        }
+        trigEngine->noteOff(67);
+        trigEngine->process(tL.data(), tR.data(), 512);
+        if (findVoiceByRegion(8) < 0) {
+            std::cerr << "[FAIL] Test 16.5: 'release' region must spawn a voice on noteOff!\n";
+            return 16;
+        }
+        trigEngine->allNotesOff();
+        std::cerr << "[16] 16.5 ok" << std::endl;
+        std::cout << "  [PASS] Test 16: trigger dispatcher (first/legato/release) + per-group RR + mute choke verified.\n";
+    }
+
+    std::cout << "[DspEngineFacadeTests] All 16 tests passed successfully!\n";
     return 0;
 }

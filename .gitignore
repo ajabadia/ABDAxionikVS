@@ -41,3 +41,6 @@ neurondb/
 !tests/fixtures/NeuronDB/
 # Browser automation artifacts
 .playwright-mcp/
+
+# Local instrument database (349 MB, machine-specific, rebuildable).
+AxionikDB/

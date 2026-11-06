@@ -1199,6 +1199,21 @@ export class BankDrawer {
     }
   }
 
+  public async loadPresetFromFile(file: File): Promise<AxionikPreset | null> {
+    try {
+      const text = await file.text();
+      const preset = parsePresetFile(text);
+      if (!preset) return null;
+      this.registerUserPreset(preset);
+      this.shell.flashStatus(`Loaded preset: ${preset.meta.name}`, 'ok');
+      return preset;
+    } catch (err) {
+      console.error('[BankDrawer] Failed to load preset file:', err);
+      this.shell.flashStatus(`Failed to load: ${file.name}`, 'error');
+      return null;
+    }
+  }
+
   private renderUserPresets(): void {
     if (!this.drawerElement) return;
     const container = this.shell.contentEl;
@@ -1261,7 +1276,10 @@ export class BankDrawer {
           catLabel: p.meta.category || 'User Preset',
           name: p.meta.name,
           iconHtml: catInfo.icon,
-          badges: ['EXTENDED', r1Str, r2Str],
+          badges: [r1Str, r2Str, 'User Preset'],
+          actions: [
+            { id: 'load-user-preset', label: t('bank.loadPreset'), title: `${t('bank.loadPreset')} ${p.meta.name}` },
+          ]
         });
       })
       .join('');
