@@ -197,7 +197,7 @@ export function createAxionikPresetV2({
   r1ModelName,
   r2ModelId,
   r2ModelName,
-  engineMode = 'classic',
+  engineMode = 'legacy',
   meta,
   extendedState,
 }: {
@@ -277,7 +277,7 @@ export function parsePresetFile(content: string): AxionikPreset | null {
         r1ModelName: 'Unknown',
         r2ModelId: 511,
         r2ModelName: 'Unknown',
-        engineMode: 'classic',
+        engineMode: 'legacy',
         meta: {
           name: typeof v.name === 'string' ? v.name : 'Legacy Preset',
           category: typeof v.category === 'string' ? v.category : 'User',
