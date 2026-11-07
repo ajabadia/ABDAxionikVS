@@ -44,7 +44,13 @@ public:
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+    /// Cola real del Master FX (Delay maestro + Reverb maestra, [430..444]).
+    double getTailLengthSeconds() const override;
+
+    /// Reloj del host capturado en cada bloque (`juce::AudioPlayHead`).
+    double getHostBpm() const noexcept { return hostBpm_.load(std::memory_order_relaxed); }
+    bool isHostPlaying() const noexcept { return hostIsPlaying_.load(std::memory_order_relaxed); }
+    double getHostPpqPosition() const noexcept { return hostPpqPosition_.load(std::memory_order_relaxed); }
 
     int getNumPrograms() override { return static_cast<int>(kNumFactoryPresets); }
     int getCurrentProgram() override { return currentProgram_; }
@@ -117,6 +123,15 @@ private:
     uint32_t lastNrpnTimestampMs_{0};
     uint8_t midiBank_{0}; // MIDI Bank Select LSB (CC 32)
     abd::hw::MidiLearnManager midiLearnManager_;
+
+    // Reloj del host (juce::AudioPlayHead): BPM, transporte y posición en negras
+    void updateHostClock();
+    std::atomic<double> hostBpm_{0.0};
+    std::atomic<bool> hostIsPlaying_{false};
+    std::atomic<double> hostPpqPosition_{-1.0};
+    std::atomic<double> currentSampleRate_{44100.0};
+    bool wasHostPlaying_{false};   // solo hilo de audio
+    double lastHostPpq_{-1.0};     // solo hilo de audio
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AxionikProcessor)
 };

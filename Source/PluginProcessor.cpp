@@ -7,6 +7,8 @@
 #include "PluginEditor.h"
 #include "AppLogger.h"
 #include "DSP/AxionikParamIndices.h"
+#include <algorithm>
+#include <cmath>
 
 namespace abd::axionik {
 
@@ -65,7 +67,10 @@ AxionikProcessor::~AxionikProcessor() {
 
 void AxionikProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     AX_LOG(juce::String("[PROCESSOR] prepareToPlay() called: sr=") + juce::String(sampleRate) + " block=" + juce::String(samplesPerBlock));
+    currentSampleRate_.store(sampleRate > 1000.0 ? sampleRate : 44100.0, std::memory_order_relaxed);
     dspEngine_.prepare(sampleRate, static_cast<size_t>(samplesPerBlock));
+    // El motor renderiza muestra a muestra dentro del bloque: latencia cero explícita para el host.
+    setLatencySamples(0);
 }
 
 void AxionikProcessor::releaseResources() {
@@ -387,6 +392,9 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
 void AxionikProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) {
     juce::ScopedNoDenormals noDenormals;
 
+    // 0. Reloj del host (BPM / isPlaying / ppqPosition)
+    updateHostClock();
+
     // 1. Despachar eventos MIDI
     for (const auto metadata : midiMessages) {
         handleMidiEvent(metadata.getMessage());
@@ -405,6 +413,94 @@ void AxionikProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
     float* channelR = (totalNumOutputChannels > 1) ? buffer.getWritePointer(1) : channelL;
 
     dspEngine_.process(channelL, channelR, static_cast<size_t>(buffer.getNumSamples()));
+}
+
+void AxionikProcessor::updateHostClock() {
+    double bpm = 0.0;
+    double ppq = -1.0;
+    bool playing = false;
+
+    if (auto* playHead = getPlayHead()) {
+        if (const auto position = playHead->getPosition()) {
+            if (const auto hostBpm = position->getBpm()) bpm = *hostBpm;
+            if (const auto hostPpq = position->getPpqPosition()) ppq = *hostPpq;
+            playing = position->getIsPlaying();
+        }
+    }
+
+    hostBpm_.store(bpm, std::memory_order_relaxed);
+    hostIsPlaying_.store(playing, std::memory_order_relaxed);
+    hostPpqPosition_.store(ppq, std::memory_order_relaxed);
+
+    // Alineación de la modulación con el transporte del DAW: en el flanco de arranque
+    // (Play) o tras un salto hacia atrás (loop/seek) se reinicia la fase del LFO global
+    // y del Master Mod FX. No se tocan los buffers del Slicer para no introducir clics.
+    const bool transportRestarted =
+        playing && (!wasHostPlaying_
+                    || (ppq >= 0.0 && lastHostPpq_ >= 0.0 && ppq < lastHostPpq_ - 1.0e-6));
+
+    if (transportRestarted) {
+        dspEngine_.resetModulationPhase();
+    }
+
+    wasHostPlaying_ = playing;
+    if (ppq >= 0.0) lastHostPpq_ = ppq;
+}
+
+double AxionikProcessor::getTailLengthSeconds() const {
+    // `kParameterDescriptors` está indexado por índice de parámetro (verificado por
+    // Scripts/registry_generator.js --check), así que ParamIdx sirve como posición.
+    auto rawOf = [this](size_t index) -> float {
+        const auto& desc = kParameterDescriptors[index];
+        const auto key = juce::String(desc.key.data(), desc.key.size());
+        if (auto* value = apvts_.getRawParameterValue(key)) return value->load();
+        return desc.defaultValue;
+    };
+    auto normOf = [&rawOf](size_t index) -> float {
+        const auto& desc = kParameterDescriptors[index];
+        const float span = desc.max - desc.min;
+        if (span <= 0.0f) return 0.0f;
+        return juce::jlimit(0.0f, 1.0f, (rawOf(index) - desc.min) / span);
+    };
+
+    if (rawOf(ParamIdx::SoundMFXSwitch) <= 0.5f) return 0.0;
+
+    constexpr double kMinus60Db = 0.001; // umbral de cola audible
+    const double sr = std::max(8000.0, currentSampleRate_.load(std::memory_order_relaxed));
+    double tail = 0.0;
+
+    // Delay maestro: N repeticiones hasta -60 dB a partir del tiempo mayor y del feedback real.
+    if (rawOf(ParamIdx::SoundMFXDelaySwitch) > 0.5f) {
+        const float mix = normOf(ParamIdx::SoundMFXDelayMix);
+        if (mix > 0.001f) {
+            const float timeMs = std::max(rawOf(ParamIdx::SoundMFXDelayLTime),
+                                          rawOf(ParamIdx::SoundMFXDelayRTime));
+            // DspNeuronMasterTimeFX recibe raw/64 y lo recorta a ±0.85.
+            const float feedback = juce::jlimit(0.0f, 0.85f,
+                                                std::abs(rawOf(ParamIdx::SoundMFXDelayFeedback)) / 64.0f);
+            const double repeats = feedback > 0.001f
+                ? std::clamp(std::ceil(std::log(kMinus60Db) / std::log(static_cast<double>(feedback))), 1.0, 64.0)
+                : 1.0;
+            tail = std::max(tail, static_cast<double>(timeMs) * 0.001 * repeats * mix);
+        }
+    }
+
+    // Reverb maestra: RT60 del FDN 8x8 a partir de su tiempo de bucle medio y el
+    // feedback real (decayNorm * 0.85), escalado por la mezcla wet.
+    if (rawOf(ParamIdx::SoundMFXReverbSwitch) > 0.5f) {
+        const float mix = normOf(ParamIdx::SoundMFXReverbMix);
+        if (mix > 0.001f) {
+            constexpr double kMeanLoopSamples = 2988.0; // media de baseLens (1433..4877) a 44.1 kHz
+            constexpr double kRoomSizeScale = 0.65;     // 0.3 + 0.7 * roomSize(0.5) en DspFdnReverb
+            const double loopSeconds = kMeanLoopSamples * kRoomSizeScale / sr;
+            const double feedback = juce::jlimit(0.05, 0.85,
+                                                 static_cast<double>(normOf(ParamIdx::SoundMFXRevDecayTime)) * 0.85);
+            const double rt60 = -3.0 * loopSeconds / std::log10(feedback);
+            tail = std::max(tail, rt60 * mix);
+        }
+    }
+
+    return tail;
 }
 
 juce::AudioProcessorEditor* AxionikProcessor::createEditor() {

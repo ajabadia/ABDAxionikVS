@@ -38,6 +38,10 @@ public:
     /// Reinicio del estado interno y silenciamiento de voces
     void reset();
 
+    /// Reinicia la fase de la modulación global (LFO y Master Mod FX) sin tocar
+    /// los buffers de audio: se invoca al arrancar el transporte del host.
+    void resetModulationPhase() noexcept;
+
     /// Notificación de eventos MIDI
     void noteOn(uint8_t note, float velocity);
     void noteOff(uint8_t note);
