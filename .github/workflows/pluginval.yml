@@ -27,6 +27,15 @@ jobs:
       - name: Clonar JUCE 8.0.12
         run: git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git "$env:RUNNER_TEMP/JUCE"
 
+      # JUCE enlaza WebView2 estáticamente (NEEDS_WEBVIEW2 + *_WITH_STATIC_LINKING) y
+      # el runner no trae el SDK: FindWebView2 busca Microsoft.Web.WebView2 en la
+      # carpeta NuGet del usuario, que es la que CMakeLists.txt detecta.
+      - name: Instalar el SDK de WebView2 (NuGet)
+        shell: powershell
+        run: |
+          Register-PackageSource -provider NuGet -name nugetRepository -location https://www.nuget.org/api/v2 -Force -ErrorAction Stop
+          Install-Package Microsoft.Web.WebView2 -Scope CurrentUser -RequiredVersion 1.0.3485.44 -Source nugetRepository -Force -Confirm:$false -ErrorAction Stop
+
       - name: Configurar CMake (Release)
         env:
           JUCE_PATH: ${{ runner.temp }}/JUCE
