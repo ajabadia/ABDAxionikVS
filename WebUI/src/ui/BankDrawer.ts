@@ -21,6 +21,10 @@ import {
   parseMapScript,
   parseModelNamesCache,
   parseSoundScript,
+  createZipArchive,
+  indexZipArchive,
+  extractZipEntry,
+  type ZipEntryInput,
   type NeuronDbEvaluation,
 } from '@abdsynths/shared/formats/neuron';
 import { createBankShell } from '@abdsynths/shared/components/bank/bankShell.js';
@@ -1214,6 +1218,7 @@ export class BankDrawer {
 
   public exportPresetBundle(preset: AxionikPreset): void {
     const bundle: AxionikPreset = JSON.parse(JSON.stringify(preset));
+    const zipEntries: ZipEntryInput[] = [];
 
     if (bundle.engineMode === 'extended' && bundle.extendedState) {
       const r1Slug = bundle.extendedState.r1ModelSlug;
@@ -1236,10 +1241,37 @@ export class BankDrawer {
         r1: r1JsonObj,
         r2: r2JsonObj,
       };
+
+      // Empaquetar ficheros modeljson en la carpeta models/ dentro del ZIP
+      if (r1Entry?.expandedJson) {
+        const slug1 = (r1Slug || r1Entry.slug || 'resynator1').replace(/[^a-zA-Z0-9_\-]/g, '_');
+        zipEntries.push({
+          path: `models/${slug1}.modeljson`,
+          data: r1Entry.expandedJson,
+        });
+      }
+
+      if (r2Entry?.expandedJson) {
+        const slug2 = (r2Slug || r2Entry.slug || 'resynator2').replace(/[^a-zA-Z0-9_\-]/g, '_');
+        const slug1 = (r1Slug || r1Entry?.slug || 'resynator1').replace(/[^a-zA-Z0-9_\-]/g, '_');
+        // Deduplicar si R1 y R2 usan exactamente el mismo modelo
+        if (!r1Entry || slug2 !== slug1 || r2Entry.expandedJson !== r1Entry.expandedJson) {
+          zipEntries.push({
+            path: `models/${slug2}.modeljson`,
+            data: r2Entry.expandedJson,
+          });
+        }
+      }
     }
 
-    const jsonStr = JSON.stringify(bundle, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
+    // Agregar preset.json como entrada principal
+    zipEntries.unshift({
+      path: 'preset.json',
+      data: JSON.stringify(bundle, null, 2),
+    });
+
+    const zipBytes = createZipArchive(zipEntries);
+    const blob = new Blob([zipBytes.buffer as ArrayBuffer], { type: 'application/zip' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const safeName = (preset.meta.name || 'Preset').replace(/[^a-zA-Z0-9_\- ]/g, '_').trim();
@@ -1318,7 +1350,50 @@ export class BankDrawer {
 
   public async loadPresetFromFile(file: File): Promise<AxionikPreset | null> {
     try {
-      const text = await file.text();
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+
+      // Comprobar si es un contenedor ZIP (.bundle.axpreset con cabecera PK\x03\x04 o PK\x05\x06)
+      if (bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && (bytes[2] === 0x03 || bytes[2] === 0x05)) {
+        const zipIndex = indexZipArchive(bytes);
+        const presetEntry = zipIndex.find((e) => e.path === 'preset.json' || e.path.endsWith('/preset.json'));
+        if (presetEntry) {
+          const presetJsonBytes = extractZipEntry(bytes, presetEntry);
+          const presetText = new TextDecoder('utf-8').decode(presetJsonBytes);
+          const preset = parsePresetFile(presetText);
+          if (preset) {
+            // Si el bundle tiene modelos en models/, asegurarse de registrar o restaurar sus JSONs
+            if (preset.extendedState) {
+              const modelEntries = zipIndex.filter((e) => e.path.startsWith('models/') && e.path.endsWith('.modeljson'));
+              if (modelEntries.length > 0 && !preset.extendedState.embeddedModel) {
+                preset.extendedState.embeddedModel = {};
+              }
+              for (const me of modelEntries) {
+                const modelBytes = extractZipEntry(bytes, me);
+                try {
+                  const mObj = JSON.parse(new TextDecoder('utf-8').decode(modelBytes));
+                  const base = me.path.split('/').pop()?.replace('.modeljson', '') || '';
+                  if (preset.extendedState?.embeddedModel) {
+                    if (base === 'resynator1' || base === preset.extendedState.r1ModelSlug) {
+                      preset.extendedState.embeddedModel.r1 = mObj;
+                    }
+                    if (base === 'resynator2' || base === preset.extendedState.r2ModelSlug) {
+                      preset.extendedState.embeddedModel.r2 = mObj;
+                    }
+                  }
+                } catch {}
+              }
+            }
+
+            this.registerUserPreset(preset);
+            this.shell.flashStatus(`Loaded bundle preset: ${preset.meta.name}`, 'ok');
+            return preset;
+          }
+        }
+      }
+
+      // Si no es un ZIP o como fallback, parsear como texto JSON plano
+      const text = new TextDecoder('utf-8').decode(bytes);
       const preset = parsePresetFile(text);
       if (!preset) return null;
       this.registerUserPreset(preset);
@@ -1470,8 +1545,13 @@ export class BankDrawer {
         if (entry.kind === 'file' && (entry.name.endsWith('.axpreset') || entry.name.endsWith('.json'))) {
           try {
             const file = await (entry as FileSystemFileHandle).getFile();
-            const text = await file.text();
-            const parsed = parsePresetFile(text);
+            let parsed: AxionikPreset | null = null;
+            if (entry.name.endsWith('.bundle.axpreset')) {
+              parsed = await this.loadPresetFromFile(file);
+            } else {
+              const text = await file.text();
+              parsed = parsePresetFile(text);
+            }
             if (parsed) {
               // Si el preset no tiene categoría explícita o es User, usar el nombre de la carpeta/grupo
               if ((!parsed.meta.category || parsed.meta.category === 'User') && parentGroup) {
