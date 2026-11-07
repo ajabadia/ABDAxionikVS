@@ -1,0 +1,70 @@
+name: pluginval
+
+# Criterio 16 de CALIDAD_Y_ESTANDARES_VST3.md: el VST3 se valida con pluginval
+# (strictness 5) en cada push a master y en cada pull request.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pluginval:
+    name: pluginval VST3 (strictness 5)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Ni ABDShared/Code ni JUCE están vendorizados: CMake los busca fuera del
+      # repo (ABDSHARED_CODE_DIR / JUCE_PATH). Se clonan en RUNNER_TEMP para no
+      # ensuciar el árbol del proyecto.
+      - name: Clonar ABDShared (dependencia de build)
+        run: git clone --depth 1 https://github.com/ajabadia/ABDShared.git "$env:RUNNER_TEMP/ABDShared"
+
+      - name: Clonar JUCE 8.0.12
+        run: git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git "$env:RUNNER_TEMP/JUCE"
+
+      - name: Configurar CMake (Release)
+        env:
+          JUCE_PATH: ${{ runner.temp }}/JUCE
+          ABDSHARED_CODE_DIR: ${{ runner.temp }}/ABDShared/Code
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compilar ABDAxionikVS_VST3
+        run: cmake --build build --config Release --target ABDAxionikVS_VST3 --parallel
+
+      - name: Descargar pluginval
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip" -OutFile pluginval.zip
+          Expand-Archive pluginval.zip -DestinationPath pluginval
+
+      - name: Versión de pluginval
+        run: |
+          $exe = (Get-ChildItem -Path pluginval -Recurse -Filter pluginval.exe | Select-Object -First 1).FullName
+          & $exe --version
+
+      # --skip-gui-tests evita los tests de editor, que necesitan una sesión
+      # gráfica interactiva y son la causa habitual de falsos negativos en CI.
+      - name: Validar VST3 con pluginval (strictness 5)
+        run: |
+          $exe = (Get-ChildItem -Path pluginval -Recurse -Filter pluginval.exe | Select-Object -First 1).FullName
+          if (-not $exe) { throw "pluginval.exe no encontrado tras descomprimir" }
+          $vst3 = (Get-ChildItem -Path build -Recurse -Filter ABDAxionikVS.vst3 -Directory | Select-Object -First 1).FullName
+          if (-not $vst3) { throw "ABDAxionikVS.vst3 no encontrado tras el build" }
+          New-Item -ItemType Directory -Force -Path reports | Out-Null
+          Write-Host "Validando $vst3 con $exe (strictness 5)"
+          # CLI de pluginval 1.0.4 (release estable): --validate + ruta, sin subcomando
+          # `validate` ni `--junit-xml`. --output-dir deja el informe .txt en reports/.
+          & $exe --strictness-level 5 --skip-gui-tests --output-dir reports --validate "$vst3"
+          if ($LASTEXITCODE -ne 0) { throw "pluginval falló con exit code $LASTEXITCODE" }
+
+      - name: Subir informe de pluginval
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pluginval-report
+          path: reports/
+          if-no-files-found: warn
