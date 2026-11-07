@@ -163,6 +163,12 @@ D:\desarrollos\ABDSynths\ABDAxionikVS\
     └── GoldenParityTest.cpp         # Arnés de paridad áurea (audio, --zones 128/128, --matrix 63/63)
 ```
 
+> **Nota de revisión futura — nombres de categoría vs. tabla canónica de Parameter Sets:**
+> `ParameterSets.ts` se mantiene por ahora tal cual. En la práctica actual:
+> - Los **Parameter Sets del hardware** son los 10 canónicos (0..9) del Neuron; su tabla nominal se gestiona desde `AxionikParameterSet.ts` (`PARAM_SET_NAMES` / `AXIONIK_PARAMETER_SET_DEFINITIONS`) y el esquema compartido `schemas/parameter_sets_mnan.json`.
+> - La lista propia de `ParameterSets.ts` (`General`, `Strings`, `Percussion / Bells`, `Plucked / Acoustic`, …) parece ser otra capa distinta, probablemente de presentación o de clasificación por presets/modelos, no la tabla oficial de Parameter Sets del hardware.
+> - **Pendiente futuro**: revisar si esa lista alternativa tiene su origen en las librerías cargadas (`NeuronVS_neurondb`, `NeuronVS-db/NeuronDB`) o es una taxonomía propia, y, si es presentacional o de librería, montarla dinámicamente al cargar la librería en vez de mantenerla como tabla fija paralela a la canónica. Mantener una única fuente de verdad para los 10 Parameter Sets del hardware y separar claramente cualquier clasificación extra de modelos/presets.
+
 ---
 
 ## 3. Contrato Único Autogenerado: 445 Parámetros + 26 VST + NRPN / CC / SysEx
@@ -308,6 +314,10 @@ Siguiendo la directriz de volcado transversal hacia `ABDShared`:
   4. Configurados `DspSources.cmake` (anti-drift), `CMakeLists.txt` raíz (JUCE 9 `Standalone` + `VST3` + `WebPilotHost` con `NEEDS_WEBVIEW2 TRUE` y `JUCE_VST3_CAN_REPLACE_VST2=0`) y `wasm/CMakeLists.txt` con `WasmBridge.cpp`.
   5. Implementado frontend WebUI inicial en `WebUI/` con **paridad visual y estética idéntica a `ABDNeuModMakr`** (tokenizado 100% con `@abdsynths/shared/styles`, Navbar HUD con logo, presets, modelos, telemetría CPU/voces, racks de síntesis R1/R2 con sticks 2D circulares, Blender, Filter, Silver FX, Drawers deslizantes y `KeyboardStrip` interactivo con `@abdsynths/midi-keyb`).
   6. Empaquetado Vite verificado (`Scripts/build_webui.js` -> `WebUI/dist/`), suite de pruebas Vitest pasando 5/5 tests, y scripts `build.bat` y `start.bat`.
+
+> **Nota de revisión futura — tabla de nombres de Parameter Sets:**
+> Se mantiene `ParameterSets.ts` por ahora. Los 10 Parameter Sets del hardware son canónicos y su tabla nominal está en `AxionikParameterSet.ts` (`PARAM_SET_NAMES`) y en `schemas/parameter_sets_mnan.json`. La lista propia que tiene `ParameterSets.ts` parece corresponder a otra capa (posiblemente presentación o clasificación de presets/modelos). Pendiente futuro: confirmar el origen de esa lista y, si no es canónica, consolidar una única fuente de verdad para los 10 Parameter Sets del hardware y tratar las demás como datos que se obtienen/cargan desde la librería, no como tabla estática paralela.
+
 - **Verificación (DoD) Alcanzada**:
   - `build.bat nopause` compila sin errores los 3 targets nativos con MSVC:
     - `build\ABDAxionikVS_artefacts\Release\Standalone\ABDAxionikVS.exe`

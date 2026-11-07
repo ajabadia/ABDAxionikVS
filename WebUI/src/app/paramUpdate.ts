@@ -6,7 +6,7 @@
 import { ParamIdx } from '../constants/paramIndices.js';
 import { BLENDER_ALGORITHMS } from '../ui/BlenderDrawer.js';
 import { TrajectoryStick2D } from '../ui/TrajectoryStick2D.js';
-import { getParameterSetStickLabels } from '../ui/ParameterSets.js';
+import { getParameterSetStickLabels } from '../ui/stickLabels.js';
 import { MODEL_METADATA, getCanonicalModelName } from '../ui/NeuronCatalogMetadata.js';
 
 export interface ParamUpdateCtx {

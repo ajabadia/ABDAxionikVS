@@ -40,7 +40,7 @@ import { DragDropHandler } from './ui/DragDropHandler.js';
 import { WebBridge } from './bridge/WebBridge.js';
 import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
 import { ParamIdx } from './constants/paramIndices.js';
-import { getParameterSetStickLabels } from './ui/ParameterSets.js';
+import { getParameterSetStickLabels } from './ui/stickLabels.js';
 import {
   MODEL_METADATA,
   getCanonicalModelName,

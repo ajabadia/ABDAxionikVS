@@ -25,7 +25,7 @@ import { ParamIdx } from '../constants/paramIndices.js';
 import { PARAM_DEFINITIONS } from '../generated/parameters.gen.js';
 import { TrajectoryStick2D, type StickCoordinate, type StickLabels } from './TrajectoryStick2D.js';
 import { MOD_SOURCES, getModDestinationLabel, resolveParamIndexFromModDest } from './MatrixDrawer.js';
-import { getParameterSetStickLabels } from './ParameterSets.js';
+import { getParameterSetStickLabels } from './stickLabels.js';
 
 export { resolveParamIndexFromModDest };
 import { MODEL_METADATA, getCanonicalModelName } from './NeuronCatalogMetadata.js';

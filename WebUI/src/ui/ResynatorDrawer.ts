@@ -18,14 +18,14 @@ import { Knob } from '@abdsynths/shared/components';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 import { MultiStageShaperPad } from './MultiStageShaperPad.js';
 import { ResynatorShapersPanel } from './ResynatorShapersPanel.js';
-import { PARAMETER_SET_NAMES, getParameterSetName } from './ParameterSets.js';
+import { PARAM_SET_NAMES } from './AxionikParameterSet.js';
 
 const resynatorShapersPanels = new WeakMap<HTMLElement, ResynatorShapersPanel>();
 const activeResynatorDrawers = new Map<1 | 2, HTMLElement>();
 
 function parameterSetCaption(parameterSet: number): string {
   return `PARAMETER SET DEL MODELO${
-    parameterSet >= 0 ? ` (${parameterSet}: ${getParameterSetName(parameterSet)})` : ' (sin metadato)'
+    parameterSet >= 0 ? ` (${parameterSet}: ${PARAM_SET_NAMES[parameterSet] ?? `Set ${parameterSet}`})` : ' (sin metadato)'
   }`;
 }
 
@@ -175,7 +175,7 @@ export class ResynatorDrawer {
 
     const parsetHtml = `
       <div id="${rPrefix}-parset-pills" style="display: flex; flex-wrap: wrap; gap: 4px;" role="list" aria-label="${rPrefix} Parameter Set ${parSet >= 0 ? parSet : 'desconocido'}">
-        ${PARAMETER_SET_NAMES.map((name, idx) => `<span class="abd-pill${idx === parSet ? ' active' : ''}" role="listitem" style="cursor: default;" title="Parameter Set ${idx}: ${name}">${idx}: ${name}</span>`).join('')}
+        ${PARAM_SET_NAMES.map((name, idx) => `<span class="abd-pill${idx === parSet ? ' active' : ''}" role="listitem" style="cursor: default;" title="Parameter Set ${idx}: ${name}">${idx}: ${name}</span>`).join('')}
       </div>
     `;
 
