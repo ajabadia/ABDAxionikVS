@@ -42,5 +42,9 @@ neurondb/
 # Browser automation artifacts
 .playwright-mcp/
 
+# Arneses locales de verificación UI (CDP contra el WebPilot host): clientes de
+# usar y tirar, binarios y volcados JSON. Se regeneran, no son producto.
+eval-cdp-project/
+
 # Local instrument database (349 MB, machine-specific, rebuildable).
 AxionikDB/
