@@ -712,6 +712,11 @@ void DspEngineFacade::updateEnvelopes(const float *p) {
   voicePool_.updateFreeEnvelopes(1, r2Fa, r2Fd, r2Fs, r2Fr, r2FreeRep, freeDest, effFreeDepth, r1FreePitch, r2FreePitch, blenderFree);
 }
 
+void DspEngineFacade::resetModulationPhase() noexcept {
+    globalLfoPhase_ = 0.0;
+    blockRenderer_.getMasterModFX().reset();
+}
+
 DspEngineFacade::RenderBlockParams
 DspEngineFacade::updateSilverAndMasterFx(const float *p,
                                          float globalLfoSignal) {
