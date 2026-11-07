@@ -67,8 +67,13 @@ jobs:
           Write-Host "Validando $vst3 con $exe (strictness 5)"
           # CLI de pluginval 1.0.4 (release estable): --validate + ruta, sin subcomando
           # `validate` ni `--junit-xml`. --output-dir deja el informe .txt en reports/.
-          & $exe --strictness-level 5 --skip-gui-tests --output-dir reports --validate "$vst3"
-          if ($LASTEXITCODE -ne 0) { throw "pluginval falló con exit code $LASTEXITCODE" }
+          # pluginval.exe es un ejecutable de subsistema GUI: con `&` PowerShell
+          # vuelve antes de que termine y $LASTEXITCODE queda vacío (y $null -ne 0
+          # es cierto), así que hay que esperarlo con Start-Process -Wait.
+          $pluginvalArgs = @("--strictness-level", "5", "--skip-gui-tests", "--output-dir", "reports", "--validate", "`"$vst3`"")
+          $proc = Start-Process -FilePath $exe -ArgumentList $pluginvalArgs -NoNewWindow -Wait -PassThru
+          Write-Host "pluginval terminó con exit code $($proc.ExitCode)"
+          if ($proc.ExitCode -ne 0) { throw "pluginval falló con exit code $($proc.ExitCode)" }
 
       - name: Subir informe de pluginval
         if: always()
