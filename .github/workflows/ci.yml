@@ -66,4 +66,7 @@ jobs:
       - name: Guard de direccion (nativo -> JS)
         env:
           ABD_SHARED_ROOT: ${{ runner.temp }}/ABDShared
-        run: node "$ABD_SHARED_ROOT/Code/WebView2Bridge/testing/runGuard.mjs" --source Source --emitters "" --expect-host PluginEditor.cpp --label ABDAxionikVS
+        # --emitters declara en positivo quién emite nativo -> JS: el editor es el
+        # único que llama a emitEventIfBrowserIsVisible. Con "" el guard daba rojo
+        # por emitir sin declarar; declarándolo, además exige que siga emitiendo.
+        run: node "$ABD_SHARED_ROOT/Code/WebView2Bridge/testing/runGuard.mjs" --source Source --emitters "PluginEditor.cpp" --expect-host PluginEditor.cpp --label ABDAxionikVS
