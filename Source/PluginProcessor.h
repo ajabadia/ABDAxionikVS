@@ -119,7 +119,10 @@ private:
 
     // Gestos abiertos desde la WebUI, por índice de parámetro: JUCE empareja
     // begin/end, así que un end sin su begin se descarta aquí y no llega al host.
-    std::vector<uint8_t> openGestureFlags_{};
+    // El tamaño lo fija el constructor (un flag por parámetro): si el vector
+    // quedara vacío, la guarda `index >= size()` de begin/end descartaría todos
+    // los gestos y el host no recibiría ninguno.
+    std::vector<uint8_t> openGestureFlags_;
 
     // Cola lock-free SPSC para cambios de parámetros desde el hilo de audio (StickPlayer)
     abd::scope::SpscRingBuffer<ParamChange> stickParamQueue_{1024};

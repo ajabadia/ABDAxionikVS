@@ -233,6 +233,58 @@ target_link_libraries(DspEngineFacadeTests PRIVATE
 )
 
 # ============================================================================
+# 7b. Gestos de automatización del procesador (consola, sin host ni GUI)
+#
+# Cuenta los begin/end que el procesador entrega a los listeners de parámetro
+# (el mismo canal que usa el wrapper VST3 para avisar al host), así que verifica
+# el contrato sin abrir un DAW.
+# ============================================================================
+juce_add_console_app(ParameterGestureTests
+    PRODUCT_NAME "ParameterGestureTests"
+    NEEDS_WEBVIEW2 TRUE
+)
+
+target_sources(ParameterGestureTests PRIVATE
+    tests/ParameterGestureTests.cpp
+    Source/PluginProcessor.cpp
+    # createEditor() instancia el editor: se enlaza para no dejar el símbolo suelto.
+    Source/PluginEditor.cpp
+    ${AXIONIK_DSP_SOURCES}
+)
+
+axionik_dsp_configure(ParameterGestureTests)
+
+# El procesador construye tablas grandes; sin esto el arranque revienta la pila
+# (0xC00000FD), igual que en DspEngineFacadeTests y GoldenParityTest.
+if(MSVC)
+    target_link_options(ParameterGestureTests PRIVATE "/STACK:8388608")
+endif()
+
+target_include_directories(ParameterGestureTests PRIVATE
+    tests
+    Source
+    Source/DSP
+    Source/Generated
+    "${ABDSHARED_CODE_DIR}"
+)
+
+target_compile_definitions(ParameterGestureTests PRIVATE
+    JUCE_WEB_BROWSER=1
+    JUCE_USE_WIN_WEBVIEW2=1
+    JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
+)
+
+target_link_libraries(ParameterGestureTests PRIVATE
+    juce::juce_audio_utils
+    juce::juce_audio_processors
+    juce::juce_gui_extra
+    ABDShared::DspCore
+    ABDShared::SynthCore
+    ABDShared::DspEffects
+    ABDShared::WebView2Bridge
+)
+
+# ============================================================================
 # 8. Suite CTest (DspEngineFacadeTests + GoldenParityTest --zones / --matrix)
 # ============================================================================
 enable_testing()
@@ -252,5 +304,11 @@ add_test(
 add_test(
     NAME GoldenParityTest_Matrix
     COMMAND $<TARGET_FILE:GoldenParityTest> --matrix
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_test(
+    NAME ParameterGestureTests
+    COMMAND $<TARGET_FILE:ParameterGestureTests>
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )

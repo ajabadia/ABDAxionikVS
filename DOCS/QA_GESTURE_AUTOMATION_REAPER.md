@@ -5,17 +5,19 @@
 
 ---
 
-## 0. Prerrequisito bloqueante (leer antes)
+## 0. Prerrequisito: el arreglo de `openGestureFlags_` (aplicado el 2026-11-08)
 
-En el árbol actual **la prueba va a fallar**: `openGestureFlags_` se declara como `std::vector<uint8_t> openGestureFlags_{}` (`Source/PluginProcessor.h:122`) y **nunca se dimensiona**, así que la guarda `index >= openGestureFlags_.size()` de `beginParameterGestureByIndex` / `endParameterGestureByIndex` (`Source/PluginProcessor.cpp:272` y `284`) descarta todos los gestos. Sin `beginChangeGesture`, el host no agrupa nada: graba una escalera y cada `Ctrl+Z` deshace un trozo.
+`openGestureFlags_` se declaraba como `std::vector<uint8_t> openGestureFlags_{}` y **nunca se dimensionaba**, así que la guarda `index >= openGestureFlags_.size()` de `beginParameterGestureByIndex` / `endParameterGestureByIndex` descartaba todos los gestos. Sin `beginChangeGesture` el host no agrupa nada: graba una escalera y cada `Ctrl+Z` deshace un trozo.
 
-Arreglo de una línea, en el constructor (`Source/PluginProcessor.cpp:76`):
+**El arreglo ya está en el árbol.** El campo se declara en `Source/PluginProcessor.h:125` y el constructor lo dimensiona antes de cualquier guarda (`Source/PluginProcessor.cpp:88`):
 
 ```cpp
-openGestureFlags_.assign(kNumTotalParameters, 0);
+openGestureFlags_.assign(kNumTotalParameters, 0u);
 ```
 
-Sin ese arreglo compilado, el resultado esperado de esta prueba es el de la columna «fallo» de §4. Si aparece exactamente ese síntoma, no es un fallo del host ni de la WebUI.
+Cobertura automática del contrato, sin DAW: `tests/ParameterGestureTests.cpp` (16 comprobaciones; `ctest -C Release -R ParameterGestureTests`) verifica un arrastre = un `begin` + un `end`, `begin`/`end` duplicados, `end` sin `begin`, stick 2D (un gesto por eje) y arrastres solapados.
+
+Si esta prueba vuelve a dar la columna «fallo» de §4, lo primero que hay que descartar es que el VST3 que carga REAPER sea el compilado con este `assign` (§1.1) y no una copia anterior en la lista de rutas VST.
 
 ---
 
@@ -60,7 +62,7 @@ Sin ese arreglo compilado, el resultado esperado de esta prueba es el de la colu
 
 | Síntoma | Causa probable | Dónde mirar |
 |---|---|---|
-| Escalera de puntos y varios undo | Los gestos no llegan al host | `openGestureFlags_` sin dimensionar (§0); añadir traza en `beginParameterGestureByIndex` |
+| Escalera de puntos y varios undo | Los gestos no llegan al host | Casi siempre es un VST3 antiguo en caché: comprobar que el binario cargado es el compilado con el `assign` de §0 (y si no, *Rescan* de la ruta VST); si persiste, añadir traza en `beginParameterGestureByIndex` |
 | Un punto por arrastre pero el undo no revierte | El `end` no se emite al soltar | `PARAM_GESTURE_END` en `WebUI/src/bridge/WebBridge.ts` y su reenvío en `PluginEditor.cpp:179` |
 | La WebUI no refleja el valor tras deshacer | El host no reenvía el parámetro a la UI | Listener de `APVTS` → puente WebUI |
 

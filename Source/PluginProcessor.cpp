@@ -81,6 +81,12 @@ AxionikProcessor::AxionikProcessor()
     paramIdToIndex_.reserve(kNumTotalParameters);
     pendingUiChanges_.reserve(32);
 
+    // Un flag por parámetro para los gestos que abre la WebUI. El vector se
+    // dimensiona aquí, de forma explícita: begin/end filtran por
+    // `index < size()`, así que con el vector vacío se descartarían todos los
+    // gestos y el host no recibiría ningún beginChangeGesture.
+    openGestureFlags_.assign(kNumTotalParameters, 0u);
+
     // Escuchar cambios de parámetros para reflejarlos en dspEngine_ y construir el mapa O(1)
     for (const auto& desc : kParameterDescriptors) {
         auto paramKey = juce::String(desc.key.data(), desc.key.size());
