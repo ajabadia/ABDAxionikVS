@@ -64,4 +64,19 @@ describe('ABDAxionikVS Parameter Registry & Contracts', () => {
       expect(normalizedToRaw(def, 1.5)).toBeCloseTo(def.max, 4);
     }
   });
+
+  it('debe centrar en 0.5 exacto los parámetros SymBipolar (cdd §4.3)', async () => {
+    const { rawToNormalized, normalizedToRaw } = await import('../WebUI/src/utils/conversion.js');
+    const bipolares = PARAM_DEFINITIONS.filter(p => p.isSymBipolar);
+    expect(bipolares.length).toBeGreaterThan(0);
+
+    for (const def of bipolares) {
+      // El centro físico del hardware cae en 0.5 sin deriva de coma flotante.
+      expect(rawToNormalized(def, 0)).toBe(0.5);
+      expect(normalizedToRaw(def, 0.5)).toBe(0);
+      // Y los extremos siguen ocupando 0.0 y 1.0.
+      expect(rawToNormalized(def, def.min)).toBe(0);
+      expect(rawToNormalized(def, def.max)).toBe(1);
+    }
+  });
 });
