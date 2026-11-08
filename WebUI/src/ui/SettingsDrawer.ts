@@ -12,6 +12,7 @@ import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
+import { gestureFor } from './paramGesture.js';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 import { t, getLocale, setLocale, type Locale } from '../i18n/index.js';
 
@@ -252,6 +253,7 @@ export class SettingsDrawer {
           size: 40,
           value: normInit,
           label: 'VOICES',
+          ...gestureFor(ParamIdx.SoundNumVoices),
           onChange: (normVal: number) => {
             const v = Math.round(1 + normVal * (12 - 1));
             if (voicesVal) voicesVal.textContent = String(v);
@@ -270,6 +272,7 @@ export class SettingsDrawer {
           value: normInit,
           bipolar: true,
           label: 'PAN',
+          ...gestureFor(ParamIdx.SoundPan),
           onChange: (normVal: number) => {
             const v = Math.round(-64 + normVal * 127.0);
             if (panVal) panVal.textContent = (v > 0 ? `+${v}` : String(v));
@@ -288,6 +291,7 @@ export class SettingsDrawer {
           value: normInit,
           bipolar: true,
           label: 'KEYTRACK',
+          ...gestureFor(ParamIdx.SoundPanKeyTrack),
           onChange: (normVal: number) => {
             const v = Math.round(-64 + normVal * 127.0);
             if (panKtVal) panKtVal.textContent = (v > 0 ? `+${v}` : String(v));
@@ -305,6 +309,7 @@ export class SettingsDrawer {
           size: 40,
           value: normInit,
           label: 'PITCH BEND',
+          ...gestureFor(ParamIdx.PitchBendRange),
           onChange: (normVal: number) => {
             const v = Math.round(normVal * 12.0);
             if (pbVal) pbVal.textContent = `${v} st`;

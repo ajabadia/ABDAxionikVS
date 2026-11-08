@@ -10,6 +10,7 @@ import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 import { Knob } from '@abdsynths/shared/components';
+import { gestureFor } from './paramGesture.js';
 
 export const BLENDER_ALGORITHMS = [
   { id: 0, name: 'Mix', desc: 'Linear volume crossfade between Resynator 1 and 2' },
@@ -216,6 +217,7 @@ export class BlenderDrawer {
         label,
         value: normInit,
         bipolar: isBipolar,
+        ...gestureFor(paramId),
         onChange: (normVal: number) => {
           const actualVal = Math.round(min + normVal * range);
           WebBridge.setParam(paramId, actualVal);

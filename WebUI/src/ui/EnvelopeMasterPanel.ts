@@ -17,6 +17,7 @@
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
+import { gestureFor } from './paramGesture.js';
 
 export interface EnvelopeMasterPanelOptions {
   onEdit?: () => void;
@@ -84,6 +85,7 @@ export class EnvelopeMasterPanel {
         size: 38,
         value: initDepth / 127.0,
         label: 'DEPTH',
+        ...gestureFor(ParamIdx.TLFreeEnvDepth),
         onChange: (normVal: number) => {
           const val = Math.round(normVal * 127.0);
           WebBridge.setParam(ParamIdx.TLFreeEnvDepth, val);
@@ -100,6 +102,7 @@ export class EnvelopeMasterPanel {
         size: 38,
         value: Math.max(0, Math.min(1, normVelo)),
         label: 'VELO',
+        ...gestureFor(ParamIdx.Free4Level4TimeVelocityDepth),
         onChange: (normVal: number) => {
           const val = Math.round(normVal * 127.0) - 64;
           WebBridge.setParam(ParamIdx.Free4Level4TimeVelocityDepth, val);

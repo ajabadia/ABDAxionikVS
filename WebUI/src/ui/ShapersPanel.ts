@@ -303,6 +303,9 @@ export class ShapersPanel {
         ariaLabel: `Shaper 1 ${primLabels[i]} Level`,
       });
 
+      // El destino depende del modo activo: se resuelve al empezar el arrastre y
+      // se cierra ESE mismo parámetro, aunque el modo cambie a mitad.
+      let gestureParam = -1;
       const wheel = new Wheel(wheelEl, {
         type: 'mod',
         label: `S1 ${primLabels[i]}`,
@@ -310,6 +313,11 @@ export class ShapersPanel {
         max: 127,
         frameWidth: 18,
         frameHeight: 76,
+        onDragStart: () => {
+          gestureParam = this.getActiveParamForS1(i);
+          WebBridge.beginGesture(gestureParam);
+        },
+        onDragEnd: () => WebBridge.endGesture(gestureParam),
         onChange: (rawVal: number) => {
           const norm = Math.max(0, Math.min(1, rawVal / 127.0));
           ladder.setValue(norm);
@@ -344,6 +352,7 @@ export class ShapersPanel {
         ariaLabel: `Shaper 2 ${primLabels[i]} Level`,
       });
 
+      let gestureParam = -1;
       const wheel = new Wheel(wheelEl, {
         type: 'mod',
         label: `S2 ${primLabels[i]}`,
@@ -351,6 +360,11 @@ export class ShapersPanel {
         max: 127,
         frameWidth: 18,
         frameHeight: 76,
+        onDragStart: () => {
+          gestureParam = this.getActiveParamForS2(i);
+          WebBridge.beginGesture(gestureParam);
+        },
+        onDragEnd: () => WebBridge.endGesture(gestureParam),
         onChange: (rawVal: number) => {
           const norm = Math.max(0, Math.min(1, rawVal / 127.0));
           ladder.setValue(norm);
@@ -385,6 +399,7 @@ export class ShapersPanel {
         ariaLabel: `Shaper 3 ${primLabels[i]} Level`,
       });
 
+      let gestureParam = -1;
       const wheel = new Wheel(wheelEl, {
         type: 'mod',
         label: `S3 ${primLabels[i]}`,
@@ -392,6 +407,11 @@ export class ShapersPanel {
         max: 127,
         frameWidth: 18,
         frameHeight: 76,
+        onDragStart: () => {
+          gestureParam = this.getActiveParamForS3(i);
+          WebBridge.beginGesture(gestureParam);
+        },
+        onDragEnd: () => WebBridge.endGesture(gestureParam),
         onChange: (rawVal: number) => {
           const maxVal = this.s3Mode === 'efx' && (i === 0 || i === 1 || i === 2) ? 100 : 127;
           const norm = Math.max(0, Math.min(1, rawVal / maxVal));

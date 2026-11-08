@@ -12,6 +12,7 @@ import { ParamIdx } from '../constants/paramIndices.js';
 import { PARAM_DEFINITIONS } from '../generated/parameters.gen.js';
 import { Knob } from '@abdsynths/shared/components';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
+import { gestureFor } from './paramGesture.js';
 
 export const MOD_SOURCES = [
   { id: 1, shortName: 'AFTERTOUCH', subLabel: 'Channel Pressure', name: 'Aftertouch (Channel Pressure)', destParam: 413, depthParam: 414, defaultDest: 61, defaultDepth: 40 },
@@ -353,10 +354,22 @@ export class MatrixDrawer {
       const selectEl = root.querySelector(`#matrix-macro-select-${k}`) as HTMLSelectElement | null;
 
       if (mountEl) {
+        let gestureParam = -1;
         macroKnobs[k] = new Knob(mountEl, {
           size: 38,
           value: 0.5,
           label: `KNOB ${knobNum}`,
+          // El destino lo decide el selector de al lado: el gesto se abre sobre el
+          // parámetro que el mando gobierna cuando se agarra.
+          onDragStart: () => {
+            const destId = Math.max(0, Math.min(62, Math.round(WebBridge.getParam(selectParamId, MACRO_DEFAULTS[k]))));
+            // Se cierra el parametro agarrado, aunque el selector cambie a mitad.
+            gestureParam = resolveParamIndexFromModDest(destId);
+            WebBridge.beginGesture(gestureParam);
+          },
+          onDragEnd: () => {
+            if (gestureParam >= 0) WebBridge.endGesture(gestureParam);
+          },
           onChange: (normVal: number) => {
             const curDestId = Math.max(0, Math.min(62, Math.round(WebBridge.getParam(selectParamId, MACRO_DEFAULTS[k]))));
             const targetParamIdx = resolveParamIndexFromModDest(curDestId);
@@ -393,6 +406,7 @@ export class MatrixDrawer {
           size: 38,
           value: initNorm,
           bipolar: true,
+          ...gestureFor(src.depthParam),
           onChange: (normVal: number) => {
             const rawDepth = Math.max(-64, Math.min(63, Math.round(normVal * 127.0 - 64.0)));
             if (valEl) valEl.textContent = formatSignedDepth(rawDepth);
@@ -416,6 +430,7 @@ export class MatrixDrawer {
             size: 38,
             value: initNorm,
             bipolar: true,
+            ...gestureFor(dpIdx),
             onChange: (normVal: number) => {
               const rawDepth = Math.max(-64, Math.min(63, Math.round(normVal * 127.0 - 64.0)));
               if (valEl) valEl.textContent = formatSignedDepth(rawDepth);

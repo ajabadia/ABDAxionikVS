@@ -13,6 +13,7 @@ import { TrajectoryStick2D, type StickCoordinate, type StickLabels } from './Tra
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
+import { gestureFor } from './paramGesture.js';
 
 export interface SilverPanelOptions {
   onEditSilver?: () => void;
@@ -457,6 +458,7 @@ export class SilverPanel {
         size: 38,
         value: initDepth / 127.0,
         label: this.curSlicerMode === 2 ? 'SPREAD' : 'DEPTH',
+        ...gestureFor(ParamIdx.SlicerDepth),
         onChange: (normVal: number) => {
           const val = Math.round(normVal * 127.0);
           WebBridge.setParam(ParamIdx.SlicerDepth, val);
@@ -475,6 +477,7 @@ export class SilverPanel {
         size: 38,
         value: initRate / 200.0,
         label: 'RATE',
+        ...gestureFor(ParamIdx.SlicerRate),
         onChange: (normVal: number) => {
           const val = Math.round(normVal * 200.0);
           WebBridge.setParam(ParamIdx.SlicerRate, val);

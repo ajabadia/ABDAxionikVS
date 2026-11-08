@@ -26,6 +26,9 @@ export interface MultiStageShaperOptions {
   levels?: number[];
   mode?: number;
   onChange?: (val: MultiStageShaperValue) => void;
+  /** Gesto del host: se abre al agarrar el pad y se cierra al soltarlo. */
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
 export class MultiStageShaperPad extends SharedShaper {

@@ -30,6 +30,7 @@ import { getParameterSetStickLabels } from './stickLabels.js';
 export { resolveParamIndexFromModDest };
 import { MODEL_METADATA, getCanonicalModelName } from './NeuronCatalogMetadata.js';
 import { Knob } from '@abdsynths/shared/components';
+import { gestureFor } from './paramGesture.js';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 import { onLocaleChange } from '../i18n/index.js';
 
@@ -547,10 +548,22 @@ export class NukeDrawer {
       const mountEl = this.panelEl.querySelector(`#nuke-macro-knob-mount-${knobNum}`) as HTMLElement | null;
 
       if (mountEl) {
+        let gestureParam = -1;
         binding.knobInstance = new Knob(mountEl, {
           size: 38,
           value: 0.5,
           label: `KNOB ${knobNum}`,
+          // El destino lo elige el selector de al lado: el gesto se abre sobre el
+          // parámetro que gobierna el mando en el momento de agarrarlo.
+          onDragStart: () => {
+            const destId = Math.round(WebBridge.getParam(binding.selectParamIdx, binding.defaultDestId));
+            // Se cierra el parametro agarrado, aunque el selector cambie a mitad.
+            gestureParam = resolveParamIndexFromModDest(destId);
+            WebBridge.beginGesture(gestureParam);
+          },
+          onDragEnd: () => {
+            if (gestureParam >= 0) WebBridge.endGesture(gestureParam);
+          },
           onChange: (normVal: number) => {
             const curDestId = Math.round(WebBridge.getParam(binding.selectParamIdx, binding.defaultDestId));
             const targetParamIdx = resolveParamIndexFromModDest(curDestId);
@@ -608,6 +621,7 @@ export class NukeDrawer {
           size: 38,
           value: initNorm,
           bipolar: true,
+          ...gestureFor(slot.depthParamIdx),
           onChange: (normVal: number) => {
             const rawDepth = Math.max(-64, Math.min(63, Math.round(normVal * 127.0 - 64.0)));
             this.dispatchParam(slot.depthParamIdx, rawDepth);

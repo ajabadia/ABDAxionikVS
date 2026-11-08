@@ -14,6 +14,7 @@ import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 import { Knob } from '@abdsynths/shared/components';
+import { gestureFor, gestureForGroup } from './paramGesture.js';
 import { MultiStageShaperPad } from './MultiStageShaperPad.js';
 
 export type EnvelopeDrawerTab = 'amp' | 'res' | 'free' | '4l4t';
@@ -127,6 +128,7 @@ export class EnvelopeDrawer {
         label,
         value: normInit,
         bipolar: isBipolar,
+        ...gestureFor(paramId),
         onChange: (normVal: number) => {
           const actualVal = Math.round(min + normVal * range);
           WebBridge.setParam(paramId, actualVal);
@@ -640,6 +642,11 @@ export class EnvelopeDrawer {
           times: [t1 / 127, t2 / 127, t3 / 127, t4 / 127],
           levels: [l1 / 64, l2 / 64, l3 / 64, l4 / 64],
           mode: curMode + 1,
+          // El pad mueve los 8 parametros de la envolvente: un solo gesto del host.
+          ...gestureForGroup([
+            ParamIdx.FreeEnvTime1, ParamIdx.FreeEnvTime2, ParamIdx.FreeEnvTime3, ParamIdx.FreeEnvTime4,
+            ParamIdx.FreeEnvLevel1, ParamIdx.FreeEnvLevel2, ParamIdx.FreeEnvLevel3, ParamIdx.FreeEnvLevel4,
+          ]),
           onChange: (st) => {
             const nextT = st.times.map((t) => Math.round(Math.max(0, Math.min(1, t)) * 127));
             const nextL = st.levels.map((l) => Math.round(Math.max(-64, Math.min(63, l * 63))));

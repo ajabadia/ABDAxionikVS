@@ -8,6 +8,7 @@
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
+import { gestureFor } from './paramGesture.js';
 import { BLENDER_ALGORITHMS } from './BlenderDrawer.js';
 
 export interface BlenderPanelOptions {
@@ -178,6 +179,7 @@ export class BlenderPanel {
         size: 38,
         value: initLfo / 127.0,
         label: 'LFO',
+        ...gestureFor(ParamIdx.BlenderLfoDepth),
         onChange: (normVal: number) => {
           const val = Math.round(normVal * 127.0);
           WebBridge.setParam(ParamIdx.BlenderLfoDepth, val);
@@ -193,6 +195,7 @@ export class BlenderPanel {
         size: 38,
         value: initAdsr1 / 127.0,
         label: 'ADSR1',
+        ...gestureFor(ParamIdx.BlenderFreeADSR1Depth),
         onChange: (normVal: number) => {
           const val = Math.round(normVal * 127.0);
           WebBridge.setParam(ParamIdx.BlenderFreeADSR1Depth, val);
@@ -208,6 +211,7 @@ export class BlenderPanel {
         size: 38,
         value: initAdsr2 / 127.0,
         label: 'ADSR2',
+        ...gestureFor(ParamIdx.BlenderFreeADSR2Depth),
         onChange: (normVal: number) => {
           const val = Math.round(normVal * 127.0);
           WebBridge.setParam(ParamIdx.BlenderFreeADSR2Depth, val);
@@ -223,6 +227,7 @@ export class BlenderPanel {
         size: 38,
         value: init4L4T / 127.0,
         label: '4L4T',
+        ...gestureFor(ParamIdx.BlenderFree4L4TDepth),
         onChange: (normVal: number) => {
           const val = Math.round(normVal * 127.0);
           WebBridge.setParam(ParamIdx.BlenderFree4L4TDepth, val);

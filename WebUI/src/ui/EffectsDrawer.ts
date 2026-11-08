@@ -15,6 +15,7 @@ import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 import { Knob } from '@abdsynths/shared/components';
+import { gestureFor } from './paramGesture.js';
 import { MultiStageShaperPad } from './MultiStageShaperPad.js';
 
 export const REVERB_ROOMS = [
@@ -374,6 +375,7 @@ export class EffectsDrawer {
         label,
         value: normInit,
         bipolar: isBipolar,
+        ...gestureFor(paramId),
         onChange: (normVal: number) => {
           const actualVal = Math.round(min + normVal * range);
           WebBridge.setParam(paramId, actualVal);

@@ -8,6 +8,7 @@
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
+import { gestureFor } from './paramGesture.js';
 
 export interface FilterPanelOptions {
   onEdit?: () => void;
@@ -69,6 +70,7 @@ export class FilterPanel {
         size: 38,
         value: initCut / 127.0,
         label: 'CUT',
+        ...gestureFor(ParamIdx.FilterFreq),
         onChange: (normVal: number) => {
           const val = Math.round(normVal * 127.0);
           WebBridge.setParam(ParamIdx.FilterFreq, val);
@@ -83,6 +85,7 @@ export class FilterPanel {
         size: 38,
         value: initReso / 127.0,
         label: 'RESO',
+        ...gestureFor(ParamIdx.FilterReso),
         onChange: (normVal: number) => {
           const val = Math.round(normVal * 127.0);
           WebBridge.setParam(ParamIdx.FilterReso, val);

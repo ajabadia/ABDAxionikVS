@@ -15,6 +15,7 @@ import { ICONS } from './icons.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
+import { gestureFor, gestureForGroup } from './paramGesture.js';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 import { MultiStageShaperPad } from './MultiStageShaperPad.js';
 import { ResynatorShapersPanel } from './ResynatorShapersPanel.js';
@@ -310,6 +311,7 @@ export class ResynatorDrawer {
         label,
         value: normInit,
         bipolar: isBipolar,
+        ...gestureFor(paramId),
         onChange: (normVal: number) => {
           const actualVal = Math.round(min + normVal * range);
           WebBridge.setParam(paramId, actualVal);
@@ -397,6 +399,11 @@ export class ResynatorDrawer {
         times: curShaperTimes,
         levels: curShaperLevels,
         mode: curShaperMode,
+        // El pad mueve los 8 parametros del contorno: un solo gesto del host.
+        ...gestureForGroup([
+          ParamIdx.FreeEnvTime1, ParamIdx.FreeEnvTime2, ParamIdx.FreeEnvTime3, ParamIdx.FreeEnvTime4,
+          ParamIdx.FreeEnvLevel1, ParamIdx.FreeEnvLevel2, ParamIdx.FreeEnvLevel3, ParamIdx.FreeEnvLevel4,
+        ]),
         onChange: (st) => {
           WebBridge.setParam(ParamIdx.FreeEnvTime1, Math.round(st.times[0] * 127));
           WebBridge.setParam(ParamIdx.FreeEnvTime2, Math.round(st.times[1] * 127));

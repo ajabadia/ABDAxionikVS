@@ -14,6 +14,8 @@ import {
 
 export type OutgoingBridgeMessage =
   | { type: 'PARAM_SET'; index: number; value: number }
+  | { type: 'PARAM_GESTURE_BEGIN'; index: number }
+  | { type: 'PARAM_GESTURE_END'; index: number }
   | { type: 'NOTE_ON'; note: number; velocity: number }
   | { type: 'NOTE_OFF'; note: number }
   | { type: 'ALL_NOTES_OFF' }
@@ -65,6 +67,10 @@ class WebBridgeImpl {
   private localParamHandlers: Set<LocalParamHandler> = new Set();
   private isNative: boolean = false;
   private paramCache: Map<number, number> = new Map();
+  // Parámetros con un gesto de automatización abierto (begin sin su end).
+  // El host empareja begin/end y un end suelto dispara su assert, así que la
+  // pareja se guarda aquí y nunca se reenvía desbalanceada.
+  private openGestures: Set<number> = new Set();
   private uiState: Map<string, any> = new Map();
   private hostShapers: Map<
     1 | 2,
@@ -76,6 +82,15 @@ class WebBridgeImpl {
     this.checkNative();
     if (typeof window !== 'undefined') {
       window.addEventListener('load', () => this.checkNative());
+      // Red de seguridad: si el puntero se suelta fuera del control, la ventana
+      // pierde el foco o el WebView se recarga, el `onDragEnd` del control no
+      // llega y el host se queda con el gesto abierto (la automatización graba
+      // de más). Cerrar por captura cubre los tres casos.
+      const closeOrphanGestures = () => this.endAllGestures();
+      document.addEventListener('pointerup', closeOrphanGestures, true);
+      document.addEventListener('pointercancel', closeOrphanGestures, true);
+      window.addEventListener('blur', closeOrphanGestures);
+      document.addEventListener('visibilitychange', closeOrphanGestures);
     }
 
     wasmBridge.onTelemetry((telemetry) => {
@@ -225,6 +240,39 @@ class WebBridgeImpl {
         console.error('[WebBridge LocalParamHandler Error]', err);
       }
     }
+  }
+
+  /**
+   * Abre el gesto de automatización de `index` en el host
+   * (`beginChangeGesture`). Idempotente: dos arrastres solapados del mismo
+   * parámetro comparten un único gesto, porque el host empareja begin/end.
+   */
+  public beginGesture(index: number) {
+    if (this.openGestures.has(index)) return;
+    this.openGestures.add(index);
+    this.send({ type: 'PARAM_GESTURE_BEGIN', index });
+  }
+
+  /** Cierra el gesto de `index` (`endChangeGesture`); no-op si no estaba abierto. */
+  public endGesture(index: number) {
+    if (!this.openGestures.delete(index)) return;
+    this.send({ type: 'PARAM_GESTURE_END', index });
+  }
+
+  /**
+   * Cierra todos los gestos abiertos. Salida de emergencia cuando el `pointerup`
+   * no llega al control (arrastre que acaba fuera de la ventana, cambio de foco
+   * o recarga del WebView).
+   */
+  public endAllGestures() {
+    for (const index of Array.from(this.openGestures)) {
+      this.endGesture(index);
+    }
+  }
+
+  /** True si queda algún gesto sin cerrar (diagnóstico y tests). */
+  public get hasOpenGestures(): boolean {
+    return this.openGestures.size > 0;
   }
 
   public onLocalParamSet(handler: LocalParamHandler): () => void {
