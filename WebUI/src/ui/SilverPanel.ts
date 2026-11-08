@@ -13,7 +13,7 @@ import { TrajectoryStick2D, type StickCoordinate, type StickLabels } from './Tra
 import { WebBridge } from '../bridge/WebBridge.js';
 import { ParamIdx } from '../constants/paramIndices.js';
 import { Knob } from '@abdsynths/shared/components';
-import { gestureFor } from './paramGesture.js';
+import { gestureFor, gestureForGroup, type ParamGestureHandlers } from './paramGesture.js';
 
 export interface SilverPanelOptions {
   onEditSilver?: () => void;
@@ -28,6 +28,8 @@ export class SilverPanel {
   private options: SilverPanelOptions;
   private rootEl: HTMLElement | null = null;
   private silverStick: TrajectoryStick2D | null = null;
+  /** Gesto abierto por el arrastre en curso del stick Silver (X e Y). */
+  private silverStickGesture: ParamGestureHandlers | null = null;
   private currentSilverLevel: number = 0; // 0: Filter, 1: Freq FX, 2: Time FX
 
   // Slicer Hardware controls
@@ -190,6 +192,19 @@ export class SilverPanel {
       onPositionChange: (layerIdx, coord) => {
         this.dispatchSilverStick(coord, layerIdx);
       },
+      // Un arrastre mueve dos parámetros a la vez: el gesto cubre el par X/Y de
+      // la capa activa (y del modo FX vigente) y se cierra al soltar.
+      onDragStart: () => {
+        const layer = this.silverStick?.activeLayer ?? this.currentSilverLevel;
+        const params = this.resolveSilverStickParams(layer);
+        if (!params) return;
+        this.silverStickGesture = gestureForGroup(params);
+        this.silverStickGesture.onDragStart();
+      },
+      onDragEnd: () => {
+        this.silverStickGesture?.onDragEnd();
+        this.silverStickGesture = null;
+      },
     });
 
     this.updateSilver();
@@ -290,51 +305,36 @@ export class SilverPanel {
     });
   }
 
-  private dispatchSilverStick(coord: StickCoordinate, layerIdx: number): void {
+  /**
+   * Par X/Y que gobierna el stick en la capa dada, según el modo FX vigente.
+   * Lo comparten el arrastre (PARAM_SET) y el gesto de automatización, para que
+   * el host reciba begin/end de exactamente los parámetros que se mueven.
+   */
+  private resolveSilverStickParams(layerIdx: number): [number, number] | null {
     if (layerIdx === 0) {
       // Filter Cutoff [274] & Resonance [275]
-      const cut = Math.round(coord.x * 127.0);
-      const res = Math.round(coord.y * 127.0);
-      WebBridge.setParam(ParamIdx.FilterFreq, cut);
-      WebBridge.setParam(ParamIdx.FilterReso, res);
-    } else if (layerIdx === 1) {
+      return [ParamIdx.FilterFreq, ParamIdx.FilterReso];
+    }
+    if (layerIdx === 1) {
       // Frequency FX mode
       const curFreqFx = Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0));
-      if (curFreqFx === 2) {
-        // RingMod: RM_ModFreq [314], RM_Mix [310]
-        const modFreq = Math.round(coord.x * 127.0);
-        const mix = Math.round(coord.y * 127.0);
-        WebBridge.setParam(314, modFreq);
-        WebBridge.setParam(310, mix);
-      } else if (curFreqFx === 1) {
-        // Distortion: DS_InGain [306], DS_PreFilter [307]
-        const inGain = Math.round(coord.x * 127.0);
-        const preCut = Math.round(coord.y * 127.0);
-        WebBridge.setParam(306, inGain);
-        WebBridge.setParam(307, preCut);
-      } else if (curFreqFx === 3) {
-        // Decimator: DC_SHFactor [325], DC_Mix [324]
-        const sh = Math.round(coord.x * 127.0);
-        const mix = Math.round(coord.y * 127.0);
-        WebBridge.setParam(325, sh);
-        WebBridge.setParam(324, mix);
-      }
-    } else if (layerIdx === 2) {
-      // Time FX mode
-      const curTimeFx = Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 0));
-      if (curTimeFx === 1) {
-        // LR Delay: DL_Mix [333], DL_Feedback [336]
-        const mix = Math.round(coord.x * 127.0);
-        const fb = Math.round(coord.y * 127.0);
-        WebBridge.setParam(333, mix);
-        WebBridge.setParam(336, fb);
-      } else if (curTimeFx === 4) {
-        // Chorus: CH_Mix [352], CH_Depth [353]
-        const mix = Math.round(coord.x * 127.0);
-        const depth = Math.round(coord.y * 127.0);
-        WebBridge.setParam(352, mix);
-        WebBridge.setParam(353, depth);
-      }
+      if (curFreqFx === 2) return [314, 310]; // RingMod: RM_ModFreq, RM_Mix
+      if (curFreqFx === 1) return [306, 307]; // Distortion: DS_InGain, DS_PreFilter
+      if (curFreqFx === 3) return [325, 324]; // Decimator: DC_SHFactor, DC_Mix
+      return null;
+    }
+    // Time FX mode
+    const curTimeFx = Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 0));
+    if (curTimeFx === 1) return [333, 336]; // LR Delay: DL_Mix, DL_Feedback
+    if (curTimeFx === 4) return [352, 353]; // Chorus: CH_Mix, CH_Depth
+    return null;
+  }
+
+  private dispatchSilverStick(coord: StickCoordinate, layerIdx: number): void {
+    const params = this.resolveSilverStickParams(layerIdx);
+    if (params) {
+      WebBridge.setParam(params[0], Math.round(coord.x * 127.0));
+      WebBridge.setParam(params[1], Math.round(coord.y * 127.0));
     }
 
     // Formato canónico uniforme con Scape y Sphere: X: 0.xx | Y: 0.yy

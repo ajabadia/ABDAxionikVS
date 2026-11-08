@@ -41,6 +41,10 @@ export interface TrajectoryStickOptions {
   onLayerChange?: (layerIdx: number) => void;
   onPositionChange?: (layerIdx: number, coord: StickCoordinate) => void;
   onChange?: (layerIdx: number, coord: StickCoordinate) => void;
+  /** Apertura del gesto de automatización al agarrar (ver ui/paramGesture.ts). */
+  onDragStart?: () => void;
+  /** Cierre del gesto al soltar. */
+  onDragEnd?: () => void;
   onOpenExpanded?: () => void;
 }
 

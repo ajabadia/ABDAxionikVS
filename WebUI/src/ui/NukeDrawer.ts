@@ -30,7 +30,7 @@ import { getParameterSetStickLabels } from './stickLabels.js';
 export { resolveParamIndexFromModDest };
 import { MODEL_METADATA, getCanonicalModelName } from './NeuronCatalogMetadata.js';
 import { Knob } from '@abdsynths/shared/components';
-import { gestureFor } from './paramGesture.js';
+import { gestureFor, gestureForGroup, type ParamGestureHandlers } from './paramGesture.js';
 import { pillSelectorHtml, bindPillSelector } from '@abdsynths/shared/components/pillSelector.js';
 import { onLocaleChange } from '../i18n/index.js';
 
@@ -81,6 +81,8 @@ export class NukeDrawer {
   private stickDomain: NukeStickDomain = 'sphere';
   private stickLevel: 0 | 1 | 2 = 0;
   private centralStick: TrajectoryStick2D | null = null;
+  /** Gesto abierto por el arrastre en curso del stick central (X e Y). */
+  private stickGesture: ParamGestureHandlers | null = null;
 
   // Voice limit readout
   private voiceLimitValEl: HTMLElement | null = null;
@@ -400,6 +402,19 @@ export class NukeDrawer {
       },
       onPositionChange: (layerIdx, coord) => {
         this.handleCentralStickMove(layerIdx as 0 | 1 | 2, coord);
+      },
+      // Un arrastre del orbe mueve dos parámetros a la vez: se abre un gesto
+      // por eje sobre la capa activa y se cierra todo al soltar.
+      onDragStart: () => {
+        const layer = (this.centralStick?.activeLayer ?? this.stickLevel) as 0 | 1 | 2;
+        this.stickGesture = gestureForGroup(
+          this.resolveStickXYParams(this.stickEngine, this.stickDomain, layer),
+        );
+        this.stickGesture.onDragStart();
+      },
+      onDragEnd: () => {
+        this.stickGesture?.onDragEnd();
+        this.stickGesture = null;
       },
     });
   }

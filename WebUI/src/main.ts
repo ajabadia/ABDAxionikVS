@@ -38,6 +38,7 @@ import { type HardwareHostEvent } from './ui/hardwareDumpsContracts.js';
 import { CalibrationDrawer } from './ui/CalibrationDrawer.js';
 import { DragDropHandler } from './ui/DragDropHandler.js';
 import { WebBridge } from './bridge/WebBridge.js';
+import { gestureForGroup, type ParamGestureHandlers } from './ui/paramGesture.js';
 import { PARAM_DEFINITIONS } from './generated/parameters.gen.js';
 import { ParamIdx } from './constants/paramIndices.js';
 import { getParameterSetStickLabels } from './ui/stickLabels.js';
@@ -467,6 +468,35 @@ const bootstrapAxionikApp = async () => {
   let r2ScapeStick: TrajectoryStick2D | null = null;
   let r2SphereStick: TrajectoryStick2D | null = null;
 
+  /**
+   * Gesto del stick: un arrastre mueve X e Y a la vez y emite un PARAM_SET por
+   * muestra, así que se abre UN gesto por cada eje de la capa activa al agarrar
+   * y se cierra al soltar. Los parámetros los mantiene `onLayerChange` en los
+   * atributos `data-param-x` / `data-param-y` del montaje.
+   */
+  function stickGesture(mount: HTMLElement): Pick<
+    ConstructorParameters<typeof TrajectoryStick2D>[1],
+    'onDragStart' | 'onDragEnd'
+  > {
+    let open: ParamGestureHandlers | null = null;
+    return {
+      onDragStart: () => {
+        const params = ['data-param-x', 'data-param-y']
+          .map((attr) => mount.getAttribute(attr))
+          .filter((value): value is string => value !== null)
+          .map((value) => Number(value))
+          .filter((index) => Number.isInteger(index) && index >= 0);
+        if (params.length === 0) return;
+        open = gestureForGroup(params);
+        open.onDragStart();
+      },
+      onDragEnd: () => {
+        open?.onDragEnd();
+        open = null;
+      },
+    };
+  }
+
   if (r1ScapeMount) {
     r1ScapeMount.setAttribute('data-param-x', String(ParamIdx.R1L1Scape1Value));
     r1ScapeMount.setAttribute('data-param-y', String(ParamIdx.R1L1Scape2Value));
@@ -487,6 +517,7 @@ const bootstrapAxionikApp = async () => {
         WebBridge.setParam(paramX, Math.round(coord.x * 127));
         WebBridge.setParam(paramY, Math.round(coord.y * 127));
       },
+      ...stickGesture(r1ScapeMount),
     });
   }
 
@@ -510,6 +541,7 @@ const bootstrapAxionikApp = async () => {
         WebBridge.setParam(paramX, Math.round(coord.x * 127));
         WebBridge.setParam(paramY, Math.round(coord.y * 127));
       },
+      ...stickGesture(r1SphereMount),
     });
   }
 
@@ -533,6 +565,7 @@ const bootstrapAxionikApp = async () => {
         WebBridge.setParam(paramX, Math.round(coord.x * 127));
         WebBridge.setParam(paramY, Math.round(coord.y * 127));
       },
+      ...stickGesture(r2ScapeMount),
     });
   }
 
@@ -556,6 +589,7 @@ const bootstrapAxionikApp = async () => {
         WebBridge.setParam(paramX, Math.round(coord.x * 127));
         WebBridge.setParam(paramY, Math.round(coord.y * 127));
       },
+      ...stickGesture(r2SphereMount),
     });
   }
 
