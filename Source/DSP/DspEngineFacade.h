@@ -19,6 +19,7 @@
 #include "BlockRenderer.h"
 #include "StickPlayer.h"
 #include "Extended/AxionikExpandedSynthesizer.h"
+#include <Scope/Source/Core/ScopeTap.h>
 #include <functional>
 
 namespace abd::axionik {
@@ -207,6 +208,21 @@ public:
     void process(float* leftChannel, float* rightChannel, size_t numSamples);
 
     /// Telemetría y diagnóstico para la WebUI / Host
+    /// Puntos de inyección de tono diagnóstico en el pipeline DSP (AXVS.2)
+    enum class DiagnosticTonePoint {
+        Disabled = 0,
+        PostMaster = 1,
+        PreFilter = 2,
+        OscillatorDirect = 3
+    };
+
+    void setDiagnosticTone(int point, float freqHz = 440.0f, float level = 0.25f) noexcept;
+    [[nodiscard]] int getDiagnosticTonePoint() const noexcept;
+
+    /// Derivadores ScopeTap para osciloscopio / telemetría visual (AXVS.3)
+    [[nodiscard]] abd::scope::ScopeTap& getScopeTapMaster() noexcept { return scopeTapMaster_; }
+    [[nodiscard]] const abd::scope::ScopeTap& getScopeTapMaster() const noexcept { return scopeTapMaster_; }
+
     [[nodiscard]] Telemetry getTelemetry() const noexcept;
 
     /// Acceso al almacén de configuración de 445 parámetros
@@ -349,6 +365,15 @@ private:
     };
     std::array<extended::AxionikExpandedSynthesizer, 2> expandedSynths_{};
     std::array<extended::AxionikExpandedPreflightReport, 2> lastExpandedReports_{};
+
+    // Diagnostic Tone (AXVS.2)
+    std::atomic<DiagnosticTonePoint> diagTonePoint_{DiagnosticTonePoint::Disabled};
+    std::atomic<float> diagToneFreq_{440.0f};
+    std::atomic<float> diagToneLevel_{0.25f};
+    double diagTonePhase_{0.0};
+
+    // Scope Tap Master (AXVS.3)
+    abd::scope::ScopeTap scopeTapMaster_{"Master Output", abd::scope::ScopeTapType::StereoAudio, 4096, "master_output"};
 };
 
 } // namespace abd::axionik

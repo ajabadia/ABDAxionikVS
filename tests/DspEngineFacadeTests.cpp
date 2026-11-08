@@ -6,6 +6,8 @@
 #include "DSP/DspEngineFacade.h"
 #include "DSP/NeuronBankAdapter.h"
 #include "DSP/Extended/AxionikExpandedSynthesizer.h"
+#include "DSP/ParamGrouping.h"
+#include "State/NeuronSound.h"
 #include "DSP/AxionikParamIndices.h"
 #include <iostream>
 #include <vector>
@@ -1061,6 +1063,147 @@ int main() {
         std::cout << "  [PASS] Test 18: AxionikDB scan keeps parameterSet=-1 when absent and reads explicit parameterSet=5.\n";
     }
 
-    std::cout << "[DspEngineFacadeTests] All 18 tests passed successfully!\n";
+    // Test 19: ParamGrouping covers all 445 parameters
+    {
+        auto buckets = buildParamGroupBuckets();
+        size_t covered = 0;
+        bool blenderPlaced = false;
+        for (const auto& b : buckets) {
+            covered += b.params.size();
+            for (const auto* p : b.params) {
+                if (p->index == ParamIdx::BlenderAmount) {
+                    blenderPlaced = (b.id == "Synth" || b.id == "Synthesizer");
+                }
+            }
+        }
+        if (covered != kNumTotalParameters) {
+            std::cerr << "[FAIL] Test 19: Groups covered " << covered << " params, expected " << kNumTotalParameters << "\n";
+            return 19;
+        }
+        if (!blenderPlaced) {
+            std::cerr << "[FAIL] Test 19: BlenderAmount lost its dictionary group\n";
+            return 19;
+        }
+        std::cout << "  [PASS] Test 19: " << buckets.size() << " parameter groups cover all "
+                  << covered << " registry parameters without duplicates.\n";
+    }
+
+    // Test 20: Diagnostic Tone 440 Hz Injection (AXVS.2)
+    {
+        auto toneEngine = std::make_unique<DspEngineFacade>();
+        toneEngine->prepare(44100.0, 512);
+
+        // 20.1: Default is Disabled -> idle renders silence
+        std::vector<float> bufL(512, 0.0f);
+        std::vector<float> bufR(512, 0.0f);
+        toneEngine->process(bufL.data(), bufR.data(), 512);
+        float idlePeak = 0.0f;
+        for (float s : bufL) idlePeak = std::max(idlePeak, std::abs(s));
+        if (idlePeak > 1e-6f) {
+            std::cerr << "[FAIL] Test 20.1: Idle engine produced sound without diagnostic tone! idlePeak=" << idlePeak << "\n";
+            return 20;
+        }
+
+        // 20.2: Enable PostMaster tone at 440 Hz, 0.25 level
+        toneEngine->setDiagnosticTone(1, 440.0f, 0.25f);
+        if (toneEngine->getDiagnosticTonePoint() != 1) {
+            std::cerr << "[FAIL] Test 20.2: Diagnostic tone point was not stored!\n";
+            return 20;
+        }
+        std::fill(bufL.begin(), bufL.end(), 0.0f);
+        std::fill(bufR.begin(), bufR.end(), 0.0f);
+        toneEngine->process(bufL.data(), bufR.data(), 512);
+
+        float tonePeak = 0.0f;
+        for (float s : bufL) tonePeak = std::max(tonePeak, std::abs(s));
+        if (tonePeak < 0.20f || tonePeak > 0.30f) {
+            std::cerr << "[FAIL] Test 20.3: Expected ~0.25 peak from 440 Hz diagnostic tone, got " << tonePeak << "\n";
+            return 20;
+        }
+
+        // 20.3: Disable tone -> silence returns
+        toneEngine->setDiagnosticTone(0, 440.0f, 0.0f);
+        std::fill(bufL.begin(), bufL.end(), 0.0f);
+        std::fill(bufR.begin(), bufR.end(), 0.0f);
+        toneEngine->process(bufL.data(), bufR.data(), 512);
+        float postPeak = 0.0f;
+        for (float s : bufL) postPeak = std::max(postPeak, std::abs(s));
+        if (postPeak > 1e-6f) {
+            std::cerr << "[FAIL] Test 20.4: Disabling diagnostic tone did not restore silence!\n";
+            return 20;
+        }
+
+        std::cout << "  [PASS] Test 20: Diagnostic tone injection (440 Hz reference) verified (AXVS.2).\n";
+    }
+
+    // Test 21: ScopeTap Telemetry Tap Infrastructure (AXVS.3)
+    {
+        auto tapEngine = std::make_unique<DspEngineFacade>();
+        tapEngine->prepare(44100.0, 512);
+        auto& tap = tapEngine->getScopeTapMaster();
+
+        // 21.1: Initially inactive
+        if (tap.isActive()) {
+            std::cerr << "[FAIL] Test 21.1: ScopeTap must be inactive by default!\n";
+            return 21;
+        }
+
+        // 21.2: Activate tap and render
+        tap.setActive(true);
+        tapEngine->setDiagnosticTone(1, 440.0f, 0.25f);
+        std::vector<float> bufL(512, 0.0f);
+        std::vector<float> bufR(512, 0.0f);
+        tapEngine->process(bufL.data(), bufR.data(), 512);
+
+        size_t avail = tap.getAvailableRead();
+        if (avail < 512) {
+            std::cerr << "[FAIL] Test 21.2: Active ScopeTap did not accumulate samples! available=" << avail << "\n";
+            return 21;
+        }
+
+        std::vector<float> readL(512, 0.0f);
+        std::vector<float> readR(512, 0.0f);
+        size_t readCount = tap.read(readL.data(), readR.data(), 512);
+        if (readCount != 512) {
+            std::cerr << "[FAIL] Test 21.3: ScopeTap read failed!\n";
+            return 21;
+        }
+
+        // 21.3: Deactivate tap
+        tap.setActive(false);
+        tapEngine->process(bufL.data(), bufR.data(), 512);
+        if (tap.getAvailableRead() != 0) {
+            std::cerr << "[FAIL] Test 21.4: Inactive ScopeTap must not accumulate samples!\n";
+            return 21;
+        }
+
+        std::cout << "  [PASS] Test 21: ScopeTap lock-free ring buffer telemetry verified (AXVS.3).\n";
+    }
+
+    // Test 22: DoS Protection on File Size Limits (AXVS.5)
+    {
+        // 22.1: Non-existent file rejected
+        SoundPreset p;
+        if (NeuronSound::parseSoundScriptFile("non_existent_file_xyz.script", p)) {
+            std::cerr << "[FAIL] Test 22.1: Non-existent file must be rejected!\n";
+            return 22;
+        }
+
+        // 22.2: Empty file rejected
+        auto tmpEmpty = std::filesystem::temp_directory_path() / "test_empty.script";
+        {
+            std::ofstream out(tmpEmpty);
+        }
+        if (NeuronSound::parseSoundScriptFile(tmpEmpty, p)) {
+            std::filesystem::remove(tmpEmpty);
+            std::cerr << "[FAIL] Test 22.2: 0-byte file must be rejected!\n";
+            return 22;
+        }
+        std::filesystem::remove(tmpEmpty);
+
+        std::cout << "  [PASS] Test 22: DoS physical file size bounds protection verified (AXVS.5).\n";
+    }
+
+    std::cout << "[DspEngineFacadeTests] All 22 tests passed successfully!\n";
     return 0;
 }

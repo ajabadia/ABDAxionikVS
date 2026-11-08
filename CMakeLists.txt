@@ -171,12 +171,8 @@ target_sources(ABDAxionikVS_WebPilot PRIVATE
     ${AXIONIK_DSP_SOURCES}
 )
 
-target_include_directories(ABDAxionikVS_WebPilot PRIVATE
-    Source
-    Source/DSP
-    Source/Generated
-    "${ABDSHARED_CODE_DIR}"
-)
+axionik_dsp_configure(ABDAxionikVS_WebPilot)
+target_include_directories(ABDAxionikVS_WebPilot PRIVATE "${ABDSHARED_CODE_DIR}")
 
 target_compile_definitions(ABDAxionikVS_WebPilot PRIVATE
     JUCE_WEB_BROWSER=1
@@ -202,14 +198,8 @@ add_executable(GoldenParityTest
     ${AXIONIK_DSP_SOURCES}
 )
 
-target_include_directories(GoldenParityTest PRIVATE
-    Source
-    Source/DSP
-    Source/Generated
-    Tests
-)
-
-target_compile_features(GoldenParityTest PRIVATE cxx_std_20)
+axionik_dsp_configure(GoldenParityTest)
+target_include_directories(GoldenParityTest PRIVATE Tests)
 
 if(MSVC)
     target_link_options(GoldenParityTest PRIVATE "/STACK:8388608")
@@ -229,14 +219,8 @@ add_executable(DspEngineFacadeTests
     ${AXIONIK_DSP_SOURCES}
 )
 
-target_include_directories(DspEngineFacadeTests PRIVATE
-    Source
-    Source/DSP
-    Source/Generated
-    Tests
-)
-
-target_compile_features(DspEngineFacadeTests PRIVATE cxx_std_20)
+axionik_dsp_configure(DspEngineFacadeTests)
+target_include_directories(DspEngineFacadeTests PRIVATE Tests)
 
 if(MSVC)
     target_link_options(DspEngineFacadeTests PRIVATE "/STACK:8388608")

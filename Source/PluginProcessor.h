@@ -17,6 +17,7 @@
 #include "Generated/BuildVersion.gen.h"
 #include "Generated/FactoryPresets.gen.h"
 #include <HardwareDrivers/MidiLearnManager.h>
+#include <Scope/Source/Core/SpscRingBuffer.h>
 
 namespace abd::axionik {
 
@@ -67,6 +68,12 @@ public:
     void setParameterByIndex(uint32_t index, float rawValue);
     void setParameterNormalizedByIndex(uint32_t index, float normalizedValue);
 
+    /// Gestos de automatización para los controles con arrastre de la WebUI.
+    /// Un arrastre emite cientos de PARAM_SET pero es UN gesto para el host:
+    /// sin begin/end, graba un punto por paso y el undo no revierte el movimiento.
+    void beginParameterGestureByIndex(uint32_t index);
+    void endParameterGestureByIndex(uint32_t index);
+
     /// Controladores en tiempo real (Pitch Bend, Channel Pressure/Aftertouch, CCs estándar y NRPN)
     /// compartidos de forma idéntica entre MIDI físico y UI / pantalla táctil
     void setMidiPitchBend(float normalizedBipolar);            // -1.0 .. +1.0
@@ -110,7 +117,14 @@ private:
     // Mapa de búsqueda O(1) de clave APVTS a índice de parámetro
     std::unordered_map<juce::String, uint32_t> paramIdToIndex_;
 
-    // Cola de sincronización bidireccional APVTS -> WebUI
+    // Gestos abiertos desde la WebUI, por índice de parámetro: JUCE empareja
+    // begin/end, así que un end sin su begin se descarta aquí y no llega al host.
+    std::vector<uint8_t> openGestureFlags_{};
+
+    // Cola lock-free SPSC para cambios de parámetros desde el hilo de audio (StickPlayer)
+    abd::scope::SpscRingBuffer<ParamChange> stickParamQueue_{1024};
+
+    // Cola de sincronización bidireccional APVTS -> WebUI (hilo de mensajes / UI)
     std::mutex uiParamMutex_;
     std::vector<ParamChange> pendingUiChanges_;
     PresetEvent pendingPresetEvent_;

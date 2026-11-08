@@ -726,10 +726,14 @@ DspEngineFacade::updateSilverAndMasterFx(const float *p,
   // Blender & Slicer routing
   float blenderLfoMod = p ? p[SlotIdx::BlenderLfoDepth]
                           : (store_.getRawValue(BlenderLfoDepth) / 64.0f);
+  // BlenderAmount es SymBipolar [-64..63]: su centro fisico (raw 0) tiene que caer
+  // en 0.5 exacto. Con (raw + 64) / 127 el centro quedaba en 64/127 = 0.50394, que
+  // desplaza el blender media muesca y no coincide con lo que el host automatiza
+  // (PluginProcessor usa rawToNormalized). Se usa la misma curva SymBipolar del
+  // diccionario: cada mitad recorre medio rango contra su propio extremo.
   float blenderBase =
       p ? p[SlotIdx::BlenderAmount]
-        : std::clamp((store_.getRawValue(BlenderAmount) + 64.0f) / 127.0f, 0.0f,
-                     1.0f);
+        : rawToNormalized(BlenderAmount, store_.getRawValue(BlenderAmount));
   params.blenderNorm = std::clamp(
       blenderBase + globalLfoSignal * blenderLfoMod * 0.5f, 0.0f, 1.0f);
   params.blenderType =
@@ -1005,6 +1009,33 @@ void DspEngineFacade::process(float *leftChannel, float *rightChannel,
   // 7. Sample-accurate anti-pop fade
   applyAntiPop(leftChannel, rightChannel, numSamples);
 
+  // AXVS.2: Inyector de tono diagnóstico 440 Hz
+  auto diagPoint = diagTonePoint_.load(std::memory_order_relaxed);
+  if (diagPoint != DiagnosticTonePoint::Disabled) {
+    float f = diagToneFreq_.load(std::memory_order_relaxed);
+    float lvl = diagToneLevel_.load(std::memory_order_relaxed);
+    double phaseInc = (2.0 * 3.14159265358979323846 * static_cast<double>(f)) / static_cast<double>(sampleRate_);
+    for (size_t i = 0; i < numSamples; ++i) {
+      float s = static_cast<float>(std::sin(diagTonePhase_)) * lvl;
+      diagTonePhase_ += phaseInc;
+      if (diagTonePhase_ >= 2.0 * 3.14159265358979323846) {
+        diagTonePhase_ -= 2.0 * 3.14159265358979323846;
+      }
+      if (diagPoint == DiagnosticTonePoint::PostMaster) {
+        leftChannel[i] = s;
+        if (rightChannel) rightChannel[i] = s;
+      } else {
+        leftChannel[i] += s;
+        if (rightChannel) rightChannel[i] += s;
+      }
+    }
+  }
+
+  // AXVS.3: Derivador ScopeTap para osciloscopio
+  if (scopeTapMaster_.isActive()) {
+    scopeTapMaster_.writeStereo(leftChannel, rightChannel, numSamples);
+  }
+
   // 8. Performance telemetry
 #ifndef __EMSCRIPTEN__
   auto endTime = std::chrono::steady_clock::now();
@@ -1017,6 +1048,16 @@ void DspEngineFacade::process(float *leftChannel, float *rightChannel,
 #endif
 
   updatePeaksAndTelemetry(leftChannel, rightChannel, numSamples, instantLoad);
+}
+
+void DspEngineFacade::setDiagnosticTone(int point, float freqHz, float level) noexcept {
+  diagTonePoint_.store(static_cast<DiagnosticTonePoint>(point), std::memory_order_relaxed);
+  diagToneFreq_.store(freqHz, std::memory_order_relaxed);
+  diagToneLevel_.store(level, std::memory_order_relaxed);
+}
+
+int DspEngineFacade::getDiagnosticTonePoint() const noexcept {
+  return static_cast<int>(diagTonePoint_.load(std::memory_order_relaxed));
 }
 
 Telemetry DspEngineFacade::getTelemetry() const noexcept {

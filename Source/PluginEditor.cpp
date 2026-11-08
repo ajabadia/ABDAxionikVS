@@ -176,7 +176,13 @@ void AxionikEditor::handleJsEvent(const juce::var& msg) {
 
     juce::String type = obj->getProperty("type").toString();
     AX_LOG(juce::String("[BRIDGE IN] Event: ") + type);
-    if (type == "PARAM_SET") {
+    if (type == "PARAM_GESTURE_BEGIN") {
+        int index = static_cast<int>(obj->getProperty("index"));
+        processor_.beginParameterGestureByIndex(static_cast<uint32_t>(index));
+    } else if (type == "PARAM_GESTURE_END") {
+        int index = static_cast<int>(obj->getProperty("index"));
+        processor_.endParameterGestureByIndex(static_cast<uint32_t>(index));
+    } else if (type == "PARAM_SET") {
         int index = static_cast<int>(obj->getProperty("index"));
         float value = static_cast<float>(obj->getProperty("value"));
         // Pasa a través de la capa de abstracción de parámetros de AxionikProcessor (APVTS + Host automation)
@@ -500,18 +506,17 @@ void AxionikEditor::sendResynatorShapersState(int slot) {
         root->setProperty("shapers", juce::var(shapersObj));
     }
 
-    const juce::String json = juce::JSON::toString(juce::var(root), true);
-    const juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { window.WebBridge.notify(" + json + "); }";
-    webComponent_->getWebBrowser().evaluateJavascript(js);
+    webComponent_->emitEventIfBrowserIsVisible("event", juce::var(root));
 }
 
 void AxionikEditor::sendBankCatalogSync() {
     if (webComponent_ == nullptr) return;
     auto json = processor_.getNeuronDbCatalogJson();
     AX_LOG(juce::String("[BRIDGE OUT] Sending BANK_CATALOG_SYNC (JSON len: ") + juce::String(json.length()) + ")");
-    juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { "
-                      "  window.WebBridge.notify(" + json + "); }";
-    webComponent_->getWebBrowser().evaluateJavascript(js);
+    auto parsed = juce::JSON::parse(json);
+    if (parsed.isObject()) {
+        webComponent_->emitEventIfBrowserIsVisible("event", parsed);
+    }
 }
 
 void AxionikEditor::paint(juce::Graphics& g) {
@@ -549,11 +554,13 @@ void AxionikEditor::timerCallback() {
 
     // 1. Notificación de telemetría (CPU, voces polifónicas y picos estéreo)
     auto telemetry = processor_.getDspEngine().getTelemetry();
-    juce::String js = "if (window.WebBridge && typeof window.WebBridge.notify === 'function') { "
-                      "  window.WebBridge.notify({ type: 'TELEMETRY', cpuUsage: " + juce::String(telemetry.cpuUsage) +
-                      ", activeVoices: " + juce::String(telemetry.activeVoices) +
-                      ", peakL: " + juce::String(telemetry.peakL, 3) +
-                      ", peakR: " + juce::String(telemetry.peakR, 3) + " }); ";
+    juce::DynamicObject::Ptr telemObj = new juce::DynamicObject();
+    telemObj->setProperty("type", "TELEMETRY");
+    telemObj->setProperty("cpuUsage", static_cast<double>(telemetry.cpuUsage));
+    telemObj->setProperty("activeVoices", static_cast<int>(telemetry.activeVoices));
+    telemObj->setProperty("peakL", static_cast<double>(telemetry.peakL));
+    telemObj->setProperty("peakR", static_cast<double>(telemetry.peakR));
+    webComponent_->emitEventIfBrowserIsVisible("event", juce::var(telemObj.get()));
 
     // 3. Notificación de carga de preset / modelo
     auto presetEvt = processor_.drainPendingPresetEvent();
@@ -563,46 +570,54 @@ void AxionikEditor::timerCallback() {
                "' (R1: " + juce::String(presetEvt.r1Model) + ", R2: " + juce::String(presetEvt.r2Model) + ")");
 
         const auto& store = processor_.getDspEngine().getStore();
-        juce::String valuesJson = "[";
+        juce::Array<juce::var> valuesArr;
+        valuesArr.ensureStorageAllocated(kNumTotalParameters);
         for (uint32_t i = 0; i < kNumTotalParameters; ++i) {
-            if (i > 0) valuesJson += ",";
-            valuesJson += juce::String(store.getRawValue(i), 2);
+            valuesArr.add(static_cast<double>(store.getRawValue(i)));
         }
-        valuesJson += "]";
 
-        js += "  window.WebBridge.notify({ type: 'PRESET_LOADED', name: '" + presetEvt.name.replace("'", "\\'") +
-              "', r1Model: " + juce::String(presetEvt.r1Model) +
-              ", r2Model: " + juce::String(presetEvt.r2Model) +
-              ", values: " + valuesJson + " }); ";
+        juce::DynamicObject::Ptr preObj = new juce::DynamicObject();
+        preObj->setProperty("type", "PRESET_LOADED");
+        preObj->setProperty("name", presetEvt.name);
+        preObj->setProperty("r1Model", presetEvt.r1Model);
+        preObj->setProperty("r2Model", presetEvt.r2Model);
+        preObj->setProperty("values", valuesArr);
+        webComponent_->emitEventIfBrowserIsVisible("event", juce::var(preObj.get()));
+
         sendResynatorShapersState(0);
         sendResynatorShapersState(1);
     } else {
         // 2. Notificaciones de parámetros individuales modificados por Host Automation, MIDI CC o NRPN
         auto pending = processor_.drainPendingUiParamChanges();
         for (const auto& change : pending) {
-            js += "  window.WebBridge.notify({ type: 'PARAM_UPDATE', index: " + juce::String(change.index) +
-                  ", value: " + juce::String(change.value) + " }); ";
+            juce::DynamicObject::Ptr paramObj = new juce::DynamicObject();
+            paramObj->setProperty("type", "PARAM_UPDATE");
+            paramObj->setProperty("index", static_cast<int>(change.index));
+            paramObj->setProperty("value", static_cast<double>(change.value));
+            webComponent_->emitEventIfBrowserIsVisible("event", juce::var(paramObj.get()));
         }
     }
 
-    // 4. Sincronización de estado de MIDI Learn (cuando el usuario mueve un CC físico en modo Learn o carga estado DAW)
+    // 4. Sincronización de estado de MIDI Learn
     if (processor_.getMidiLearnManager().drainStateChangedFlag()) {
-        js += "  window.WebBridge.notify(" + processor_.getMidiLearnManager().toJson() + "); ";
+        auto parsed = juce::JSON::parse(processor_.getMidiLearnManager().toJson());
+        if (parsed.isObject()) {
+            webComponent_->emitEventIfBrowserIsVisible("event", parsed);
+        }
     }
 
-    // 5. Telemetría del último mensaje MIDI entrante (para el monitor en vivo del MidiLearnDrawer)
+    // 5. Telemetría del último mensaje MIDI entrante
     abd::hw::MidiLearnManager::LastMidiActivity midiAct;
     if (processor_.getMidiLearnManager().drainLastMidiActivity(midiAct)) {
-        js += "  window.WebBridge.notify({ type: 'MIDI_ACTIVITY', sourceType: " +
-              juce::String(static_cast<int>(midiAct.sourceType)) +
-              ", channel: " + juce::String(midiAct.channel) +
-              ", number: " + juce::String(midiAct.number) +
-              ", rawValue: " + juce::String(midiAct.rawValue) +
-              ", normalizedValue: " + juce::String(midiAct.normalizedValue, 4) + " }); ";
+        juce::DynamicObject::Ptr midiObj = new juce::DynamicObject();
+        midiObj->setProperty("type", "MIDI_ACTIVITY");
+        midiObj->setProperty("sourceType", static_cast<int>(midiAct.sourceType));
+        midiObj->setProperty("channel", midiAct.channel);
+        midiObj->setProperty("number", midiAct.number);
+        midiObj->setProperty("rawValue", midiAct.rawValue);
+        midiObj->setProperty("normalizedValue", static_cast<double>(midiAct.normalizedValue));
+        webComponent_->emitEventIfBrowserIsVisible("event", juce::var(midiObj.get()));
     }
-
-    js += "}";
-    webComponent_->getWebBrowser().evaluateJavascript(js);
 }
 
 } // namespace abd::axionik

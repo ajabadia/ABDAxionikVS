@@ -76,6 +76,22 @@ jobs:
           Write-Host "pluginval terminó con exit code $($proc.ExitCode)"
           if ($proc.ExitCode -ne 0) { throw "pluginval falló con exit code $($proc.ExitCode)" }
 
+      # El exit code solo no basta: pluginval puede terminar en 0 sin haber
+      # validado nada (crash del plugin tras cargar, salida antes de escribir el
+      # informe). El .txt es la prueba de que la validación se ejecutó, así que
+      # sin informe el job falla en vez de quedar en verde.
+      - name: Comprobar que pluginval escribió el informe
+        run: |
+          $reports = @(Get-ChildItem -Path reports -Filter *.txt -File -ErrorAction SilentlyContinue)
+          if ($reports.Count -eq 0) {
+            throw "pluginval no generó ningún informe .txt en reports/: la validación no se ejecutó"
+          }
+          $empty = @($reports | Where-Object { $_.Length -eq 0 })
+          if ($empty.Count -eq $reports.Count) {
+            throw "El informe de pluginval está vacío: $($empty.Name -join ', ')"
+          }
+          $reports | ForEach-Object { Write-Host ("Informe: {0} ({1} bytes)" -f $_.Name, $_.Length) }
+
       - name: Subir informe de pluginval
         if: always()
         uses: actions/upload-artifact@v4

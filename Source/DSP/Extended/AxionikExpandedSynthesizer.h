@@ -124,6 +124,8 @@ public:
         decorrelDelayIdx_ = 0;
         decorrelLineL_.fill(0.0f);
         decorrelLineR_.fill(0.0f);
+        filterLpL_ = 0.0f;
+        filterLpR_ = 0.0f;
     }
 
     void loadModel(const AxionikExpandedModelDoc& doc) {

@@ -131,6 +131,10 @@ public:
                 }
                 if (!std::filesystem::exists(jsonFile)) continue;
 
+                std::error_code ec;
+                const auto sz = std::filesystem::file_size(jsonFile, ec);
+                if (ec || sz == 0 || sz > 16 * 1024 * 1024) continue;
+
                 std::ifstream in(jsonFile);
                 if (!in.is_open()) continue;
                 const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
@@ -651,7 +655,10 @@ private:
             // Extraer metadatos
             auto manifestPath = modelFolder / "manifest.json";
             int parameterSet = -1;
-            if (std::filesystem::exists(v2File)) {
+            std::error_code ec;
+            if (std::filesystem::exists(v2File, ec) && !ec) {
+                const auto sz = std::filesystem::file_size(v2File, ec);
+                if (ec || sz == 0 || sz > 16 * 1024 * 1024) continue;
                 std::ifstream vf(v2File);
                 std::string vfText((std::istreambuf_iterator<char>(vf)), std::istreambuf_iterator<char>());
                 auto eName = extractSimpleJsonField(vfText, "expandedName");
@@ -660,7 +667,9 @@ private:
                 auto cat = extractSimpleJsonField(vfText, "category");
                 if (!cat.empty()) category = cat;
                 parameterSet = extractSimpleJsonIntField(vfText, "parameterSet", -1);
-            } else if (std::filesystem::exists(manifestPath)) {
+            } else if (std::filesystem::exists(manifestPath, ec) && !ec) {
+                const auto sz = std::filesystem::file_size(manifestPath, ec);
+                if (ec || sz == 0 || sz > 16 * 1024 * 1024) continue;
                 std::ifstream mf(manifestPath);
                 std::string mfText((std::istreambuf_iterator<char>(mf)), std::istreambuf_iterator<char>());
                 auto mName = extractSimpleJsonField(mfText, "modelName");

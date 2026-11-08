@@ -7,6 +7,24 @@
 
 ---
 
+# ABDAxionikVS — Informe de Arquitectura y Plan de Implementación (`ROADMAP.md`)
+
+## 🛡️ Plan de Modernización y Cumplimiento Normativo 2026 (Auditoría 2026-11)
+> **Estado:** 🟢 Completado  
+> **Objetivo:** Subsanar discrepancias de tiempo real, diagnóstico, telemetría y seguridad detectadas en la auditoría contra los estándares 2026 (ADR-001 a ADR-005 y SECURITY_STANDARDS).
+
+### 📋 Fases del Plan de Adaptación
+
+| Fase | Tarea / Subsistema | Estado | Descripción Técnica y Criterio de Aceptación |
+| :--- | :--- | :---: | :--- |
+| **AXVS.1** | **Blindaje Real-Time en Audio Thread (StickPlayer)** | ✅ Completado | Eliminado el bloqueo de `uiParamMutex_` y el `push_back` en `std::vector` dentro de `setOnStickParamChanged` invocado desde el hilo de audio (`processVectorSticks`). Sustituido por una cola circular SPSC lock-free de tamaño fijo (`abd::scope::SpscRingBuffer<ParamChange> stickParamQueue_{1024}`). **Criterio:** Cero locks y cero reservas en heap durante `processBlock`. |
+| **AXVS.2** | **Inyector de Tono Diagnóstico 440 Hz** | ✅ Completado | Implementado `DiagnosticTonePoint` (Disabled, PostMaster, PreFilter, OscillatorDirect) en `DspEngineFacade`, permitiendo la inyección atómica de una onda senoidal de 440 Hz de referencia para aislamiento de fallos. **Criterio:** Tono audible y medible verificado en Test 20. |
+| **AXVS.3** | **Infraestructura de `ScopeTap` para Osciloscopio** | ✅ Completado | Añadido derivador `abd::scope::ScopeTap` en la salida Master de `DspEngineFacade` conectado a SPSC lock-free para introspección y telemetría visual de osciloscopio sin degradar el pipeline. **Criterio:** Verificado en Test 21. |
+| **AXVS.4** | **Modernización de Telemetría IPC** | ✅ Completado | Migradas las notificaciones periódicas a 30 Hz en `AxionikEditor::timerCallback`, `sendResynatorShapersState` y `sendBankCatalogSync` de `evaluateJavascript("window.WebBridge.notify(...)")` a eventos nativos tipados (`emitEventIfBrowserIsVisible("event", ...)`). **Criterio:** Eliminada la construcción de strings JS concatenados en bucle y reducida sobrecarga en Chromium. |
+| **AXVS.5** | **Blindaje DoS en Carga de Archivos de Preset / Modelos** | ✅ Completado | Aplicadas comprobaciones de tamaño en disco (`std::filesystem::file_size`) antes de la lectura en `parseSoundScriptFile` y `parseStickRecFile` en `NeuronSound.h`, y en descriptores JSON `.model` / `manifest.json` en `NeuronBankAdapter.h`, rechazando archivos corruptos o > 16 MB. **Criterio:** Verificado en Test 22. |
+
+---
+
 ## 1. Síntesis de Auditoría de Fuentes Locales
 
 ### 1.1 Corpus de Ingeniería Inversa (`C:/Users/ajaba/Downloads/neuron`)

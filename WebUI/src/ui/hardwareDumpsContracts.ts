@@ -7,7 +7,8 @@
  *   - All SetUps (0x30)
  *   - All Models (0x40)
  *
- * Documentado en D:\desarrollos\ABDSynths\ABDShared\Docs\hw-sysex-contract.md
+ * Documentado en DOCS/reverse_engineering/SYSEX.md; el borrador original
+ * (ABDShared/Docs/hw-sysex-contract.md) quedó archivado en _Deprecados/Docs/.
  */
 
 /** Modos de dump documentados desde el manual del synth */

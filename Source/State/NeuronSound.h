@@ -166,8 +166,11 @@ public:
         return true;
     }
 
-    /// Carga y parsea sound.script desde archivo
+    /// Carga y parsea sound.script desde archivo con blindaje DoS de tamaño físico en disco (AXVS.5)
     static bool parseSoundScriptFile(const std::filesystem::path& path, SoundPreset& outPreset) {
+        std::error_code ec;
+        const auto sz = std::filesystem::file_size(path, ec);
+        if (ec || sz == 0 || sz > 16 * 1024 * 1024) return false;
         std::ifstream in(path, std::ios::binary);
         if (!in) return false;
         std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
@@ -217,8 +220,11 @@ public:
         return !outEvents.empty();
     }
 
-    /// Carga y parsea sound.stickrec desde archivo
+    /// Carga y parsea sound.stickrec desde archivo con blindaje DoS de tamaño físico en disco (AXVS.5)
     static bool parseStickRecFile(const std::filesystem::path& path, std::vector<StickRecEvent>& outEvents) {
+        std::error_code ec;
+        const auto sz = std::filesystem::file_size(path, ec);
+        if (ec || sz == 0 || sz > 16 * 1024 * 1024) return false;
         std::ifstream in(path, std::ios::binary);
         if (!in) return false;
         std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());

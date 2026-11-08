@@ -6,6 +6,10 @@ si el C++ cambia, se regenera el artefacto y listo.
 
 ## Fuente de verdad (commiteado)
 
+- `DspSources.cmake` → `AXIONIK_RESYNATOR_WASM_SOURCES` — la **lista compartida** de
+  fuentes del artefacto, la misma que consumen los builds nativo y WASM del plugin.
+  No hay copia local: este tool la lee con `dump-sources.cmake` y de ella salen la
+  compilación, la lista `sources` del manifiesto y su `engineHash`.
 - `Source/DSP/Extended/ResynatorV2Wasm.cpp` — fachada C-ABI (`RESYNATOR_V2_WASM_ABI`).
 - `Source/DSP/Extended/AxionikExpandedSynthesizer.h` — el DSP.
 - `Source/DSP/Extended/AxionikExpandedModel.h` — el modelo.
@@ -22,8 +26,9 @@ silencio.
 ## Regenerar (el único paso manual)
 
 Requisitos: emsdk con `emcc` (por defecto `D:/desarrollos/emsdk`, verificado
-con emcc 6.0.4; se puede sobreescribir con `$env:EMSDK`), Node.js en el PATH,
-PowerShell 5.1+.
+con emcc 6.0.4; se puede sobreescribir con `$env:EMSDK`), `cmake` y Node.js en el
+PATH, PowerShell 5.1+ (`cmake` solo se usa para volcar la lista compartida de
+fuentes, no para compilar el artefacto).
 
 ```powershell
 cd tools/resynator-wasm
@@ -32,7 +37,8 @@ cd tools/resynator-wasm
 
 Qué hace, en orden:
 
-1. Lee la ABI de la línea `#define RESYNATOR_V2_WASM_ABI` del wrapper.
+1. Vuelca la lista compartida de fuentes (`cmake -P dump-sources.cmake`) y lee la
+   ABI de la línea `#define RESYNATOR_V2_WASM_ABI` del wrapper.
 2. Compila con emcc `-O3 -s SINGLE_FILE=1 -s STACK_SIZE=4MB` a `out/`.
    (`STACK_SIZE=4MB` no es opcional: el parser JSON del motor es recursivo y
    los documentos reales de ~100 KB agotan los 64 KB de pila WASM por defecto.
@@ -41,11 +47,12 @@ Qué hace, en orden:
    fixture, renderiza 1 s (pico + hash fnv1a) y carga un documento grande para
    vigilar el `STACK_SIZE`. Si el humo falla, **no se publica nada**.
 4. Copia el artefacto a `ABDNeuModMakr/public/wasm/` y reescribe
-   `resynator-v2-abi.json` (con `engineHash` SHA-256 de los tres fuentes).
+   `resynator-v2-abi.json` (con `engineHash` SHA-256 y la lista `sources`, ambos
+   generados desde la lista compartida).
 
 ## Cuándo regenerar
 
-- Tras cualquier cambio en los tres fuentes de verdad.
+- Tras cualquier cambio en las fuentes de `AXIONIK_RESYNATOR_WASM_SOURCES`.
 - Tras subir `RESYNATOR_V2_WASM_ABI`: el artefacto pasa a llamarse
   `resynator-v2-abiN.js` y la web rechaza con error ruidoso cualquier
   artefacto con ABI distinta.

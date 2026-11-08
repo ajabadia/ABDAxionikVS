@@ -7,28 +7,70 @@
 #include "PluginEditor.h"
 #include "AppLogger.h"
 #include "DSP/AxionikParamIndices.h"
+#include "DSP/ParamGrouping.h"
 #include <algorithm>
 #include <cmath>
+#include <string_view>
 
 namespace abd::axionik {
 
+namespace {
+
+/// Etiqueta legible de cada grupo del diccionario. Si apareciera un grupo nuevo
+/// en la spec se muestra su id tal cual, de modo que ningun parametro se queda
+/// fuera del arbol (y por tanto sin carpeta en el DAW).
+juce::String paramGroupDisplayName(std::string_view groupId) {
+    struct Entry { std::string_view id; const char* label; };
+    static constexpr Entry kLabels[] = {
+        { "SoundHeader", "Global" },
+        { "SoundName",   "Name" },
+        { "Synth",       "Synth" },
+        { "R1",          "Resynator 1" },
+        { "R2",          "Resynator 2" },
+        { "SoundMFX",    "Master FX" },
+    };
+
+    for (const auto& entry : kLabels)
+        if (entry.id == groupId)
+            return juce::String(entry.label);
+
+    return juce::String(groupId.data(), groupId.size());
+}
+
+} // namespace
+
 juce::AudioProcessorValueTreeState::ParameterLayout AxionikProcessor::createParameterLayout() {
-    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
-    params.reserve(kNumTotalParameters);
+    // Un `AudioProcessorParameterGroup` por categoria del diccionario: JUCE lo
+    // publica como unidad VST3 y el host lo muestra como carpeta de automatizacion.
+    // El arbol exige hijos contiguos por grupo y en el registro los grupos estan
+    // intercalados (R1, R2, R1, Synth, R2...), asi que aqui se reordenan; dentro de
+    // cada grupo se conserva el orden del registro.
+    const auto buckets = buildParamGroupBuckets();
 
-    for (const auto& desc : kParameterDescriptors) {
-        float step = desc.step > 0.0f ? desc.step : 0.001f;
-        auto range = juce::NormalisableRange<float>(desc.min, desc.max, step);
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-        params.push_back(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID(juce::String(desc.key.data(), desc.key.size()), 1),
-            juce::String(desc.key.data(), desc.key.size()),
-            range,
-            desc.defaultValue
-        ));
+    for (const auto& bucket : buckets) {
+        auto group = std::make_unique<juce::AudioProcessorParameterGroup>(
+            "grp_" + juce::String(bucket.id.data(), bucket.id.size()),
+            paramGroupDisplayName(bucket.id),
+            " / ");
+
+        for (const auto* desc : bucket.params) {
+            const float step = desc->step > 0.0f ? desc->step : 0.001f;
+            auto range = juce::NormalisableRange<float>(desc->min, desc->max, step);
+
+            group->addChild(std::make_unique<juce::AudioParameterFloat>(
+                juce::ParameterID(juce::String(desc->key.data(), desc->key.size()), 1),
+                juce::String(desc->key.data(), desc->key.size()),
+                range,
+                desc->defaultValue
+            ));
+        }
+
+        layout.add(std::move(group));
     }
 
-    return { params.begin(), params.end() };
+    return layout;
 }
 
 AxionikProcessor::AxionikProcessor()
@@ -47,9 +89,10 @@ AxionikProcessor::AxionikProcessor()
     }
 
     // Conectar el despachador de StickPlayer para animar la UI en tiempo real
+    // Garantía Real-Time (AXVS.1): SPSC lock-free sin locks ni heap allocation en el hilo de audio
     dspEngine_.setOnStickParamChanged([this](uint32_t idx, float rawVal) {
-        std::scoped_lock lock(uiParamMutex_);
-        pendingUiChanges_.push_back({ idx, rawVal });
+        ParamChange change{ idx, rawVal };
+        stickParamQueue_.write(&change, 1);
     });
 
     // Sincronizar APVTS y estado inicial (000: Init Sound) desde dspEngine_
@@ -101,9 +144,19 @@ void AxionikProcessor::parameterChanged(const juce::String& parameterID, float n
 }
 
 std::vector<AxionikProcessor::ParamChange> AxionikProcessor::drainPendingUiParamChanges() {
-    std::scoped_lock lock(uiParamMutex_);
     std::vector<ParamChange> changes;
-    changes.swap(pendingUiChanges_);
+    {
+        std::scoped_lock lock(uiParamMutex_);
+        changes.swap(pendingUiChanges_);
+    }
+
+    // Drenar cambios del StickPlayer en el hilo de audio vía SPSC lock-free (AXVS.1)
+    ParamChange stickBatch[256];
+    size_t n = 0;
+    while ((n = stickParamQueue_.read(stickBatch, 256)) > 0) {
+        changes.insert(changes.end(), stickBatch, stickBatch + n);
+    }
+
     return changes;
 }
 
@@ -212,6 +265,30 @@ void AxionikProcessor::setParameterNormalizedByIndex(uint32_t index, float norma
         p->setValueNotifyingHost(clampedNorm);
     } else {
         dspEngine_.setParamNormalized(index, clampedNorm);
+    }
+}
+
+void AxionikProcessor::beginParameterGestureByIndex(uint32_t index) {
+    if (index >= kNumTotalParameters || index >= openGestureFlags_.size()) return;
+    if (openGestureFlags_[index] != 0) return;   // begin duplicado: se ignora
+
+    const auto& desc = kParameterDescriptors[index];
+    auto paramId = juce::String(desc.key.data(), desc.key.size());
+    if (auto* p = apvts_.getParameter(paramId)) {
+        openGestureFlags_[index] = 1;
+        p->beginChangeGesture();
+    }
+}
+
+void AxionikProcessor::endParameterGestureByIndex(uint32_t index) {
+    if (index >= kNumTotalParameters || index >= openGestureFlags_.size()) return;
+    if (openGestureFlags_[index] == 0) return;   // end sin begin: se descarta
+
+    openGestureFlags_[index] = 0;
+    const auto& desc = kParameterDescriptors[index];
+    auto paramId = juce::String(desc.key.data(), desc.key.size());
+    if (auto* p = apvts_.getParameter(paramId)) {
+        p->endChangeGesture();
     }
 }
 

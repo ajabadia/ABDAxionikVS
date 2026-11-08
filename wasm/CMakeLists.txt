@@ -39,11 +39,8 @@ set(WASM_SOURCES
 
 add_executable(abdaxionikvs_dsp ${WASM_SOURCES})
 
-target_include_directories(abdaxionikvs_dsp PRIVATE
-    "${CMAKE_CURRENT_LIST_DIR}/../Source"
-    "${CMAKE_CURRENT_LIST_DIR}/../Source/DSP"
-    "${CMAKE_CURRENT_LIST_DIR}/../Source/Generated"
-)
+# Directorios de inclusion, C++20 y variante de motor vienen del fichero compartido
+axionik_dsp_configure(abdaxionikvs_dsp)
 
 target_link_libraries(abdaxionikvs_dsp PRIVATE
     ABDShared::DspCore

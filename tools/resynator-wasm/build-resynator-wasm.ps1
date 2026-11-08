@@ -6,6 +6,10 @@
   Uso:  .\build-resynator-wasm.ps1 [-EmsdkRoot D:\desarrollos\emsdk] [-SkipSmoke]
   O doble clic en build-resynator-wasm.bat.
 
+  La lista de fuentes NO vive en este script: se lee de DspSources.cmake
+  (AXIONIK_RESYNATOR_WASM_SOURCES) con dump-sources.cmake, y de ella salen tanto
+  la compilacion como la lista `sources` y el `engineHash` del manifiesto.
+
   Filosofía: el .js generado NO se commitea (es artefacto). Lo que sí se
   commitea es la prueba que falla si el artefacto falta o está obsoleto
   (tests/resynatorWasmParity.test.ts). Olvidar este script = test en rojo,
@@ -22,17 +26,37 @@ $ErrorActionPreference = 'Stop'
 
 $ToolsDir = $PSScriptRoot
 $RepoRoot = (Split-Path (Split-Path $ToolsDir -Parent) -Parent)  # ABDAxionikVS/
-$SrcDir   = Join-Path $RepoRoot 'Source/DSP/Extended'
-$Wrapper  = Join-Path $SrcDir 'ResynatorV2Wasm.cpp'
-$SynthHdr = Join-Path $SrcDir 'AxionikExpandedSynthesizer.h'
-$ModelHdr = Join-Path $SrcDir 'AxionikExpandedModel.h'
 $MakrRoot = Join-Path (Split-Path $RepoRoot -Parent) 'ABDNeuModMakr'
 $WasmDir  = Join-Path $MakrRoot 'public/wasm'
 $OutDir   = Join-Path $ToolsDir 'out'
 
-foreach ($p in @($Wrapper, $SynthHdr, $ModelHdr)) {
+# La lista de fuentes NO se mantiene aqui: vive en DspSources.cmake, compartida con
+# el build nativo y el WASM del plugin. dump-sources.cmake la escribe en un fichero
+# (message() de CMake sale por stderr, asi que no se puede leer de la salida).
+$SourcesScript = Join-Path $ToolsDir 'dump-sources.cmake'
+$SourcesDump   = Join-Path ([IO.Path]::GetTempPath()) "resynator-wasm-sources-$PID.txt"
+$cmake = Get-Command cmake -ErrorAction SilentlyContinue
+if (-not $cmake) {
+  throw 'cmake no esta en el PATH; se necesita para leer la lista compartida de fuentes.'
+}
+& $cmake.Source "-DAXIONIK_SOURCES_OUT=$SourcesDump" -P $SourcesScript
+if ($LASTEXITCODE -ne 0) { throw "dump-sources.cmake fallo (exit $LASTEXITCODE)." }
+$SharedSources = @([IO.File]::ReadAllLines($SourcesDump) |
+  ForEach-Object { $_.Trim() } |
+  Where-Object { $_.Length -gt 0 })
+Remove-Item $SourcesDump -Force -ErrorAction SilentlyContinue
+if ($SharedSources.Count -eq 0) { throw 'La lista compartida de fuentes esta vacia.' }
+
+foreach ($p in $SharedSources) {
   if (-not (Test-Path $p)) { throw "Falta fuente de la verdad: $p" }
 }
+
+# Exactamente un .cpp: la fachada C-ABI que se compila. Las cabeceras entran en el hash.
+$Wrappers = @($SharedSources | Where-Object { $_ -like '*.cpp' })
+if ($Wrappers.Count -ne 1) {
+  throw "La lista compartida debe declarar exactamente un .cpp (la fachada); hay $($Wrappers.Count)."
+}
+$Wrapper = $Wrappers[0]
 $Emcc = Join-Path $EmsdkRoot 'upstream/emscripten/emcc.exe'
 if (-not (Test-Path $Emcc)) {
   throw "emcc no encontrado en $Emcc. Pasa -EmsdkRoot o define `$env:EMSDK."
@@ -88,23 +112,33 @@ if (-not $SkipSmoke) {
 
 New-Item -ItemType Directory -Force -Path $WasmDir | Out-Null
 Copy-Item $OutJs (Join-Path $WasmDir $ArtifactName) -Force
-$engineHash = (Get-FileHash $Wrapper -Algorithm SHA256).Hash +
-  (Get-FileHash $SynthHdr -Algorithm SHA256).Hash +
-  (Get-FileHash $ModelHdr -Algorithm SHA256).Hash
+# El hash del motor y la lista `sources` del manifiesto salen de la MISMA lista
+# compartida: anadir una fuente en DspSources.cmake actualiza el manifiesto y el
+# hash sin tocar este script.
+$engineHashSeed = ''
+$relativeSources = @()
+# dump-sources.cmake escribe las rutas con '/' (estilo CMake) y $RepoRoot llega
+# con '\' en Windows: se normalizan ambas antes de comparar, o el StartsWith
+# rechaza fuentes que SI estan dentro del repo.
+$RepoRootFull = [IO.Path]::GetFullPath($RepoRoot)
+foreach ($source in $SharedSources) {
+  $sourcePath = [IO.Path]::GetFullPath($source)
+  if (-not $sourcePath.StartsWith($RepoRootFull + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Fuente fuera de $RepoRootFull`: $sourcePath"
+  }
+  $engineHashSeed += (Get-FileHash $sourcePath -Algorithm SHA256).Hash
+  $relativeSources += $sourcePath.Substring($RepoRootFull.Length + 1).Replace('\', '/')
+}
 $engineHash = [BitConverter]::ToString(
   [Security.Cryptography.SHA256]::Create().ComputeHash(
-    [Text.Encoding]::UTF8.GetBytes($engineHash))).Replace('-', '').ToLowerInvariant()
+    [Text.Encoding]::UTF8.GetBytes($engineHashSeed))).Replace('-', '').ToLowerInvariant()
 @{
   abi        = [int]$Abi
   artifact   = "wasm/$ArtifactName"
   builtAtUtc = (Get-Date).ToUniversalTime().ToString('o')
   engineHash = "sha256:$engineHash"
   buildFlags = @("OPTIMIZE=-O3", "SINGLE_FILE=1", "STACK_SIZE=4MB")
-  sources    = @(
-    'Source/DSP/Extended/ResynatorV2Wasm.cpp',
-    'Source/DSP/Extended/AxionikExpandedSynthesizer.h',
-    'Source/DSP/Extended/AxionikExpandedModel.h'
-  )
+  sources    = $relativeSources
 } | ConvertTo-Json | Out-String | ForEach-Object {
   # UTF-8 SIN BOM: JSON.parse de Node lo exige.
   [IO.File]::WriteAllText(
