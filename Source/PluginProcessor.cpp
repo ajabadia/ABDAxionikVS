@@ -230,10 +230,13 @@ void AxionikProcessor::initPreset() {
         dspEngine_.applyPreset(initPreset);
     }
     syncApvtsFromDspEngine();
-}
-
-void AxionikProcessor::syncApvtsFromDspEngine() {
-    isSyncingPreset_.store(true, std::memory_order_release);
+}void AxionikProcessor::syncApvtsFromDspEngine() {
+    // Guard against reentrancy (Lesson 17): exchange-acquire pattern.
+    // Only the first caller proceeds; subsequent reentrant calls return immediately.
+    // Note: if reentrant, the flag stays set until the original caller finishes,
+    // which is safe because these call sites (loadPresetBySlot, initPreset,
+    // loadPresetFromScript) don't normally nest.
+    if (isSyncingPreset_.exchange(true, std::memory_order_acquire)) return;
     const auto& store = dspEngine_.getStore();
     {
         std::scoped_lock lock(uiParamMutex_);
@@ -249,8 +252,8 @@ void AxionikProcessor::syncApvtsFromDspEngine() {
             pendingUiChanges_.push_back({ i, rawVal });
         }
         const auto& curPreset = dspEngine_.getCurrentPreset();
-        pendingPresetEvent_ = { true, juce::String(curPreset.name), curPreset.r1ModelIndex, curPreset.r2ModelIndex };    }
-
+        pendingPresetEvent_ = { true, juce::String(curPreset.name), curPreset.r1ModelIndex, curPreset.r2ModelIndex };
+    }
     isSyncingPreset_.store(false, std::memory_order_release);
 }
 
