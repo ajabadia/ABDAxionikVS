@@ -120,6 +120,18 @@ void AxionikProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     dspEngine_.prepare(sampleRate, static_cast<size_t>(samplesPerBlock));
     // El motor renderiza muestra a muestra dentro del bloque: latencia cero explícita para el host.
     setLatencySamples(0);
+
+    // Lesson 25: inicialización determinista - resetear acumuladores
+    // para asegurar estado consistente en múltiples calls a prepareToPlay
+    // Reset NRPN state accumulators
+    nrpnMsb_ = 0;
+    nrpnLsb_ = 0;
+    dataEntryMsb_ = 0;
+    nrpnChannel_ = -1;
+    midiBank_ = 0;
+    // Reset host clock accumulators for deterministic startup
+    wasHostPlaying_ = false;
+    lastHostPpq_ = -1.0;
 }
 
 void AxionikProcessor::releaseResources() {
