@@ -1,5 +1,14 @@
 # NeuronVS · llamadas virtuales resueltas
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **7 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 4 de ellos: `../classes`, `../classes/dtor_chain.csv`, `../vst2`.
+> Los otros 3 no están en el repositorio (volcados de datos, carpetas citadas).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Reescritura del pseudocódigo exportado para que cada llamada por vtable muestre el método al que despacha, en lugar de `(**(code **)(*param_1 + 0x1c))()`.
 
 **Resultado:** 137 de 188 llamadas por vtable resueltas (72.9%); ninguna queda ambigua; 51 no tienen receptor tipado (14 de ellos código inalcanzable); 0 son slots puros; 0 se rechazan por leer fuera de la tabla de su clase y 0 por no ser un slot (destino sin `+ 0xNN` o con un offset no múltiplo de 4). Las 53 llamadas por campo de puntero (`param_1 + 0xNN`, sin doble desreferencia) no son virtuales y se dejan intactas.

@@ -1,5 +1,11 @@
 # El cuerpo del modelo 511 — parciales del `.sphere` frente a la curva del `.scape`
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **3 no resuelven** hoy y se conservan tal como están escritos.
+> Ninguno tiene destino en el árbol actual: no están en el repositorio (volcados de datos).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Los dos binarios del modelo contienen cosas distintas y este documento las separa
 oyéndolas. El bloque de 6152 B de cada frame del `.sphere` es un **banco de 1024
 parciales** (frecuencia, amplitud y bin) y el `.scape` es **un solo ciclo de 100

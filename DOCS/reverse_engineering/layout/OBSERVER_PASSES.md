@@ -1,5 +1,12 @@
 # El observador: `0x10001010`, el alta/baja y las dos pasadas de notificación
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **2 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 1 de ellos: `../observers/tools/verify_observers.py`.
+> Los otros 1 no están en el repositorio (carpetas citadas).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 [`KNOB_PARAM_LINK.md`](KNOB_PARAM_LINK.md) cuenta cómo un control se enlaza a un
 registro `C_Param` y cómo el valor vuelve al control. Este documento cierra la
 pieza que faltaba: **qué es exactamente el bloque observador, quién lo pone a

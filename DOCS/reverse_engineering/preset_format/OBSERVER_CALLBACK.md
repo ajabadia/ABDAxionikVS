@@ -1,5 +1,14 @@
 # El callback `0x10013620`: cómo cambia un modelo
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **2 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 1 de ellos: `../dsp/ZONES.md`.
+> Los otros 1 no están en el repositorio (ficheros sueltos).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Este es el callback que `params` instala en su primer observador
 (`param_1[0xa5] = &LAB_10013620`, que es `observer+0x14`, la pasada 1). Ghidra no lo
 había creado como función porque sólo se referencia por dirección; está recuperado

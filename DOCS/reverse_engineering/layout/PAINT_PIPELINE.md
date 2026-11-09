@@ -1,5 +1,11 @@
 # Del byte "sucio" a los píxeles: la cadena de pintado
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **2 no resuelven** hoy y se conservan tal como están escritos.
+> Ninguno tiene destino en el árbol actual: no están en el repositorio (scripts de verificación).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Este documento sigue el camino que va del **byte de invalidez** de un widget
 hasta los píxeles que dibuja el editor: quién pone ese byte, quién lo lee, cómo
 se recorre el árbol de widgets y, dentro de cada clase, **qué lee del

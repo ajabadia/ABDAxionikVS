@@ -1,5 +1,14 @@
 # NeuronVS.dll — los 335 enganches de observador de `params`
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **4 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 2 de ellos: `../dsp/params_observers_map.csv`, `../neurondb/sound_schema.csv`.
+> Los otros 2 no están en el repositorio (volcados de datos).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Los observadores son el puente entre los **445 registros de `snddat`** y los **340 slots
 de `params+0x278C`** (`p[]`, los valores efectivos que el traductor `FUN_10040550` lee).
 Este paquete trae el mapa completo —una fila por llamada a `FUN_100010a0` en el

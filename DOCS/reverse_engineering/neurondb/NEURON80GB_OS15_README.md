@@ -1,5 +1,14 @@
 # Neuron80GB-OS15 — los modelos del disco del estudio
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **9 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 4 de ellos: `models.csv`, `SCAPE_SPHERE.md`, `SYNTH_FRAMES.md`.
+> Los otros 5 no están en el repositorio (scripts de verificación, volcados de datos).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 `Neuron80GB-OS15.tib` (2.362.286.080 B ≈ 2,2 GiB, con copia en `.zip` y `.rar`) es una imagen Acronis del disco de la máquina donde se montaban los modelos de NeuronVS. Descomprimida son **45,7 GB de disco lógico** repartidos en **302.041 bloques**, y dentro están los binarios de modelo que nunca salieron a la calle: la instalación sólo trae el modelo `511` (*sinew*), y aquí hay **1.567 parejas `.scape`/`.sphere`** — los 1.567 modelos del banco `NeuronVS-db`, más los renders antiguos del mismo id que quedaron en el disco.
 
 Este documento describe el contenedor, las cuatro trampas que tiene el carveo y el resultado de contrastar lo extraído byte a byte contra el NeuronDB instalado.

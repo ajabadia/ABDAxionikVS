@@ -1,5 +1,13 @@
 # NeuronVS_port
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **2 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 2 de ellos: `TRANSLATOR.md`, `../dsp/ZONES.md`.
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Reconstrucción compilable de la superficie VST2 de `NeuronVS.dll`: cabecera
 `AEffect`, dispatcher de los 77 opcodes, 26 parámetros y los slots del core y del
 editor. Sin SDK de Steinberg y sin hardware Neuron.

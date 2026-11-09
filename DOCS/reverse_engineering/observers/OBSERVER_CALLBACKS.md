@@ -1,5 +1,14 @@
 # Los callbacks de observador: los 4 que faltaban y el universal
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **3 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 1 de ellos: `../preset_format/OBSERVER_CALLBACK.md`.
+> Los otros 2 no están en el repositorio (volcados de datos).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 `params` instala callbacks con operandos inmediatos dentro de su constructor
 `FUN_1000be10`. Ghidra sólo creó como función el primero (`0x10013620`, documentado en
 [`../NeuronVS_preset_format/OBSERVER_CALLBACK.md`](../NeuronVS_preset_format/OBSERVER_CALLBACK.md));

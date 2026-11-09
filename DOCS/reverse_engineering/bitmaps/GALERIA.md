@@ -1,5 +1,11 @@
 # Galeria de bitmaps de NeuronVS.dll
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **86 no resuelven** hoy y se conservan tal como están escritos.
+> Ninguno tiene destino en el árbol actual: no están en el repositorio (capturas y recursos gráficos, volcados de datos).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Recursos `RT_BITMAP` extraidos del PE, reconstruidos como BMP y convertidos a PNG. Total: **42 imagenes**. El recurso 43 es `RT_VERSION` y se documenta aparte.
 
 ![Contact sheet](contactsheet.png)

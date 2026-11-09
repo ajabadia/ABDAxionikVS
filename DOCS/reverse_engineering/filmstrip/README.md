@@ -1,5 +1,14 @@
 # NeuronVS.dll — el filmstrip `11601` en GIF
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **8 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 1 de ellos: `../layout/streams.csv`.
+> Los otros 7 no están en el repositorio (capturas y recursos gráficos, volcados de datos, carpetas citadas).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 El recurso `RT_BITMAP` **11601** (`0x2d51`) es una tira de **50×4500** px, 24 bpp, sin compresión: **90 fotogramas de 50×50** apilados en vertical. Cada fotograma es el mismo mando oscuro con una muesca grabada en la cara; a lo largo de la tira la muesca recorre la cara y vuelve al punto de partida, de modo que el último fotograma enlaza con el primero (diferencia media **2,07/255** entre el 0 y el 89, frente a **4,69/255** a mitad del recorrido) y el GIF puede repetir sin salto. Aquí está convertida en GIF, en tamaño nativo y ampliada, y con el control que la anima localizado en el código.
 
 | Archivo | Qué es |

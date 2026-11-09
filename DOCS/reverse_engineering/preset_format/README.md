@@ -1,5 +1,14 @@
 # NeuronVS — el formato de preset (`sound.script`) y su esquema
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **4 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 1 de ellos: `../neurondb/README.md`.
+> Los otros 3 no están en el repositorio (scripts de verificación).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Un preset de NeuronVS (Hartmann Music, 2004) es el fichero de texto `Sounds/NNN.sound/sound.script` dentro de `NeuronDB`. El DLL no guarda binarios: **vuelca los 445 parámetros del motor** como líneas `Clave<TAB>valor` y los relee buscando cada clave por nombre. Este paquete reconstruye ese formato desde el binario, publica el **esquema declarado** de los 445 parámetros (rango, valor por defecto y paso) y trae un códec en Python que lee, valida, crea y edita presets, más un verificador que lo comprueba todo contra `NeuronVS.dll` y contra los 351 presets instalados.
 
 El contexto de carpeta (registro, rutas, `sound.stickrec`, modelos, caché de nombres) está en el paquete hermano [`NeuronVS_neurondb`](../NeuronVS_neurondb/README.md); aquí se documenta sólo el fichero de preset y su esquema.

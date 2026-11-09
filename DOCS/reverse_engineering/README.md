@@ -1,5 +1,14 @@
 # NeuronVS — estudio de ingeniería inversa
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **21 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 19 de ellos: `classes/README.md`, `resolved/README.md`, `dsp/README.md`, `preset_format/README.md`, `layout/README.md` y 11 más.
+> Los otros 2 no están en el repositorio (ficheros sueltos).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](ENLACES_ROTOS.md).
+
 Estudio del sintetizador **Hartmann Neuron / NeuronVS** (VST2 de 32 bits) para saber
 qué habría que reescribir para tener un equivalente en C++ moderno, y cuánto es. No es
 un port: es la medida del terreno, con cada afirmación comprobable contra

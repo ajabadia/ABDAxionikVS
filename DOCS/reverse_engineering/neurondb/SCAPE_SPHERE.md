@@ -1,5 +1,13 @@
 # `.scape` y `.sphere` — del cargador al motor
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **1 no resuelve** hoy y se conserva tal como está escrito.
+> Alternativa real para 1 de ellos: `../dsp/ZONES.md`.
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Los dos binarios del modelo (`Models/NNN.model/NNNNNN.scape` y `.sphere`) llegaban
 al motor como punteros opacos: `FUN_1000b490` lee el fichero entero y el cargador
 no lo interpreta. Este documento cierra ese hueco: sigue los buffers hasta las

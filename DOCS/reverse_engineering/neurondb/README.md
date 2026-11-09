@@ -1,5 +1,14 @@
 # NeuronDB — la base de datos de NeuronVS y sus `.sound`
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **12 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 4 de ellos: `../preset_format/preset_schema.csv`, `../preset_format/README.md`, `../preset_format/PARAM_RECORD.md`.
+> Los otros 8 no están en el repositorio (scripts de verificación, capturas y recursos gráficos).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 `NeuronDB` es la carpeta de datos que `NeuronVS.dll` (Hartmann Music, 2004) lee al arrancar: los **351 sonidos** y el **modelo 511** que vienen con el instalador. Los `.sound` **no son archivos**: son carpetas `NNN.sound/` con un `sound.script` de texto y, opcionalmente, un `sound.stickrec`. Este documento describe la carpeta, el formato de esos ficheros, cómo los localiza y los parsea el binario, y qué queda fuera del alcance de lo verificado.
 
 | Archivo | Qué contiene |

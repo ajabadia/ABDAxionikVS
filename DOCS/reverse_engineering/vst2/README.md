@@ -1,5 +1,14 @@
 # NeuronVS · superficie VST2
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **7 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 4 de ellos: `../classes/CLASSES.md`, `../preset_format/PARAM_RECORD.md`, `../classes`, `../dsp`.
+> Los otros 3 no están en el repositorio (scripts de verificación, carpetas citadas).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Reconstrucción estática de la interfaz VST2 de `NeuronVS.dll` (PE32 x86, Hartmann Music, 2004) a partir del propio binario y del pseudocódigo de Ghidra. No se ejecutó el plugin: cada dato lleva su dirección de origen.
 
 **Resultado:** 72 de 77 opcodes enrutados (0x00–0x4c), **26 parámetros** automatizables, flags `0x111`, un único camino MIDI (`effProcessEvents`) y 11 mensajes MIDI con efecto.

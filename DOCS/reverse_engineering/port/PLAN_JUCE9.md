@@ -1,5 +1,13 @@
 # NeuronVS → plugin ABD · plan vigente (JUCE 9 · WebView2 · VST3 · x64)
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **1 no resuelve** hoy y se conserva tal como está escrito.
+> Alternativa real para 1 de ellos: `../dsp`.
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 > Sustituye a la segunda mitad de [PLAN.md](PLAN.md), que sigue siendo válido como
 > registro de la superficie VST2. Fecha: 2026-10-20.
 

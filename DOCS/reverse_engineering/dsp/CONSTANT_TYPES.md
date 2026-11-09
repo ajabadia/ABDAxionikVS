@@ -1,5 +1,11 @@
 # Tipos de las 1.430 constantes: medidos, no adivinados
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **1 no resuelve** hoy y se conserva tal como está escrito.
+> No tiene destino en el árbol actual: no está en el repositorio (scripts de verificación).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 `constants.csv` deduce el tipo **del valor**: si los ocho bytes se leen como un
 `double` razonable, escribe `f64`. Eso se equivoca de dos maneras. Un `float`
 almacenado en cuatro bytes, leído como `double`, casi siempre parece un número

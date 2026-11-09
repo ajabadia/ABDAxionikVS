@@ -1,5 +1,11 @@
 # Catálogo de clases · NeuronVS
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **1 no resuelve** hoy y se conserva tal como está escrito.
+> No tiene destino en el árbol actual: no está en el repositorio (scripts de verificación).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Generado por [`tools/make_classes_md.py`](tools/make_classes_md.py) a partir de
 [`classes.csv`](classes.csv), [`class_edges.csv`](class_edges.csv) y
 [`functions.csv`](functions.csv). Los nombres de clase son **propuestos**;

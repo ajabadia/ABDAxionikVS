@@ -1,5 +1,13 @@
 # NeuronVS_port · plan de reconstrucción de la superficie VST2
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **3 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 3 de ellos: `../vst2/README.md`, `../layout`, `../bitmaps`.
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 > **Documento histórico para M0–M3.** El plan vigente del producto (JUCE 9,
 > WebView2, VST3, x64, normas de ABDShared) está en
 > [PLAN_JUCE9.md](PLAN_JUCE9.md): la superficie VST2 se queda como banco de

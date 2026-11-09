@@ -1,5 +1,14 @@
 # NeuronVS · reconstrucción de clases y vtables
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **12 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 5 de ellos: `../resolved`, `../resolved/README.md`, `../vst2`.
+> Los otros 7 no están en el repositorio (scripts de verificación, capturas y recursos gráficos, volcados de datos, carpetas citadas).
+> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
+> el destino correcto es la misma ruta sin ese prefijo.
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Análisis estático de `NeuronVS.dll` (VST2 nativo, PE32 x86, Hartmann Music, 2004) para
 reconstruir el modelo de objetos del núcleo y dar nombres significativos a las funciones
 que el decompilador dejó como `FUN_xxxxxxxx`.

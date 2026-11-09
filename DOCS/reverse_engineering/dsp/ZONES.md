@@ -1,5 +1,11 @@
 # Las 128 entradas de un modelo y `FUN_100440d0`
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **1 no resuelve** hoy y se conserva tal como está escrito.
+> No tiene destino en el árbol actual: no está en el repositorio (scripts de verificación).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Esta nota aísla la pieza que une el fichero del modelo con el motor: **cómo
 `map.script` (texto) se convierte en 128 entradas por tecla dentro del estado
 que suena**, y qué hace exactamente `FUN_100440d0` con cada una. Todo se

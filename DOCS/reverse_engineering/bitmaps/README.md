@@ -1,5 +1,11 @@
 # NeuronVS.dll — bitmaps de la interfaz
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **4 no resuelven** hoy y se conservan tal como están escritos.
+> Ninguno tiene destino en el árbol actual: no están en el repositorio (scripts de verificación, capturas y recursos gráficos, volcados de datos).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Extracción de los recursos gráficos del PE `NeuronVS.dll` (Hartmann Music, 2004) y conversión a PNG. El binario contiene **43 recursos**: **42 `RT_BITMAP`** y **1 `RT_VERSION`**. La galería documenta las 42 imágenes y el recurso de versión por separado.
 
 ## Resultado

@@ -1,5 +1,11 @@
 # Dónde acaba el componente de parámetros y empieza el motor
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **1 no resuelve** hoy y se conserva tal como está escrito.
+> No tiene destino en el árbol actual: no está en el repositorio (scripts de verificación).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Esta nota responde a una pregunta concreta: **qué estado del sintetizador suena y
 cuál sólo configura**, y dónde está la frontera exacta entre los dos. Todo lo que
 sigue se puede comprobar con [`tools/verify_dsp.py`](tools/verify_dsp.py).

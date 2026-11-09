@@ -1,5 +1,11 @@
 # NeuronVS · maqueta del editor
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **3 no resuelven** hoy y se conservan tal como están escritos.
+> Ninguno tiene destino en el árbol actual: no están en el repositorio (scripts de verificación, carpetas citadas).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 Reconstrucción de la composición de la interfaz a partir de los recursos gráficos del DLL y de las tablas que los controles leen al construirse. El editor es un lienzo de **800x652** (`0x1001bc55`); todo lo demás son sprites y controles colocados encima.
 
 **Resultado:** 42 bitmaps inventariados, **26 slots de sprite** en la tabla `0x1004d050`, **33 páginas** repartidas en 10 vistas, **429 controles montados** (el reparto página→control ya está descifrado), **211 entradas de geometría** en 9 tablas de control, **174 controles enlazados a su clave del preset** (170 de las 445 claves tienen control en la interfaz) y las **44 retro-referencias resueltas**: 13 enlazan un parámetro del motor (los 9 selectores de forma de onda y de modo), 18 son selectores de páginas de una vista, 9 son grupos de exclusión y 4 apuntan a un registro que se elige en ejecución. De los 26 slots, 6 se localizan en las pieles exactamente donde dice la tabla; el resto son contenidos que el editor dibuja en tiempo de ejecución (`C_BitmapBox` los crea al abrir la página). 5 de las páginas no tienen fondo propio: son contenedores que montan otras vistas. La hoja de contactos [`pages_sheet.png`](pages_sheet.png) pinta las 33 a la vez, compuestas, al 50 %, y [`pages_sheet.html`](pages_sheet.html) la convierte en una rejilla navegable: cada recorte enlaza `viewer.html#view=V&page=P` y abre esa página en el visor.

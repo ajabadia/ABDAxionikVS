@@ -1,5 +1,12 @@
 # `FUN_10040550` — el traductor, traducido y medido
 
+> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
+> **6 no resuelven** hoy y se conservan tal como están escritos.
+> Alternativa real para 4 de ellos: `../dsp/STATE_SPLIT.md`, `../dsp/CONSTANT_TYPES.md`, `../dsp/ZONES.md`, `../neurondb/SCAPE_SPHERE.md`.
+> Los otros 2 no están en el repositorio (ficheros sueltos).
+> Inventario línea a línea, con el destino resuelto y su alternativa:
+> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+
 `NeuronVS.dll!0x10040550` es la **frontera** entre el componente de parámetros y
 el motor: recibe el bloque de valores ya recortados y escribe el estado que
 suena. Esta nota documenta su traducción a C++ ([`src/translator.cpp`](../src/translator.cpp)),
