@@ -739,7 +739,7 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
 
 | Fase | Contenido | Hallazgos | Estado | Esfuerzo |
 | :--- | :--- | :---: | :---: | :---: |
-| **Q0** | Red de seguridad (CI, `/W4`, linter) | 4 | `[~]` (Q0.4 pendiente) | S–M |
+| **Q0** | Red de seguridad (CI, `/W4`, linter) | 4 | `[x]` | S–M |
 | **Q1** | Bloqueantes: portabilidad y bugs DSP | 4 | `[~]` (Q1.1 hecho) | S–M |
 | **Q2** | Duplicación de la familia de controles | 1 | `[ ]` | L |
 | **Q3** | Tipos y escapes de comprobación | 2 | `[ ]` | M |
@@ -766,17 +766,23 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
   *Cambio:* job MSVC en `windows-latest` con `-DABDSHARED_BUILD_DSPCORE_TESTS=ON -DABDSHARED_BUILD_SYNTHCORE_TESTS=ON -DABDSHARED_BUILD_DSPEFFECTS_TESTS=ON`, ejecutando los tres binarios.
   *Aceptación:* los 1.798 checks de `DspEffects` y los de `DspCore`/`SynthCore` corren en cada PR.
 
-- [ ] **Q0.4 — Linter y formato mínimos.**
+- [x] **Q0.4 — Linter y formato mínimos.**
   43,9k líneas de JS sin `eslint`, sin `prettier` y sin `.editorconfig`; el único script de `package.json` es `"test": "vitest run"`.
-  *Cambio:* ESLint 9 (flat config) con `no-undef`, `eqeqeq` (`smart`), `no-unused-vars`, `no-empty` e `import/no-unresolved` —esta última es la que habría cazado los 28 imports de Q1.1—. Prettier opcional, en un commit aparte.
-  *Aceptación:* `npx eslint .` con 0 errores tras Q1 y ejecutándose en CI.
+  *Cambio aplicado:* ESLint 10 con `eslint.config.js` plano y reglas de correctitud (`no-undef`, `no-redeclare`, `no-dupe-*`, `no-unreachable`, `no-const-assign`, `no-cond-assign`, `use-isnan`, `valid-typeof`, `no-compare-neg-zero`…), con `eqeqeq`, `no-empty`, `no-unused-vars`, `no-prototype-builtins` y `no-useless-escape` como aviso. **No** se usó `import/no-unresolved`: obliga a `eslint-plugin-import` y en NTFS el specifier mal capitalizado resuelve igual, así que la cubre `tests/importsCase.test.js`, que sí distingue mayúsculas. Prettier queda pendiente, en commit aparte.
+  *Aceptación:* `eslint .` con 0 errores y ejecutándose en CI (job `lint`). Medido: **0 errores y 46 avisos en 213 ficheros**, los avisos concentrados en `catch` vacíos y variables sin usar de los ficheros duplicados que Q2 va a eliminar.
 
-**Resultado tras Q0 + Q1.1 (verificado en local, 2026-11-09):** suite JS 43 ficheros / 625 pasan / 1 skipped · C++ 4.443 + 2.299 + 1.798 comprobaciones, 0 fallos · los 13 avisos se reproducen sin pasar flags a mano · 28 specifiers corregidos y guard nuevo en `tests/importsCase.test.js`, probado también en negativo (falla si se introduce un caso roto).
+**Resultado tras Q0 + Q1.1 (verificado en local, 2026-11-09):** suite JS 43 ficheros / 625 pasan / 1 skipped · ESLint 0 errores / 46 avisos · C++ 4.443 + 2.299 + 1.798 comprobaciones, 0 fallos · los 13 avisos se reproducen sin pasar flags a mano · 28 specifiers corregidos y guard nuevo en `tests/importsCase.test.js`, probado también en negativo (falla si se introduce un caso roto). Toda esa red corre en CI (jobs `web`, `lint` y `dsp`).
 
 **Hallazgos nuevos que ha destapado Q0:**
 
 - **`package.json` no se puede instalar fuera del monorepo.** Declara `@abdsynths/i18n` y `@abdsynths/scope` como `workspace:*`, protocolo que npm rechaza en un checkout suelto (`EUNSUPPORTEDPROTOCOL`). Por eso el workflow instala vitest y jsdom en un prefijo temporal; arreglarlo de raíz (cambiar a referencias locales o publicar los paquetes) es una decisión aparte.
 - **`jsdom` no estaba declarado** aunque `vitest.config.js` lo exige; la suite funcionaba solo porque el workspace padre lo hoisteaba. Declararlo toca el `pnpm-lock` del workspace padre, así que queda pendiente de decidir.
+- **Cuatro defectos reales que solo cazó el linter** (ninguno afectaba a la suite, que seguía verde):
+  - `Code/Scope/WebUI/src/theme.js` era **sintácticamente inválido**: todo el contenido en una sola línea y con `\n` literales en vez de saltos. Nadie lo importaba, así que ni los tests ni el build se quejaban; reconstruido a partir de su propio contenido escapado.
+  - `Code/StudioTopology/resources/topology.js` leía `STORAGE_KEY` fuera de su ámbito: estaba declarada dentro de `renderStudio()` y se usaba en el arrastre de `renderNode()`. El `catch` vacío se tragaba el `ReferenceError`, con lo que **la disposición de nodos nunca se guardaba**. Elevada a ámbito de módulo.
+  - `Components/trajectoryStick2D.js` declaraba `setLabels` dos veces; la segunda pisaba a la primera, que era la que comprobaba `this.container`. Unificado en una sola versión (con guarda, `trim()` y posibilidad de vaciar etiquetas).
+  - `Contracts/lutTables.test.js` tenía un literal marcado por `no-loss-of-precision`; reescrito como `68124 * 48000 / 2 ** 24`, que es la fórmula que el propio comentario documenta y da el mismo double.
+- **`eslint` tampoco es dependencia del manifiesto** (mismo bloqueo `workspace:*`). Lo instala el job `lint` en un prefijo temporal, y el README explica cómo hacerlo en local.
 - **El test de ataque de `ADSREnvelope` estaba obsoleto.** `SynthCoreTests.cpp` esperaba un nivel de ~0,18 a 0,1 s, valor que correspondía al factor `* 6.0f` que el ataque llevaba antes de alinearse con la ley documentada (cruzar 1,0 justo en el tiempo de ataque). Nunca se vio porque `ABDSHARED_BUILD_SYNTHCORE_TESTS` está a `OFF` y no había CI. El test ahora fija el valor analítico (0,0313) y añade la invariante de que el ataque dura exactamente lo pedido.
 
 ### 7.3 Fase Q1 — Bloqueantes (bugs y portabilidad)
