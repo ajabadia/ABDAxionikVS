@@ -739,8 +739,8 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
 
 | Fase | Contenido | Hallazgos | Estado | Esfuerzo |
 | :--- | :--- | :---: | :---: | :---: |
-| **Q0** | Red de seguridad (CI, `/W4`, linter) | 4 | `[ ]` | S–M |
-| **Q1** | Bloqueantes: portabilidad y bugs DSP | 4 | `[ ]` | S–M |
+| **Q0** | Red de seguridad (CI, `/W4`, linter) | 4 | `[~]` (Q0.4 pendiente) | S–M |
+| **Q1** | Bloqueantes: portabilidad y bugs DSP | 4 | `[~]` (Q1.1 hecho) | S–M |
 | **Q2** | Duplicación de la familia de controles | 1 | `[ ]` | L |
 | **Q3** | Tipos y escapes de comprobación | 2 | `[ ]` | M |
 | **Q4** | Robustez: errores tragados | 3 | `[ ]` | M |
@@ -751,17 +751,17 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
 
 ### 7.2 Fase Q0 — Red de seguridad (bloqueante de todo lo demás)
 
-- [ ] **Q0.1 — CI que ejecute la suite raíz.**
+- [x] **Q0.1 — CI que ejecute la suite raíz.**
   Hoy solo existen `.github/workflows/bridge-guard.yml` (un `node --test` del puente WebView2) y `publish-packages.yml` (cuatro `npm test` por paquete, con filtros de ruta): los 624 tests de la raíz no corren en ningún PR.
   *Cambio:* workflow `tests.yml` con `npm ci` + `npx vitest run` en `push` y `pull_request`, cacheando `node_modules`, más el `node --test` del puente.
   *Aceptación:* un PR con un test roto se marca en rojo.
 
-- [ ] **Q0.2 — `/W4` en todos los módulos C++.**
+- [x] **Q0.2 — `/W4` en todos los módulos C++.**
   Solo `Code/Scope/CMakeLists.txt:9-11` activa `/W4` (MSVC) y `-Wall -Wextra -Wpedantic -Wconversion -Wshadow` (GCC/Clang). `DspCore`, `SynthCore`, `DspEffects` y `BankManager` no tienen nada.
   *Cambio:* factorizar el bloque en el `CMakeLists.txt` raíz y aplicarlo como `INTERFACE` a las librerías. **Sin `/WX`** todavía: los 13 avisos actuales lo romperían.
   *Aceptación:* compilar `ABDShared_DspEffects_Tests` reproduce los 13 avisos sin pasar flags a mano.
 
-- [ ] **Q0.3 — Compilar los tres targets de test en CI.**
+- [x] **Q0.3 — Compilar los tres targets de test en CI.**
   Las opciones `ABDSHARED_BUILD_*_TESTS` están a `OFF` por defecto (`Code/CMakeLists.txt:34,77,99,128,507`) y ningún workflow las activa.
   *Cambio:* job MSVC en `windows-latest` con `-DABDSHARED_BUILD_DSPCORE_TESTS=ON -DABDSHARED_BUILD_SYNTHCORE_TESTS=ON -DABDSHARED_BUILD_DSPEFFECTS_TESTS=ON`, ejecutando los tres binarios.
   *Aceptación:* los 1.798 checks de `DspEffects` y los de `DspCore`/`SynthCore` corren en cada PR.
@@ -771,9 +771,17 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
   *Cambio:* ESLint 9 (flat config) con `no-undef`, `eqeqeq` (`smart`), `no-unused-vars`, `no-empty` e `import/no-unresolved` —esta última es la que habría cazado los 28 imports de Q1.1—. Prettier opcional, en un commit aparte.
   *Aceptación:* `npx eslint .` con 0 errores tras Q1 y ejecutándose en CI.
 
+**Resultado tras Q0 + Q1.1 (verificado en local, 2026-11-09):** suite JS 43 ficheros / 625 pasan / 1 skipped · C++ 4.443 + 2.299 + 1.798 comprobaciones, 0 fallos · los 13 avisos se reproducen sin pasar flags a mano · 28 specifiers corregidos y guard nuevo en `tests/importsCase.test.js`, probado también en negativo (falla si se introduce un caso roto).
+
+**Hallazgos nuevos que ha destapado Q0:**
+
+- **`package.json` no se puede instalar fuera del monorepo.** Declara `@abdsynths/i18n` y `@abdsynths/scope` como `workspace:*`, protocolo que npm rechaza en un checkout suelto (`EUNSUPPORTEDPROTOCOL`). Por eso el workflow instala vitest y jsdom en un prefijo temporal; arreglarlo de raíz (cambiar a referencias locales o publicar los paquetes) es una decisión aparte.
+- **`jsdom` no estaba declarado** aunque `vitest.config.js` lo exige; la suite funcionaba solo porque el workspace padre lo hoisteaba. Declararlo toca el `pnpm-lock` del workspace padre, así que queda pendiente de decidir.
+- **El test de ataque de `ADSREnvelope` estaba obsoleto.** `SynthCoreTests.cpp` esperaba un nivel de ~0,18 a 0,1 s, valor que correspondía al factor `* 6.0f` que el ataque llevaba antes de alinearse con la ley documentada (cruzar 1,0 justo en el tiempo de ataque). Nunca se vio porque `ABDSHARED_BUILD_SYNTHCORE_TESTS` está a `OFF` y no había CI. El test ahora fija el valor analítico (0,0313) y añade la invariante de que el ataque dura exactamente lo pedido.
+
 ### 7.3 Fase Q1 — Bloqueantes (bugs y portabilidad)
 
-- [ ] **Q1.1 — Los 28 imports con capitalización incorrecta.**
+- [x] **Q1.1 — Los 28 imports con capitalización incorrecta.**
   En NTFS no se nota; en Linux/macOS/CI es `ERR_MODULE_NOT_FOUND`.
   *Evidencia:* `Components/Controls/index.js` tiene **16** specifiers que no coinciden con el nombre real del fichero (`./knob.js` → `Knob.js`, `./xypad.js` → `XYPad.js`, `./numberbox.js` → `NumberBox.js`, `./continuousNotices.js` → `ContinuousNotices.js`…); dentro de `Components/Controls`, nueve ficheros (`Wheel.js`, `XYPad.js`, `Knob.js`, `Slider.js`, `Segmented.js`, `Switch.js`, `Toggle.js`, `ContinuousNotices.js`) importan `continuousNotices.js`/`transitionNotices.js` en minúscula; y en `Components/Envelopes`, `EnvelopeGestures.js` y `EnvelopePad.js` importan `./envelopeCurve.js` cuando el fichero es `EnvelopeCurve.js` (y `EnvelopePad.js` además `./envelopeGestures.js`).
   *Cambio:* reescribir cada specifier al nombre exacto + test de guardia `tests/imports-case.test.js` que compare `readdirSync` contra los specifiers (funciona en Windows porque compara cadenas) + `import/no-unresolved` en Q0.4.
