@@ -729,3 +729,130 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
      - Suite CTest en Release verificada al 100% (3/3 suites PASS: `DspEngineFacadeTests` [14/14 tests], `GoldenParityTest_Zones`, `GoldenParityTest_Matrix`).
 
 ---
+## 7. Plan de Corrección de Calidad de `ABDShared` (Revisión 2026-11-09)
+
+> **Origen:** revisión de calidad de [`ABDShared`](file:///d:/desarrollos/ABDSynths/ABDShared) (~200k líneas: 43,9k JS, 74,3k C++, 148 ficheros TS) hecha con scans sobre todo el árbol, compilación con `/W4` y lectura dirigida de los puntos calientes.
+> **Ámbito:** todo lo listado abajo vive en el repositorio hermano `ABDShared`; `ABDAxionikVS` solo aparece como consumidor. Las rutas son relativas a `../ABDShared`.
+> **Regla de oro:** la Fase Q0 va primero. Sin red de seguridad, los bugs de Q1 vuelven a entrar sin que nadie lo note.
+
+### 7.1 Panel de progreso
+
+| Fase | Contenido | Hallazgos | Estado | Esfuerzo |
+| :--- | :--- | :---: | :---: | :---: |
+| **Q0** | Red de seguridad (CI, `/W4`, linter) | 4 | `[ ]` | S–M |
+| **Q1** | Bloqueantes: portabilidad y bugs DSP | 4 | `[ ]` | S–M |
+| **Q2** | Duplicación de la familia de controles | 1 | `[ ]` | L |
+| **Q3** | Tipos y escapes de comprobación | 2 | `[ ]` | M |
+| **Q4** | Robustez: errores tragados | 3 | `[ ]` | M |
+| **Q5** | Mantenibilidad e higiene | 4 | `[ ]` | M |
+| **TOTAL** | | **18** | | |
+
+**Estado de partida medido:** 624 tests pasan (1 skipped, 42 ficheros, 15 s) · 13 avisos `/W4` en C++ propio · 28 imports con case roto · 4.033 líneas duplicadas en 20 pares · cero linter y cero `tsconfig` · la suite raíz no se ejecuta en CI.
+
+### 7.2 Fase Q0 — Red de seguridad (bloqueante de todo lo demás)
+
+- [ ] **Q0.1 — CI que ejecute la suite raíz.**
+  Hoy solo existen `.github/workflows/bridge-guard.yml` (un `node --test` del puente WebView2) y `publish-packages.yml` (cuatro `npm test` por paquete, con filtros de ruta): los 624 tests de la raíz no corren en ningún PR.
+  *Cambio:* workflow `tests.yml` con `npm ci` + `npx vitest run` en `push` y `pull_request`, cacheando `node_modules`, más el `node --test` del puente.
+  *Aceptación:* un PR con un test roto se marca en rojo.
+
+- [ ] **Q0.2 — `/W4` en todos los módulos C++.**
+  Solo `Code/Scope/CMakeLists.txt:9-11` activa `/W4` (MSVC) y `-Wall -Wextra -Wpedantic -Wconversion -Wshadow` (GCC/Clang). `DspCore`, `SynthCore`, `DspEffects` y `BankManager` no tienen nada.
+  *Cambio:* factorizar el bloque en el `CMakeLists.txt` raíz y aplicarlo como `INTERFACE` a las librerías. **Sin `/WX`** todavía: los 13 avisos actuales lo romperían.
+  *Aceptación:* compilar `ABDShared_DspEffects_Tests` reproduce los 13 avisos sin pasar flags a mano.
+
+- [ ] **Q0.3 — Compilar los tres targets de test en CI.**
+  Las opciones `ABDSHARED_BUILD_*_TESTS` están a `OFF` por defecto (`Code/CMakeLists.txt:34,77,99,128,507`) y ningún workflow las activa.
+  *Cambio:* job MSVC en `windows-latest` con `-DABDSHARED_BUILD_DSPCORE_TESTS=ON -DABDSHARED_BUILD_SYNTHCORE_TESTS=ON -DABDSHARED_BUILD_DSPEFFECTS_TESTS=ON`, ejecutando los tres binarios.
+  *Aceptación:* los 1.798 checks de `DspEffects` y los de `DspCore`/`SynthCore` corren en cada PR.
+
+- [ ] **Q0.4 — Linter y formato mínimos.**
+  43,9k líneas de JS sin `eslint`, sin `prettier` y sin `.editorconfig`; el único script de `package.json` es `"test": "vitest run"`.
+  *Cambio:* ESLint 9 (flat config) con `no-undef`, `eqeqeq` (`smart`), `no-unused-vars`, `no-empty` e `import/no-unresolved` —esta última es la que habría cazado los 28 imports de Q1.1—. Prettier opcional, en un commit aparte.
+  *Aceptación:* `npx eslint .` con 0 errores tras Q1 y ejecutándose en CI.
+
+### 7.3 Fase Q1 — Bloqueantes (bugs y portabilidad)
+
+- [ ] **Q1.1 — Los 28 imports con capitalización incorrecta.**
+  En NTFS no se nota; en Linux/macOS/CI es `ERR_MODULE_NOT_FOUND`.
+  *Evidencia:* `Components/Controls/index.js` tiene **16** specifiers que no coinciden con el nombre real del fichero (`./knob.js` → `Knob.js`, `./xypad.js` → `XYPad.js`, `./numberbox.js` → `NumberBox.js`, `./continuousNotices.js` → `ContinuousNotices.js`…); dentro de `Components/Controls`, nueve ficheros (`Wheel.js`, `XYPad.js`, `Knob.js`, `Slider.js`, `Segmented.js`, `Switch.js`, `Toggle.js`, `ContinuousNotices.js`) importan `continuousNotices.js`/`transitionNotices.js` en minúscula; y en `Components/Envelopes`, `EnvelopeGestures.js` y `EnvelopePad.js` importan `./envelopeCurve.js` cuando el fichero es `EnvelopeCurve.js` (y `EnvelopePad.js` además `./envelopeGestures.js`).
+  *Cambio:* reescribir cada specifier al nombre exacto + test de guardia `tests/imports-case.test.js` que compare `readdirSync` contra los specifiers (funciona en Windows porque compara cadenas) + `import/no-unresolved` en Q0.4.
+  *Aceptación:* el test de guardia pasa y no queda ninguna discrepancia.
+  *Riesgo:* no mezclar con Q2 en el mismo PR, o el diff se vuelve ilegible.
+
+- [ ] **Q1.2 — `OscReference.h`: variable posiblemente sin inicializar (C4701).**
+  `Code/SynthCore/OscReference.h:198`: `out` se declara sin valor y el `switch` sobre `currentWaveform` no tiene `default`, así que un valor fuera de los tres enumeradores devuelve basura. UB silencioso en un oscilador.
+  *Cambio:* inicializar `out = 0.0` y añadir `default:` que devuelva 0.0 (o `std::optional` si se prefiere propagar el error). Test forzando `static_cast<OscWaveform>(99)` y comprobando salida finita y nula.
+
+- [ ] **Q1.3 — `DspAutoPan`: el desfase estéreo documentado no existe (C4189).**
+  La cabecera de `Code/DspEffects/DspAutoPan.h` promete «Desfase estéreo entre canales: 0° a 180°», pero `lfoR` (`:125`) se calcula y nunca se usa, `panPos` (`:143`) sale siempre de `lfoL`, y el bloque `:113-121` (offset de fase y modulación de velocidad por canal) no influye en la salida.
+  *Decisión de producto, dos salidas:*
+  - **A (implementar):** aplicar `lfoR` al canal derecho con ley equal-power por canal, con test que mida el desfase real y que `phase_ = 0` dé L == R.
+  - **B (recortar):** borrar `lfoPhaseR_`, `lfoR` y el offset de fase del código y del doc, dejando el pan mono que hace hoy.
+  *Aceptación:* no queda ninguna variable calculada sin usar y la cabecera describe lo que el código hace.
+
+- [ ] **Q1.4 — Parámetros muertos (C4100).**
+  `DspFairComp.h:76` (`sampleRate` sin usar) y `S950PatchFields.h:452-453` (`fine`/`transpose`, **intencional**: la función empaqueta byte alto y bajo y no necesita leer los `PatchField`).
+  *Cambio:* `[[maybe_unused]]` + comentario en `S950PatchFields`; decidir si `DspFairComp` debería usar `sampleRate` (¿coeficientes dependientes de frecuencia?) o quitarlo de la firma y actualizar llamadores.
+  *Aceptación:* C4100 a cero sin `#pragma warning(disable)`.
+
+### 7.4 Fase Q2 — Duplicación de la familia de controles
+
+El hallazgo estructural más caro: hay **dos verdades** para los mismos componentes y ya han divergido.
+
+*Evidencia medida:* 20 pares `Components/*.js` ↔ `Components/Controls/*.js`, **13 idénticos byte a byte** (4.033 líneas duplicadas). De los 7 divergentes, la copia de `Controls/` es la **obsoleta**: `paramIndex` aparece 8 veces en la raíz y **0** en `Controls/`; `wheel.js` tiene 308 líneas frente a 272 y a `Controls/Wheel.js` le falta entero el puente de gestos del host (`_openDrag`/`_closeDrag`, `beginChangeGesture` idempotente); `knob.js` 233 vs 231 (falta el `dataset.paramIndex`). El drag core existe **tres veces** con el mismo SHA-1 (`d09846fa`): `Components/drag-core.js`, `Components/Controls/drag-core.js` y `Components/Controls/DragCore.js`. Y nadie consume la copia nueva: el plugin importa **0** rutas `components/controls/`, el barril `Components/Controls/index.js` no lo importa nadie y `package.json` solo publica de ahí `stepMatrix.js`.
+
+- [ ] **Q2.1 — Decisión de producto:** ¿`Components/Controls` es la familia canónica del futuro (PascalCase + subcarpetas) o un fork abandonado?
+- [ ] **Q2.2a — Si es un fork abandonado (recomendado):** mover lo único vivo (`stepMatrix.js`, `stepMatrix.test.js`, `Controls.test.js` y su CSS) a la raíz con el nombre canónico, actualizar `package.json` e imports, y borrar el resto en un commit propio.
+- [ ] **Q2.2b — Si es la canónica:** portar a `Controls/` lo que falta (`paramIndex`, gestos en `Wheel`, `Knob`), borrar la raíz y actualizar los consumidores de `ABDAxionikVS` (hoy apuntan a `components/wheel.js`).
+- [ ] **Q2.3 — Unificar el drag core** en una sola copia y reexportar.
+- [ ] **Q2.4 — Test de guardia** que falle si vuelve a aparecer un basename repetido (case-insensitive) en dos rutas de `Components/`.
+
+*Aceptación:* `Components` no tiene ningún basename repetido y el plugin sigue compilando. *Riesgo:* alto; hacerlo en un PR de puros renombres, sin cambios de contenido.
+
+### 7.5 Fase Q3 — Tipos y escapes de comprobación
+
+- [ ] **Q3.1 — `tsconfig.json` con `checkJs` laxo**, por subcarpeta y empezando por `Contracts/` (que ya es TS). Hoy hay 148 ficheros TS y 43,9k líneas JS sin ningún typecheck.
+- [ ] **Q3.2 — Quitar los 9 `as any` de `Code/SamplerFormats/*.ts`:** `format: 'akai_disk' as any` en `AkaiDiskFormat.ts:1232,1378`, `EmuDiskFormat.ts:685,815,961`, `EnsoniqDiskFormat.ts:271`, `RolandDiskFormat.ts:457`, `YamahaDiskFormat.ts:198`. El campo `format` debe ser una unión con todos los literales; el `as any` anula justo la comprobación que impide un `format` inválido.
+
+*Aceptación:* `tsc --noEmit` sin errores en `Contracts/` y `SamplerFormats/`, y cero `as any` en esos directorios.
+
+### 7.6 Fase Q4 — Robustez y errores tragados
+
+- [ ] **Q4.1 — Los 10 `catch (_) {}` vacíos:** `Code/StudioTopology/resources/topology.js:118,362,371`, `Components/LiveSysExInspector/LiveSysExInspector.js:540,577`, `Components/multiStageShaperPad.js:313`, `Components/studioTopology.js:195,474,485`, `Components/trajectoryStick2D.js:243`. O se registra con un logger inyectable (no `console`), o se justifica en un comentario por qué es seguro ignorarlo. **Prioridad:** los dos de `LiveSysExInspector`, que parsean datos de un dispositivo MIDI real y hoy no dejan rastro.
+- [ ] **Q4.2 — `localStorage` sin protección (38 usos).** En modo privado o con la cuota llena `setItem` lanza y tumba la UI: envolver en un helper con `try/catch` y fallback en memoria.
+- [ ] **Q4.3 — `JSON.parse` sin `try` (8 usos de producción):** `topology.js:117,368`, `midiLearnStore.js:254,593`, `studioTopology.js:190,479`, `Contracts/index.js:43`, `Utils/cruceAira.js:56`. Un JSON corrupto deja la UI en blanco.
+
+*Aceptación:* linter con `no-empty` activo y tests de storage y JSON corruptos que devuelven estado por defecto en vez de lanzar.
+
+### 7.7 Fase Q5 — Mantenibilidad e higiene
+
+- [ ] **Q5.1 — Ruido de jsdom.** Cada ejecución imprime decenas de `Not implemented: HTMLCanvasElement.prototype.getContext`. No es un bug (el código comprueba `ctx` después), pero entierra fallos reales: stub de canvas en `vitest.config.js` y `environment` por fichero donde no haga falta jsdom.
+- [ ] **Q5.2 — Test que no dependa del árbol del desarrollador.** `Code/MidiKeyboard/tests/host-strip-height.test.js` recorre el workspace con `readdirSync` recursivo: es el que cae por timeout bajo carga (30 s frente a 3 s en solitario) y el que obliga a `describe.skipIf(SIN_WORKSPACE)`. Sustituir por un registro de hosts versionado (JSON) e inyectar el `workspaceRoot`.
+- [ ] **Q5.3 — Monolitos, por rentabilidad:** `DspEffectsTests.cpp` 6.650 líneas con 1.798 checks (partir por familia de efecto: es el que más duele al añadir un test) y `LiveSysExInspector.js` 1.268 (separar parseo de render). **No** tocar todavía `MidiKeyboard/src/keyboard.js` (1.803): es el fichero con más consumidores y sin red de seguridad no compensa.
+- [ ] **Q5.4 — `Assets.zip` (59 MB) versionado en la raíz** cuando `*.zip` ya está en `.gitignore`. Confirmar que ningún build lo usa y sacarlo del historial solo si el tamaño molesta (requiere reescritura: no sin acuerdo).
+
+*Aceptación:* `npx vitest run` sin stderr inesperado y el test de hosts determinista.
+
+### 7.8 Orden de ejecución
+
+```text
+Q0.1 CI tests ─┬─> Q1.1 imports case ──> Q0.4 eslint (import/no-unresolved)
+               ├─> Q1.2 OscReference
+               ├─> Q1.3 DspAutoPan
+               └─> Q1.4 params muertos
+Q0.2 /W4 ──────> Q0.3 CI C++ ──> (deja el listón para no reintroducir Q1.2/Q1.4)
+Q2.1 decisión Controls ──> Q2.2/Q2.3 mover o borrar ──> Q3.x tipos
+Q4.x robustez (independiente, se puede intercalar)
+Q5.x higiene (al final; Q5.2 antes de Q5.3)
+```
+
+Q0 + Q1 caben en un día de trabajo concentrado y eliminan los dos bugs y la rotura en Linux. Q2 es la única que necesita una decisión de producto antes de tocar código.
+
+### 7.9 Fuera de alcance de esta revisión
+
+- Revisión línea a línea de las 200k líneas: el plan se apoya en scans automáticos y lectura dirigida.
+- Análisis estático adicional (`clang-tidy`, `cppcheck`): no se ha comprobado que estén instalados; si se añaden, van con Q0.2.
+- Verificación en Linux real: la conclusión de los 28 imports se basa en el listado de ficheros frente a los specifiers; el test de guardia de Q1.1 la convierte en comprobación automática.
+
+---
