@@ -1,12 +1,9 @@
 # NeuronVS → plugin ABD · plan vigente (JUCE 9 · WebView2 · VST3 · x64)
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **1 no resuelve** hoy y se conserva tal como está escrito.
-> Alternativa real para 1 de ellos: `../dsp`.
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 1 corregido el 2026-11-09.** De los 1 enlaces relativos
+> de este documento que no resolvían, se ha reescrito **1** a su alternativa real en el árbol
+> (la misma ruta sin el prefijo `NeuronVS_`). Aquí no queda ninguno roto. Inventario de lo que
+> estaba roto y de lo que se aplicó: [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 > Sustituye a la segunda mitad de [PLAN.md](PLAN.md), que sigue siendo válido como
 > registro de la superficie VST2. Fecha: 2026-10-20.
@@ -149,7 +146,7 @@ Ver §1. No se toca salvo lo que pida N2.
   se ve, antes de invertir en el port.
 
 ### N3 · Motor portado (sin JUCE)
-- **Ya medido:** [`NeuronVS_dsp/`](../NeuronVS_dsp/) — 87 funciones, 81.159 B
+- **Ya medido:** [`NeuronVS_dsp/`](../dsp) — 87 funciones, 81.159 B
   (27,8 % de `.text`), 12.665 líneas, **cero llamadas indirectas**; bloque interno
   de 128 muestras con clip a cero, 128 slots de voz, y un único acoplamiento
   preset→motor (`FUN_10040550`, 2.125 líneas). Dos hojas del grafo

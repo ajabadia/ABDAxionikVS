@@ -1,18 +1,18 @@
 # `FUN_10040550` — el traductor, traducido y medido
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **6 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 4 de ellos: `../dsp/STATE_SPLIT.md`, `../dsp/CONSTANT_TYPES.md`, `../dsp/ZONES.md`, `../neurondb/SCAPE_SPHERE.md`.
-> Los otros 2 no están en el repositorio (ficheros sueltos).
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 6 corregidos el 2026-11-09.** De los 6 enlaces
+> relativos de este documento que no resolvían, se han reescrito **6** a su alternativa real en
+> el árbol: los 4 primeros, la misma ruta sin el prefijo `NeuronVS_`; los 2 últimos, el port que
+> ya vive en `Source/DSP/` (`Translator.cpp` para `FUN_10040550` y `TranslatorHooks.cpp` para
+> `FUN_100373a0`). **No queda ninguno roto.** Inventario línea a línea, con el destino resuelto
+> y lo aplicado: [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 `NeuronVS.dll!0x10040550` es la **frontera** entre el componente de parámetros y
 el motor: recibe el bloque de valores ya recortados y escribe el estado que
-suena. Esta nota documenta su traducción a C++ ([`src/translator.cpp`](../src/translator.cpp)),
+suena. Esta nota documenta su traducción a C++ ([`Source/DSP/Translator.cpp`](../../../Source/DSP/Translator.cpp)),
 la tabla de lo que escribe, y lo que **no** está resuelto. La separación de
 estado (qué sonaba y qué sólo configuraba) está en
-[`NeuronVS_dsp/STATE_SPLIT.md`](../../NeuronVS_dsp/STATE_SPLIT.md); aquí se
+[`NeuronVS_dsp/STATE_SPLIT.md`](../dsp/STATE_SPLIT.md); aquí se
 documenta sólo la función que hace el volcado.
 
 Todo lo que sigue se regenera y se comprueba con dos scripts:
@@ -133,7 +133,7 @@ Las constantes se emiten con el **ancho que dicta la instrucción** (`fld dword`
 → `float`, `fld qword` → `double`), no con la heurística del valor: de las 310,
 **258 son `double` y 52 `float`**. El detalle está en
 `NeuronVS_dsp/translator_constants.csv`; el porqué del método, en
-[`CONSTANT_TYPES.md`](../../NeuronVS_dsp/CONSTANT_TYPES.md).
+[`CONSTANT_TYPES.md`](../dsp/CONSTANT_TYPES.md).
 
 ## 5. Las 456 escrituras al motor
 
@@ -187,7 +187,7 @@ exactamente `+0x588`, y el índice `p[N]` del segundo suele ser el del primero
 **+ 70** (el corte grave/agudo: `p[0x12]` en R1, `p[0x58]` en R2). No son dos
 estados: son los parámetros de los **dos motores** de cada voz, que el note-on
 copia por separado a `motor+0x638C` — ver
-[`../../NeuronVS_dsp/ZONES.md`](../../NeuronVS_dsp/ZONES.md) §6.1.
+[`../../NeuronVS_dsp/ZONES.md`](../dsp/ZONES.md) §6.1.
 
 ### El registro fila a fila
 
@@ -264,7 +264,7 @@ if (cVar13 != '\0')
 | función | firma real | qué se sabe |
 |---|---|---|
 | `FUN_100343e4` | `void __thiscall(void* self /* = e[0xD95] */, const uint32_t* p)` | 501 líneas; vuelca 64 campos de `p` sobre la cabecera del Delay largo (`CSilverRack`, `st+0x0C`..`+0x110`: 54 copias de `p[249]..p[316]` + 10 calculados). Su mapa completo de campos está identificado |
-| `FUN_100373a0` | `char __fastcall(const uint32_t* state /* = e */)` | 969 B (195 líneas); **portada** en [`src/translator_hooks.cpp`](../src/translator_hooks.cpp); valida las dos tablas de 128 entradas |
+| `FUN_100373a0` | `char __fastcall(const uint32_t* state /* = e */)` | 969 B (195 líneas); **portada** en [`Source/DSP/TranslatorHooks.cpp`](../../../Source/DSP/TranslatorHooks.cpp); valida las dos tablas de 128 entradas |
 
 `FUN_100373a0` es el **validador**: con el byte `0xD98` apagado devuelve 0 sin
 mirar nada. Con el flag encendido recorre las 128 teclas de las dos capas
@@ -279,7 +279,7 @@ ocho punteros de modelo (cuatro `.sphere` y cuatro `.scape`):
 Un puntero nulo se salta (el original no lo considera error). El resultado es
 un AND de las 2.048 comprobaciones (128 teclas × 2 capas × 8 punteros); sólo si
 es 1 el traductor escribe `0xD99 = 1`, que es lo que habilita el teclado. El detalle del formato está en
-[`NeuronVS_neurondb/SCAPE_SPHERE.md`](../../NeuronVS_neurondb/SCAPE_SPHERE.md).
+[`NeuronVS_neurondb/SCAPE_SPHERE.md`](../neurondb/SCAPE_SPHERE.md).
 
 `FUN_100343e4` parametriza el sub-objeto `e[0xD95]` (el Delay largo / `CSilverRack` de 541.640 B, ver `ZONES.md §6.5`):
 recibe `this = e[0xD95]` y `p`, y vuelca 64 campos desde `st+0x0C` a `st+0x110` (54 copias directas de `p[249]..p[316]`

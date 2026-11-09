@@ -1,12 +1,9 @@
 # `.scape` y `.sphere` — del cargador al motor
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **1 no resuelve** hoy y se conserva tal como está escrito.
-> Alternativa real para 1 de ellos: `../dsp/ZONES.md`.
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 1 corregido el 2026-11-09.** De los 1 enlaces relativos
+> de este documento que no resolvían, se ha reescrito **1** a su alternativa real en el árbol
+> (la misma ruta sin el prefijo `NeuronVS_`). Aquí no queda ninguno roto. Inventario de lo que
+> estaba roto y de lo que se aplicó: [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 Los dos binarios del modelo (`Models/NNN.model/NNNNNN.scape` y `.sphere`) llegaban
 al motor como punteros opacos: `FUN_1000b490` lee el fichero entero y el cargador
@@ -66,7 +63,7 @@ cuyo init fija `+0x15c` (incremento de fase) y `+0x160` (ganancia) que luego usa
 `FUN_100317b0`. Las dos llamadas a `FUN_10032970` llevan los mismos argumentos de pila
 y sólo cambian la tabla (R1 `+0xDB0`, R2 `+0x2200`) y el motor que recibe cada
 una: son los dos motores del **mismo** voice (`descriptor+0x68` y `+0x6C`) — ver
-[`../NeuronVS_dsp/ZONES.md`](../NeuronVS_dsp/ZONES.md) §6.
+[`../NeuronVS_dsp/ZONES.md`](../dsp/ZONES.md) §6.
 
 ## Contenedor
 

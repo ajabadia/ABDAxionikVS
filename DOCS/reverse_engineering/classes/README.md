@@ -1,13 +1,11 @@
 # NeuronVS · reconstrucción de clases y vtables
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **12 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 5 de ellos: `../resolved`, `../resolved/README.md`, `../vst2`.
-> Los otros 7 no están en el repositorio (scripts de verificación, capturas y recursos gráficos, volcados de datos, carpetas citadas).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 5 corregidos el 2026-11-09.** De los 12 enlaces
+> relativos de este documento que no resolvían, se han reescrito **5** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_`). Quedan **7** rotos porque no están en el
+> repositorio: 2 carpetas citadas por su nombre suelto, 2 ficheros sueltos, 2 capturas y
+> recursos gráficos y 1 script de verificación. Inventario línea a línea, con el destino
+> resuelto, lo aplicado y lo que sigue roto: [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 Análisis estático de `NeuronVS.dll` (VST2 nativo, PE32 x86, Hartmann Music, 2004) para
 reconstruir el modelo de objetos del núcleo y dar nombres significativos a las funciones
@@ -206,16 +204,16 @@ pruebas que apuntan en el mismo sentido:
    únicamente al destruir. Su ctor es trivial y quedó inlineado en el del hijo, por eso
    `classes.csv` deja su columna `ctor` vacía y no hay llamada que verificar.
 
-La consecuencia práctica es que el CHA de [`../NeuronVS_resolved/`](../NeuronVS_resolved/)
+La consecuencia práctica es que el CHA de [`../NeuronVS_resolved/`](../resolved)
 considera a `C_RefObject` y `C_Editor` descendientes de `C_OleRef`, y el slot 1 de la base
 recibe el nombre `getRect`: el default que `C_RefObject` sobreescribe con el rect del editor.
 No queda ninguna discrepancia entre `classes.csv` y `dtor_chain.csv` (`agrees=yes` en 26
 clases, `n/a` en `C_Bitmap`, que no declara destructor virtual).
 
 Este reparto es lo que permite nombrar los tres despachos del slot 1 que quedaban ambiguos en
-[`../NeuronVS_resolved/`](../NeuronVS_resolved/): no eran destructores rivales, eran las
+[`../NeuronVS_resolved/`](../resolved): no eran destructores rivales, eran las
 implementaciones del mismo virtual en cada tipo; sus overrides están en
-[`../NeuronVS_resolved/README.md`](../NeuronVS_resolved/README.md).
+[`../NeuronVS_resolved/README.md`](../resolved/README.md).
 
 ## Verificación
 
@@ -276,8 +274,8 @@ para que la siguiente resolución sepa su presupuesto antes de chocar con la tab
   `slot1_names.py` nombra el slot 1 de las 25 familias que lo declaran y `rename_map.csv`
   lleva esos nombres a Ghidra, así que `C_RefObject_v01_getRect` es `getRect`,
   `C_Knob_v01_paint` es `paint` y `C_Bitmap_v01_AddRef` es `AddRef`. La vista resuelta
-  ([`../NeuronVS_resolved/`](../NeuronVS_resolved/)) y la superficie VST2
-  ([`../NeuronVS_vst2/`](../NeuronVS_vst2/)) consumen esos mismos nombres.
+  ([`../NeuronVS_resolved/`](../resolved)) y la superficie VST2
+  ([`../NeuronVS_vst2/`](../vst2)) consumen esos mismos nombres.
 - **`C_OleRef` no se instancia nunca.** Es la base de `C_RefObject` (11 slots, ctor trivial) y
   sólo aparece como subobjeto: ningún ctor instala su tabla y su nombre es descriptivo. Su
   cuerpo de destructor (`0x10002ce0`) lleva el nombre precisamente por la prueba de la

@@ -1,13 +1,11 @@
 # Motor de audio — estudio antes de portar
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **11 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 2 de ellos: `../neurondb/sound_schema.csv`, `../vst2/README.md`.
-> Los otros 9 no están en el repositorio (scripts de verificación, ficheros sueltos, carpetas citadas).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 2 corregidos el 2026-11-09.** De los 11 enlaces
+> relativos de este documento que no resolvían, se han reescrito **2** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_`). Quedan **9** rotos porque no están en el
+> repositorio: 6 scripts de verificación, 2 rutas que llevan el prefijo viejo y tampoco existen
+> sin él y 1 carpeta citada por su nombre suelto. Inventario línea a línea, con el destino
+> resuelto, lo aplicado y lo que sigue roto: [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 Este directorio responde a una sola pregunta: **qué hay que reescribir de verdad para
 que un port suene**, y cuánto es. No es un plan de trabajo; es la medida del terreno.
@@ -141,7 +139,7 @@ caliente por el puntero que ya tiene— está en [`STATE_SPLIT.md`](STATE_SPLIT.
   `.rdata` en `0x10049f14`, de **28 B por entrada**, hasta `0x1004cfc0`:
   `(0x1004cfc0-0x10049f14)/28 = 445`. Cada entrada se expande a los 40 B del registro.
 - Es el equivalente binario de las 445 claves de `sound.script`, en el mismo orden que
-  [`../NeuronVS_neurondb/sound_schema.csv`](../NeuronVS_neurondb/sound_schema.csv).
+  [`../NeuronVS_neurondb/sound_schema.csv`](../neurondb/sound_schema.csv).
 
 ### 4.2 `params` — coeficientes de ejecución (11.484 B, `0x2CDC`)
 
@@ -240,7 +238,7 @@ Las correcciones son de ancho, no de valor: **151** `f64` que en realidad son
 ## 6. Control por MIDI
 
 El detalle nativo está en
-[`../NeuronVS_vst2/README.md`](../NeuronVS_vst2/README.md#midi). Resumen de lo que
+[`../NeuronVS_vst2/README.md`](../vst2/README.md#midi). Resumen de lo que
 importa para el port:
 
 - **Lo que el binario entiende**: nota on/off (omni, velocidad), CC 1, 2, 3, 4 y 11

@@ -1,12 +1,10 @@
 # NeuronVS.dll — los 335 enganches de observador de `params`
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **4 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 2 de ellos: `../dsp/params_observers_map.csv`, `../neurondb/sound_schema.csv`.
-> Los otros 2 no están en el repositorio (volcados de datos).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
+> **Enlaces rotos — revisión 2026-11-08; 2 corregidos el 2026-11-09.** De los 4 enlaces
+> relativos de este documento que no resolvían, se han reescrito **2** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_` y el mismo nombre de fichero donde sí está
+> en el árbol). Quedan **2** rotos porque no están en el repositorio: volcados de datos.
+> Inventario línea a línea, con el destino resuelto, lo aplicado y lo que sigue roto:
 > [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 Los observadores son el puente entre los **445 registros de `snddat`** y los **340 slots
@@ -35,7 +33,7 @@ recuperar**, con su propio verificador contra el binario.
 
 ## Contenido
 
-- [`params_observers_map.csv`](params_observers_map.csv) — las 335 filas.
+- [`params_observers_map.csv`](../dsp/params_observers_map.csv) — las 335 filas.
 - [`OBSERVER_CALLBACKS.md`](OBSERVER_CALLBACKS.md) — los 5 callbacks: dónde se instalan,
   qué escriben y qué prueba el verificador.
 - [`functions/`](functions) — volcado capstone de los 5 callbacks
@@ -146,7 +144,7 @@ Cubre, contra los bytes del PE: que `FUN_1000be10` tiene exactamente 335 llamada
 inmediato ÷ `0x28`; que cada observador recibe tienda en `+0x14`; los dos callbacks
 especiales **y los dos del bucle de control** (`0x100135d0` en `[reg+0x70]` y
 `0x10013600` en `[reg+0x100]`); los 63 destinos contra `.rdata:0x10049E00`; las claves
-contra [`../NeuronVS_neurondb/sound_schema.csv`](../NeuronVS_neurondb/sound_schema.csv);
+contra [`../NeuronVS_neurondb/sound_schema.csv`](../neurondb/sound_schema.csv);
 que los 5 callbacks desensamblan sin huecos con sus referencias internas; la traza
 completa de `FUN_100134e0` (`J1`–`J6`, incluido el `param_2 = -1` que escribe 0x150 B más
 allá del objeto `params`); y `min_val`/`max_val` de cada fila contra el límite que el ctor

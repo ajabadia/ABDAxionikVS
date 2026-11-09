@@ -1,13 +1,11 @@
 # NeuronDB — la base de datos de NeuronVS y sus `.sound`
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **12 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 4 de ellos: `../preset_format/preset_schema.csv`, `../preset_format/README.md`, `../preset_format/PARAM_RECORD.md`.
-> Los otros 8 no están en el repositorio (scripts de verificación, capturas y recursos gráficos).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 4 corregidos el 2026-11-09.** De los 12 enlaces
+> relativos de este documento que no resolvían, se han reescrito **4** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_`). Quedan **8** rotos porque no están en el
+> repositorio: 6 scripts de verificación, 1 captura o recurso gráfico y 1 ruta que lleva el
+> prefijo viejo y tampoco existe sin él. Inventario línea a línea, con el destino resuelto, lo
+> aplicado y lo que sigue roto: [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 `NeuronDB` es la carpeta de datos que `NeuronVS.dll` (Hartmann Music, 2004) lee al arrancar: los **351 sonidos** y el **modelo 511** que vienen con el instalador. Los `.sound` **no son archivos**: son carpetas `NNN.sound/` con un `sound.script` de texto y, opcionalmente, un `sound.stickrec`. Este documento describe la carpeta, el formato de esos ficheros, cómo los localiza y los parsea el binario, y qué queda fuera del alcance de lo verificado.
 
@@ -300,7 +298,7 @@ sin problemas: la instalación es válida (3 avisos)
 | Ámbito | Qué comprueba |
 |---|---|
 | estructura | `Sounds/` y `Models/` existen; cada carpeta `NNN.sound` tiene `sound.script`; no hay carpetas fuera del patrón ni slots fuera de 000–999 / 000–511; no quedan `*.sound.deleting` ni `*.sound.restoring` de una operación a medias; las líneas de `sound.stickrec` son 9 dígitos hex |
-| esquema | cada `sound.script` es `Clave<TAB>entero`, sin claves repetidas (el lector se queda con la última) y con los valores dentro de `min..max` de [`preset_schema.csv`](../NeuronVS_preset_format/preset_schema.csv); las claves desconocidas y las que faltan se avisan, porque el DLL ignora las primeras y rellena las segundas con el default |
+| esquema | cada `sound.script` es `Clave<TAB>entero`, sin claves repetidas (el lector se queda con la última) y con los valores dentro de `min..max` de [`preset_schema.csv`](../preset_format/preset_schema.csv); las claves desconocidas y las que faltan se avisan, porque el DLL ignora las primeras y rellena las segundas con el default |
 | nombres | los 16 `SoundNameC00..15` existen y son códigos 32..122; el nombre no está vacío; los nombres repetidos se avisan (el DLL los permite) |
 | modelos | `MName` presente y de 11 caracteres como máximo; `map.script` de 1027 líneas (3 + 128 zonas × 8) con tabulador en cada una; cada `.scape` empieza por `csAN` y cada `.sphere` por `psAN`, y cada `.scape` tiene su `.sphere` |
 | caché | si `SoundNames`/`ModelNames` existen, cada slot ocupado tiene su entrada y coincide con el preset; los nombres de slots vacíos y las líneas duplicadas se reportan; si no existen, es lo normal en una copia del instalador y se dice |
@@ -367,10 +365,10 @@ El escáner busca la carpeta en `../Hartmann Music/NeuronVS/NeuronDB` respecto d
 
 - **`.scape`/`.sphere`: trazados, con zonas sin consumidor.** El formato y los lectores están en [`SCAPE_SPHERE.md`](SCAPE_SPHERE.md); quedan sin explicar dos enteros de la cabecera del sphere (`31`, `61`), el uso de los 6 pares del chunk `fdAN` y los floats 1–3 de cada banda, que están a cero en el único modelo instalado. El bloque de 6152 B sí está descifrado: 8 B de cabecera + tres arrays de 1024 `u16` (A = Hz, B = amplitud ordenada, C = bin).
 - **`sound.stickrec`: no lo lee el DLL.** El desglose `4-1-1-3` es una inferencia a partir de la monotonía del primer campo y de los valores constantes; podría ser otra cosa (por ejemplo un registro de eventos con otro reparto de bits).
-- **`SoundNames`/`ModelNames` no existen en esta copia**, así que su formato se documenta desde el código (`"%%0%dd\t%%%ds"`, apertura `w+`) y no desde un fichero real. El gestor del paquete [`NeuronVS_preset_format`](../NeuronVS_preset_format/README.md) escribe y valida `SoundNames` a partir de los presets, pero tampoco se ha cruzado con un fichero generado por el DLL en Windows.
+- **`SoundNames`/`ModelNames` no existen en esta copia**, así que su formato se documenta desde el código (`"%%0%dd\t%%%ds"`, apertura `w+`) y no desde un fichero real. El gestor del paquete [`NeuronVS_preset_format`](../preset_format/README.md) escribe y valida `SoundNames` a partir de los presets, pero tampoco se ha cruzado con un fichero generado por el DLL en Windows.
 - **El informe HTML es estático**: no reproduce audio ni dibuja los modelos, y no incluye el `sound.stickrec` ni los `.scape` más allá de su hash y tamaño. Es un diff para leer, no un visor.
-- **`--apply` copia slots, no los fusiona.** Si un slot cambió en las dos copias, gana A entero: los ficheros que sólo tenía B se van con la carpeta vieja, y no hay fusión de parámetros ni de `stickrec`. Tampoco guarda un diario ni un `undo`: la red de seguridad es la simulación, así que conviene revisar el plan antes de `--write`. La caché de nombres queda como estuviera; tras aplicar un renombrado o un borrado habrá que reconstruirla con [`preset.py sync`](../NeuronVS_preset_format/README.md).
+- **`--apply` copia slots, no los fusiona.** Si un slot cambió en las dos copias, gana A entero: los ficheros que sólo tenía B se van con la carpeta vieja, y no hay fusión de parámetros ni de `stickrec`. Tampoco guarda un diario ni un `undo`: la red de seguridad es la simulación, así que conviene revisar el plan antes de `--write`. La caché de nombres queda como estuviera; tras aplicar un renombrado o un borrado habrá que reconstruirla con [`preset.py sync`](../preset_format/README.md).
 - **`--check` valida formato y coherencia, no audio.** Un `.scape` con el tag `csAN` correcto pero el cuerpo corrupto pasa, igual que un preset con valores legales que suenan mal; `map.script` se valida por número de líneas y tabuladores, no clave a clave.
 - **El comparador mira contenido, no música.** Dos `.scape` distintos se detectan por hash: no dice si el modelo suena distinto, ni compara valores de parámetros uno a uno cuando el script cambia de tamaño (`--params` lista las claves que difieren, pero no interpreta si el cambio es audible). Un `sound.script` reescrito con el mismo contenido en otro orden de líneas cuenta como cambio de contenido aunque el motor lo lea igual.
-- **La tabla de `C_Param` se construye en tiempo de ejecución**: el parser la recorre con stride `0x28` (`this+0` = tabla, `this+8` = cuenta) y en `.rdata` están las 445 claves con sus descriptores a stride `0x1c`. La copia la hace `FUN_10013de0` al arrancar, en el objeto `snddat` de 12 bytes; el layout del registro y la cadena completa están en [`NeuronVS_preset_format/PARAM_RECORD.md`](../NeuronVS_preset_format/PARAM_RECORD.md).
+- **La tabla de `C_Param` se construye en tiempo de ejecución**: el parser la recorre con stride `0x28` (`this+0` = tabla, `this+8` = cuenta) y en `.rdata` están las 445 claves con sus descriptores a stride `0x1c`. La copia la hace `FUN_10013de0` al arrancar, en el objeto `snddat` de 12 bytes; el layout del registro y la cadena completa están en [`NeuronVS_preset_format/PARAM_RECORD.md`](../preset_format/PARAM_RECORD.md).
 - El valor de registro se leyó en esta máquina (32 bits, `WOW6432Node`); en otra instalación la ruta puede diferir, y el verificador no depende de él.

@@ -1,13 +1,11 @@
 # NeuronVS.dll — el filmstrip `11601` en GIF
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **8 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 1 de ellos: `../layout/streams.csv`.
-> Los otros 7 no están en el repositorio (capturas y recursos gráficos, volcados de datos, carpetas citadas).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 1 corregido el 2026-11-09.** De los 8 enlaces relativos
+> de este documento que no resolvían, se ha reescrito **1** a su alternativa real en el árbol
+> (la misma ruta sin el prefijo `NeuronVS_`). Quedan **7** rotos porque no están en el
+> repositorio: 4 capturas y recursos gráficos, 2 carpetas citadas por su nombre suelto y 1
+> fichero suelto. Inventario línea a línea, con el destino resuelto, lo aplicado y lo que sigue
+> roto: [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 El recurso `RT_BITMAP` **11601** (`0x2d51`) es una tira de **50×4500** px, 24 bpp, sin compresión: **90 fotogramas de 50×50** apilados en vertical. Cada fotograma es el mismo mando oscuro con una muesca grabada en la cara; a lo largo de la tira la muesca recorre la cara y vuelve al punto de partida, de modo que el último fotograma enlaza con el primero (diferencia media **2,07/255** entre el 0 y el 89, frente a **4,69/255** a mitad del recorrido) y el GIF puede repetir sin salto. Aquí está convertida en GIF, en tamaño nativo y ampliada, y con el control que la anima localizado en el código.
 
@@ -49,7 +47,7 @@ El mismo `0x10014a70` escribe el número que aparece bajo el mando: si hay un pa
 - Aviso de cambio: al enlazar el parámetro, `0x10014d60` registra en `param+0x50` el callback **`0x10014950`**, que vuelve a marcar el mando sucio. No hay temporizador: el fotograma es función del valor y se recalcula **en cada repintado**.
 - **Texto/estado**: ranura **6** → `0x10014c90` convierte una cadena en valor del parámetro (`sscanf` + `0x10001170`).
 - **Quién pinta**: el bucle de pintado de contenedores (`0x10008250`) recorre los hijos y llama a `hijo[1](hdc)`; para un `C_Knob` eso es `0x10014a70`.
-- **Quién lo crea**: el intérprete de streams de página **`0x1001c320`**, comando **`0x500`** → `FUN_10014ce0(estilo)` (fábrica `operator_new(0x9c)` + `C_Knob_ctor`, estilo recortado a 0..1), seguido de `0x100206b0` que engancha los parámetros en `+0x438` / `+0x10b8`. En los 29 streams volcados en [`../NeuronVS_layout/streams.csv`](../NeuronVS_layout/streams.csv) el comando `0x500` aparece una vez (vista 0, stream 0, estilos 0 y 1).
+- **Quién lo crea**: el intérprete de streams de página **`0x1001c320`**, comando **`0x500`** → `FUN_10014ce0(estilo)` (fábrica `operator_new(0x9c)` + `C_Knob_ctor`, estilo recortado a 0..1), seguido de `0x100206b0` que engancha los parámetros en `+0x438` / `+0x10b8`. En los 29 streams volcados en [`../NeuronVS_layout/streams.csv`](../layout/streams.csv) el comando `0x500` aparece una vez (vista 0, stream 0, estilos 0 y 1).
 
 ## Verificación
 

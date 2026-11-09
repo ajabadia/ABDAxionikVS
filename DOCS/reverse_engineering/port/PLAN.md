@@ -1,12 +1,9 @@
 # NeuronVS_port · plan de reconstrucción de la superficie VST2
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **3 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 3 de ellos: `../vst2/README.md`, `../layout`, `../bitmaps`.
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 3 corregidos el 2026-11-09.** De los 3 enlaces
+> relativos de este documento que no resolvían, se han reescrito **3** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_`). Aquí no queda ninguno roto. Inventario de
+> lo que estaba roto y de lo que se aplicó: [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 > **Documento histórico para M0–M3.** El plan vigente del producto (JUCE 9,
 > WebView2, VST3, x64, normas de ABDShared) está en
@@ -22,7 +19,7 @@ Estado de partida, ya verificado en este repo (no es una estimación):
 
 | Dato | Valor | Fuente |
 |---|---|---|
-| Exportación VST2 | `main` (`0x1001b010`), devuelve `core+0x20` | [vst2/README](../NeuronVS_vst2/README.md) |
+| Exportación VST2 | `main` (`0x1001b010`), devuelve `core+0x20` | [vst2/README](../vst2/README.md) |
 | `AEffect` | embebido en `core+0x20`, `object` = core, `uniqueID` `'NAS2'`, `version` 1 | `C_AudioNode_ctor` `0x10002fb0`, `1001b140` |
 | `numParams` / `numOutputs` / `numInputs` | 26 / 2 / 0 | `10009f60`, `1001b140` |
 | `flags` | `0x111` (editor + canReplacing + isSynth) | `FUN_10002b70`, `10003470`, `10004620` |
@@ -164,8 +161,8 @@ determinista byte a byte.
 
 **M5 · Editor y datos de layout** — pendiente de decisión (ver abajo). El editor
 GDI no se porta: la UI se reconstruye con los datos de
-[NeuronVS_layout](../NeuronVS_layout) (26 páginas, 431 controles) y los bitmaps
-de [NeuronVS_bitmaps](../NeuronVS_bitmaps).
+[NeuronVS_layout](../layout) (26 páginas, 431 controles) y los bitmaps
+de [NeuronVS_bitmaps](../bitmaps).
 
 **M6 · JUCE 9** — pendiente, y fuera de este documento: ver
 [PLAN_JUCE9.md](PLAN_JUCE9.md), que sustituye a la sección «Migración a JUCE 9»

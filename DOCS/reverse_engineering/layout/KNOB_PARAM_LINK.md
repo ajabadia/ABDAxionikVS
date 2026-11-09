@@ -1,16 +1,13 @@
 # Del knob al `C_Param`: cómo se enlaza la UI con el valor
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **2 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 2 de ellos: `../preset_format/PARAM_RECORD.md`, `../preset_format/preset_schema.csv`.
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 2 corregidos el 2026-11-09.** De los 2 enlaces
+> relativos de este documento que no resolvían, se han reescrito **2** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_`). Aquí no queda ninguno roto. Inventario de
+> lo que estaba roto y de lo que se aplicó: [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 Este documento cierra el eslabón que falta entre el layout
 ([`page_controls.csv`](page_controls.csv)) y la tabla de parámetros
-([`PARAM_RECORD.md`](../NeuronVS_preset_format/PARAM_RECORD.md)): **qué hace el
+([`PARAM_RECORD.md`](../preset_format/PARAM_RECORD.md)): **qué hace el
 editor, en tiempo de carga de página, para que mover un control escriba en el
 registro `C_Param` correcto y para que un cambio venido del preset o del host
 repinte ese control.**
@@ -63,7 +60,7 @@ call <helper de alta>        ; ECX = widget
 
 El desplazamiento **siempre** es múltiplo de `0x28`, y el índice que sale de
 dividirlo es la fila de
-[`preset_schema.csv`](../NeuronVS_preset_format/preset_schema.csv). Ejemplos
+[`preset_schema.csv`](../preset_format/preset_schema.csv). Ejemplos
 reales del binder de paneles (`0x1001e600`):
 
 | id | offset | índice | clave |

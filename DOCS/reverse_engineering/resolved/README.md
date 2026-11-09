@@ -1,12 +1,10 @@
 # NeuronVS · llamadas virtuales resueltas
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **7 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 4 de ellos: `../classes`, `../classes/dtor_chain.csv`, `../vst2`.
-> Los otros 3 no están en el repositorio (volcados de datos, carpetas citadas).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
+> **Enlaces rotos — revisión 2026-11-08; 4 corregidos el 2026-11-09.** De los 7 enlaces
+> relativos de este documento que no resolvían, se han reescrito **4** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_`). Quedan **3** rotos porque no están en el
+> repositorio: 2 carpetas citadas por su nombre suelto y 1 volcado de datos. Inventario línea a
+> línea, con el destino resuelto, lo aplicado y lo que sigue roto:
 > [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 Reescritura del pseudocódigo exportado para que cada llamada por vtable muestre el método al que despacha, en lugar de `(**(code **)(*param_1 + 0x1c))()`.
@@ -16,10 +14,10 @@ Reescritura del pseudocódigo exportado para que cada llamada por vtable muestre
 ## Cómo se resuelve
 
 1. **Clase del receptor.** El receptor se identifica por su forma: `*param_1` es el `this` del método; `param_1[2]` dentro de los despachadores VST2 es `core+0x08`, donde `FUN_10002b70` guarda el `C_Editor`; los campos del `this` se resuelven en el paso 4; el resto (parámetros y locales) queda sin tipo.
-2. **CHA (class hierarchy analysis).** Para `*param_1` se toman la clase contenedora y **todas sus descendientes** en el modelo ([`../NeuronVS_classes/`](../NeuronVS_classes/)). Si todas las vtables posibles apuntan a la misma función en ese slot, la llamada tiene un único destino y se reescribe; si alguna lo sobreescribe, el slot sigue siendo el mismo método virtual y se nombra por su entrada en la clase estática (paso 3).
+2. **CHA (class hierarchy analysis).** Para `*param_1` se toman la clase contenedora y **todas sus descendientes** en el modelo ([`../NeuronVS_classes/`](../classes)). Si todas las vtables posibles apuntan a la misma función en ese slot, la llamada tiene un único destino y se reescribe; si alguna lo sobreescribe, el slot sigue siendo el mismo método virtual y se nombra por su entrada en la clase estática (paso 3).
    Antes de leer ninguna vtable se comprueba la forma y la cota. La forma: un destino sin `+ 0xNN` (`*param_1`, o un campo con el offset dentro del paréntesis) no identifica ningún slot y se rechaza con `no-offset`; un offset que no sea múltiplo de 4 cae a caballo entre dos entradas de la tabla y se rechaza con `misaligned`, porque una vtable es un array de punteros. La cota: el slot tiene que caer dentro de la tabla declarada (`classes.csv`, `slots_to_next`) de la clase estática **y de cada descendiente**; si alguno no llega, la llamada se rechaza con estado `out-of-range`. Los tres rechazos ocurren sin tocar la DLL: un slot fuera de tabla no falla, lee la tabla vecina de `.rdata`, y el CHA la confirmaría como override.
-3. **Slot declarado.** En una jerarquía de herencia simple las vtables conservan los índices: el slot N de un descendiente es el virtual que declara la familia y cada clase lo hereda o lo sobreescribe. [`../NeuronVS_classes/dtor_chain.csv`](../NeuronVS_classes/dtor_chain.csv) demuestra qué slot es el destructor (el 0: cuerpo del destructor y `operator_delete` bajo `flags & 1`) y que el slot 1 no lo es en ninguna de las 27 clases; la cadena de destructores, que cada clase enlaza con la de su padre, es la prueba de que hay una sola base y de que los índices se mantienen. El nombre del método declarado sólo se usa cuando está justificado en esa tabla; los demás slots con varios destinos siguen ambiguos.
-4. **Excepción documentada.** `0x100030b0` y `0x10003970` son el despachador VST2 y sólo se invocan con `this = C_NeuronCore` ([`../NeuronVS_vst2/`](../NeuronVS_vst2/)); para ellos se usa el core en vez de su clase nominal en el modelo.
+3. **Slot declarado.** En una jerarquía de herencia simple las vtables conservan los índices: el slot N de un descendiente es el virtual que declara la familia y cada clase lo hereda o lo sobreescribe. [`../NeuronVS_classes/dtor_chain.csv`](../classes/dtor_chain.csv) demuestra qué slot es el destructor (el 0: cuerpo del destructor y `operator_delete` bajo `flags & 1`) y que el slot 1 no lo es en ninguna de las 27 clases; la cadena de destructores, que cada clase enlaza con la de su padre, es la prueba de que hay una sola base y de que los índices se mantienen. El nombre del método declarado sólo se usa cuando está justificado en esa tabla; los demás slots con varios destinos siguen ambiguos.
+4. **Excepción documentada.** `0x100030b0` y `0x10003970` son el despachador VST2 y sólo se invocan con `this = C_NeuronCore` ([`../NeuronVS_vst2/`](../vst2)); para ellos se usa el core en vez de su clase nominal en el modelo.
 5. **Campos del `this`.** Cuando el receptor es un campo (`**(int **)(param_1 + 0xNN)`) su clase sale de quien lo escribe: cada tienda `*(T *)(this + NN) = <objeto recién construido>` en la familia (la clase, sus descendientes y sus ancestros, que comparten el offset) tipa el campo si todas coinciden. El mapa va en [`fields.csv`](fields.csv) con archivo y línea de cada tienda.
 6. **Parámetros.** Un receptor `*param_N` (N >= 2) es un objeto que llega como argumento: su clase no está en el método sino en quien lo llama. `tools/infer_param_types.py` recorre los 1.023 ficheros del export, lee el argumento que cae en ese parámetro en cada sitio de llamada directo y lo tipa (la clase del llamador, un campo de [`fields.csv`](fields.csv), el resultado de un constructor local, o el propio parámetro reenviado, con recursión acotada). Si todas las llamadas conocidas coinciden, la llamada se resuelve por CHA sobre esa clase y la base es `param+cha`; el mapa va en [`param_types.csv`](param_types.csv) con un veredicto por parámetro.
 7. **Reescritura.** `Method(receptor, args...)`, porque el original es `__thiscall`. El slot queda como comentario `/* +0xNN */` para poder volver al binario. Si el receptor es un campo que sólo recibe constantes (`dead-field` en [`untyped_calls.csv`](untyped_calls.csv)), la llamada se deja igual pero se anota como **código inalcanzable**, no como receptor sin tipo: ningún objeto vivo puede llegar a ella.
@@ -164,7 +162,7 @@ El mismo verificador contrasta las anotaciones de alcanzabilidad: cada sitio mar
 | [`param_types.csv`](param_types.csv) | los parámetros `*param_N`: sitios de llamada, veredicto, clase y evidencia |
 | [`untyped_calls.csv`](untyped_calls.csv) | los 51 sitios sin receptor tipado y el motivo de cada uno |
 | [`unreachable.csv`](unreachable.csv) | los 14 sitios marcados inalcanzables: campo muerto y las tiendas constantes que lo prueban |
-| [`../NeuronVS_classes/dtor_chain.csv`](../NeuronVS_classes/dtor_chain.csv) | la cadena de destructores y el slot 1 de cada clase, que justifica los nombres de `cha+slot` |
+| [`../NeuronVS_classes/dtor_chain.csv`](../classes/dtor_chain.csv) | la cadena de destructores y el slot 1 de cada clase, que justifica los nombres de `cha+slot` |
 | [`core_fields.csv`](core_fields.csv) | el layout de `C_NeuronCore`: offset, ancho, tipo de contenido y dónde se escribe |
 | [`index.csv`](index.csv) | las 342 funciones: dirección, método, alias y archivo |
 | [`summary.txt`](summary.txt) | recuento por clase y por estado |

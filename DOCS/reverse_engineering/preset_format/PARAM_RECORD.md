@@ -1,21 +1,19 @@
 # La tabla de `C_Param`: de los descriptores de 0x1c a los registros de 0x28
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **3 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 2 de ellos: `../classes/README.md`, `../layout/KNOB_PARAM_LINK.md`.
-> Los otros 1 no están en el repositorio (scripts de verificación).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
+> **Enlaces rotos — revisión 2026-11-08; 2 corregidos el 2026-11-09.** De los 3 enlaces
+> relativos de este documento que no resolvían, se han reescrito **2** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_`). Queda **1** roto porque no está en el
+> repositorio: una ruta que lleva el prefijo viejo y tampoco existe sin él. Inventario línea a
+> línea, con el destino resuelto, lo aplicado y lo que sigue roto:
 > [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 `preset_schema.csv` decodifica el bloque **estático** de 445 descriptores de `0x1c` bytes en `0x10049f08`. El motor no lee ese bloque al cargar un preset: al arrancar convierte los descriptores en una tabla **de ejecución** de 445 registros de **`0x28`** bytes, y es esa tabla la que recorre el parser, la que recorta el escritor y la que apuntan los 26 parámetros VST. Este documento cierra ese eslabón: qué función la construye, qué copia de cada descriptor y qué hay en los 12 bytes que el descriptor no tiene.
 
-La tabla vive en el objeto que el propio DLL llama `snddat` (cadena de error `snddat` en `0x1005467c`), un bloque de **12 bytes** colgado de `C_NeuronCore+0x3dc` (`param_1[0xf7]`). El paquete [`NeuronVS_classes`](../NeuronVS_classes/README.md) lo llama `SoundData`.
+La tabla vive en el objeto que el propio DLL llama `snddat` (cadena de error `snddat` en `0x1005467c`), un bloque de **12 bytes** colgado de `C_NeuronCore+0x3dc` (`param_1[0xf7]`). El paquete [`NeuronVS_classes`](../classes/README.md) lo llama `SoundData`.
 
 El lado del editor —qué control engancha qué registro, con qué helper y con qué
 máscara, y cómo vuelve el valor al widget— está en
-[`KNOB_PARAM_LINK.md`](../NeuronVS_layout/KNOB_PARAM_LINK.md).
+[`KNOB_PARAM_LINK.md`](../layout/KNOB_PARAM_LINK.md).
 
 ## Cadena de construcción
 

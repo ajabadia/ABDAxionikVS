@@ -1,12 +1,10 @@
 # Neuron80GB-OS15 — los modelos del disco del estudio
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **9 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 4 de ellos: `models.csv`, `SCAPE_SPHERE.md`, `SYNTH_FRAMES.md`.
-> Los otros 5 no están en el repositorio (scripts de verificación, volcados de datos).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
+> **Enlaces rotos — revisión 2026-11-08; 4 corregidos el 2026-11-09.** De los 9 enlaces
+> relativos de este documento que no resolvían, se han reescrito **4** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_` y sin el `models/` sobrante). Quedan **5**
+> rotos porque no están en el repositorio: 4 scripts de verificación y 1 volcado de datos.
+> Inventario línea a línea, con el destino resuelto, lo aplicado y lo que sigue roto:
 > [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 `Neuron80GB-OS15.tib` (2.362.286.080 B ≈ 2,2 GiB, con copia en `.zip` y `.rar`) es una imagen Acronis del disco de la máquina donde se montaban los modelos de NeuronVS. Descomprimida son **45,7 GB de disco lógico** repartidos en **302.041 bloques**, y dentro están los binarios de modelo que nunca salieron a la calle: la instalación sólo trae el modelo `511` (*sinew*), y aquí hay **1.567 parejas `.scape`/`.sphere`** — los 1.567 modelos del banco `NeuronVS-db`, más los renders antiguos del mismo id que quedaron en el disco.
@@ -16,13 +14,13 @@ Este documento describe el contenedor, las cuatro trampas que tiene el carveo y 
 | Fichero | Qué contiene |
 |---|---|
 | `models/` | 3.134 binarios: 1.567 `.scape` + 1.567 `.sphere`, 1,95 GB |
-| [`models/models.csv`](models/models.csv) | una fila por binario: offset en el disco lógico, tag, id, resolución, largo, bucle, frames, paso, bandas, nombres, SHA-256 y ruta |
+| [`models/models.csv`](models.csv) | una fila por binario: offset en el disco lógico, tag, id, resolución, largo, bucle, frames, paso, bandas, nombres, SHA-256 y ruta |
 | [`tools/tib_models.py`](tools/tib_models.py) | extrae los modelos de la imagen (y `--self-test`, el ensayo del ensamblado) |
 | [`tools/verify_tib_models.py`](tools/verify_tib_models.py) | vuelve a leer cada fichero de `models/` y comprueba cabecera, nombres, frames y SHA-256 contra el CSV |
 | [`tools/compare_installed.py`](tools/compare_installed.py) | compara la extracción con un NeuronDB instalado, fichero a fichero |
 | [`cmp_installed.log`](cmp_installed.log) | la salida de esa comparación contra `NeuronVS-db/NeuronDB/Models` |
 
-El formato de los ficheros no se repite aquí: está en [`NeuronVS_neurondb/SCAPE_SPHERE.md`](../NeuronVS_neurondb/SCAPE_SPHERE.md).
+El formato de los ficheros no se repite aquí: está en [`NeuronVS_neurondb/SCAPE_SPHERE.md`](SCAPE_SPHERE.md).
 
 ## El contenedor
 
@@ -103,7 +101,7 @@ La página del contenedor se guarda en el `.sphere` tal como está en la imagen,
 
 Los 70 ficheros que no cuadran son esferas cortas (y 2 curvas): la imagen es una foto de un disco en uso y hay regiones tapadas por ficheros posteriores, así que sus frames se acaban antes de lo que declara la cabecera. El extractor devuelve lo que hay y `models.csv` lo dice (`frames_stored` frente a `frames_valid`); no se rellena con ceros ni se inventan frames.
 
-Tampoco se interpreta el contenido: qué significan las bandas, los 1.024 parciales y los 12 ejes está en [`NeuronVS_neurondb/SCAPE_SPHERE.md`](../NeuronVS_neurondb/SCAPE_SPHERE.md) y [`NeuronVS_neurondb/SYNTH_FRAMES.md`](../NeuronVS_neurondb/SYNTH_FRAMES.md).
+Tampoco se interpreta el contenido: qué significan las bandas, los 1.024 parciales y los 12 ejes está en [`NeuronVS_neurondb/SCAPE_SPHERE.md`](SCAPE_SPHERE.md) y [`NeuronVS_neurondb/SYNTH_FRAMES.md`](SYNTH_FRAMES.md).
 
 ## BrainMapper
 

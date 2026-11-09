@@ -1,11 +1,10 @@
 # El observador: `0x10001010`, el alta/baja y las dos pasadas de notificación
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **2 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 1 de ellos: `../observers/tools/verify_observers.py`.
-> Los otros 1 no están en el repositorio (carpetas citadas).
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 1 corregido el 2026-11-09.** De los 2 enlaces relativos
+> de este documento que no resolvían, se ha reescrito **1** a su alternativa real en el árbol
+> (el mismo nombre de fichero donde sí está en el árbol). Queda **1** roto porque no está en el
+> repositorio: una carpeta citada por su nombre suelto. Inventario línea a línea, con el destino
+> resuelto, lo aplicado y lo que sigue roto: [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 [`KNOB_PARAM_LINK.md`](KNOB_PARAM_LINK.md) cuenta cómo un control se enlaza a un
 registro `C_Param` y cómo el valor vuelve al control. Este documento cierra la
@@ -16,7 +15,7 @@ cada una de las dos pasadas de `FUN_10001550`**, callback por callback.
 Todo está leído del binario: desensamblado con capstone y, para los callbacks
 que Ghidra sólo veía como etiquetas, descompilados con el proyecto de
 `_ghidra_project`; los `.c` sueltos están en [`_obs_dump/`](../_obs_dump) y el
-verificador en [`tools/verify_observers.py`](tools/verify_observers.py).
+verificador en [`tools/verify_observers.py`](../observers/tools/verify_observers.py).
 
 Lo que el control hace **después** de recibir la notificación —el byte de
 invalidez, la aguja del knob y la celda del panel— está en

@@ -1,11 +1,9 @@
 # NeuronVS_port
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **2 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 2 de ellos: `TRANSLATOR.md`, `../dsp/ZONES.md`.
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
+> **Enlaces rotos — revisión 2026-11-08; 2 corregidos el 2026-11-09.** De los 2 enlaces
+> relativos de este documento que no resolvían, se han reescrito **2** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_` y sin el `docs/` sobrante). Aquí no queda
+> ninguno roto. Inventario de lo que estaba roto y de lo que se aplicó:
 > [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 Reconstrucción compilable de la superficie VST2 de `NeuronVS.dll`: cabecera
@@ -22,10 +20,10 @@ El plan de la superficie está en [PLAN.md](PLAN.md); el plan vigente del produc
 
 La frontera entre parámetros y motor —`FUN_10040550` traducida a C++, con la
 tabla de las 456 escrituras al estado y sus dudas abiertas— está en
-[docs/TRANSLATOR.md](docs/TRANSLATOR.md). La otra frontera, la del modelo:
+[docs/TRANSLATOR.md](TRANSLATOR.md). La otra frontera, la del modelo:
 cómo las 128 zonas de `map.script` acaban en las dos tablas de 40 B por tecla
 que lee el render, está en
-[../NeuronVS_dsp/ZONES.md](../NeuronVS_dsp/ZONES.md); `neuron_golden --zones`
+[../NeuronVS_dsp/ZONES.md](../dsp/ZONES.md); `neuron_golden --zones`
 la vuelca contra el DLL.
 
 ## Construir y verificar

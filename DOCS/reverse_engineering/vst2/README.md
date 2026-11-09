@@ -1,12 +1,10 @@
 # NeuronVS · superficie VST2
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **7 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 4 de ellos: `../classes/CLASSES.md`, `../preset_format/PARAM_RECORD.md`, `../classes`, `../dsp`.
-> Los otros 3 no están en el repositorio (scripts de verificación, carpetas citadas).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
+> **Enlaces rotos — revisión 2026-11-08; 4 corregidos el 2026-11-09.** De los 7 enlaces
+> relativos de este documento que no resolvían, se han reescrito **4** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_`). Quedan **3** rotos porque no están en el
+> repositorio: 2 carpetas citadas por su nombre suelto y 1 script de verificación. Inventario
+> línea a línea, con el destino resuelto, lo aplicado y lo que sigue roto:
 > [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 Reconstrucción estática de la interfaz VST2 de `NeuronVS.dll` (PE32 x86, Hartmann Music, 2004) a partir del propio binario y del pseudocódigo de Ghidra. No se ejecutó el plugin: cada dato lleva su dirección de origen.
@@ -136,7 +134,7 @@ El editor sólo activa el bit 0x1 cuando `C_Editor` se construye con éxito (`FU
 | 0x4b | effBeginLoadBank | core 0x22c | C_OleRef_v09 | ptr | handler | - | 0 |
 | 0x4c | effBeginLoadProgram | core 0x230 | C_OleRef_v09 | ptr | handler | - | 0 |
 
-`core` = vtable `0x1004f550`; `editor` = objeto en `core+8`, vtable `0x1004f7a0`. Los nombres `C_*_vNN` son los del modelo de clases ([`../NeuronVS_classes/CLASSES.md`](../NeuronVS_classes/CLASSES.md)); `vNN` es el slot, no el número de virtuales de la clase.
+`core` = vtable `0x1004f550`; `editor` = objeto en `core+8`, vtable `0x1004f7a0`. Los nombres `C_*_vNN` son los del modelo de clases ([`../NeuronVS_classes/CLASSES.md`](../classes/CLASSES.md)); `vNN` es el slot, no el número de virtuales de la clase.
 
 ### Opcodes no enrutados
 
@@ -152,7 +150,7 @@ Son las llamadas de edición obsoletas de VST 1.0 (`effEditDraw`, `effEditMouse`
 
 ## Parámetros
 
-El host ve **26 parámetros**. `core+0xc0` es un array de 26 punteros que el constructor del core calcula como `snddat->tabla + índice*0x28`: apuntan a los **registros de ejecución** de `C_Param`, no a los descriptores de `.rdata`. El índice sale de la tabla estática de `0x1004f4e8`; el descriptor correspondiente está en `0x10049f08 + índice*0x1c` y el registro se construye a partir de él al arrancar (ver [`NeuronVS_preset_format/PARAM_RECORD.md`](../NeuronVS_preset_format/PARAM_RECORD.md)). Cada uno de los 26 registros recibe además un observador en `core+0x128 + i*0x18` con la máscara 7, que es lo que mantiene el valor del host sincronizado.
+El host ve **26 parámetros**. `core+0xc0` es un array de 26 punteros que el constructor del core calcula como `snddat->tabla + índice*0x28`: apuntan a los **registros de ejecución** de `C_Param`, no a los descriptores de `.rdata`. El índice sale de la tabla estática de `0x1004f4e8`; el descriptor correspondiente está en `0x10049f08 + índice*0x1c` y el registro se construye a partir de él al arrancar (ver [`NeuronVS_preset_format/PARAM_RECORD.md`](../preset_format/PARAM_RECORD.md)). Cada uno de los 26 registros recibe además un observador en `core+0x128 + i*0x18` con la máscara 7, que es lo que mantiene el valor del host sincronizado.
 
 | # | Nombre | Desc. | Min | Max | Default |
 |---|---|---|---|---|---|
@@ -278,7 +276,7 @@ Además de `audioMasterVersion` (opcode 1) y `audioMasterGetVendorString` (0x20,
 ## Límites
 
 - El análisis es estático: no se ejecutó el plugin dentro de un host, así que el comportamiento descrito es el del código, no el observado en un DAW.
-- Los nombres de clase y de método provienen del modelo de clases ([`../NeuronVS_classes/`](../NeuronVS_classes/)), no de RTTI/PDB.
+- Los nombres de clase y de método provienen del modelo de clases ([`../NeuronVS_classes/`](../classes)), no de RTTI/PDB.
 - El objeto editor (`C_Editor`) se identifica por el puntero que el propio plugin guarda en `core+8`; su vtable se lee de `0x1004f7a0`. Los slots `+0x04`/`+0x1c`/`+0x20`/`+0x24` llevan nombres de la convención MSVC (`C_RefObject_*`) que no describen su papel VST; el CSV usa el papel real.
 - `deltaFrames` ignorado se deduce de `0x1000a070`; si el motor aplicara latencia por otra vía, no aparece en este camino.
-- Los ficheros de la comunidad (`Neuron_CC_Map`, `neuroncontrol4.pd`, `Neuron VS.pd`, `MYELIN MIDI CC v3a.jzml`) se leyeron para comprobar si existía un mapeo CC documentado que el binario no enseñara: no lo hay, y la conclusión está arriba. El estudio del motor, con el detalle de dónde acaban esos controles, está en [`../NeuronVS_dsp/`](../NeuronVS_dsp/).
+- Los ficheros de la comunidad (`Neuron_CC_Map`, `neuroncontrol4.pd`, `Neuron VS.pd`, `MYELIN MIDI CC v3a.jzml`) se leyeron para comprobar si existía un mapeo CC documentado que el binario no enseñara: no lo hay, y la conclusión está arriba. El estudio del motor, con el detalle de dónde acaban esos controles, está en [`../NeuronVS_dsp/`](../dsp).

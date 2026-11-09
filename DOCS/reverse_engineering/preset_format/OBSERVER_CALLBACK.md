@@ -1,19 +1,19 @@
 # El callback `0x10013620`: cómo cambia un modelo
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **2 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 1 de ellos: `../dsp/ZONES.md`.
-> Los otros 1 no están en el repositorio (ficheros sueltos).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
+> **Enlaces rotos — revisión 2026-11-08; 2 corregidos el 2026-11-09.** De los 2 enlaces relativos
+> de este documento que no resolvían, se han reescrito **2** a su alternativa real en el árbol:
+> el del prefijo `NeuronVS_`, y el `.c` descompilado, que aquí es el desensamblado
+> [`../observers/functions/10013620_ModelIndexChange.asm`](../observers/functions/10013620_ModelIndexChange.asm).
+> **No queda ninguno roto.** Inventario línea a línea, con el destino resuelto y lo aplicado:
 > [`ENLACES_ROTOS.md`](../ENLACES_ROTOS.md).
 
 Este es el callback que `params` instala en su primer observador
 (`param_1[0xa5] = &LAB_10013620`, que es `observer+0x14`, la pasada 1). Ghidra no lo
 había creado como función porque sólo se referencia por dirección; está recuperado
-con `DecompileAt.java` y guardado en
-[`../NeuronVS_decompiled/functions/10013620_callback_10013620.c`](../NeuronVS_decompiled/functions/10013620_callback_10013620.c).
+con `DecompileAt.java` y guardado en `NeuronVS_decompiled/functions/10013620_callback_10013620.c`
+(esa ruta no está en este repositorio). Aquí el código del callback está como desensamblado:
+[`../observers/functions/10013620_ModelIndexChange.asm`](../observers/functions/10013620_ModelIndexChange.asm),
+el mismo rango `0x10013620`..`0x100139ac`.
 
 No es el callback de un parámetro cualquiera: es el de **`R1ModellIndex`** (y, por el
 mismo puntero, `R2ModellIndex`). Se ejecuta incondicionalmente en cada carga de preset
@@ -96,7 +96,7 @@ Cada modelo es, por tanto, un array de **128 punteros** a subestructuras; el
 destructor del modelo (`FUN_1000a8c0`) pone a cero justo esos 128 dwords cuando el
 contador de uso llega a 0. Qué escribe exactamente cada llamada —40 B por tecla,
 campo a campo, y quién los lee— está en
-[`../NeuronVS_dsp/ZONES.md`](../NeuronVS_dsp/ZONES.md): los argumentos son
+[`../NeuronVS_dsp/ZONES.md`](../dsp/ZONES.md): los argumentos son
 `slot, key, root, scapeLo, scapeHi, sphereLo, sphereHi, detune, volume`, y el
 consumidor es `FUN_10032970`, no el traductor.
 

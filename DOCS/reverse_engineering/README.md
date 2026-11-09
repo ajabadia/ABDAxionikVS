@@ -1,13 +1,11 @@
 # NeuronVS — estudio de ingeniería inversa
 
-> **Enlaces rotos — revisión 2026-11-08.** De los enlaces relativos de este documento,
-> **21 no resuelven** hoy y se conservan tal como están escritos.
-> Alternativa real para 19 de ellos: `classes/README.md`, `resolved/README.md`, `dsp/README.md`, `preset_format/README.md`, `layout/README.md` y 11 más.
-> Los otros 2 no están en el repositorio (ficheros sueltos).
-> Las rutas escritas llevan el prefijo `NeuronVS_`, que este árbol no usa:
-> el destino correcto es la misma ruta sin ese prefijo.
-> Inventario línea a línea, con el destino resuelto y su alternativa:
-> [`ENLACES_ROTOS.md`](ENLACES_ROTOS.md).
+> **Enlaces rotos — revisión 2026-11-08; 19 corregidos el 2026-11-09.** De los 21 enlaces
+> relativos de este documento que no resolvían, se han reescrito **19** a su alternativa real en
+> el árbol (la misma ruta sin el prefijo `NeuronVS_` y `Neuron80GB-OS15` → `neurondb`). Quedan
+> **2** rotos porque no están en el repositorio: rutas que llevan el prefijo viejo y tampoco
+> existen sin él. Inventario línea a línea, con el destino resuelto, lo aplicado y lo que sigue
+> roto: [`ENLACES_ROTOS.md`](ENLACES_ROTOS.md).
 
 Estudio del sintetizador **Hartmann Neuron / NeuronVS** (VST2 de 32 bits) para saber
 qué habría que reescribir para tener un equivalente en C++ moderno, y cuánto es. No es
@@ -22,19 +20,19 @@ su README y su `tools/verify_*.py`.
 | Directorio | Qué contiene | Verificación |
 |---|---|---|
 | [`NeuronVS_decompiled/`](NeuronVS_decompiled/README.md) | 1.024 funciones descompiladas, una por fichero | — |
-| [`NeuronVS_classes/`](NeuronVS_classes/README.md) | 29 clases, vtables, constructores y destructores | `tools/verify_classes.py` |
-| [`NeuronVS_resolved/`](NeuronVS_resolved/README.md) | llamadas por vtable resueltas a función concreta | `tools/verify_resolved.py` |
-| [`NeuronVS_dsp/`](NeuronVS_dsp/README.md) | el camino de audio: 87 funciones, constantes, frontera con `params`, tablas de tecla, la suma R1/R2 del render | `tools/verify_dsp.py`, `tools/verify_zones.py`, `tools/verify_r1r2_mix.py` |
-| [`NeuronVS_preset_format/`](NeuronVS_preset_format/README.md) | `.sound`: 445 claves, el registro de 40 B y sus observadores | `tools/verify_preset.py` |
+| [`NeuronVS_classes/`](classes/README.md) | 29 clases, vtables, constructores y destructores | `tools/verify_classes.py` |
+| [`NeuronVS_resolved/`](resolved/README.md) | llamadas por vtable resueltas a función concreta | `tools/verify_resolved.py` |
+| [`NeuronVS_dsp/`](dsp/README.md) | el camino de audio: 87 funciones, constantes, frontera con `params`, tablas de tecla, la suma R1/R2 del render | `tools/verify_dsp.py`, `tools/verify_zones.py`, `tools/verify_r1r2_mix.py` |
+| [`NeuronVS_preset_format/`](preset_format/README.md) | `.sound`: 445 claves, el registro de 40 B y sus observadores | `tools/verify_preset.py` |
 | [`NeuronVS_observers/`](observers/README.md) | los 335 enganches de observador de `params`, los 4 callbacks recuperados y la matriz con su defecto | `tools/verify_observers.py`, `tools/verify_matrix.py` |
-| [`NeuronVS_layout/`](NeuronVS_layout/README.md) | el editor GDI: 33 páginas, sprites, enlace knob↔parámetro | `tools/verify_layout.py`, `verify_viewer.py` |
-| [`NeuronVS_bitmaps/`](NeuronVS_bitmaps/README.md) | recursos gráficos y su decodificación | — |
-| [`NeuronVS_filmstrip/`](NeuronVS_filmstrip/README.md) | filmstrips de los knobs (GIF) | `tools/verify_gif.py` |
-| [`NeuronVS_neurondb/`](NeuronVS_neurondb/README.md) | `.model`, slots, reordenado sin romper sonidos | `tools/verify_neurondb.py` |
-| [`NeuronVS_vst2/`](NeuronVS_vst2/README.md) | ABI del plugin, opcodes, MIDI | `tools/scan_midi_bridges.py` |
+| [`NeuronVS_layout/`](layout/README.md) | el editor GDI: 33 páginas, sprites, enlace knob↔parámetro | `tools/verify_layout.py`, `verify_viewer.py` |
+| [`NeuronVS_bitmaps/`](bitmaps/README.md) | recursos gráficos y su decodificación | — |
+| [`NeuronVS_filmstrip/`](filmstrip/README.md) | filmstrips de los knobs (GIF) | `tools/verify_gif.py` |
+| [`NeuronVS_neurondb/`](neurondb/README.md) | `.model`, slots, reordenado sin romper sonidos | `tools/verify_neurondb.py` |
+| [`NeuronVS_vst2/`](vst2/README.md) | ABI del plugin, opcodes, MIDI | `tools/scan_midi_bridges.py` |
 | [`NeuronVS_compare_presets/`](NeuronVS_compare_presets/README.md) | comparación de presets del host contra el fichero | — |
-| [`NeuronVS_port/`](NeuronVS_port/README.md) | esqueleto C++ del port (sin JUCE todavía) y oráculo golden | `tools/verify_scaffold.py`, `verify_golden.py` |
-| [`Neuron80GB-OS15/`](Neuron80GB-OS15/README.md) | la base instalada de 80 GB: modelos, nombres, slots | `tools/verify_tib_models.py` |
+| [`NeuronVS_port/`](port/README.md) | esqueleto C++ del port (sin JUCE todavía) y oráculo golden | `tools/verify_scaffold.py`, `verify_golden.py` |
+| [`Neuron80GB-OS15/`](neurondb/NEURON80GB_OS15_README.md) | la base instalada de 80 GB: modelos, nombres, slots | `tools/verify_tib_models.py` |
 | [`SYSEX.md`](SYSEX.md) | Protocolo SysEx oficial Hartmann (`0x00 0x20 0x50`), presets y layout `CSilverRack` `e[0xD95]` | — |
 
 ## Lo que está establecido
@@ -46,7 +44,7 @@ su README y su `tools/verify_*.py`.
 **0 llamadas indirectas** en el conjunto y 48 hojas. Todas viven entre `0x10021C90` y
 `0x100478D0`: es un módulo contiguo, no un grafo disperso.
 
-Detalle: [`NeuronVS_dsp/README.md`](NeuronVS_dsp/README.md) §1.
+Detalle: [`NeuronVS_dsp/README.md`](dsp/README.md) §1.
 
 ### Tres estados, y sólo uno suena
 
@@ -60,8 +58,8 @@ La frontera es `FUN_10040550` (15.226 B, 2.125 líneas), con tres llamadores y n
 en el render. El registro de 40 B **no lo lee el motor**: publica su valor a los
 observadores; de sus diez dwords sólo tres cruzan (`+0x0c`, `+0x10`, `+0x1c`).
 
-Detalle: [`NeuronVS_dsp/STATE_SPLIT.md`](NeuronVS_dsp/STATE_SPLIT.md) y
-[`NeuronVS_preset_format/PARAM_RECORD.md`](NeuronVS_preset_format/PARAM_RECORD.md).
+Detalle: [`NeuronVS_dsp/STATE_SPLIT.md`](dsp/STATE_SPLIT.md) y
+[`NeuronVS_preset_format/PARAM_RECORD.md`](preset_format/PARAM_RECORD.md).
 
 ### Las constantes, medidas
 
@@ -71,7 +69,7 @@ instrucción que las carga: **402** confirman la propuesta del CSV de valores y
 son `f64`). Las otras 722 se pasan por dirección a un helper, así que su ancho no se
 puede leer en el sitio de la referencia.
 
-Detalle: [`NeuronVS_dsp/CONSTANT_TYPES.md`](NeuronVS_dsp/CONSTANT_TYPES.md).
+Detalle: [`NeuronVS_dsp/CONSTANT_TYPES.md`](dsp/CONSTANT_TYPES.md).
 
 ### El `.sound` es texto, y el registro es binario
 
@@ -80,7 +78,7 @@ claves desconocidas ignoradas y la última repetida gana. En memoria, cada una s
 expande a un registro de **40 B** con `name`, `min`, `max`, `default`, `step`,
 `value` (float) y una matriz de **16** observadores.
 
-Detalle: [`NeuronVS_preset_format/README.md`](NeuronVS_preset_format/README.md).
+Detalle: [`NeuronVS_preset_format/README.md`](preset_format/README.md).
 
 ### Cambiar de modelo no es asignar un parámetro
 
@@ -89,7 +87,7 @@ anotar un número: adquiere el modelo de la banca de `0x10055738`, reescribe los
 registros `Sphere`/`Scape` de esa capa (`name`, variante y default), registra las 128
 entradas del modelo en el motor y termina llamando al traductor con todo `params`. Es
 la operación más cara del plugin. Detalle en
-[`NeuronVS_preset_format/OBSERVER_CALLBACK.md`](NeuronVS_preset_format/OBSERVER_CALLBACK.md).
+[`NeuronVS_preset_format/OBSERVER_CALLBACK.md`](preset_format/OBSERVER_CALLBACK.md).
 
 ### Las 128 entradas por tecla
 
@@ -100,7 +98,7 @@ escritura la hace `FUN_100440d0` con nueve argumentos. El motor lee `root`, dos 
 `scape`/`sphere` (grave y agudo), `detune` y `volume`; los otros dos dwords van a cero.
 Las 128 entradas son **estado derivado**: se reescriben enteras en cada cambio de
 modelo, así que el port no necesita inventariarlas, sólo reproducir el banco
-zona→tecla. Detalle en [`NeuronVS_dsp/ZONES.md`](NeuronVS_dsp/ZONES.md).
+zona→tecla. Detalle en [`NeuronVS_dsp/ZONES.md`](dsp/ZONES.md).
 
 ### MIDI
 
@@ -109,7 +107,7 @@ ejecución), CC 32 (banco), program change, channel pressure y pitch bend. El ho
 expone **26 parámetros**, que son **13 pares**: 12 de `Sphere`/`Scape` por capa y
 `FilterFreq`/`FilterReso`.
 
-Detalle: [`NeuronVS_vst2/README.md`](NeuronVS_vst2/README.md#midi).
+Detalle: [`NeuronVS_vst2/README.md`](vst2/README.md#midi).
 
 ### Los observadores, y la matriz que mueven
 
