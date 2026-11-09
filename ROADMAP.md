@@ -740,7 +740,7 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
 | Fase | Contenido | Hallazgos | Estado | Esfuerzo |
 | :--- | :--- | :---: | :---: | :---: |
 | **Q0** | Red de seguridad (CI, `/W4`, linter) | 4 | `[x]` | S–M |
-| **Q1** | Bloqueantes: portabilidad y bugs DSP | 4 | `[~]` (Q1.1 hecho) | S–M |
+| **Q1** | Bloqueantes: portabilidad y bugs DSP | 4 | `[x]` | S–M |
 | **Q2** | Duplicación de la familia de controles | 1 | `[ ]` | L |
 | **Q3** | Tipos y escapes de comprobación | 2 | `[ ]` | M |
 | **Q4** | Robustez: errores tragados | 3 | `[ ]` | M |
@@ -799,21 +799,25 @@ El borrador original de esta fase solo contemplaba un `.nmmodel v2.1` plano de 6
   *Aceptación:* el test de guardia pasa y no queda ninguna discrepancia.
   *Riesgo:* no mezclar con Q2 en el mismo PR, o el diff se vuelve ilegible.
 
-- [ ] **Q1.2 — `OscReference.h`: variable posiblemente sin inicializar (C4701).**
+- [x] **Q1.2 — `OscReference.h`: variable posiblemente sin inicializar (C4701).**
   `Code/SynthCore/OscReference.h:198`: `out` se declara sin valor y el `switch` sobre `currentWaveform` no tiene `default`, así que un valor fuera de los tres enumeradores devuelve basura. UB silencioso en un oscilador.
-  *Cambio:* inicializar `out = 0.0` y añadir `default:` que devuelva 0.0 (o `std::optional` si se prefiere propagar el error). Test forzando `static_cast<OscWaveform>(99)` y comprobando salida finita y nula.
+  *Resuelto:* el mapeo sale a `shapeAt(forma, fase)`, estática pura, con `return 0.0` explícito fuera del enumerador (sin variable sin inicializar). Test con la forma 99 y la -1: silencio exacto, finito, y las cuatro formas válidas clavadas. 9 comprobaciones nuevas.
 
-- [ ] **Q1.3 — `DspAutoPan`: el desfase estéreo documentado no existe (C4189).**
+- [x] **Q1.3 — `DspAutoPan`: el desfase estéreo documentado no existe (C4189).**
   La cabecera de `Code/DspEffects/DspAutoPan.h` promete «Desfase estéreo entre canales: 0° a 180°», pero `lfoR` (`:125`) se calcula y nunca se usa, `panPos` (`:143`) sale siempre de `lfoL`, y el bloque `:113-121` (offset de fase y modulación de velocidad por canal) no influye en la salida.
   *Decisión de producto, dos salidas:*
   - **A (implementar):** aplicar `lfoR` al canal derecho con ley equal-power por canal, con test que mida el desfase real y que `phase_ = 0` dé L == R.
   - **B (recortar):** borrar `lfoPhaseR_`, `lfoR` y el offset de fase del código y del doc, dejando el pan mono que hace hoy.
-  *Aceptación:* no queda ninguna variable calculada sin usar y la cabecera describe lo que el código hace.
+  *Resuelto con la salida B (recortar), y con una razón:* el efecto no lo instancia ningún consumidor —`ABDAxionikVS` no lo usa— y no hay referencia auditiva de la máquina original, así que la salida A obligaba a inventar una ley de pan; calculada sobre la ley propuesta (cada canal con su pata complementaria), a 180° la potencia se iba de 0 a 2 —un extremo del barrido quedaba en silencio y el otro a +6 dB— y habría cambiado el sonido sin criterio. Se borran `phase_`, `setPhaseNorm`, `lfoPhaseR_` y el bloque de offset, y la cabecera deja de prometer el desfase. **Lo que sí se recupera es el seguidor de envolvente del canal derecho**, que también era muerto: ahora modula la profundidad de su propio canal con EnvDepth.
+  *Tests:* potencia constante (L²+R² = 1) en todo el barrido, profundidad 0 como bypass bit a bit y EnvDepth leyendo la envolvente del canal derecho —probado en negativo: poniendo `envL` en su lugar, el test falla—. 5 comprobaciones nuevas.
+  *Deuda vista de paso:* `setHoldNorm`/`hold_` es el mismo caso (se guarda y no se lee). No entra en Q1 porque no dispara ningún aviso; anotarlo para Q4.
 
-- [ ] **Q1.4 — Parámetros muertos (C4100).**
+- [x] **Q1.4 — Parámetros muertos (C4100).**
   `DspFairComp.h:76` (`sampleRate` sin usar) y `S950PatchFields.h:452-453` (`fine`/`transpose`, **intencional**: la función empaqueta byte alto y bajo y no necesita leer los `PatchField`).
-  *Cambio:* `[[maybe_unused]]` + comentario en `S950PatchFields`; decidir si `DspFairComp` debería usar `sampleRate` (¿coeficientes dependientes de frecuencia?) o quitarlo de la firma y actualizar llamadores.
-  *Aceptación:* C4100 a cero sin `#pragma warning(disable)`.
+  *Resuelto:* `DspFairComp::update()` pierde el parámetro (las constantes de ataque/release ya se recalculan por muestra en `processSample()`, que sí recibe la frecuencia) y sus nueve llamadas se actualizan; los dos `PatchField` de `zonePitchOffset` quedan `[[maybe_unused]]` con el motivo escrito. Apareció un cuarto C4100 que no estaba en la revisión, `S950Disk.h:364` (`fileOffsetOf`), resuelto igual.
+  *Aceptación cumplida:* C4100 a cero en SynthCore y DspEffects sin desactivar ningún aviso. Con `/W4` solo quedan dos C4456 y un C4458 (sombras de nombres), que no son de esta fase.
+
+**Resultado tras Q1 (medido, 2026-11-09):** SynthCore 2.308 comprobaciones (antes 2.299), DspEffects 1.803 (antes 1.798), 0 fallos · C4701, C4189 y C4100 a cero en los dos módulos · ningún cambio de comportamiento: con `envDepth = 0` (el valor de partida) `DspAutoPan` da exactamente las mismas muestras que antes.
 
 ### 7.4 Fase Q2 — Duplicación de la familia de controles
 
