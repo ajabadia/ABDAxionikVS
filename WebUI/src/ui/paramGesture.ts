@@ -1,51 +1,19 @@
 /**
  * ABDAxionikVS — paramGesture.ts
  *
- * Cableado único entre un control con arrastre (Knob, Slider, FilmstripFader,
- * RotaryLedKnob de `@abdsynths/shared/components`) y el gesto de automatización
- * del host.
+ * El cableado del gesto vive en `@abdsynths/shared/components/paramGesture.js`,
+ * igual para toda la familia: un arrastre es UN gesto para el DAW. Este
+ * fichero sólo le entrega el puente de ABDAxionik, así que los sitios de
+ * llamada no cambian:
  *
- * Los componentes compartidos son agnósticos al puente a propósito: exponen
- * `onDragStart` / `onDragEnd` y dejan que el host decida qué significan. Un
- * arrastre de 400 px emite cientos de `onChange` —y por tanto cientos de
- * PARAM_SET—, pero para el DAW es UN gesto: sin `beginChangeGesture` /
- * `endChangeGesture` graba un punto por paso y el undo no revierte el
- * movimiento completo.
- *
- * Uso:
  *   new Knob(el, { ...gestureFor(ParamIdx.FilterFreq), onChange: ... });
+ *
+ * El porqué (begin/end por parámetro, y por qué un control de varios
+ * parámetros los abre todos) está documentado en el módulo compartido.
  */
+import { createParamGestures } from '@abdsynths/shared/components/paramGesture.js';
 import { WebBridge } from '../bridge/WebBridge.js';
 
-export interface ParamGestureHandlers {
-  onDragStart: () => void;
-  onDragEnd: () => void;
-}
+export type { ParamGestureHandlers } from '@abdsynths/shared/components/paramGesture.js';
 
-/**
- * Devuelve los callbacks de gesto para el parámetro `index`, listos para
- * esparcir en las opciones de cualquier control arrastrable.
- */
-export function gestureFor(index: number): ParamGestureHandlers {
-  return {
-    onDragStart: () => WebBridge.beginGesture(index),
-    onDragEnd: () => WebBridge.endGesture(index),
-  };
-}
-
-/**
- * Gestos para un control que gobierna VARIOS parametros a la vez (el pad de
- * una envolvente 4L/4T mueve ocho). El host empareja begin/end por parametro,
- * asi que se abren y se cierran todos: el arrastre entero cuenta como un unico
- * cambio en cada uno y el undo revierte el movimiento completo.
- */
-export function gestureForGroup(indices: readonly number[]): ParamGestureHandlers {
-  return {
-    onDragStart: () => {
-      for (const index of indices) WebBridge.beginGesture(index);
-    },
-    onDragEnd: () => {
-      for (const index of indices) WebBridge.endGesture(index);
-    },
-  };
-}
+export const { gestureFor, gestureForGroup } = createParamGestures(WebBridge);
