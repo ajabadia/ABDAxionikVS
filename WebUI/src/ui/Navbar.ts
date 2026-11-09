@@ -236,6 +236,7 @@ export class AxionikNavbar {
         appName: t('navbar.aboutTitle'),
         subtitle: t('navbar.aboutSubtitle'),
         version: '1.0.0',
+        repo: 'ajabadia/ABDAxionikVS',
         buildInfo: t('navbar.aboutBuildInfo'),
         author: t('navbar.aboutAuthor'),
         copyright: t('navbar.aboutCopyright'),
@@ -386,7 +387,8 @@ export class AxionikNavbar {
         window.open('https://github.com/ajabadia/ABDAxionikVS/wiki', '_blank');
         break;
       case 'checkForUpdates':
-        alert('ABDAxionikVS v1.0.0 is up to date.');
+        // Lo resuelve el AboutDialog compartido que abre SynthNavBar: consulta
+        // real a GitHub con timeout y reintento. Aquí no se afirma nada.
         break;
       default:
         console.log(`[AxionikNavbar] Action: ${action}`, value);
