@@ -541,6 +541,49 @@ inline constexpr uint32_t SoundMFXRevHFDamp    = 442;
 inline constexpr uint32_t SoundMFXRevDetune    = 443;
 inline constexpr uint32_t SoundMFXRevSpeed     = 444;
 
+// ============================================================================
+// Expanded Mode Parameters [445..478]
+// ============================================================================
+// R1 Sonic Matter v2 (445..453)
+inline constexpr uint32_t R1V2_Stiffness        = 445;
+inline constexpr uint32_t R1V2_CombNotch        = 446;
+inline constexpr uint32_t R1V2_EvenOdd          = 447;
+inline constexpr uint32_t R1V2_SpectralTilt     = 448;
+inline constexpr uint32_t R1V2_FormantShift     = 449;
+inline constexpr uint32_t R1V2_Warp             = 450;
+inline constexpr uint32_t R1V2_Purity           = 451;
+inline constexpr uint32_t R1V2_ResidualScale    = 452;
+inline constexpr uint32_t R1V2_TransientGain    = 453;
+
+// R2 Sonic Matter v2 (454..462)
+inline constexpr uint32_t R2V2_Stiffness        = 454;
+inline constexpr uint32_t R2V2_CombNotch        = 455;
+inline constexpr uint32_t R2V2_EvenOdd          = 456;
+inline constexpr uint32_t R2V2_SpectralTilt     = 457;
+inline constexpr uint32_t R2V2_FormantShift     = 458;
+inline constexpr uint32_t R2V2_Warp             = 459;
+inline constexpr uint32_t R2V2_Purity           = 460;
+inline constexpr uint32_t R2V2_ResidualScale    = 461;
+inline constexpr uint32_t R2V2_TransientGain    = 462;
+
+// Expanded Multi-FX Algorithms & Macros (463..478)
+inline constexpr uint32_t Exp_FreqFXAlg         = 463;
+inline constexpr uint32_t Exp_TimeFXAlg         = 464;
+inline constexpr uint32_t Exp_MasterDelayAlg    = 465;
+inline constexpr uint32_t Exp_MasterRevAlg      = 466;
+inline constexpr uint32_t Exp_FreqFXMacro1      = 467;
+inline constexpr uint32_t Exp_FreqFXMacro2      = 468;
+inline constexpr uint32_t Exp_FreqFXMacro3      = 469;
+inline constexpr uint32_t Exp_FreqFXMacro4      = 470;
+inline constexpr uint32_t Exp_TimeFXMacro1      = 471;
+inline constexpr uint32_t Exp_TimeFXMacro2      = 472;
+inline constexpr uint32_t Exp_TimeFXMacro3      = 473;
+inline constexpr uint32_t Exp_TimeFXMacro4      = 474;
+inline constexpr uint32_t Exp_MasterFXMacro1    = 475;
+inline constexpr uint32_t Exp_MasterFXMacro2    = 476;
+inline constexpr uint32_t Exp_MasterFXMacro3    = 477;
+inline constexpr uint32_t Exp_MasterFXMacro4    = 478;
+
 } // namespace ParamIdx
 
 // ============================================================================
@@ -869,6 +912,23 @@ inline constexpr size_t CH_WaveForm                  = 313;
 inline constexpr size_t CH_Feedback                  = 314;
 inline constexpr size_t CH_StereoPhase               = 315;
 inline constexpr size_t CH_PreDelay                  = 316;
+
+// Master FX extension slots [380..394] para modulación de parámetros [430..444]
+inline constexpr size_t SoundMFXSwitch               = 380;
+inline constexpr size_t SoundMFXDelaySwitch          = 381;
+inline constexpr size_t SoundMFXDelayMix             = 382;
+inline constexpr size_t SoundMFXDelayLTime           = 383;
+inline constexpr size_t SoundMFXDelayRTime           = 384;
+inline constexpr size_t SoundMFXDelayFeedback        = 385;
+inline constexpr size_t SoundMFXDelayFdbkDamp        = 386;
+inline constexpr size_t SoundMFXReverbSwitch         = 387;
+inline constexpr size_t SoundMFXReverbMix            = 388;
+inline constexpr size_t SoundMFXReverbRoom           = 389;
+inline constexpr size_t SoundMFXRevDecayTime         = 390;
+inline constexpr size_t SoundMFXRevDiffusion         = 391;
+inline constexpr size_t SoundMFXRevHFDamp            = 392;
+inline constexpr size_t SoundMFXRevDetune            = 393;
+inline constexpr size_t SoundMFXRevSpeed             = 394;
 
 } // namespace SlotIdx
 } // namespace abd::axionik

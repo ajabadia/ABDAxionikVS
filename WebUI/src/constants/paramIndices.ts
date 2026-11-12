@@ -345,6 +345,47 @@ export const ParamIdx = {
   SoundMFXRevHFDamp: 442,
   SoundMFXRevDetune: 443,
   SoundMFXRevSpeed: 444,
+
+  // Expanded Resynator 1 & 2 v2 Controls [445..462]
+  R1V2_ResyType: 445,
+  R1V2_MaxPartials: 446,
+  R1V2_BarkScale: 447,
+  R1V2_HarmonicStretch: 448,
+  R1V2_SpectralTilt: 449,
+  R1V2_MorphCoupling: 450,
+  R1V2_ResidualLevel: 451,
+  R1V2_TransientGain: 452,
+  R1V2_Spread: 453,
+
+  R2V2_ResyType: 454,
+  R2V2_MaxPartials: 455,
+  R2V2_BarkScale: 456,
+  R2V2_HarmonicStretch: 457,
+  R2V2_SpectralTilt: 458,
+  R2V2_MorphCoupling: 459,
+  R2V2_ResidualLevel: 460,
+  R2V2_TransientGain: 461,
+  R2V2_Spread: 462,
+
+  // Expanded Multi-FX Rack [463..478]
+  Exp_FreqFXAlg: 463,
+  Exp_FreqFXMacro1: 464,
+  Exp_FreqFXMacro2: 465,
+  Exp_FreqFXMacro3: 466,
+  Exp_FreqFXMacro4: 467,
+
+  Exp_TimeFXAlg: 468,
+  Exp_TimeFXMacro1: 469,
+  Exp_TimeFXMacro2: 470,
+  Exp_TimeFXMacro3: 471,
+  Exp_TimeFXMacro4: 472,
+
+  Exp_MasterDelayAlg: 473,
+  Exp_MasterRevAlg: 474,
+  Exp_MasterFXMacro1: 475,
+  Exp_MasterFXMacro2: 476,
+  Exp_MasterFXMacro3: 477,
+  Exp_MasterFXMacro4: 478,
 } as const;
 
 export type ParamIdxKey = keyof typeof ParamIdx;

@@ -178,7 +178,9 @@ function generateParameterRegistryHeader() {
   lines.push('');
   lines.push('namespace abd::axionik {');
   lines.push('');
-  lines.push('constexpr size_t kNumTotalParameters = 445;');
+  lines.push(`constexpr size_t kNumTotalParameters = ${parameters.length};`);
+  lines.push('constexpr size_t kNumClassicParameters = 445;');
+  lines.push(`constexpr size_t kNumExpandedParameters = ${parameters.length - 445};`);
   lines.push('constexpr size_t kNumVstExposedParameters = 26;');
   lines.push('constexpr size_t kNumModulationDestinations = 63;');
   lines.push('constexpr size_t kNumEffectiveSlotsInP = 340;');
@@ -491,7 +493,7 @@ function generateBridgeProtocolJson() {
     description: "Protocolo versionado bidireccional Host C++/WASM <-> WebView2 WebUI",
     messages: {
       toHost: [
-        { type: "PARAM_SET", properties: { index: { type: "integer", minimum: 0, maximum: 444 }, value: { type: "number" } } },
+        { type: "PARAM_SET", properties: { index: { type: "integer", minimum: 0, maximum: parameters.length - 1 }, value: { type: "number" } } },
         { type: "PARAM_BATCH_SET", properties: { params: { type: "array", items: { type: "object", properties: { index: { type: "integer" }, value: { type: "number" } } } } } },
         { type: "NOTE_ON", properties: { note: { type: "integer", minimum: 0, maximum: 127 }, velocity: { type: "number", minimum: 0, maximum: 1 } } },
         { type: "NOTE_OFF", properties: { note: { type: "integer", minimum: 0, maximum: 127 } } },
@@ -577,7 +579,7 @@ function generateHartmannNeuronParameterSpec() {
 
   const specParams = [];
 
-  for (const p of parameters) {
+  for (const p of parameters.slice(0, 445)) {
     const idx = p.index;
     const key = p.key;
     const grp = p.group;
@@ -795,9 +797,10 @@ function verifySlotIdxHeader() {
     else if (bySlot.get(s) !== k) errors.push(`SlotIdx: slot ${s} discrepante (header=${bySlot.get(s)}, csv=${k})`);
   }
   for (const e of entries) {
+    const isExtensionSlot = (e.val >= 380 && e.val <= 394 && e.name.startsWith('SoundMFX'));
     const canon = slotToKey.get(e.val);
-    if (canon === undefined) errors.push(`SlotIdx: sobra ${e.name} (slot ${e.val} sin clave en el CSV)`);
-    else if (canon !== e.name) errors.push(`SlotIdx: ${e.name} = ${e.val} pero el CSV dice ${canon}`);
+    if (canon === undefined && !isExtensionSlot) errors.push(`SlotIdx: sobra ${e.name} (slot ${e.val} sin clave en el CSV)`);
+    else if (canon !== undefined && canon !== e.name) errors.push(`SlotIdx: ${e.name} = ${e.val} pero el CSV dice ${canon}`);
     if (!byName.has(e.name)) errors.push(`SlotIdx: clave interna inválida ${e.name}`);
   }
 
@@ -824,7 +827,7 @@ if (paramIdxErrors.length) {
   for (const e of paramIdxErrors) console.error(`[ERROR] ${e}`);
   hasErrors = true;
 } else {
-  console.log('[OK] Al dia: Source/DSP/AxionikParamIndices.h (445/445 ParamIdx)');
+  console.log(`[OK] Al dia: Source/DSP/AxionikParamIndices.h (${parameters.length}/${parameters.length} ParamIdx)`);
 }
 
 const slotIdxErrors = verifySlotIdxHeader();

@@ -137,6 +137,140 @@ const ParameterEngineBridge::Range ParameterEngineBridge::kModDestRanges[kNumMod
     { 0.0f, 1.0f }, // 62: FilterReso
 };
 
+const int32_t ParameterEngineBridge::kFreeDestToParamId[kNumFreeDests] = {
+    -1,  // 0 (3000): Off / None
+    3,   // 1 (3001): Sound Pan [3]
+    257, // 2 (3002): LFO Depth [257]
+    258, // 3 (3003): LFO Rate [258]
+    259, // 4 (3004): LFO Delay [259]
+    27,  // 5 (3005): R1 Volume [27]
+    52,  // 6 (3006): R1 L1 Scape 1/3 [52]
+    53,  // 7 (3007): R1 L1 Scape 2/4 [53]
+    42,  // 8 (3008): R1 L1 Sphere 1/3 [42]
+    43,  // 9 (3009): R1 L1 Sphere 2/4 [43]
+    72,  // 10 (3010): R1 L2 Scape 1/3 [72]
+    73,  // 11 (3011): R1 L2 Scape 2/4 [73]
+    62,  // 12 (3012): R1 L2 Sphere 1/3 [62]
+    63,  // 13 (3013): R1 L2 Sphere 2/4 [63]
+    92,  // 14 (3014): R1 L3 Scape 1/3 [92]
+    93,  // 15 (3015): R1 L3 Scape 2/4 [93]
+    82,  // 16 (3016): R1 L3 Sphere 1/3 [82]
+    83,  // 17 (3017): R1 L3 Sphere 2/4 [83]
+    107, // 18 (3018): R2 Volume [107]
+    132, // 19 (3019): R2 L1 Scape 1/3 [132]
+    133, // 20 (3020): R2 L1 Scape 2/4 [133]
+    122, // 21 (3021): R2 L1 Sphere 1/3 [122]
+    123, // 22 (3022): R2 L1 Sphere 2/4 [123]
+    152, // 23 (3023): R2 L2 Scape 1/3 [152]
+    153, // 24 (3024): R2 L2 Scape 2/4 [153]
+    142, // 25 (3025): R2 L2 Sphere 1/3 [142]
+    143, // 26 (3026): R2 L2 Sphere 2/4 [143]
+    172, // 27 (3027): R2 L3 Scape 1/3 [172]
+    173, // 28 (3028): R2 L3 Scape 2/4 [173]
+    162, // 29 (3029): R2 L3 Sphere 1/3 [162]
+    163, // 30 (3030): R2 L3 Sphere 2/4 [163]
+    262, // 31 (3031): Blender Amount [262]
+    268, // 32 (3032): Slicer Depth [268]
+    269, // 33 (3033): Slicer Rate [269]
+    274, // 34 (3034): Filter Cutoff [274]
+    275, // 35 (3035): Filter Resonance [275]
+    287, // 36 (3036): EQ LowShelf Gain [287]
+    288, // 37 (3037): EQ LowShelf Freq [288]
+    289, // 38 (3038): EQ LowShelf Slope [289]
+    291, // 39 (3039): EQ B1 Gain [291]
+    292, // 40 (3040): EQ B1 Freq [292]
+    293, // 41 (3041): EQ B1 Q [293]
+    295, // 42 (3042): EQ B2 Gain [295]
+    296, // 43 (3043): EQ B2 Freq [296]
+    297, // 44 (3044): EQ B2 Q [297]
+    299, // 45 (3045): EQ HighShelf Gain [299]
+    300, // 46 (3046): EQ HighShelf Freq [300]
+    301, // 47 (3047): EQ HighShelf Slope [301]
+    303, // 48 (3048): Comp Threshold [303]
+    304, // 49 (3049): Comp Out Gain [304]
+    305, // 50 (3050): Comp Responsiveness [305]
+    306, // 51 (3051): Dist In Drive [306]
+    307, // 52 (3052): Dist Prefilter [307]
+    309, // 53 (3053): Dist Out Vol [309]
+    310, // 54 (3054): RingMod Mix [310]
+    311, // 55 (3055): RingMod Speed [311]
+    312, // 56 (3056): RingMod Depth [312]
+    314, // 57 (3057): RingMod ModFreq [314]
+    315, // 58 (3058): RgMd XoverDelay [315]
+    316, // 59 (3059): RgMd XoverTime [316]
+    317, // 60 (3060): RgMd XDlFeedback [317]
+    324, // 61 (3061): Decim Mix [324]
+    325, // 62 (3062): Decim SH Factor [325]
+    326, // 63 (3063): Decim PreFltCutoff [326]
+    318, // 64 (3064): SpWarp Mix [318]
+    319, // 65 (3065): SpWarp Frequency [319]
+    320, // 66 (3066): SpWarp Tilt [320]
+    321, // 67 (3067): SpWarp Damping [321]
+    322, // 68 (3068): SpWarp Speed [322]
+    323, // 69 (3069): SpWarp Depth [323]
+    331, // 70 (3070): StereoSp ChanDly [331]
+    332, // 71 (3071): StereoSp Feedbk [332]
+    333, // 72 (3072): LR Delay Mix [333]
+    334, // 73 (3073): LR Delay Time [334]
+    335, // 74 (3074): LR Dly Feedback [335]
+    336, // 75 (3075): Flanger Mix [336]
+    337, // 76 (3076): Flanger Depth [337]
+    338, // 77 (3077): Flanger Speed [338]
+    340, // 78 (3078): Flanger Feedback [340]
+    341, // 79 (3079): Flanger StereoPh [341]
+    342, // 80 (3080): Phaser Mix [342]
+    343, // 81 (3081): Phaser Depth [343]
+    344, // 82 (3082): Phaser Speed [344]
+    346, // 83 (3083): Phaser Feedback [346]
+    347, // 84 (3084): Phaser StereoPh [347]
+    348, // 85 (3085): Chorus Mix [348]
+    349, // 86 (3086): Chorus Depth [349]
+    350, // 87 (3087): Chorus Speed [350]
+    352, // 88 (3088): Chorus Feedback [352]
+    353, // 89 (3089): Chorus StereoPh [353]
+    354, // 90 (3090): Chorus PreDelay [354]
+    182, // 91 (3091): S1 Resy Env Att [182]
+    183, // 92 (3092): S1 Resy Env Dec [183]
+    184, // 93 (3093): S1 Resy Env Sust [184]
+    185, // 94 (3094): S1 Resy Env Rel [185]
+    200, // 95 (3095): S1 Amp Env Att [200]
+    201, // 96 (3096): S1 Amp Env Dec [201]
+    202, // 97 (3097): S1 Amp Env Sust [202]
+    203, // 98 (3098): S1 Amp Env Rel [203]
+    205, // 99 (3099): S1 Free Env Att [205]
+    206, // 100 (3100): S1 Free Env Dec [206]
+    207, // 101 (3101): S1 Free Env Sust [207]
+    208, // 102 (3102): S1 Free Env Rel [208]
+    210, // 103 (3103): S1 Free Env Depth [210]
+    212, // 104 (3104): S2 Resy Env Att [212]
+    213, // 105 (3105): S2 Resy Env Dec [213]
+    214, // 106 (3106): S2 Resy Env Sust [214]
+    215, // 107 (3107): S2 Resy Env Rel [215]
+    230, // 108 (3108): S2 Amp Env Att [230]
+    231, // 109 (3109): S2 Amp Env Dec [231]
+    232, // 110 (3110): S2 Amp Env Sust [232]
+    233, // 111 (3111): S2 Amp Env Rel [233]
+    235, // 112 (3112): S2 Free Env Att [235]
+    236, // 113 (3113): S2 Free Env Dec [236]
+    237, // 114 (3114): S2 Free Env Sust [237]
+    238, // 115 (3115): S2 Free Env Rel [238]
+    240, // 116 (3116): S2 Free Env Depth [240]
+    242, // 117 (3117): Free Env Level 1 [242]
+    243, // 118 (3118): Free Env Time 1 [243]
+    244, // 119 (3119): Free Env Level 2 [244]
+    245, // 120 (3120): Free Env Time 2 [245]
+    246, // 121 (3121): Free Env Level 3 [246]
+    247, // 122 (3122): Free Env Time 3 [247]
+    248, // 123 (3123): Free Env Level 4 [248]
+    249, // 124 (3124): Free Env Time 4 [249]
+    251, // 125 (3125): LevelTime Env Depth [251]
+    355, // 126 (3126): Filter Env Att [355]
+    356, // 127 (3127): Filter Env Dec [356]
+    357, // 128 (3128): Filter Env Sust [357]
+    358, // 129 (3129): Filter Env Rel [358]
+    360  // 130 (3130): Filter Env Depth [360]
+};
+
 void ParameterEngineBridge::initModulationRouting() {
     observerMap_.fill(ObserverContext{});
     if (22 < kNumTotalParameters) {
@@ -916,38 +1050,44 @@ void ParameterEngineBridge::initModulationRouting() {
     if (431 < kNumTotalParameters) {
         observerMap_[431] = ObserverContext{ 0, 381, -1, 0.00f, 1.00f };
     }
+    if (432 < kNumTotalParameters) {
+        observerMap_[432] = ObserverContext{ 0, 382, -1, 0.00f, 1.00f };
+    }
     if (433 < kNumTotalParameters) {
-        observerMap_[433] = ObserverContext{ 0, 382, -1, 0.00f, 1.00f };
+        observerMap_[433] = ObserverContext{ 0, 383, -1, 0.00f, 1000.00f };
     }
     if (434 < kNumTotalParameters) {
-        observerMap_[434] = ObserverContext{ 0, 383, -1, 0.00f, 1.00f };
+        observerMap_[434] = ObserverContext{ 0, 384, -1, 0.00f, 1000.00f };
     }
     if (435 < kNumTotalParameters) {
-        observerMap_[435] = ObserverContext{ 0, 384, -1, -1.00f, 1.00f };
+        observerMap_[435] = ObserverContext{ 0, 385, -1, -1.00f, 1.00f };
     }
     if (436 < kNumTotalParameters) {
-        observerMap_[436] = ObserverContext{ 0, 385, -1, 0.00f, 1.00f };
+        observerMap_[436] = ObserverContext{ 0, 386, -1, 0.00f, 1.00f };
     }
     if (437 < kNumTotalParameters) {
-        observerMap_[437] = ObserverContext{ 0, 386, -1, 0.00f, 1.00f };
+        observerMap_[437] = ObserverContext{ 0, 387, -1, 0.00f, 1.00f };
+    }
+    if (438 < kNumTotalParameters) {
+        observerMap_[438] = ObserverContext{ 0, 388, -1, 0.00f, 1.00f };
     }
     if (439 < kNumTotalParameters) {
-        observerMap_[439] = ObserverContext{ 0, 387, -1, 0.00f, 4.00f };
+        observerMap_[439] = ObserverContext{ 0, 389, -1, 0.00f, 4.00f };
     }
     if (440 < kNumTotalParameters) {
-        observerMap_[440] = ObserverContext{ 0, 388, -1, 0.00f, 1.00f };
+        observerMap_[440] = ObserverContext{ 0, 390, -1, 0.00f, 1.00f };
     }
     if (441 < kNumTotalParameters) {
-        observerMap_[441] = ObserverContext{ 0, 389, -1, 0.00f, 1.00f };
+        observerMap_[441] = ObserverContext{ 0, 391, -1, 0.00f, 1.00f };
     }
     if (442 < kNumTotalParameters) {
-        observerMap_[442] = ObserverContext{ 0, 390, -1, 0.00f, 1.00f };
+        observerMap_[442] = ObserverContext{ 0, 392, -1, 0.00f, 1.00f };
     }
     if (443 < kNumTotalParameters) {
-        observerMap_[443] = ObserverContext{ 0, 391, -1, 0.00f, 1.00f };
+        observerMap_[443] = ObserverContext{ 0, 393, -1, 0.00f, 1.00f };
     }
     if (444 < kNumTotalParameters) {
-        observerMap_[444] = ObserverContext{ 0, 392, -1, 0.00f, 1.00f };
+        observerMap_[444] = ObserverContext{ 0, 394, -1, 0.00f, 1.00f };
     }
     if (27 < kNumTotalParameters) {
         observerMap_[27] = ObserverContext{ 0, 4, 0, 0.00f, 1.00f };

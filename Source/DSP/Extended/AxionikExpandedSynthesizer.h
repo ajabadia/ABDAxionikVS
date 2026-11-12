@@ -32,7 +32,7 @@
 namespace abd::axionik::extended {
 
 inline constexpr size_t kMaxExpandedVoices   = 16;
-inline constexpr size_t kMaxPartialsPerVoice = 256;
+inline constexpr size_t kMaxPartialsPerVoice = 512;
 inline constexpr float  kTwoPi               = 6.28318530717958647692f;
 // Fase loop-1: synth spectral-frame clock (frames/sec at rateScale 1).
 inline constexpr float  kExpandedFramesPerSec = 8.0f;
@@ -103,6 +103,9 @@ public:
     void prepare(double sampleRate, size_t /*maxBlockSize*/) noexcept {
         sampleRate_ = std::max(8000.0, sampleRate);
         invSampleRate_ = static_cast<float>(1.0 / sampleRate_);
+        barkAlpha0_ = std::clamp(kTwoPi * 500.0f * invSampleRate_, 0.0001f, 0.95f);
+        barkAlpha1_ = std::clamp(kTwoPi * 1500.0f * invSampleRate_, 0.0001f, 0.95f);
+        barkAlpha2_ = std::clamp(kTwoPi * 4500.0f * invSampleRate_, 0.0001f, 0.95f);
         reset();
     }
 
@@ -114,6 +117,8 @@ public:
             v.noteAge = 0;
             v.lpStateL = 0.0f;
             v.lpStateR = 0.0f;
+            v.barkFilterL.fill(0.0f);
+            v.barkFilterR.fill(0.0f);
             v.loopPos = 0.0f;
             v.loopDir = 1;
             v.loopInit = false;
@@ -156,6 +161,15 @@ public:
             }
         }
         return false;
+    }
+
+    /// Transient gain multiplier for initial attack micro-impulse (0.0 .. 4.0)
+    void setTransientGain(float g) noexcept { transientGain_ = std::clamp(g, 0.0f, 4.0f); }
+    [[nodiscard]] float getTransientGain() const noexcept { return transientGain_; }
+
+    /// RT-safe Unified Spectral Surface direct evaluation for note & velocity
+    [[nodiscard]] const AxionikSpectralSurfaceNode* evaluateUnifiedSpectralSurface(int note, int vel127) const noexcept {
+        return findNearestSurfaceNode(note, vel127);
     }
 
     void setHostBpm(float bpm) noexcept {
@@ -257,6 +271,8 @@ public:
         v.noteAge = ++globalNoteCounter_;
         v.lpStateL = 0.0f;
         v.lpStateR = 0.0f;
+        v.barkFilterL.fill(0.0f);
+        v.barkFilterR.fill(0.0f);
         v.loopPos = 0.0f;
         v.loopDir = 1;
         v.loopInit = false;
@@ -268,7 +284,7 @@ public:
 
         // Initialize partial phases (lock to spliceFrameIndex if hybridTransient is active)
         v.phases.fill(0.0f);
-        const auto* spec = resolveSpectrumForRegion(matchedRegionIdx);
+        const auto* spec = resolveSpectrumForRegion(matchedRegionIdx, note, vel127);
         if (spec && !spec->frames.empty()) {
             size_t spliceIdx = 0;
             if (matchedRegionIdx >= 0 && model_.regions[static_cast<size_t>(matchedRegionIdx)].hybridTransient.enabled) {
@@ -395,6 +411,9 @@ private:
         float envLevel{0.0f};
         float lpStateL{0.0f};
         float lpStateR{0.0f};
+        // 1-pole 3-crossover filter states for 4-band DDSP residual noise shaping
+        std::array<float, 3> barkFilterL{0.0f, 0.0f, 0.0f};
+        std::array<float, 3> barkFilterR{0.0f, 0.0f, 0.0f};
         // Fase loop-1: stateful loop cursor (only used when the region loops).
         float loopPos{0.0f};
         int loopDir{1};
@@ -407,6 +426,10 @@ private:
     float invSampleRate_{1.0f / 44100.0f};
     float hostBpm_{120.0f};
     bool hasModel_{false};
+    float transientGain_{1.0f};
+    float barkAlpha0_{0.07f};
+    float barkAlpha1_{0.20f};
+    float barkAlpha2_{0.50f};
     uint64_t globalNoteCounter_{0};
     uint32_t rrCounter_{0};
     std::array<std::string, 16> rrGroupKeys_{};
@@ -476,21 +499,22 @@ private:
         // wins on pathological group overlaps); ungrouped regions share the
         // legacy global counter.
         const std::string& grp = model_.regions[static_cast<size_t>(firstMatch)].roundRobinGroup;
-        std::vector<int> candidates;
-        for (size_t i = 0; i < model_.regions.size(); ++i) {
+        std::array<int, 64> candidates{};
+        size_t candidateCount = 0;
+        for (size_t i = 0; i < model_.regions.size() && candidateCount < candidates.size(); ++i) {
             const auto& r = model_.regions[i];
             if (!triggerMatch(r) || !zoneMatch(r)) continue;
             if (grp.empty() ? !r.roundRobinGroup.empty() : r.roundRobinGroup != grp) continue;
-            candidates.push_back(static_cast<int>(i));
+            candidates[candidateCount++] = static_cast<int>(i);
         }
-        if (candidates.empty()) return -1;
+        if (candidateCount == 0) return -1;
         // Honor explicit roundRobinIndex order when every candidate sets one.
         bool allIndexed = true;
-        for (int ci : candidates) {
-            if (model_.regions[static_cast<size_t>(ci)].roundRobinIndex == 0) { allIndexed = false; break; }
+        for (size_t ci = 0; ci < candidateCount; ++ci) {
+            if (model_.regions[static_cast<size_t>(candidates[ci])].roundRobinIndex == 0) { allIndexed = false; break; }
         }
-        if (allIndexed && candidates.size() > 1) {
-            for (size_t a = 1; a < candidates.size(); ++a) {
+        if (allIndexed && candidateCount > 1) {
+            for (size_t a = 1; a < candidateCount; ++a) {
                 const int key = candidates[a];
                 const int keyIdx = model_.regions[static_cast<size_t>(key)].roundRobinIndex;
                 size_t b = a;
@@ -503,7 +527,7 @@ private:
             }
         }
         uint32_t& ctr = rrCounterFor(grp);
-        const size_t pick = (ctr++) % candidates.size();
+        const size_t pick = (ctr++) % candidateCount;
         return candidates[pick];
     }
 
@@ -527,7 +551,46 @@ private:
         return g;
     }
 
-    [[nodiscard]] const AxionikSpectralModel* resolveSpectrumForRegion(int regionIdx) const noexcept {
+    /**
+     * RT-safe Unified Spectral Surface node lookup (C++20, 0 dynamic allocations).
+     * Searches model_.unifiedSurface.nodes for the best matching node by note & velocity.
+     * Returns nullptr if surface is not present or nodes are empty.
+     */
+    [[nodiscard]] const AxionikSpectralSurfaceNode* findNearestSurfaceNode(int note, int vel127) const noexcept {
+        if (!model_.unifiedSurface.present || model_.unifiedSurface.nodes.empty()) {
+            return nullptr;
+        }
+        const auto& nodes = model_.unifiedSurface.nodes;
+        for (const auto& node : nodes) {
+            if (note >= node.lowKey && note <= node.highKey &&
+                vel127 >= node.lowVel && vel127 <= node.highVel) {
+                return &node;
+            }
+        }
+        const AxionikSpectralSurfaceNode* best = &nodes[0];
+        float minDistance = 1e9f;
+        for (const auto& node : nodes) {
+            const float kDiff = static_cast<float>(note - node.rootKey);
+            const float vDiff = static_cast<float>(vel127 - node.velocityCenter) * 0.5f;
+            const float d = kDiff * kDiff + vDiff * vDiff;
+            if (d < minDistance) {
+                minDistance = d;
+                best = &node;
+            }
+        }
+        return best;
+    }
+
+    [[nodiscard]] const AxionikSpectralModel* resolveSpectrumForRegion(int regionIdx, int note = 60, int vel127 = 100) const noexcept {
+        if (model_.unifiedSurface.present && !model_.unifiedSurface.nodes.empty()) {
+            const auto* node = findNearestSurfaceNode(note, vel127);
+            if (node && !node->sampleRef.empty()) {
+                auto it = model_.spectralBySample.find(node->sampleRef);
+                if (it != model_.spectralBySample.end() && !it->second.frames.empty()) {
+                    return &it->second;
+                }
+            }
+        }
         if (regionIdx >= 0 && static_cast<size_t>(regionIdx) < model_.regions.size()) {
             const auto& ref = model_.regions[static_cast<size_t>(regionIdx)].sampleRef;
             if (!ref.empty()) {
@@ -583,7 +646,7 @@ private:
         VoiceState& v,
         const AxionikResonatorShapers& shapers,
         float morphX,
-        float /*morphY*/,
+        float morphY,
         float& outFL,
         float& outFR,
         float& outRL,
@@ -598,7 +661,8 @@ private:
         if (v.releasing) v.releaseElapsedSec += invSampleRate_;
         if (!v.active || env <= 1e-6f) return;
 
-        const AxionikSpectralModel* spec = resolveSpectrumForRegion(v.regionIndex);
+        const int vel127 = std::clamp(static_cast<int>(std::lround(v.velocityNorm * 127.0f)), 1, 127);
+        const AxionikSpectralModel* spec = resolveSpectrumForRegion(v.regionIndex, v.note, vel127);
         if (!spec || spec->frames.empty()) return;
 
         // Tempo-Sync & frame progression
@@ -658,19 +722,26 @@ private:
         const float noteOffsetSemi = (static_cast<float>(v.note) - static_cast<float>(rootKey)) * keytrack + detuneSemi;
         const float baseFreqHz = 440.0f * std::pow(2.0f, (static_cast<float>(rootKey) - 69.0f + noteOffsetSemi) / 12.0f);
 
+        // Bank of up to 512 partials (optimized vectorized fasorial bank, no 48-partial cap)
         const size_t nPartials = std::min({
             spec->partialCount,
             f0.amps.size(),
-            kMaxPartialsPerVoice,
-            static_cast<size_t>(48) // cap per-sample inner loop for fast real-time rendering
+            kMaxPartialsPerVoice
         });
 
         const float B = std::max(0.0f, shapers.inharmonicityB);
         const float parity = std::clamp(shapers.parity, -1.0f, 1.0f);
         const float shiftHz = shapers.spectralShiftHz;
-        const float entropyRough = std::clamp(shapers.entropyRoughness, 0.0f, 1.0f);
-        const float hfRollOff = std::clamp(shapers.hfRollOffDbPerOct, -24.0f, 0.0f);
-        const float formantShiftRatio = std::pow(2.0f, std::clamp(shapers.formantShiftSt, -24.0f, 24.0f) / 12.0f);
+        const float entropyRough = std::clamp(shapers.entropyRoughness, -1.0f, 1.0f);
+
+        // Continuous Morph Y modulation (Sphere / Timbre axis)
+        const float morphYFormantSt = (morphY - 0.5f) * 12.0f;
+        const float totalFormantShiftSt = std::clamp(shapers.formantShiftSt + morphYFormantSt, -36.0f, 36.0f);
+        const float formantShiftRatio = std::pow(2.0f, totalFormantShiftSt / 12.0f);
+
+        const float morphYTiltDb = (morphY - 0.5f) * 6.0f;
+        const float effectiveHfRollOff = std::clamp(shapers.hfRollOffDbPerOct + morphYTiltDb, -36.0f, 0.0f);
+
         const float formantPreserve = std::clamp(shapers.formantPreserve, 0.0f, 1.0f);
         const float nyquist = static_cast<float>(sampleRate_ * 0.48);
 
@@ -686,8 +757,7 @@ private:
             const float rawA0 = f0.amps[p];
             const float rawA1 = (p < f1.amps.size()) ? f1.amps[p] : rawA0;
             const float rawAmp = rawA0 + (rawA1 - rawA0) * frac;
-            // Formant path interpolates across frames exactly like the raw
-            // path (previously it read the f0 frame only).
+            // Formant path interpolates across frames exactly like the raw path
             const float formAmp0 = f0.amps[fIdx];
             const float formAmp1 = (fIdx < f1.amps.size()) ? f1.amps[fIdx] : formAmp0;
             const float formAmp = formAmp0 + (formAmp1 - formAmp0) * frac;
@@ -703,17 +773,20 @@ private:
             }
 
             const float n = static_cast<float>(p + 1);
-            // HF Roll-off per octave above fundamental (default -6 dB/oct neutral)
+            // HF Roll-off per octave above fundamental (default -6 dB/oct neutral) modulated by morphY
             const float octavesAboveF0 = std::log2(n);
-            const float extraRollDb = (hfRollOff - (-6.0f)) * octavesAboveF0;
+            const float extraRollDb = (effectiveHfRollOff - (-6.0f)) * octavesAboveF0;
             if (std::abs(extraRollDb) > 0.05f) {
                 amp *= std::pow(10.0f, std::clamp(extraRollDb, -48.0f, 18.0f) * 0.05f);
             }
 
-            // Loris partial bandwidth roughness modulation
+            // Comb/Notch (< 0) or Loris partial bandwidth roughness (> 0)
             if (entropyRough > 0.001f) {
                 const float bw = (p < f0.bandwidths.size()) ? f0.bandwidths[p] : 0.15f;
                 amp *= (1.0f + nextWhiteNoise() * entropyRough * std::clamp(bw, 0.05f, 1.0f) * 0.45f);
+            } else if (entropyRough < -0.001f) {
+                const float notch = 0.5f * (1.0f + std::cos(static_cast<float>(p) * 1.5707963f));
+                amp *= (1.0f + entropyRough * (1.0f - notch) * 0.75f);
             }
 
             const float stiff = (B > 0.0f) ? std::sqrt(1.0f + B * n * n) : 1.0f;
@@ -728,19 +801,64 @@ private:
             harmonicSum += amp * std::sin(v.phases[p]);
         }
 
-        // Hybrid transient micro-impulse boost during the initial attack window
+        // Hybrid transient micro-impulse boost during the initial attack window modulated by transientGain_
         float transientSignal = 0.0f;
         if (reg && reg->hybridTransient.enabled) {
             const float durSec = std::max(0.005f, reg->hybridTransient.durationMs * 0.001f);
             if (v.elapsedSec < durSec) {
                 const float tEnv = 1.0f - (v.elapsedSec / durSec);
-                transientSignal = nextWhiteNoise() * tEnv * 0.15f;
+                const float dbGain = std::pow(10.0f, reg->hybridTransient.gainDb * 0.05f);
+                transientSignal = nextWhiteNoise() * tEnv * 0.15f * dbGain * transientGain_;
             }
         }
 
-        // DDSP stochastic residual mix
+        // DDSP 24-Bark stochastic residual synthesizer
         const float resMix = std::clamp(shapers.residualMix, 0.0f, 1.0f);
-        const float residualSignal = nextWhiteNoise() * 0.05f * resMix;
+        float residualSignal = 0.0f;
+        if (resMix > 1e-4f) {
+            // Aggregate 24 Bark bands into 4 perceptual macro-quadrants
+            // Quadrant 0: Sub & Low (Bark 0..5, 0 - 630 Hz)
+            // Quadrant 1: Low-Mid (Bark 6..11, 630 - 1720 Hz)
+            // Quadrant 2: High-Mid (Bark 12..17, 1720 - 4400 Hz)
+            // Quadrant 3: High & Air (Bark 18..23, 4400 - 15500+ Hz)
+            std::array<float, 4> barkGains{1.0f, 1.0f, 1.0f, 1.0f};
+            if (!f0.residualBandsDb.empty()) {
+                const auto getAvgBandGain = [&](size_t startBand, size_t endBand) noexcept -> float {
+                    float sumDb = 0.0f;
+                    size_t count = 0;
+                    for (size_t b = startBand; b <= endBand && b < f0.residualBandsDb.size(); ++b) {
+                        const float db0 = f0.residualBandsDb[b];
+                        const float db1 = (b < f1.residualBandsDb.size()) ? f1.residualBandsDb[b] : db0;
+                        sumDb += db0 + (db1 - db0) * frac;
+                        ++count;
+                    }
+                    if (count == 0) return 1.0f;
+                    const float avgDb = std::clamp(sumDb / static_cast<float>(count), -60.0f, 12.0f);
+                    return std::pow(10.0f, avgDb * 0.05f);
+                };
+                barkGains[0] = getAvgBandGain(0, 5);
+                barkGains[1] = getAvgBandGain(6, 11);
+                barkGains[2] = getAvgBandGain(12, 17);
+                barkGains[3] = getAvgBandGain(18, 23);
+            }
+
+            const float w = nextWhiteNoise();
+            // 1-pole 3-crossover 4-band split:
+            v.barkFilterL[0] += barkAlpha0_ * (w - v.barkFilterL[0]);
+            v.barkFilterL[1] += barkAlpha1_ * (w - v.barkFilterL[1]);
+            v.barkFilterL[2] += barkAlpha2_ * (w - v.barkFilterL[2]);
+
+            const float band0 = v.barkFilterL[0];
+            const float band1 = v.barkFilterL[1] - v.barkFilterL[0];
+            const float band2 = v.barkFilterL[2] - v.barkFilterL[1];
+            const float band3 = w - v.barkFilterL[2];
+
+            const float shapedNoise = band0 * barkGains[0] +
+                                      band1 * barkGains[1] +
+                                      band2 * barkGains[2] +
+                                      band3 * barkGains[3];
+            residualSignal = shapedNoise * 0.05f * resMix;
+        }
 
         const float combined =
             ((1.0f - 0.5f * resMix) * harmonicSum + residualSignal + transientSignal) *

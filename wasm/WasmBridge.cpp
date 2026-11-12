@@ -119,6 +119,8 @@ WASM_EXPORT void axionik_midi_cc(void* handle, int cc, float value) {
             case 3:  engine->setModulationSource(3, norm); break;
             case 4:  engine->setModulationSource(4, norm); break;
             case 11: engine->setModulationSource(5, norm); break;
+            case 64: engine->setSustainPedal(norm >= 0.5f); break;
+            case 67: engine->handleFootSwitch(norm >= 0.5f); break;
             case 71: engine->setParamNormalized(abd::axionik::ParamIdx::FilterReso, norm); break;
             case 74: engine->setParamNormalized(abd::axionik::ParamIdx::FilterFreq, norm); break;
             case 120:
@@ -141,6 +143,31 @@ WASM_EXPORT void axionik_set_oracle_clip_mode(void* handle, int enabled) {
     if (auto* engine = static_cast<abd::axionik::DspEngineFacade*>(handle)) {
         engine->setOracleClipToZeroMode(enabled != 0);
     }
+}
+
+WASM_EXPORT void axionik_set_sustain_pedal(void* handle, int isDown) {
+    if (auto* engine = static_cast<abd::axionik::DspEngineFacade*>(handle)) {
+        engine->setSustainPedal(isDown != 0);
+    }
+}
+
+WASM_EXPORT void axionik_handle_footswitch(void* handle, int isDown) {
+    if (auto* engine = static_cast<abd::axionik::DspEngineFacade*>(handle)) {
+        engine->handleFootSwitch(isDown != 0);
+    }
+}
+
+WASM_EXPORT void axionik_set_resynator_parset(void* handle, int slot, int parset) {
+    if (auto* engine = static_cast<abd::axionik::DspEngineFacade*>(handle)) {
+        engine->setResynatorParset(slot, parset);
+    }
+}
+
+WASM_EXPORT int axionik_get_resynator_parset(void* handle, int slot) {
+    if (auto* engine = static_cast<abd::axionik::DspEngineFacade*>(handle)) {
+        return engine->getResynatorParset(slot);
+    }
+    return 0;
 }
 
 WASM_EXPORT void axionik_init_preset(void* handle) {

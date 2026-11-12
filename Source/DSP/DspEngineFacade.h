@@ -48,6 +48,24 @@ public:
     void noteOff(uint8_t note);
     void allNotesOff();
 
+    /// Control de pedal de sustain (MIDI CC 64)
+    void setSustainPedal(bool isDown);
+    [[nodiscard]] bool isSustainPedalDown() const noexcept { return sustainPedalDown_; }
+
+    /// Control de Footswitch (FootSwitchDest [411])
+    void handleFootSwitch(bool down);
+
+    /// Control desacoplado del algoritmo Parset (0..9) de Resynator 1 y 2
+    void setResynatorParset(int slot, int parset) noexcept {
+        if (slot == 0) r1Parset_ = std::clamp(parset, 0, 9);
+        else if (slot == 1) r2Parset_ = std::clamp(parset, 0, 9);
+    }
+    [[nodiscard]] int getResynatorParset(int slot) const noexcept {
+        if (slot == 0) return r1Parset_;
+        if (slot == 1) return r2Parset_;
+        return 0;
+    }
+
     /// Actualización de parámetros de síntesis
     void setParam(uint32_t index, float rawValue);
     void setParamNormalized(uint32_t index, float normalizedValue);
@@ -63,8 +81,13 @@ public:
         activeVoices_ = 0;
         bool ok = bankAdapter_.loadModelBySlot(slot, modelIndex, bridge_->getEngineState());
         if (ok) {
-            if (slot == 0) currentPreset_.r1ModelIndex = modelIndex;
-            else if (slot == 1) currentPreset_.r2ModelIndex = modelIndex;
+            if (slot == 0) {
+                currentPreset_.r1ModelIndex = modelIndex;
+                r1Parset_ = bankAdapter_.getModelParameterSet(0);
+            } else if (slot == 1) {
+                currentPreset_.r2ModelIndex = modelIndex;
+                r2Parset_ = bankAdapter_.getModelParameterSet(1);
+            }
             blockRenderer_.reset();
             antiPopRemaining_ = antiPopTotalSamples_;
         }
@@ -178,6 +201,21 @@ public:
         return expandedSynths_[static_cast<size_t>(slot)].setActiveShapers(shapers);
     }
 
+    /// Parámetros de efectos expandidos (Ola 4 y Ola 5, APVTS [463..478])
+    struct ExpandedFxParams {
+        int freqFxAlg{0};
+        int timeFxAlg{0};
+        int masterDelayAlg{0};
+        int masterRevAlg{0};
+        std::array<float, 4> freqFxMacros{0.5f, 0.5f, 0.5f, 0.5f};
+        std::array<float, 4> timeFxMacros{0.5f, 0.5f, 0.5f, 0.5f};
+        std::array<float, 4> masterFxMacros{0.5f, 0.5f, 0.5f, 0.5f};
+    };
+
+    [[nodiscard]] const ExpandedFxParams& getExpandedFxParams() const noexcept {
+        return expFxParams_;
+    }
+
     /// Voice introspection for hosts/tests (region routing, choke state).
     [[nodiscard]] int getExpandedVoiceRegionIndex(int slot, size_t voiceIdx) const noexcept {
         if (slot < 0 || slot > 1) return -1;
@@ -187,6 +225,10 @@ public:
     [[nodiscard]] bool isExpandedVoiceReleasing(int slot, size_t voiceIdx) const noexcept {
         if (slot < 0 || slot > 1) return false;
         return expandedSynths_[static_cast<size_t>(slot)].isVoiceReleasing(voiceIdx);
+    }
+
+    [[nodiscard]] uint32_t getActiveVoices() const noexcept {
+        return voicePool_.getActiveVoiceCount();
     }
 
     /// Carga de presets completos (.sound)
@@ -325,15 +367,17 @@ private:
     void processVectorSticks(size_t numSamples);
     float updateModulationAndPitch(const float* p, size_t numSamples);
     void updateResynatorLayers(const float* p, float globalLfoSignal);
+    void updateExpandedResynators(const float* p);
     void updateEnvelopes(const float* p);
     RenderBlockParams updateSilverAndMasterFx(const float* p, float globalLfoSignal);
     void applyAntiPop(float* leftChannel, float* rightChannel, size_t numSamples);
     void updatePeaksAndTelemetry(const float* leftChannel, const float* rightChannel, size_t numSamples, float instantLoad);
     void syncCalibrationToSubsystems() noexcept {
         masterVolume_ = std::clamp(calibration_.masterVolume, 0.0f, 2.0f);
-        blockRenderer_.setOracleClipToZeroMode(calibration_.oracleClipToZeroMode > 0.5f);
         antiPopTotalSamples_ = static_cast<size_t>(
             std::max(0.0, sampleRate_ * static_cast<double>(calibration_.antiPopRampMs) * 0.001));
+        voicePool_.setCalibrationConfig(calibration_);
+        blockRenderer_.setCalibrationConfig(calibration_);
     }
 
     ::axionik::dsp::AxionikCalibrationConfig calibration_{};
@@ -348,6 +392,10 @@ private:
 
     std::array<float, 6> modControllers_{};
     float pitchBendWheel_{0.0f};
+    bool sustainPedalDown_{false};
+    std::array<bool, 128> sustainedNotes_{};
+    int r1Parset_{0};
+    int r2Parset_{0};
     size_t antiPopTotalSamples_{kDefaultAntiPopSamples};
     size_t antiPopRemaining_{0};
 
@@ -365,6 +413,7 @@ private:
     };
     std::array<extended::AxionikExpandedSynthesizer, 2> expandedSynths_{};
     std::array<extended::AxionikExpandedPreflightReport, 2> lastExpandedReports_{};
+    ExpandedFxParams expFxParams_{};
 
     // Diagnostic Tone (AXVS.2)
     std::atomic<DiagnosticTonePoint> diagTonePoint_{DiagnosticTonePoint::Disabled};

@@ -27,7 +27,10 @@ inline constexpr size_t kNumFreeSlotsPerGroup = 4;
 /// Número de destinos de modulación en la matriz rápida (0x10049E00)
 inline constexpr size_t kNumModDests = 63;
 
-/// Número de slots de ejecución en params+0x278C (p[slot], 340 en VST + extensión 380..392 para MFX)
+/// Número total de destinos de Free Controllers (3000=Off, 3001..3130 = 130 destinos)
+inline constexpr size_t kNumFreeDests = 131;
+
+/// Número de slots de ejecución en params+0x278C (p[slot], 340 en VST + extensión 380..394 para MFX)
 inline constexpr size_t kNumEffectiveSlots = 400;
 
 /// Estructura de contexto de observador (16 bytes = 4 dwords en binario original)
@@ -101,6 +104,20 @@ public:
         return effectiveSlots_.data();
     }
 
+    /// Control de volcado legacy RT hacia engineState_ (13.948 bytes).
+    /// Desactivado por defecto en tiempo real (AXM.2A) para evitar escrituras muertas por cambio de parámetro;
+    /// activable bajo demanda para diagnósticos / herramientas legacy.
+    void setLegacyEngineSyncEnabled(bool enabled) noexcept {
+        legacyEngineSyncEnabled_ = enabled;
+        if (legacyEngineSyncEnabled_) {
+            syncEngineStateNow();
+        }
+    }
+    [[nodiscard]] bool isLegacyEngineSyncEnabled() const noexcept { return legacyEngineSyncEnabled_; }
+    void syncEngineStateNow() noexcept {
+        translateParametersToEngine(engineState_.data(), effectiveSlots_.data());
+    }
+
     /// Consultas de diagnóstico de la matriz de modulación (63 destinos, 6 controles)
     [[nodiscard]] float getBaseValue(size_t destIdx) const noexcept {
         return (destIdx < kNumModDests) ? modBaseValues_[destIdx] : 0.0f;
@@ -117,6 +134,15 @@ public:
     [[nodiscard]] int32_t getDestSlot(size_t destIdx) const noexcept {
         return (destIdx < kNumModDests) ? kModDestToSlot[destIdx] : -1;
     }
+    [[nodiscard]] int32_t getFreeDestination(size_t group, size_t slot) const noexcept {
+        return (group < kNumFreeGroups && slot < kNumFreeSlotsPerGroup) ? freeSlotDests_[group][slot] : 0;
+    }
+    [[nodiscard]] float getFreeDepth(size_t group, size_t slot) const noexcept {
+        return (group < kNumFreeGroups && slot < kNumFreeSlotsPerGroup) ? freeSlotDepths_[group][slot] : 0.0f;
+    }
+
+    /// Tabla de mapeo de destinos Free Controllers (0 = Off, 1..130 = IDs 3001..3130) a ID de parámetro [0..444]
+    static const int32_t kFreeDestToParamId[kNumFreeDests];
 
     /// Emulación diagnóstica opcional del desenganche de un destino (0..62) por el write fuera
     /// de rango de combine(-1) en params+0x2E2C del DLL original (jl 0x10013A56 en stSPEngineCb).
@@ -161,19 +187,21 @@ public:
 
     /// Recalcula un parámetro modulable o toda la matriz si destIdx == -1
     /// Port exacto de FUN_100134e0 (combinador con acumulación en precisión doble x87) + extensión 6×4 Free Controllers [363..410]
-    void recalculateModulation(int32_t targetDestIdx) {
+    /// Cubre los 63 destinos clásicos y los 130 destinos hardware 3001..3130
+    void recalculateModulation(int32_t targetDestIdx = -1) {
         auto getFreeGroupSourceValue = [this](size_t group) noexcept -> float {
             switch (group) {
                 case 0: return modSourceValues_[0]; // Aftertouch Free [363..370]
                 case 1: return std::max(0.0f, modSourceValues_[1]); // Controller 1 Up [371..378]
-                case 2: return modSourceValues_[1] < 0.0f ? -modSourceValues_[1] : modSourceValues_[1]; // Controller 1 Down [379..386]
-                case 3: return modSourceValues_[2]; // Controller 2 [387..394]
-                case 4: return modSourceValues_[3]; // Controller 3 [395..402]
-                case 5: return modSourceValues_[4]; // Controller 4 / Foot [403..410]
+                case 2: return modSourceValues_[1] < 0.0f ? -modSourceValues_[1] : std::max(0.0f, modSourceValues_[2]); // Controller 1 Down [379..386] (Down o Breath)
+                case 3: return modSourceValues_[3]; // Controller 2 (CC 3) [387..394]
+                case 4: return modSourceValues_[4]; // Controller 3 (CC 4 / Foot) [395..402]
+                case 5: return modSourceValues_[5]; // Controller 4 (CC 11 / Expression) [403..410]
                 default: return 0.0f;
             }
         };
 
+        // 1. Recalcular destinos clásicos (0..62)
         auto applyDest = [this, &getFreeGroupSourceValue](size_t destIdx) {
             if (destIdx >= kNumModDests) return;
             double acc = static_cast<double>(modBaseValues_[destIdx]);
@@ -185,12 +213,18 @@ public:
                 }
             }
 
-            // 6 × 4 Free Controllers Matrix ([363..410])
+            // 6 × 4 Free Controllers Matrix ([363..410]): destinos 3001..3130 que apuntan a este destino clásico
             for (size_t g = 0; g < kNumFreeGroups; ++g) {
                 const double srcVal = static_cast<double>(getFreeGroupSourceValue(g));
                 for (size_t slot = 0; slot < kNumFreeSlotsPerGroup; ++slot) {
-                    if (freeSlotDests_[g][slot] == static_cast<int32_t>(destIdx)) {
-                        acc += static_cast<double>(freeSlotDepths_[g][slot]) * srcVal;
+                    int32_t fd = freeSlotDests_[g][slot];
+                    if (fd >= 1 && fd <= 130) {
+                        int32_t pId = kFreeDestToParamId[fd];
+                        if (pId >= 0 && pId < static_cast<int32_t>(kNumTotalParameters)) {
+                            if (observerMap_[pId].modDestIdx == static_cast<int32_t>(destIdx)) {
+                                acc += static_cast<double>(freeSlotDepths_[g][slot]) * srcVal;
+                            }
+                        }
                     }
                 }
             }
@@ -212,8 +246,40 @@ public:
             }
         }
 
-        // Traducir al estado del motor (FUN_10040550)
-        translateParametersToEngine(engineState_.data(), effectiveSlots_.data());
+        // 2. Recalcular destinos de Free Controllers 3001..3130 fuera de los 63 clásicos (Silver FX, 4L4T, LFO Delay, SoundPan, etc.)
+        for (size_t g = 0; g < kNumFreeGroups; ++g) {
+            for (size_t slot = 0; slot < kNumFreeSlotsPerGroup; ++slot) {
+                int32_t fd = freeSlotDests_[g][slot];
+                if (fd < 1 || fd > 130) continue;
+                int32_t pId = kFreeDestToParamId[fd];
+                if (pId < 0 || pId >= static_cast<int32_t>(kNumTotalParameters)) continue;
+                const auto& ctx = observerMap_[pId];
+                if (ctx.slot < 0 || ctx.slot >= static_cast<int32_t>(kNumEffectiveSlots)) continue;
+                if (ctx.modDestIdx >= 0 && ctx.modDestIdx < static_cast<int32_t>(kNumModDests)) {
+                    continue; // Ya recalculado en applyDest
+                }
+
+                const auto& desc = kParameterDescriptors[pId];
+                float baseVal = remap(store_.getRawValue(pId), desc.min, desc.max, ctx.minValue, ctx.maxValue);
+                double acc = static_cast<double>(baseVal);
+                double span = static_cast<double>(ctx.maxValue - ctx.minValue);
+
+                for (size_t g2 = 0; g2 < kNumFreeGroups; ++g2) {
+                    const double srcVal = static_cast<double>(getFreeGroupSourceValue(g2));
+                    for (size_t s2 = 0; s2 < kNumFreeSlotsPerGroup; ++s2) {
+                        if (freeSlotDests_[g2][s2] == fd) {
+                            acc += static_cast<double>(freeSlotDepths_[g2][s2]) * srcVal * span;
+                        }
+                    }
+                }
+                effectiveSlots_[ctx.slot] = std::clamp(static_cast<float>(acc), ctx.minValue, ctx.maxValue);
+            }
+        }
+
+        // Traducir al estado del motor (FUN_10040550) solo si la sincronización legacy está activa
+        if (legacyEngineSyncEnabled_) {
+            translateParametersToEngine(engineState_.data(), effectiveSlots_.data());
+        }
     }
 
     /// Notifica un cambio de parámetro directo desde SndDatStore (FUN_10001550 -> FUN_100012a0)
@@ -235,7 +301,7 @@ public:
             return;
         }
 
-        // 1b. Claves 363..410: Matriz 6 × 4 de Free Controllers (4 destinos [3000=Off, 3001..3063=0..62] + 4 profundidades [-64..+63] por grupo)
+        // 1b. Claves 363..410: Matriz 6 × 4 de Free Controllers (4 destinos [3000=Off, 3001..3130] + 4 profundidades [-64..+63] por grupo)
         if (paramId >= 363 && paramId <= 410) {
             size_t rel = paramId - 363;
             size_t group = rel / 8;
@@ -243,16 +309,14 @@ public:
             if (group < kNumFreeGroups) {
                 if (offset < kNumFreeSlotsPerGroup) {
                     int32_t rawInt = static_cast<int32_t>(std::lround(rawValue));
-                    int32_t newDest = -1;
-                    if (rawInt >= 3001 && rawInt < 3001 + static_cast<int32_t>(kNumModDests)) {
-                        newDest = rawInt - 3001;
-                    } else if (rawInt >= 0 && rawInt < static_cast<int32_t>(kNumModDests)) {
+                    int32_t newDest = 0; // 0 = Off
+                    if (rawInt >= 3001 && rawInt <= 3130) {
+                        newDest = rawInt - 3000; // 1 .. 130
+                    } else if (rawInt >= 1 && rawInt <= 130) {
                         newDest = rawInt;
                     }
-                    int32_t oldDest = freeSlotDests_[group][offset];
                     freeSlotDests_[group][offset] = newDest;
-                    if (oldDest >= 0) recalculateModulation(oldDest);
-                    if (newDest >= 0) recalculateModulation(newDest);
+                    recalculateModulation(-1);
                 } else {
                     size_t slot = offset - kNumFreeSlotsPerGroup;
                     float remappedDepth = remap(rawValue, desc.min, desc.max, -1.0f, 1.0f);
@@ -274,16 +338,20 @@ public:
                 // Rama jl 0x10013A56 del DLL original cuando ctx[3] fue pisado en params+0x2E2C:
                 // escribe p[slot] directamente sin actualizar base[dest] ni recortar/modular
                 effectiveSlots_[ctx.slot] = remappedVal;
-                translateParametersToEngine(engineState_.data(), effectiveSlots_.data());
+                if (legacyEngineSyncEnabled_) {
+                    translateParametersToEngine(engineState_.data(), effectiveSlots_.data());
+                }
             } else {
                 // stSPEngineCb (0x100139D0): guarda base[dest] = remappedVal y llama a combine(dest)
                 modBaseValues_[ctx.modDestIdx] = remappedVal;
                 recalculateModulation(ctx.modDestIdx);
             }
         } else {
-            // Observador directo de slot no modulable: escribe en p[slot] y traduce
+            // Observador directo de slot no modulable: escribe en p[slot] y traduce si legacy activo
             effectiveSlots_[ctx.slot] = std::clamp(remappedVal, ctx.minValue, ctx.maxValue);
-            translateParametersToEngine(engineState_.data(), effectiveSlots_.data());
+            if (legacyEngineSyncEnabled_) {
+                translateParametersToEngine(engineState_.data(), effectiveSlots_.data());
+            }
         }
     }
 
@@ -300,7 +368,7 @@ private:
         }
         for (size_t g = 0; g < kNumFreeGroups; ++g) {
             for (size_t s = 0; s < kNumFreeSlotsPerGroup; ++s) {
-                freeSlotDests_[g][s] = -1;
+                freeSlotDests_[g][s] = 0; // 0 = Off (3000)
                 freeSlotDepths_[g][s] = 0.0f;
             }
         }
@@ -325,6 +393,7 @@ private:
     std::array<float, kNumModDests> modBaseValues_;
     std::array<ObserverContext, kNumTotalParameters> observerMap_;
     int32_t unhookedDestIdx_{-1};
+    bool legacyEngineSyncEnabled_{false};
 };
 
 } // namespace abd::axionik

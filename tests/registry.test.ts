@@ -2,8 +2,17 @@ import { describe, it, expect } from 'vitest';
 import { PARAM_DEFINITIONS, PARAM_BY_KEY, VST_EXPOSED_INDICES, MOD_DEST_INDICES, PARAMETER_SETS } from '../WebUI/src/generated/parameters.gen.js';
 
 describe('ABDAxionikVS Parameter Registry & Contracts', () => {
-  it('debe tener exactamente 445 parámetros en el registro autoritativo', () => {
-    expect(PARAM_DEFINITIONS.length).toBe(445);
+  it('debe tener exactamente 479 parámetros en el registro autoritativo (445 clásicos + 34 extendidos)', () => {
+    expect(PARAM_DEFINITIONS.length).toBe(479);
+    // Verificar que los primeros 445 son los clásicos
+    expect(PARAM_DEFINITIONS[444].key).toBe('SoundMFXRevSpeed');
+    // Verificar que a partir de 445 empiezan los 34 parámetros de EXPANDED
+    expect(PARAM_DEFINITIONS[445].key).toBe('R1V2_Stiffness');
+    expect(PARAM_DEFINITIONS[453].key).toBe('R1V2_TransientGain');
+    expect(PARAM_DEFINITIONS[454].key).toBe('R2V2_Stiffness');
+    expect(PARAM_DEFINITIONS[462].key).toBe('R2V2_TransientGain');
+    expect(PARAM_DEFINITIONS[463].key).toBe('Exp_FreqFXAlg');
+    expect(PARAM_DEFINITIONS[478].key).toBe('Exp_MasterFXMacro4');
   });
 
   it('debe exponer exactamente 26 parámetros al host VST', () => {

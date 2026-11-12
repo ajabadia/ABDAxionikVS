@@ -42,9 +42,10 @@ public:
             records_[i].id = desc.index;
             records_[i].minValue = desc.min;
             records_[i].maxValue = desc.max;
-            records_[i].defaultValue = desc.defaultValue;
-            records_[i].rawValue = desc.defaultValue;
-            records_[i].normalizedValue = rawToNormalized(desc.index, desc.defaultValue);
+            const float clampedDefault = std::clamp(desc.defaultValue, desc.min, desc.max);
+            records_[i].defaultValue = clampedDefault;
+            records_[i].rawValue = clampedDefault;
+            records_[i].normalizedValue = rawToNormalized(desc.index, clampedDefault);
         }
     }
 

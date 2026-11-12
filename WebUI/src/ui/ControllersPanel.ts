@@ -205,7 +205,7 @@ export class ControllersPanel {
       onChange: (rawVal: number) => {
         const normalized = Math.max(0, Math.min(1, rawVal / 127.0));
         this.control2LedLadder?.setValue(normalized);
-        WebBridge.sendMidiCC(2, rawVal);
+        WebBridge.sendMidiCC(3, rawVal);
       },
     });
   }
@@ -240,7 +240,7 @@ export class ControllersPanel {
       onChange: (rawVal: number) => {
         const normalized = Math.max(0, Math.min(1, rawVal / 127.0));
         this.control3LedLadder?.setValue(normalized);
-        WebBridge.sendMidiCC(3, rawVal);
+        WebBridge.sendMidiCC(4, rawVal);
       },
     });
   }

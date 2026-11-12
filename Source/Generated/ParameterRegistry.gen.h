@@ -12,7 +12,9 @@
 
 namespace abd::axionik {
 
-constexpr size_t kNumTotalParameters = 445;
+constexpr size_t kNumTotalParameters = 479;
+constexpr size_t kNumClassicParameters = 445;
+constexpr size_t kNumExpandedParameters = 34;
 constexpr size_t kNumVstExposedParameters = 26;
 constexpr size_t kNumModulationDestinations = 63;
 constexpr size_t kNumEffectiveSlotsInP = 340;
@@ -463,6 +465,40 @@ enum class ParamID : uint32_t {
     SoundMFXRevHFDamp = 442,
     SoundMFXRevDetune = 443,
     SoundMFXRevSpeed = 444,
+    R1V2_Stiffness = 445,
+    R1V2_CombNotch = 446,
+    R1V2_EvenOdd = 447,
+    R1V2_SpectralTilt = 448,
+    R1V2_FormantShift = 449,
+    R1V2_Warp = 450,
+    R1V2_Purity = 451,
+    R1V2_ResidualScale = 452,
+    R1V2_TransientGain = 453,
+    R2V2_Stiffness = 454,
+    R2V2_CombNotch = 455,
+    R2V2_EvenOdd = 456,
+    R2V2_SpectralTilt = 457,
+    R2V2_FormantShift = 458,
+    R2V2_Warp = 459,
+    R2V2_Purity = 460,
+    R2V2_ResidualScale = 461,
+    R2V2_TransientGain = 462,
+    Exp_FreqFXAlg = 463,
+    Exp_TimeFXAlg = 464,
+    Exp_MasterDelayAlg = 465,
+    Exp_MasterRevAlg = 466,
+    Exp_FreqFXMacro1 = 467,
+    Exp_FreqFXMacro2 = 468,
+    Exp_FreqFXMacro3 = 469,
+    Exp_FreqFXMacro4 = 470,
+    Exp_TimeFXMacro1 = 471,
+    Exp_TimeFXMacro2 = 472,
+    Exp_TimeFXMacro3 = 473,
+    Exp_TimeFXMacro4 = 474,
+    Exp_MasterFXMacro1 = 475,
+    Exp_MasterFXMacro2 = 476,
+    Exp_MasterFXMacro3 = 477,
+    Exp_MasterFXMacro4 = 478,
 };
 
 enum class VstParamID : uint32_t {
@@ -958,6 +994,40 @@ inline constexpr std::array<ParamDescriptor, kNumTotalParameters> kParameterDesc
     { 442, "SoundMFXRevHFDamp", "SoundMFX", 0.0000f, 127.0000f, 0.0000f, 1.0000f, -1, -1, -1, false, false, false, false, "" },
     { 443, "SoundMFXRevDetune", "SoundMFX", 0.0000f, 127.0000f, 0.0000f, 1.0000f, -1, -1, -1, false, false, false, false, "" },
     { 444, "SoundMFXRevSpeed", "SoundMFX", 0.0000f, 200.0000f, 0.0000f, 1.0000f, -1, -1, -1, false, false, false, false, "" },
+    { 445, "R1V2_Stiffness", "R1V2", 0.0000f, 0.0050f, 0.0000f, 0.0001f, -1, -1, -1, false, false, false, false, "" },
+    { 446, "R1V2_CombNotch", "R1V2", -1.0000f, 1.0000f, 0.0000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 447, "R1V2_EvenOdd", "R1V2", 0.0000f, 1.0000f, 0.0000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 448, "R1V2_SpectralTilt", "R1V2", -24.0000f, 0.0000f, -6.0000f, 0.1000f, -1, -1, -1, false, false, false, false, "" },
+    { 449, "R1V2_FormantShift", "R1V2", -24.0000f, 24.0000f, 0.0000f, 0.1000f, -1, -1, -1, false, false, false, false, "" },
+    { 450, "R1V2_Warp", "R1V2", 0.0000f, 1.0000f, 0.0000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 451, "R1V2_Purity", "R1V2", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 452, "R1V2_ResidualScale", "R1V2", 0.0000f, 1.0000f, 0.1000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 453, "R1V2_TransientGain", "R1V2", 0.0000f, 2.0000f, 1.0000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 454, "R2V2_Stiffness", "R2V2", 0.0000f, 0.0050f, 0.0000f, 0.0001f, -1, -1, -1, false, false, false, false, "" },
+    { 455, "R2V2_CombNotch", "R2V2", -1.0000f, 1.0000f, 0.0000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 456, "R2V2_EvenOdd", "R2V2", 0.0000f, 1.0000f, 0.0000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 457, "R2V2_SpectralTilt", "R2V2", -24.0000f, 0.0000f, -6.0000f, 0.1000f, -1, -1, -1, false, false, false, false, "" },
+    { 458, "R2V2_FormantShift", "R2V2", -24.0000f, 24.0000f, 0.0000f, 0.1000f, -1, -1, -1, false, false, false, false, "" },
+    { 459, "R2V2_Warp", "R2V2", 0.0000f, 1.0000f, 0.0000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 460, "R2V2_Purity", "R2V2", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 461, "R2V2_ResidualScale", "R2V2", 0.0000f, 1.0000f, 0.1000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 462, "R2V2_TransientGain", "R2V2", 0.0000f, 2.0000f, 1.0000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 463, "Exp_FreqFXAlg", "ExpandedFX", 0.0000f, 7.0000f, 0.0000f, 1.0000f, -1, -1, -1, false, false, true, false, "" },
+    { 464, "Exp_TimeFXAlg", "ExpandedFX", 0.0000f, 7.0000f, 0.0000f, 1.0000f, -1, -1, -1, false, false, true, false, "" },
+    { 465, "Exp_MasterDelayAlg", "ExpandedFX", 0.0000f, 2.0000f, 0.0000f, 1.0000f, -1, -1, -1, false, false, true, false, "" },
+    { 466, "Exp_MasterRevAlg", "ExpandedFX", 0.0000f, 1.0000f, 0.0000f, 1.0000f, -1, -1, -1, false, false, true, false, "" },
+    { 467, "Exp_FreqFXMacro1", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 468, "Exp_FreqFXMacro2", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 469, "Exp_FreqFXMacro3", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 470, "Exp_FreqFXMacro4", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 471, "Exp_TimeFXMacro1", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 472, "Exp_TimeFXMacro2", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 473, "Exp_TimeFXMacro3", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 474, "Exp_TimeFXMacro4", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 475, "Exp_MasterFXMacro1", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 476, "Exp_MasterFXMacro2", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 477, "Exp_MasterFXMacro3", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
+    { 478, "Exp_MasterFXMacro4", "ExpandedFX", 0.0000f, 1.0000f, 0.5000f, 0.0100f, -1, -1, -1, false, false, false, false, "" },
 }};
 
 inline constexpr std::array<uint32_t, kNumModulationDestinations> kModDestParamIndices = {{

@@ -5,6 +5,7 @@
 
 #include "DspEngineFacade.h"
 #include "AxionikParamIndices.h"
+#include "NeuronTranslatorCurves.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -29,7 +30,7 @@ DspEngineFacade::DspEngineFacade() {
   // para que pasen por Blender -> Slicer -> Silver (Filtros + FreqFX + TimeFX) -> Master FX
   blockRenderer_.setExpandedVoiceRenderCallback(
       [this](float* leftAcc, float* rightAcc, size_t blockSize,
-             float blenderAmount, int /*blenderType*/) {
+             float blenderAmount, int blenderType) {
         const bool exp0 = expandedSynths_[0].hasLoadedModel();
         const bool exp1 = expandedSynths_[1].hasLoadedModel();
         if (!exp0 && !exp1) return;
@@ -39,6 +40,45 @@ DspEngineFacade::DspEngineFacade() {
         const bool r1On = getSlotRaw(p, SlotIdx::R1Switch, R1Switch) > 0.5f;
         const bool r2On = getSlotRaw(p, SlotIdx::R2Switch, R2Switch) > 0.5f;
 
+        const float morphX1 = getSlotNorm(p, SlotIdx::R1L1Scape1Value, R1L1Scape1Value);
+        const float morphY1 = getSlotNorm(p, SlotIdx::R1L1Sphere1Value, R1L1Sphere1Value);
+        const float morphX2 = getSlotNorm(p, SlotIdx::R2L1Scape1Value, R2L1Scape1Value);
+        const float morphY2 = getSlotNorm(p, SlotIdx::R2L1Sphere1Value, R2L1Sphere1Value);
+
+        // Modulación cruzada espectral cuando ambos Resynators están activos
+        if (exp0 && exp1 && r1On && r2On && blenderType == 1 && blockSize <= 128) {
+          // Ring Modulation / Cross Modulation: (1-b)*R1 + b*(R1 * R2 * 2.0)
+          alignas(16) std::array<float, 128> buf1L{}, buf1R{}, buf2L{}, buf2R{};
+          expandedSynths_[0].processStereoAdd(buf1L.data(), buf1R.data(), blockSize, morphX1, morphY1, 1.0f);
+          expandedSynths_[1].processStereoAdd(buf2L.data(), buf2R.data(), blockSize, morphX2, morphY2, 1.0f);
+
+          const float b = std::clamp(blenderAmount, 0.0f, 1.0f);
+          const float dryGain = 1.0f - b;
+          const float crossGain = b * 2.0f;
+          for (size_t i = 0; i < blockSize; ++i) {
+            leftAcc[i]  += buf1L[i] * dryGain + (buf1L[i] * buf2L[i]) * crossGain;
+            rightAcc[i] += buf1R[i] * dryGain + (buf1R[i] * buf2R[i]) * crossGain;
+          }
+          return;
+        }
+
+        // Stereo Split: R1 paneado a la izquierda, R2 paneado a la derecha
+        if (exp0 && exp1 && r1On && r2On && blenderType == 2 && blockSize <= 128) {
+          alignas(16) std::array<float, 128> buf1L{}, buf1R{}, buf2L{}, buf2R{};
+          expandedSynths_[0].processStereoAdd(buf1L.data(), buf1R.data(), blockSize, morphX1, morphY1, 1.0f);
+          expandedSynths_[1].processStereoAdd(buf2L.data(), buf2R.data(), blockSize, morphX2, morphY2, 1.0f);
+
+          const float b = std::clamp(blenderAmount, 0.0f, 1.0f);
+          const float gain1 = 1.0f - b * 0.5f;
+          const float gain2 = 0.5f + b * 0.5f;
+          for (size_t i = 0; i < blockSize; ++i) {
+            leftAcc[i]  += (buf1L[i] + buf1R[i]) * 0.5f * gain1;
+            rightAcc[i] += (buf2L[i] + buf2R[i]) * 0.5f * gain2;
+          }
+          return;
+        }
+
+        // Crossfade lineal estándar (blenderType == 0 o fallback)
         float gainR1 = 1.0f;
         float gainR2 = 1.0f;
         if (exp0 && exp1) {
@@ -47,14 +87,10 @@ DspEngineFacade::DspEngineFacade() {
         }
 
         if (exp0 && r1On && gainR1 > 1e-5f) {
-          const float morphX1 = getSlotNorm(p, SlotIdx::R1L1Scape1Value, R1L1Scape1Value);
-          const float morphY1 = getSlotNorm(p, SlotIdx::R1L1Sphere1Value, R1L1Sphere1Value);
           expandedSynths_[0].processStereoAdd(leftAcc, rightAcc, blockSize,
                                               morphX1, morphY1, gainR1);
         }
         if (exp1 && r2On && gainR2 > 1e-5f) {
-          const float morphX2 = getSlotNorm(p, SlotIdx::R2L1Scape1Value, R2L1Scape1Value);
-          const float morphY2 = getSlotNorm(p, SlotIdx::R2L1Sphere1Value, R2L1Sphere1Value);
           expandedSynths_[1].processStereoAdd(leftAcc, rightAcc, blockSize,
                                               morphX2, morphY2, gainR2);
         }
@@ -67,6 +103,11 @@ DspEngineFacade::DspEngineFacade() {
   }
   bankAdapter_.initDefaultModelsAndPresets(bridge_->getEngineState(), store_);
   applyPreset(currentPreset_);
+  const bool isPlus = (engineProfile_.generation == "plus" || engineProfile_.generation == "classic-enhanced");
+  const bool isExpanded = (engineProfile_.generation == "expanded" || engineProfile_.generation == "extended");
+  voicePool_.setUsePlusFilter(isPlus);
+  blockRenderer_.setUsePlusRack(isPlus);
+  blockRenderer_.setUseExpandedRack(isExpanded);
 }
 
 DspEngineFacade::~DspEngineFacade() = default;
@@ -79,9 +120,15 @@ void DspEngineFacade::prepare(double sampleRate, size_t maxBlockSize) {
                      sampleRate_ * kAntiPopRampSeconds)); // 2ms rampa anti-pops
   voicePool_.setSampleRate(sampleRate_);
   blockRenderer_.prepare(sampleRate_, maxBlockSize_);
+  const bool isPlus = (engineProfile_.generation == "plus" || engineProfile_.generation == "classic-enhanced");
+  const bool isExpanded = (engineProfile_.generation == "expanded" || engineProfile_.generation == "extended");
+  voicePool_.setUsePlusFilter(isPlus);
+  blockRenderer_.setUsePlusRack(isPlus);
+  blockRenderer_.setUseExpandedRack(isExpanded);
   stickPlayer_.prepare(sampleRate_);
   expandedSynths_[0].prepare(sampleRate_, maxBlockSize_);
   expandedSynths_[1].prepare(sampleRate_, maxBlockSize_);
+  syncCalibrationToSubsystems();
 }
 
 void DspEngineFacade::reset() {
@@ -94,6 +141,7 @@ void DspEngineFacade::reset() {
 }
 
 void DspEngineFacade::noteOn(uint8_t note, float velocity) {
+  sustainedNotes_[note] = false;
   const bool exp0 = expandedSynths_[0].hasLoadedModel();
   const bool exp1 = expandedSynths_[1].hasLoadedModel();
 
@@ -104,6 +152,8 @@ void DspEngineFacade::noteOn(uint8_t note, float velocity) {
     expandedSynths_[1].noteOn(note, velocity);
   }
   if (!exp0 || !exp1) {
+    const float *p = bridge_ ? bridge_->getEffectiveSlots() : nullptr;
+    updateEnvelopes(p);
     const auto &r1Zone = bankAdapter_.getZone(0, note);
     const auto &r2Zone = bankAdapter_.getZone(1, note);
     voicePool_.noteOn(note, velocity, r1Zone, r2Zone, 1.0f);
@@ -120,6 +170,10 @@ void DspEngineFacade::noteOn(uint8_t note, float velocity) {
 }
 
 void DspEngineFacade::noteOff(uint8_t note) {
+  if (sustainPedalDown_) {
+    sustainedNotes_[note] = true;
+    return;
+  }
   voicePool_.noteOff(note);
   expandedSynths_[0].noteOff(note);
   expandedSynths_[1].noteOff(note);
@@ -128,7 +182,45 @@ void DspEngineFacade::noteOff(uint8_t note) {
                   expandedSynths_[1].getActiveVoiceCount();
 }
 
+void DspEngineFacade::setSustainPedal(bool isDown) {
+  if (sustainPedalDown_ == isDown) return;
+  sustainPedalDown_ = isDown;
+  if (!sustainPedalDown_) {
+    for (size_t n = 0; n < 128; ++n) {
+      if (sustainedNotes_[n]) {
+        voicePool_.noteOff(static_cast<uint8_t>(n));
+        expandedSynths_[0].noteOff(static_cast<uint8_t>(n));
+        expandedSynths_[1].noteOff(static_cast<uint8_t>(n));
+        sustainedNotes_[n] = false;
+      }
+    }
+    activeVoices_ = voicePool_.getActiveVoiceCount() +
+                    expandedSynths_[0].getActiveVoiceCount() +
+                    expandedSynths_[1].getActiveVoiceCount();
+  }
+}
+
+void DspEngineFacade::handleFootSwitch(bool down) {
+  if (!down) return;
+  using namespace abd::axionik::ParamIdx;
+  int dest = static_cast<int>(store_.getRawValue(FootSwitchDest));
+  switch (dest) {
+    case 1: store_.setRawValue(LFOSwitch, store_.getRawValue(LFOSwitch) > 0.5f ? 0.0f : 1.0f); break;
+    case 2: store_.setRawValue(R1Switch, store_.getRawValue(R1Switch) > 0.5f ? 0.0f : 1.0f); break;
+    case 3: store_.setRawValue(R2Switch, store_.getRawValue(R2Switch) > 0.5f ? 0.0f : 1.0f); break;
+    case 4: store_.setRawValue(SilverSwitch, store_.getRawValue(SilverSwitch) > 0.5f ? 0.0f : 1.0f); break;
+    case 5: store_.setRawValue(FreqFXSwitch, store_.getRawValue(FreqFXSwitch) > 0.5f ? 0.0f : 1.0f); break;
+    case 6: store_.setRawValue(TimeFXSwitch, store_.getRawValue(TimeFXSwitch) > 0.5f ? 0.0f : 1.0f); break;
+    case 7: store_.setRawValue(SoundMFXSwitch, store_.getRawValue(SoundMFXSwitch) > 0.5f ? 0.0f : 1.0f); break;
+    case 8: store_.setRawValue(SoundMFXDelaySwitch, store_.getRawValue(SoundMFXDelaySwitch) > 0.5f ? 0.0f : 1.0f); break;
+    case 9: store_.setRawValue(SoundMFXReverbSwitch, store_.getRawValue(SoundMFXReverbSwitch) > 0.5f ? 0.0f : 1.0f); break;
+    default: break;
+  }
+}
+
 void DspEngineFacade::allNotesOff() {
+  sustainPedalDown_ = false;
+  sustainedNotes_.fill(false);
   voicePool_.allNotesOff();
   expandedSynths_[0].allNotesOff();
   expandedSynths_[1].allNotesOff();
@@ -158,6 +250,9 @@ bool DspEngineFacade::setEngineMode(std::string_view modeStr) noexcept {
     engineProfile_ = extended::AxionikEngineCapabilityProfile::makeClassic();
     expandedSynths_[0].clearModel();
     expandedSynths_[1].clearModel();
+    voicePool_.setUsePlusFilter(false);
+    blockRenderer_.setUsePlusRack(false);
+    blockRenderer_.setUseExpandedRack(false);
     voicePool_.reset();
     blockRenderer_.reset();
     antiPopRemaining_ = antiPopTotalSamples_;
@@ -167,6 +262,9 @@ bool DspEngineFacade::setEngineMode(std::string_view modeStr) noexcept {
     engineProfile_ = extended::AxionikEngineCapabilityProfile::makePlus();
     expandedSynths_[0].clearModel();
     expandedSynths_[1].clearModel();
+    voicePool_.setUsePlusFilter(true);
+    blockRenderer_.setUsePlusRack(true);
+    blockRenderer_.setUseExpandedRack(false);
     voicePool_.reset();
     blockRenderer_.reset();
     antiPopRemaining_ = antiPopTotalSamples_;
@@ -175,6 +273,9 @@ bool DspEngineFacade::setEngineMode(std::string_view modeStr) noexcept {
   if (modeStr == "expanded" || modeStr == "extended" || modeStr == "expanded-v1") {
     engineProfile_ = extended::AxionikEngineCapabilityProfile::makeExpanded(
         engineProfile_.spatialOutputMode);
+    voicePool_.setUsePlusFilter(false);
+    blockRenderer_.setUsePlusRack(false);
+    blockRenderer_.setUseExpandedRack(true);
     voicePool_.reset();
     blockRenderer_.reset();
     antiPopRemaining_ = antiPopTotalSamples_;
@@ -373,6 +474,11 @@ bool DspEngineFacade::loadModel(int slot,
   bool ok =
       bankAdapter_.loadModel(slot, effectiveClassicFolder, bridge_->getEngineState());
   if (ok) {
+    if (slot == 0) {
+      r1Parset_ = bankAdapter_.getModelParameterSet(0);
+    } else if (slot == 1) {
+      r2Parset_ = bankAdapter_.getModelParameterSet(1);
+    }
     // Corrección Mac 1.56 (Stephan Bernsee): limpieza de estados y rampa
     // anti-pops de 2ms
     blockRenderer_.reset();
@@ -426,11 +532,13 @@ bool DspEngineFacade::applyPreset(const SoundPreset &preset) {
       expandedSynths_[0].clearModel();
       bankAdapter_.loadModelBySlot(0, preset.r1ModelIndex,
                                    bridge_->getEngineState());
+      r1Parset_ = bankAdapter_.getModelParameterSet(0);
     }
     if (preset.r2ModelIndex >= 0) {
       expandedSynths_[1].clearModel();
       bankAdapter_.loadModelBySlot(1, preset.r2ModelIndex,
                                    bridge_->getEngineState());
+      r2Parset_ = bankAdapter_.getModelParameterSet(1);
     }
   }
 
@@ -439,6 +547,7 @@ bool DspEngineFacade::applyPreset(const SoundPreset &preset) {
   const float *p = bridge_ ? bridge_->getEffectiveSlots() : nullptr;
   float globalLfoSignal = updateModulationAndPitch(p, 0);
   updateResynatorLayers(p, globalLfoSignal);
+  updateExpandedResynators(p);
   updateEnvelopes(p);
 
   // 6. Recentrar Pitch Bend, limpiar colas circulares (Mac 1.56) y activar
@@ -472,15 +581,14 @@ float DspEngineFacade::updateModulationAndPitch(const float *p,
   float pbFactor = std::pow(2.0f, semitones / 12.0f);
   voicePool_.updatePitchBendFactor(pbFactor);
 
-  // Voice allocation and master sound routing (mínimo 12 voces de polifonía si el preset clásico especificaba <= 6)
+  // Voice allocation and master sound routing
   float rawVoices = store_.getRawValue(SoundNumVoices);
   size_t maxVoices = static_cast<size_t>(
-      std::clamp(std::max(rawVoices, 12.0f), 1.0f, calibration_.maxPolyphonyVoices));
+      std::clamp(rawVoices, 1.0f, calibration_.maxPolyphonyVoices));
   voicePool_.setMaxActiveVoices(maxVoices);
 
-  float soundPan = getSlotRaw(p, SlotIdx::SoundPan, SoundPan) / 64.0f;
-  float soundPanKt =
-      getSlotRaw(p, SlotIdx::SoundPanKeyTrack, SoundPanKeyTrack) / 64.0f;
+  float soundPan = getSlotNorm(p, SlotIdx::SoundPan, SoundPan);
+  float soundPanKt = getSlotNorm(p, SlotIdx::SoundPanKeyTrack, SoundPanKeyTrack);
   voicePool_.updateVoicePan(soundPan, soundPanKt);
 
   float r1VelSw =
@@ -504,7 +612,7 @@ float DspEngineFacade::updateModulationAndPitch(const float *p,
   float globalLfoSignal = 0.0f;
   if (lfoOn) {
     float lfoDepth = getSlotNorm(p, SlotIdx::LFODepth, LFODepth);
-    float lfoRateNorm = getSlotRaw(p, SlotIdx::LFORate, LFORate) / 1000.0f;
+    float lfoRateNorm = getSlotNorm(p, SlotIdx::LFORate, LFORate);
     float lfoRateHz = calibration_.lfoMinRateHz + std::clamp(lfoRateNorm, 0.0f, 1.0f) * calibration_.lfoMaxRateSpanHz;
     int lfoWave =
         static_cast<int>(getSlotRaw(p, SlotIdx::LFOWaveForm, LFOWaveForm));
@@ -572,62 +680,93 @@ void DspEngineFacade::updateResynatorLayers(const float *p,
   voicePool_.updateVoiceLayerParams(1, 2, r2_l3_sc1, r2_l3_sc2, r2_l3_sp1,
                                     r2_l3_sp2, calibration_.layer3BaseLevel);
 
-  // Parset algorithms
-  int r1Parset = static_cast<int>(store_.getRawValue(R1Type));
-  int r2Parset = static_cast<int>(store_.getRawValue(R2Type));
-  voicePool_.updateVoiceParset(0, r1Parset);
-  voicePool_.updateVoiceParset(1, r2Parset);
+  // Parset algorithms (desacoplados de R1Type/R2Type UI selector)
+  voicePool_.updateVoiceParset(0, r1Parset_);
+  voicePool_.updateVoiceParset(1, r2Parset_);
 
-  // Tuning and volume (+ ModelSizeOffset [32], [112])
+  // Tuning and volume (+ ModelSizeOffset [32], [112], quadratic v^2 volume law [27, 107])
+  auto getBipolar = [p, this](size_t slot, uint32_t paramIdx) noexcept -> float {
+    return p ? p[slot] : NeuronTranslatorCurves::bipolarRawToUnit(store_.getRawValue(paramIdx));
+  };
+
   int r1Oct = static_cast<int>(getSlotRaw(p, SlotIdx::R1Octave, R1Octave));
   int r1Semi =
       static_cast<int>(std::round(getSlotRaw(p, SlotIdx::R1Semi, R1Semi)));
-  float r1PitchLfo = p ? p[SlotIdx::R1PitchLfoDepth]
-                       : (store_.getRawValue(R1PitchLfoDepth) / 64.0f);
-  float r1SizeOff = p ? p[SlotIdx::R1ModelSizeOffset]
-                      : (store_.getRawValue(R1ModelSizeOffset) / 64.0f);
+  float r1PitchLfo = getBipolar(SlotIdx::R1PitchLfoDepth, R1PitchLfoDepth);
+  float r1SizeOff = getBipolar(SlotIdx::R1ModelSizeOffset, R1ModelSizeOffset);
   float r1Cents = getSlotRaw(p, SlotIdx::R1Cents, R1Cents) +
                   globalLfoSignal * r1PitchLfo * calibration_.pitchLfoMaxCents +
                   r1SizeOff * calibration_.modelSizeOffsetCents;
   voicePool_.updateVoiceTuning(0, r1Oct, r1Semi, r1Cents);
 
-  float r1AmpLfo = p ? p[SlotIdx::R1AmpLfoDepth]
-                     : (store_.getRawValue(R1AmpLfoDepth) / 64.0f);
-  float r1VelDepth = p ? p[SlotIdx::R1VolumeVelocityDepth]
-                       : (store_.getRawValue(R1VolumeVelocityDepth) / 64.0f);
-  float r1AmpKt = p ? p[SlotIdx::R1AmpKeyTrack]
-                    : (store_.getRawValue(R1AmpKeyTrack) / 64.0f);
-  float r1Vol = std::clamp(getSlotNorm(p, SlotIdx::R1Volume, R1Volume) *
-                               (1.0f + globalLfoSignal * r1AmpLfo * 0.5f),
+  float r1AmpLfo = getBipolar(SlotIdx::R1AmpLfoDepth, R1AmpLfoDepth);
+  float r1VelDepth = getBipolar(SlotIdx::R1VolumeVelocityDepth, R1VolumeVelocityDepth);
+  float r1AmpKt = getBipolar(SlotIdx::R1AmpKeyTrack, R1AmpKeyTrack);
+  float r1VolBase = NeuronTranslatorCurves::volumeGainSquared(
+      getSlotNorm(p, SlotIdx::R1Volume, R1Volume));
+  float r1Vol = std::clamp(r1VolBase * (1.0f + globalLfoSignal * r1AmpLfo * 0.5f),
                            0.0f, 1.5f);
   voicePool_.updateVoiceVolume(0, r1Vol, r1VelDepth, r1AmpKt);
 
   int r2Oct = static_cast<int>(getSlotRaw(p, SlotIdx::R2Octave, R2Octave));
   int r2Semi =
       static_cast<int>(std::round(getSlotRaw(p, SlotIdx::R2Semi, R2Semi)));
-  float r2PitchLfo = p ? p[SlotIdx::R2PitchLfoDepth]
-                       : (store_.getRawValue(R2PitchLfoDepth) / 64.0f);
-  float r2SizeOff = p ? p[SlotIdx::R2ModelSizeOffset]
-                      : (store_.getRawValue(R2ModelSizeOffset) / 64.0f);
+  float r2PitchLfo = getBipolar(SlotIdx::R2PitchLfoDepth, R2PitchLfoDepth);
+  float r2SizeOff = getBipolar(SlotIdx::R2ModelSizeOffset, R2ModelSizeOffset);
   float r2Cents = getSlotRaw(p, SlotIdx::R2Cents, R2Cents) +
                   globalLfoSignal * r2PitchLfo * calibration_.pitchLfoMaxCents +
                   r2SizeOff * calibration_.modelSizeOffsetCents;
   voicePool_.updateVoiceTuning(1, r2Oct, r2Semi, r2Cents);
 
-  float r2AmpLfo = p ? p[SlotIdx::R2AmpLfoDepth]
-                     : (store_.getRawValue(R2AmpLfoDepth) / 64.0f);
-  float r2VelDepth = p ? p[SlotIdx::R2VolumeVelocityDepth]
-                       : (store_.getRawValue(R2VolumeVelocityDepth) / 64.0f);
-  float r2AmpKt = p ? p[SlotIdx::R2AmpKeyTrack]
-                    : (store_.getRawValue(R2AmpKeyTrack) / 64.0f);
-  float r2Vol = std::clamp(getSlotNorm(p, SlotIdx::R2Volume, R2Volume) *
-                               (1.0f + globalLfoSignal * r2AmpLfo * 0.5f),
+  float r2AmpLfo = getBipolar(SlotIdx::R2AmpLfoDepth, R2AmpLfoDepth);
+  float r2VelDepth = getBipolar(SlotIdx::R2VolumeVelocityDepth, R2VolumeVelocityDepth);
+  float r2AmpKt = getBipolar(SlotIdx::R2AmpKeyTrack, R2AmpKeyTrack);
+  float r2VolBase = NeuronTranslatorCurves::volumeGainSquared(
+      getSlotNorm(p, SlotIdx::R2Volume, R2Volume));
+  float r2Vol = std::clamp(r2VolBase * (1.0f + globalLfoSignal * r2AmpLfo * 0.5f),
                            0.0f, 1.5f);
   voicePool_.updateVoiceVolume(1, r2Vol, r2VelDepth, r2AmpKt);
 }
 
+void DspEngineFacade::updateExpandedResynators(const float* /*p*/) {
+  using namespace abd::axionik::ParamIdx;
+  if (expandedSynths_[0].hasLoadedModel()) {
+    auto shapers1 = expandedSynths_[0].getActiveShapers();
+    shapers1.inharmonicityB = store_.getRawValue(R1V2_Stiffness);
+    shapers1.entropyRoughness = std::clamp(store_.getRawValue(R1V2_CombNotch), -1.0f, 1.0f);
+    shapers1.parity = std::clamp(store_.getRawValue(R1V2_EvenOdd), -1.0f, 1.0f);
+    shapers1.hfRollOffDbPerOct = std::clamp(store_.getRawValue(R1V2_SpectralTilt), -24.0f, 0.0f);
+    shapers1.formantShiftSt = std::clamp(store_.getRawValue(R1V2_FormantShift), -24.0f, 24.0f);
+    shapers1.spectralShiftHz = std::clamp(store_.getRawValue(R1V2_Warp), 0.0f, 1.0f) * 1000.0f;
+    shapers1.formantPreserve = std::clamp(store_.getRawValue(R1V2_Purity), 0.0f, 1.0f);
+    shapers1.residualMix = std::clamp(store_.getRawValue(R1V2_ResidualScale), 0.0f, 1.0f);
+    expandedSynths_[0].setActiveShapers(shapers1);
+    expandedSynths_[0].setTransientGain(store_.getRawValue(R1V2_TransientGain));
+  }
+  if (expandedSynths_[1].hasLoadedModel()) {
+    auto shapers2 = expandedSynths_[1].getActiveShapers();
+    shapers2.inharmonicityB = store_.getRawValue(R2V2_Stiffness);
+    shapers2.entropyRoughness = std::clamp(store_.getRawValue(R2V2_CombNotch), -1.0f, 1.0f);
+    shapers2.parity = std::clamp(store_.getRawValue(R2V2_EvenOdd), -1.0f, 1.0f);
+    shapers2.hfRollOffDbPerOct = std::clamp(store_.getRawValue(R2V2_SpectralTilt), -24.0f, 0.0f);
+    shapers2.formantShiftSt = std::clamp(store_.getRawValue(R2V2_FormantShift), -24.0f, 24.0f);
+    shapers2.spectralShiftHz = std::clamp(store_.getRawValue(R2V2_Warp), 0.0f, 1.0f) * 1000.0f;
+    shapers2.formantPreserve = std::clamp(store_.getRawValue(R2V2_Purity), 0.0f, 1.0f);
+    shapers2.residualMix = std::clamp(store_.getRawValue(R2V2_ResidualScale), 0.0f, 1.0f);
+    expandedSynths_[1].setActiveShapers(shapers2);
+    expandedSynths_[1].setTransientGain(store_.getRawValue(R2V2_TransientGain));
+  }
+}
+
 void DspEngineFacade::updateEnvelopes(const float *p) {
   using namespace abd::axionik::ParamIdx;
+
+  auto getBipolar = [p, this](size_t slot, uint32_t paramIdx) noexcept -> float {
+    return p ? p[slot] : NeuronTranslatorCurves::bipolarRawToUnit(store_.getRawValue(paramIdx));
+  };
+  auto shaperGate = [p, this](size_t slot, uint32_t paramIdx) noexcept -> float {
+    return NeuronTranslatorCurves::contourShaperGate(getSlotRaw(p, slot, paramIdx));
+  };
 
   float r1aNorm = getSlotNorm(p, SlotIdx::R1AmpEnvA, R1AmpEnvA);
   float r1dNorm = getSlotNorm(p, SlotIdx::R1AmpEnvD, R1AmpEnvD);
@@ -649,11 +788,10 @@ void DspEngineFacade::updateEnvelopes(const float *p) {
   float frNorm = getSlotNorm(p, SlotIdx::FilterEnvR, FilterEnvR);
   bool fEnvRep = getSlotRaw(p, SlotIdx::FilterEnvMode, FilterEnvMode) > 0.5f;
   voicePool_.updateFilterEnvelope(faNorm, fdNorm, fsLvl, frNorm, fEnvRep);
-  float fEnvVel = p ? p[SlotIdx::FilterEnvVelocityDepth]
-                    : (store_.getRawValue(FilterEnvVelocityDepth) / 64.0f);
+  float fEnvVel = getBipolar(SlotIdx::FilterEnvVelocityDepth, FilterEnvVelocityDepth);
   voicePool_.updateFilterEnvVelocityDepth(fEnvVel);
 
-  // R1 ResEnv / R2 ResEnv & ParaEnv Depths ([187..199], [217..229])
+  // R1 ResEnv / R2 ResEnv & ParaEnv Depths ([187..199], [217..229]) gated by Contour == 1 ("Shaper")
   float r1Ra = getSlotNorm(p, SlotIdx::R1ResEnvA, R1ResEnvA);
   float r1Rd = getSlotNorm(p, SlotIdx::R1ResEnvD, R1ResEnvD);
   float r1Rs = getSlotNorm(p, SlotIdx::R1ResEnvS, R1ResEnvS);
@@ -661,12 +799,36 @@ void DspEngineFacade::updateEnvelopes(const float *p) {
   bool r1ResRep = getSlotRaw(p, SlotIdx::R1ResEnvMode, R1ResEnvMode) > 0.5f;
   voicePool_.updateResEnvelopes(0, r1Ra, r1Rd, r1Rs, r1Rr, r1ResRep);
 
-  float r1ParaVel = p ? p[SlotIdx::R1ParaEnvVelocityDepth] : (store_.getRawValue(R1ParaEnvVelocityDepth) / 64.0f);
-  float r1Sc1ED = p ? p[SlotIdx::R1L1Scape1EnvDepth] : (store_.getRawValue(R1L1Scape1EnvDepth) / 64.0f);
-  float r1Sc2ED = p ? p[SlotIdx::R1L1Scape2EnvDepth] : (store_.getRawValue(R1L1Scape2EnvDepth) / 64.0f);
-  float r1Sp1ED = p ? p[SlotIdx::R1L1Sphere1EnvDepth] : (store_.getRawValue(R1L1Sphere1EnvDepth) / 64.0f);
-  float r1Sp2ED = p ? p[SlotIdx::R1L1Sphere2EnvDepth] : (store_.getRawValue(R1L1Sphere2EnvDepth) / 64.0f);
-  voicePool_.updateResEnvModDepths(0, r1Sc1ED, r1Sc2ED, r1Sp1ED, r1Sp2ED, r1ParaVel);
+  const float r1ParaVel = getBipolar(SlotIdx::R1ParaEnvVelocityDepth, R1ParaEnvVelocityDepth);
+  const float r1L1ScGate = shaperGate(SlotIdx::R1L1ContourScape, R1L1ContourScape);
+  const float r1L1SpGate = shaperGate(SlotIdx::R1L1ContourSphere, R1L1ContourSphere);
+  voicePool_.updateResEnvLayerModDepths(
+      0, 0,
+      getBipolar(SlotIdx::R1L1Scape1EnvDepth, R1L1Scape1EnvDepth) * r1L1ScGate,
+      getBipolar(SlotIdx::R1L1Scape2EnvDepth, R1L1Scape2EnvDepth) * r1L1ScGate,
+      getBipolar(SlotIdx::R1L1Sphere1EnvDepth, R1L1Sphere1EnvDepth) * r1L1SpGate,
+      getBipolar(SlotIdx::R1L1Sphere2EnvDepth, R1L1Sphere2EnvDepth) * r1L1SpGate,
+      r1ParaVel);
+
+  const float r1L2ScGate = shaperGate(SlotIdx::R1L2ContourScape, R1L2ContourScape);
+  const float r1L2SpGate = shaperGate(SlotIdx::R1L2ContourSphere, R1L2ContourSphere);
+  voicePool_.updateResEnvLayerModDepths(
+      0, 1,
+      getBipolar(SlotIdx::R1L2Scape1EnvDepth, R1L2Scape1EnvDepth) * r1L2ScGate,
+      getBipolar(SlotIdx::R1L2Scape2EnvDepth, R1L2Scape2EnvDepth) * r1L2ScGate,
+      getBipolar(SlotIdx::R1L2Sphere1EnvDepth, R1L2Sphere1EnvDepth) * r1L2SpGate,
+      getBipolar(SlotIdx::R1L2Sphere2EnvDepth, R1L2Sphere2EnvDepth) * r1L2SpGate,
+      r1ParaVel);
+
+  const float r1L3ScGate = shaperGate(SlotIdx::R1L3ContourScape, R1L3ContourScape);
+  const float r1L3SpGate = shaperGate(SlotIdx::R1L3ContourSphere, R1L3ContourSphere);
+  voicePool_.updateResEnvLayerModDepths(
+      0, 2,
+      getBipolar(SlotIdx::R1L3Scape1EnvDepth, R1L3Scape1EnvDepth) * r1L3ScGate,
+      getBipolar(SlotIdx::R1L3Scape2EnvDepth, R1L3Scape2EnvDepth) * r1L3ScGate,
+      getBipolar(SlotIdx::R1L3Sphere1EnvDepth, R1L3Sphere1EnvDepth) * r1L3SpGate,
+      getBipolar(SlotIdx::R1L3Sphere2EnvDepth, R1L3Sphere2EnvDepth) * r1L3SpGate,
+      r1ParaVel);
 
   float r2Ra = getSlotNorm(p, SlotIdx::R2ResEnvA, R2ResEnvA);
   float r2Rd = getSlotNorm(p, SlotIdx::R2ResEnvD, R2ResEnvD);
@@ -675,41 +837,82 @@ void DspEngineFacade::updateEnvelopes(const float *p) {
   bool r2ResRep = getSlotRaw(p, SlotIdx::R2ResEnvMode, R2ResEnvMode) > 0.5f;
   voicePool_.updateResEnvelopes(1, r2Ra, r2Rd, r2Rs, r2Rr, r2ResRep);
 
-  float r2ParaVel = p ? p[SlotIdx::R2ParaEnvVelocityDepth] : (store_.getRawValue(R2ParaEnvVelocityDepth) / 64.0f);
-  float r2Sc1ED = p ? p[SlotIdx::R2L1Scape1EnvDepth] : (store_.getRawValue(R2L1Scape1EnvDepth) / 64.0f);
-  float r2Sc2ED = p ? p[SlotIdx::R2L1Scape2EnvDepth] : (store_.getRawValue(R2L1Scape2EnvDepth) / 64.0f);
-  float r2Sp1ED = p ? p[SlotIdx::R2L1Sphere1EnvDepth] : (store_.getRawValue(R2L1Sphere1EnvDepth) / 64.0f);
-  float r2Sp2ED = p ? p[SlotIdx::R2L1Sphere2EnvDepth] : (store_.getRawValue(R2L1Sphere2EnvDepth) / 64.0f);
-  voicePool_.updateResEnvModDepths(1, r2Sc1ED, r2Sc2ED, r2Sp1ED, r2Sp2ED, r2ParaVel);
+  const float r2ParaVel = getBipolar(SlotIdx::R2ParaEnvVelocityDepth, R2ParaEnvVelocityDepth);
+  const float r2L1ScGate = shaperGate(SlotIdx::R2L1ContourScape, R2L1ContourScape);
+  const float r2L1SpGate = shaperGate(SlotIdx::R2L1ContourSphere, R2L1ContourSphere);
+  voicePool_.updateResEnvLayerModDepths(
+      1, 0,
+      getBipolar(SlotIdx::R2L1Scape1EnvDepth, R2L1Scape1EnvDepth) * r2L1ScGate,
+      getBipolar(SlotIdx::R2L1Scape2EnvDepth, R2L1Scape2EnvDepth) * r2L1ScGate,
+      getBipolar(SlotIdx::R2L1Sphere1EnvDepth, R2L1Sphere1EnvDepth) * r2L1SpGate,
+      getBipolar(SlotIdx::R2L1Sphere2EnvDepth, R2L1Sphere2EnvDepth) * r2L1SpGate,
+      r2ParaVel);
 
-  // R1 FreeEnv [204..210] / R2 FreeEnv [234..240] & Routing [251, 255] + Pitch/Blender Free Depths
+  const float r2L2ScGate = shaperGate(SlotIdx::R2L2ContourScape, R2L2ContourScape);
+  const float r2L2SpGate = shaperGate(SlotIdx::R2L2ContourSphere, R2L2ContourSphere);
+  voicePool_.updateResEnvLayerModDepths(
+      1, 1,
+      getBipolar(SlotIdx::R2L2Scape1EnvDepth, R2L2Scape1EnvDepth) * r2L2ScGate,
+      getBipolar(SlotIdx::R2L2Scape2EnvDepth, R2L2Scape2EnvDepth) * r2L2ScGate,
+      getBipolar(SlotIdx::R2L2Sphere1EnvDepth, R2L2Sphere1EnvDepth) * r2L2SpGate,
+      getBipolar(SlotIdx::R2L2Sphere2EnvDepth, R2L2Sphere2EnvDepth) * r2L2SpGate,
+      r2ParaVel);
+
+  const float r2L3ScGate = shaperGate(SlotIdx::R2L3ContourScape, R2L3ContourScape);
+  const float r2L3SpGate = shaperGate(SlotIdx::R2L3ContourSphere, R2L3ContourSphere);
+  voicePool_.updateResEnvLayerModDepths(
+      1, 2,
+      getBipolar(SlotIdx::R2L3Scape1EnvDepth, R2L3Scape1EnvDepth) * r2L3ScGate,
+      getBipolar(SlotIdx::R2L3Scape2EnvDepth, R2L3Scape2EnvDepth) * r2L3ScGate,
+      getBipolar(SlotIdx::R2L3Sphere1EnvDepth, R2L3Sphere1EnvDepth) * r2L3SpGate,
+      getBipolar(SlotIdx::R2L3Sphere2EnvDepth, R2L3Sphere2EnvDepth) * r2L3SpGate,
+      r2ParaVel);
+
+  // R1 FreeEnv [205..211] / R2 FreeEnv [235..241] / 4L4T [242..255] + Pitch/Blender Free Depths
   float r1Fa = getSlotNorm(p, SlotIdx::R1FreeEnvA, R1FreeEnvA);
   float r1Fd = getSlotNorm(p, SlotIdx::R1FreeEnvD, R1FreeEnvD);
-  float r1Fs = getSlotNorm(p, SlotIdx::R1FreeEnvS, R1AmpEnvS != R1FreeEnvS ? R1FreeEnvS : R1FreeEnvS);
+  float r1Fs = getSlotNorm(p, SlotIdx::R1FreeEnvS, R1FreeEnvS);
   float r1Fr = getSlotNorm(p, SlotIdx::R1FreeEnvR, R1FreeEnvR);
   bool r1FreeRep = getSlotRaw(p, SlotIdx::R1FreeEnvMode, R1FreeEnvMode) > 0.5f;
+  voicePool_.updateFreeAdsrParameters(0, r1Fa, r1Fd, r1Fs, r1Fr, r1FreeRep);
 
   float r2Fa = getSlotNorm(p, SlotIdx::R2FreeEnvA, R2FreeEnvA);
   float r2Fd = getSlotNorm(p, SlotIdx::R2FreeEnvD, R2FreeEnvD);
   float r2Fs = getSlotNorm(p, SlotIdx::R2FreeEnvS, R2FreeEnvS);
   float r2Fr = getSlotNorm(p, SlotIdx::R2FreeEnvR, R2FreeEnvR);
   bool r2FreeRep = getSlotRaw(p, SlotIdx::R2FreeEnvMode, R2FreeEnvMode) > 0.5f;
+  voicePool_.updateFreeAdsrParameters(1, r2Fa, r2Fd, r2Fs, r2Fr, r2FreeRep);
 
-  int freeDest = static_cast<int>(store_.getRawValue(ShaperResySelect));
-  float tlFreeDepth = getSlotNorm(p, SlotIdx::TLFreeEnvDepth, TLFreeEnvDepth);
-  float r1FreeDepth = getSlotNorm(p, SlotIdx::R1FreeEnvDepth, R1FreeEnvDepth);
-  float r2FreeDepth = getSlotNorm(p, SlotIdx::R2FreeEnvDepth, R2FreeEnvDepth);
-  float effFreeDepth = std::max({tlFreeDepth, r1FreeDepth, r2FreeDepth});
+  const float lvl1 = getBipolar(SlotIdx::FreeEnvLevel1, FreeEnvLevel1);
+  const float lvl2 = getBipolar(SlotIdx::FreeEnvLevel2, FreeEnvLevel2);
+  const float lvl3 = getBipolar(SlotIdx::FreeEnvLevel3, FreeEnvLevel3);
+  const float lvl4 = getBipolar(SlotIdx::FreeEnvLevel4, FreeEnvLevel4);
+  const float t1 = getSlotNorm(p, SlotIdx::FreeEnvTime1, FreeEnvTime1);
+  const float t2 = getSlotNorm(p, SlotIdx::FreeEnvTime2, FreeEnvTime2);
+  const float t3 = getSlotNorm(p, SlotIdx::FreeEnvTime3, FreeEnvTime3);
+  const float t4 = getSlotNorm(p, SlotIdx::FreeEnvTime4, FreeEnvTime4);
+  const bool tlRep = getSlotRaw(p, SlotIdx::TLFreeEnvMode, TLFreeEnvMode) > 0.5f;
+  voicePool_.updateFree4L4TEnvelope(lvl1, lvl2, lvl3, lvl4, t1, t2, t3, t4, tlRep);
 
-  float r1FreePitch = p ? (p[SlotIdx::R1FreeADSR1PitchDepth] + p[SlotIdx::R1FreeADSR2PitchDepth] + p[SlotIdx::R1Free4L4TPitchDepth])
-                        : (store_.getRawValue(R1FreeADSR1PitchDepth) / 64.0f);
-  float r2FreePitch = p ? (p[SlotIdx::R2FreeADSR1PitchDepth] + p[SlotIdx::R2FreeADSR2PitchDepth] + p[SlotIdx::R2Free4L4TPitchDepth])
-                        : (store_.getRawValue(R2FreeADSR1PitchDepth) / 64.0f);
-  float blenderFree = p ? (p[SlotIdx::BlenderFreeADSR1Depth] + p[SlotIdx::BlenderFreeADSR2Depth] + p[SlotIdx::BlenderFree4L4TDepth])
-                        : (store_.getRawValue(BlenderFreeADSR1Depth) / 64.0f);
-
-  voicePool_.updateFreeEnvelopes(0, r1Fa, r1Fd, r1Fs, r1Fr, r1FreeRep, freeDest, effFreeDepth, r1FreePitch, r2FreePitch, blenderFree);
-  voicePool_.updateFreeEnvelopes(1, r2Fa, r2Fd, r2Fs, r2Fr, r2FreeRep, freeDest, effFreeDepth, r1FreePitch, r2FreePitch, blenderFree);
+  abd::dsp::neuron::FreeEnvRoutingConfig freeCfg{};
+  freeCfg.freeEnvType = (getSlotRaw(p, SlotIdx::FreeEnvType, FreeEnvType) > 0.5f) ? 1 : 0;
+  freeCfg.dest = static_cast<int>(store_.getRawValue(ShaperResySelect));
+  freeCfg.r1AdsrDepth = getSlotNorm(p, SlotIdx::R1FreeEnvDepth, R1FreeEnvDepth);
+  freeCfg.r2AdsrDepth = getSlotNorm(p, SlotIdx::R2FreeEnvDepth, R2FreeEnvDepth);
+  freeCfg.tl4L4TDepth = getSlotNorm(p, SlotIdx::TLFreeEnvDepth, TLFreeEnvDepth);
+  freeCfg.adsr1VelDepth = getBipolar(SlotIdx::FreeADSR1VelocityDepth, FreeADSR1VelocityDepth);
+  freeCfg.adsr2VelDepth = getBipolar(SlotIdx::FreeADSR2VelocityDepth, FreeADSR2VelocityDepth);
+  freeCfg.tl4L4TVelDepth = getBipolar(SlotIdx::Free4Level4TimeVelocityDepth, Free4Level4TimeVelocityDepth);
+  freeCfg.r1Adsr1PitchDepth = getBipolar(SlotIdx::R1FreeADSR1PitchDepth, R1FreeADSR1PitchDepth);
+  freeCfg.r1Adsr2PitchDepth = getBipolar(SlotIdx::R1FreeADSR2PitchDepth, R1FreeADSR2PitchDepth);
+  freeCfg.r1Free4L4TPitchDepth = getSlotNorm(p, SlotIdx::R1Free4L4TPitchDepth, R1Free4L4TPitchDepth);
+  freeCfg.r2Adsr1PitchDepth = getBipolar(SlotIdx::R2FreeADSR1PitchDepth, R2FreeADSR1PitchDepth);
+  freeCfg.r2Adsr2PitchDepth = getBipolar(SlotIdx::R2FreeADSR2PitchDepth, R2FreeADSR2PitchDepth);
+  freeCfg.r2Free4L4TPitchDepth = getSlotNorm(p, SlotIdx::R2Free4L4TPitchDepth, R2Free4L4TPitchDepth);
+  freeCfg.blenderAdsr1Depth = getBipolar(SlotIdx::BlenderFreeADSR1Depth, BlenderFreeADSR1Depth);
+  freeCfg.blenderAdsr2Depth = getBipolar(SlotIdx::BlenderFreeADSR2Depth, BlenderFreeADSR2Depth);
+  freeCfg.blender4L4TDepth = getSlotNorm(p, SlotIdx::BlenderFree4L4TDepth, BlenderFree4L4TDepth);
+  voicePool_.updateFreeEnvRoutingConfig(freeCfg);
 }
 
 void DspEngineFacade::resetModulationPhase() noexcept {
@@ -747,8 +950,7 @@ DspEngineFacade::updateSilverAndMasterFx(const float *p,
   float slicerRateNorm =
       p ? p[SlotIdx::SlicerRate]
         : std::clamp(store_.getRawValue(SlicerRate) / 200.0f, 0.0f, 1.0f);
-  params.slicerRateHz =
-      std::clamp(std::pow(10.0f, slicerRateNorm * 4.0f - 2.0f), 0.01f, 100.0f);
+  params.slicerRateHz = std::clamp(slicerRateNorm * 20.0f, 0.05f, 20.0f);
   params.slicerWave =
       static_cast<int>(getSlotRaw(p, SlotIdx::SlicerWaveForm, SlicerWaveForm));
 
@@ -775,28 +977,103 @@ DspEngineFacade::updateSilverAndMasterFx(const float *p,
           ? static_cast<int>(getSlotRaw(p, SlotIdx::FilterType, FilterType))
           : -1;
 
-  params.filterEnvDepth = p ? p[SlotIdx::FilterEnvDepth]
-                            : (store_.getRawValue(FilterEnvDepth) / 64.0f);
-  params.filterKeyTrack = (p ? p[SlotIdx::FilterKeyTrack]
-                             : (store_.getRawValue(FilterKeyTrack) / 64.0f)) *
-                          64.0f;
+  const float silverL1Gate = NeuronTranslatorCurves::contourShaperGate(
+      getSlotRaw(p, SlotIdx::SilverL1Contour, SilverL1Contour));
+  const float rawFilterEnvDepth = p
+      ? p[SlotIdx::FilterEnvDepth]
+      : NeuronTranslatorCurves::bipolarRawToUnit(store_.getRawValue(FilterEnvDepth));
+  params.filterEnvDepth = rawFilterEnvDepth * silverL1Gate;
+  params.filterKeyTrack =
+      (p ? p[SlotIdx::FilterKeyTrack]
+         : NeuronTranslatorCurves::bipolarRawToUnit(store_.getRawValue(FilterKeyTrack))) *
+      64.0f;
   params.filterVelDepth =
       (p ? p[SlotIdx::FilterCutoffVelocityDepth]
-         : (store_.getRawValue(FilterCutoffVelocityDepth) / 64.0f)) *
+         : NeuronTranslatorCurves::bipolarRawToUnit(store_.getRawValue(FilterCutoffVelocityDepth))) *
       64.0f;
 
   auto &silver = blockRenderer_.getSilverRack();
+  auto &plus = blockRenderer_.getPlusRack();
+  auto &expRack = blockRenderer_.getExpandedRack();
+  const bool isExpanded = (engineProfile_.generation == "expanded" || engineProfile_.generation == "extended");
+
+  // Expanded Multi-FX parameters (Ola 4 & Ola 5 contract [463..478])
+  expFxParams_.freqFxAlg = static_cast<int>(store_.getRawValue(Exp_FreqFXAlg));
+  expFxParams_.freqFxMacros[0] = store_.getRawValue(Exp_FreqFXMacro1);
+  expFxParams_.freqFxMacros[1] = store_.getRawValue(Exp_FreqFXMacro2);
+  expFxParams_.freqFxMacros[2] = store_.getRawValue(Exp_FreqFXMacro3);
+  expFxParams_.freqFxMacros[3] = store_.getRawValue(Exp_FreqFXMacro4);
+
+  expFxParams_.timeFxAlg = static_cast<int>(store_.getRawValue(Exp_TimeFXAlg));
+  expFxParams_.timeFxMacros[0] = store_.getRawValue(Exp_TimeFXMacro1);
+  expFxParams_.timeFxMacros[1] = store_.getRawValue(Exp_TimeFXMacro2);
+  expFxParams_.timeFxMacros[2] = store_.getRawValue(Exp_TimeFXMacro3);
+  expFxParams_.timeFxMacros[3] = store_.getRawValue(Exp_TimeFXMacro4);
+
+  expFxParams_.masterDelayAlg = static_cast<int>(store_.getRawValue(Exp_MasterDelayAlg));
+  expFxParams_.masterRevAlg = static_cast<int>(store_.getRawValue(Exp_MasterRevAlg));
+  expFxParams_.masterFxMacros[0] = store_.getRawValue(Exp_MasterFXMacro1);
+  expFxParams_.masterFxMacros[1] = store_.getRawValue(Exp_MasterFXMacro2);
+  expFxParams_.masterFxMacros[2] = store_.getRawValue(Exp_MasterFXMacro3);
+  expFxParams_.masterFxMacros[3] = store_.getRawValue(Exp_MasterFXMacro4);
 
   // FreqFX
   bool freqFxOn = silverSwitchOn &&
                   (getSlotRaw(p, SlotIdx::FreqFXSwitch, FreqFXSwitch) > 0.5f);
   silver.getFreqFX().setEnabled(freqFxOn);
+  plus.getFreqFX().setEnabled(freqFxOn);
+  expRack.getFreqFX().setEnabled(freqFxOn);
   int freqFxAlgo =
       static_cast<int>(getSlotRaw(p, SlotIdx::CurFreqFX, CurFreqFX));
   silver.getFreqFX().setAlgorithm(freqFxAlgo);
+  plus.getFreqFX().setAlgorithm(freqFxAlgo);
+
+  int activeExpFreqAlgo = isExpanded ? expFxParams_.freqFxAlg : freqFxAlgo;
+  expRack.getFreqFX().setAlgorithm(activeExpFreqAlgo);
+  expRack.getFreqFX().setExpandedMacros(
+      expFxParams_.freqFxMacros[0],
+      expFxParams_.freqFxMacros[1],
+      expFxParams_.freqFxMacros[2],
+      expFxParams_.freqFxMacros[3]);
 
   if (freqFxAlgo == 0) { // EQ 4-Band & Compressor
     silver.getFreqFX().setEQParams(
+        store_.getRawValue(EQ_Switch) > 0.5f,
+        store_.getRawValue(EQ_LowShelfSwitch) > 0.5f,
+        store_.getRawValue(EQ_LowShelfGain),
+        store_.getNormalizedValue(EQ_LowShelfFreq),
+        store_.getNormalizedValue(EQ_LowShelfSlope),
+        store_.getRawValue(EQ_Band1Switch) > 0.5f,
+        store_.getRawValue(EQ_Band1Gain),
+        store_.getNormalizedValue(EQ_Band1Freq),
+        store_.getNormalizedValue(EQ_Band1Q),
+        store_.getRawValue(EQ_Band2Switch) > 0.5f,
+        store_.getRawValue(EQ_Band2Gain),
+        store_.getNormalizedValue(EQ_Band2Freq),
+        store_.getNormalizedValue(EQ_Band2Q),
+        store_.getRawValue(EQ_HighShelfSwitch) > 0.5f,
+        store_.getRawValue(EQ_HighShelfGain),
+        store_.getNormalizedValue(EQ_HighShelfFreq),
+        store_.getNormalizedValue(EQ_HighShelfSlope));
+    plus.getFreqFX().setEQParams(
+        store_.getRawValue(EQ_Switch) > 0.5f,
+        store_.getRawValue(EQ_LowShelfSwitch) > 0.5f,
+        store_.getRawValue(EQ_LowShelfGain),
+        store_.getNormalizedValue(EQ_LowShelfFreq),
+        store_.getNormalizedValue(EQ_LowShelfSlope),
+        store_.getRawValue(EQ_Band1Switch) > 0.5f,
+        store_.getRawValue(EQ_Band1Gain),
+        store_.getNormalizedValue(EQ_Band1Freq),
+        store_.getNormalizedValue(EQ_Band1Q),
+        store_.getRawValue(EQ_Band2Switch) > 0.5f,
+        store_.getRawValue(EQ_Band2Gain),
+        store_.getNormalizedValue(EQ_Band2Freq),
+        store_.getNormalizedValue(EQ_Band2Q),
+        store_.getRawValue(EQ_HighShelfSwitch) > 0.5f,
+        store_.getRawValue(EQ_HighShelfGain),
+        store_.getNormalizedValue(EQ_HighShelfFreq),
+        store_.getNormalizedValue(EQ_HighShelfSlope));
+    expRack.getFreqFX().getPlusFreqFX().setEQParams(
         store_.getRawValue(EQ_Switch) > 0.5f,
         store_.getRawValue(EQ_LowShelfSwitch) > 0.5f,
         store_.getRawValue(EQ_LowShelfGain),
@@ -818,111 +1095,181 @@ DspEngineFacade::updateSilverAndMasterFx(const float *p,
         store_.getRawValue(CR_Switch) > 0.5f, store_.getRawValue(CR_Threshold),
         store_.getRawValue(CR_OutGain),
         store_.getNormalizedValue(CR_Responsiveness));
+    plus.getFreqFX().setCompressorParams(
+        store_.getRawValue(CR_Switch) > 0.5f, store_.getRawValue(CR_Threshold),
+        store_.getRawValue(CR_OutGain),
+        store_.getNormalizedValue(CR_Responsiveness));
+    expRack.getFreqFX().getPlusFreqFX().setCompressorParams(
+        store_.getRawValue(CR_Switch) > 0.5f, store_.getRawValue(CR_Threshold),
+        store_.getRawValue(CR_OutGain),
+        store_.getNormalizedValue(CR_Responsiveness));
   } else if (freqFxAlgo == 1) { // Distortion
-    float inGain = store_.getNormalizedValue(DS_InGain);
-    float preFilt = store_.getNormalizedValue(DS_PreFilter);
-    int curve = static_cast<int>(store_.getRawValue(DS_ClipCurveType));
-    float outGain = store_.getNormalizedValue(DS_OutGain);
+    float inGain = getSlotNorm(p, SlotIdx::DS_InGain, DS_InGain);
+    float preFilt = getSlotNorm(p, SlotIdx::DS_PreFilter, DS_PreFilter);
+    int curve = static_cast<int>(getSlotRaw(p, SlotIdx::DS_ClipCurveType, DS_ClipCurveType));
+    float outGain = getSlotNorm(p, SlotIdx::DS_OutGain, DS_OutGain);
     silver.getFreqFX().setDistortionParams(inGain, preFilt, curve, outGain);
+    plus.getFreqFX().setDistortionParams(inGain, preFilt, curve, outGain);
+    expRack.getFreqFX().getPlusFreqFX().setDistortionParams(inGain, preFilt, curve, outGain);
   } else if (freqFxAlgo == 2) { // Ring Modulator
-    float mix = store_.getNormalizedValue(RM_Mix);
-    float speed = 0.1f + store_.getNormalizedValue(RM_Speed) * 19.9f;
-    float depth = store_.getNormalizedValue(RM_Depth);
-    int wave = static_cast<int>(store_.getRawValue(RM_WaveForm));
-    float modFreq = 20.0f + store_.getNormalizedValue(RM_ModFreq) * 3000.0f;
-    float xoDel = store_.getNormalizedValue(RM_XoverDelay) *
-                  store_.getNormalizedValue(RM_XoverTime);
-    float xoFb = store_.getRawValue(RM_XoverDelayFeedback) / 64.0f;
+    float mix = getSlotNorm(p, SlotIdx::RM_Mix, RM_Mix);
+    float speed = 0.1f + getSlotNorm(p, SlotIdx::RM_Speed, RM_Speed) * 19.9f;
+    float depth = getSlotNorm(p, SlotIdx::RM_Depth, RM_Depth);
+    int wave = static_cast<int>(getSlotRaw(p, SlotIdx::RM_WaveForm, RM_WaveForm));
+    float modFreq = 20.0f + getSlotNorm(p, SlotIdx::RM_ModFreq, RM_ModFreq) * 3000.0f;
+    float xoDel = getSlotNorm(p, SlotIdx::RM_XoverDelay, RM_XoverDelay) *
+                  getSlotNorm(p, SlotIdx::RM_XoverTime, RM_XoverTime);
+    float xoFb = getSlotRaw(p, SlotIdx::RM_XoverDelayFeedback, RM_XoverDelayFeedback) / 64.0f;
     silver.getFreqFX().setRingModParams(mix, speed, depth, wave, modFreq, xoDel,
                                         xoFb);
+    plus.getFreqFX().setRingModParams(mix, speed, depth, wave, modFreq, xoDel,
+                                      xoFb);
+    expRack.getFreqFX().getPlusFreqFX().setRingModParams(mix, speed, depth, wave, modFreq, xoDel,
+                                                        xoFb);
   } else if (freqFxAlgo == 3) { // Decimator
-    float mix = store_.getNormalizedValue(DC_Mix);
+    float mix = getSlotNorm(p, SlotIdx::DC_Mix, DC_Mix);
     int sh =
-        1 + static_cast<int>(store_.getNormalizedValue(DC_SHFactor) * 31.0f);
-    float cut = store_.getNormalizedValue(DC_PreFilterCutoff);
+        1 + static_cast<int>(getSlotNorm(p, SlotIdx::DC_SHFactor, DC_SHFactor) * 31.0f);
+    float cut = getSlotNorm(p, SlotIdx::DC_PreFilterCutoff, DC_PreFilterCutoff);
     silver.getFreqFX().setDecimatorParams(mix, sh, cut);
+    plus.getFreqFX().setDecimatorParams(mix, sh, cut);
+    expRack.getFreqFX().getPlusFreqFX().setDecimatorParams(mix, sh, cut);
   } else if (freqFxAlgo == 4) { // Spectral Warp
-    float mix = store_.getNormalizedValue(SW_Mix);
-    float freq = store_.getNormalizedValue(SW_Frequency);
-    float tilt = store_.getNormalizedValue(SW_Tilt);
-    float damp = store_.getNormalizedValue(SW_Damping);
-    float speed = 0.1f + store_.getNormalizedValue(SW_Speed) * 19.9f;
-    float depth = store_.getNormalizedValue(SW_Depth);
+    float mix = getSlotNorm(p, SlotIdx::SW_Mix, SW_Mix);
+    float freq = getSlotNorm(p, SlotIdx::SW_Frequency, SW_Frequency);
+    float tilt = getSlotNorm(p, SlotIdx::SW_Tilt, SW_Tilt);
+    float damp = getSlotNorm(p, SlotIdx::SW_Damping, SW_Damping);
+    float speed = 0.1f + getSlotNorm(p, SlotIdx::SW_Speed, SW_Speed) * 19.9f;
+    float depth = getSlotNorm(p, SlotIdx::SW_Depth, SW_Depth);
     silver.getFreqFX().setSpWarpParams(mix, freq, tilt, damp, speed, depth);
+    plus.getFreqFX().setSpWarpParams(mix, freq, tilt, damp, speed, depth);
+    expRack.getFreqFX().getPlusFreqFX().setSpWarpParams(mix, freq, tilt, damp, speed, depth);
   }
 
   // TimeFX
   bool timeFxOn = silverSwitchOn &&
                   (getSlotRaw(p, SlotIdx::TimeFXSwitch, TimeFXSwitch) > 0.5f);
   silver.getTimeFX().setEnabled(timeFxOn);
+  plus.getTimeFX().setEnabled(timeFxOn);
+  expRack.getTimeFX().setEnabled(timeFxOn);
   int timeFxAlgo =
       static_cast<int>(getSlotRaw(p, SlotIdx::CurTimeFX, CurTimeFX));
   silver.getTimeFX().setAlgorithm(timeFxAlgo);
+  plus.getTimeFX().setAlgorithm(timeFxAlgo);
+
+  int activeExpTimeAlgo = isExpanded ? expFxParams_.timeFxAlg : timeFxAlgo;
+  expRack.getTimeFX().setAlgorithm(activeExpTimeAlgo);
+  expRack.getTimeFX().setExpandedMacros(
+      expFxParams_.timeFxMacros[0],
+      expFxParams_.timeFxMacros[1],
+      expFxParams_.timeFxMacros[2],
+      expFxParams_.timeFxMacros[3]);
 
   if (timeFxAlgo == 0) { // Stereo Spread
-    float delay = store_.getRawValue(SS_ChanDelay);
-    float fdbk = store_.getRawValue(SS_Feedback) / 64.0f;
+    float delay = getSlotRaw(p, SlotIdx::SS_ChanDelay, SS_ChanDelay);
+    float fdbk = getSlotRaw(p, SlotIdx::SS_Feedback, SS_Feedback) / 64.0f;
     silver.getTimeFX().setStereoSpreadParams(delay, fdbk);
+    plus.getTimeFX().setStereoSpreadParams(delay, fdbk);
+    expRack.getTimeFX().getPlusTimeFX().setStereoSpreadParams(delay, fdbk);
   } else if (timeFxAlgo == 1) { // L/R Delay
-    float mix = store_.getNormalizedValue(LRD_Mix);
-    float timeMs = store_.getRawValue(LRD_Time);
-    float fdbk = store_.getRawValue(LRD_Feedback) / 64.0f;
+    float mix = getSlotNorm(p, SlotIdx::LRD_Mix, LRD_Mix);
+    float timeMs = getSlotRaw(p, SlotIdx::LRD_Time, LRD_Time);
+    float fdbk = getSlotRaw(p, SlotIdx::LRD_Feedback, LRD_Feedback) / 64.0f;
     silver.getTimeFX().setLRDelayParams(mix, timeMs, fdbk);
+    plus.getTimeFX().setLRDelayParams(mix, timeMs, fdbk);
+    expRack.getTimeFX().getPlusTimeFX().setLRDelayParams(mix, timeMs, fdbk);
   } else if (timeFxAlgo == 2) { // Flanger
-    float mix = store_.getNormalizedValue(FL_Mix);
-    float depth = store_.getNormalizedValue(FL_Depth);
-    float speed = 0.1f + store_.getNormalizedValue(FL_Speed) * 15.0f;
-    int wave = static_cast<int>(store_.getRawValue(FL_WaveForm));
-    float fdbk = store_.getRawValue(FL_Feedback) / 64.0f;
-    float stPhase = store_.getNormalizedValue(FL_StereoPhase);
+    float mix = getSlotNorm(p, SlotIdx::FL_Mix, FL_Mix);
+    float depth = getSlotNorm(p, SlotIdx::FL_Depth, FL_Depth);
+    float speed = 0.1f + getSlotNorm(p, SlotIdx::FL_Speed, FL_Speed) * 15.0f;
+    int wave = static_cast<int>(getSlotRaw(p, SlotIdx::FL_WaveForm, FL_WaveForm));
+    float fdbk = getSlotRaw(p, SlotIdx::FL_Feedback, FL_Feedback) / 64.0f;
+    float stPhase = getSlotNorm(p, SlotIdx::FL_StereoPhase, FL_StereoPhase);
     silver.getTimeFX().setModulationParams(mix, depth, speed, fdbk, wave,
                                            stPhase, 0.0f);
+    plus.getTimeFX().setModulationParams(mix, depth, speed, fdbk, wave,
+                                         stPhase, 0.0f);
+    expRack.getTimeFX().getPlusTimeFX().setModulationParams(mix, depth, speed, fdbk, wave,
+                                                           stPhase, 0.0f);
   } else if (timeFxAlgo == 3) { // Phaser
-    float mix = store_.getNormalizedValue(PH_Mix);
-    float depth = store_.getNormalizedValue(PH_Depth);
-    float speed = 0.1f + store_.getNormalizedValue(PH_Speed) * 15.0f;
-    int wave = static_cast<int>(store_.getRawValue(PH_WaveForm));
-    float fdbk = store_.getRawValue(PH_Feedback) / 64.0f;
-    float stPhase = store_.getNormalizedValue(PH_StereoPhase);
+    float mix = getSlotNorm(p, SlotIdx::PH_Mix, PH_Mix);
+    float depth = getSlotNorm(p, SlotIdx::PH_Depth, PH_Depth);
+    float speed = 0.1f + getSlotNorm(p, SlotIdx::PH_Speed, PH_Speed) * 15.0f;
+    int wave = static_cast<int>(getSlotRaw(p, SlotIdx::PH_WaveForm, PH_WaveForm));
+    float fdbk = getSlotRaw(p, SlotIdx::PH_Feedback, PH_Feedback) / 64.0f;
+    float stPhase = getSlotNorm(p, SlotIdx::PH_StereoPhase, PH_StereoPhase);
     silver.getTimeFX().setModulationParams(mix, depth, speed, fdbk, wave,
                                            stPhase, 0.0f);
+    plus.getTimeFX().setModulationParams(mix, depth, speed, fdbk, wave,
+                                         stPhase, 0.0f);
+    expRack.getTimeFX().getPlusTimeFX().setModulationParams(mix, depth, speed, fdbk, wave,
+                                                           stPhase, 0.0f);
   } else if (timeFxAlgo == 4) { // Chorus
-    float mix = store_.getNormalizedValue(CH_Mix);
-    float depth = store_.getNormalizedValue(CH_Depth);
-    float speed = 0.1f + store_.getNormalizedValue(CH_Speed) * 15.0f;
-    int wave = static_cast<int>(store_.getRawValue(CH_WaveForm));
-    float fdbk = store_.getRawValue(CH_Feedback) / 64.0f;
-    float preDel = store_.getNormalizedValue(CH_PreDelay);
-    float stPhase = store_.getNormalizedValue(CH_StereoPhase);
+    float mix = getSlotNorm(p, SlotIdx::CH_Mix, CH_Mix);
+    float depth = getSlotNorm(p, SlotIdx::CH_Depth, CH_Depth);
+    float speed = 0.1f + getSlotNorm(p, SlotIdx::CH_Speed, CH_Speed) * 15.0f;
+    int wave = static_cast<int>(getSlotRaw(p, SlotIdx::CH_WaveForm, CH_WaveForm));
+    float fdbk = getSlotRaw(p, SlotIdx::CH_Feedback, CH_Feedback) / 64.0f;
+    float preDel = getSlotNorm(p, SlotIdx::CH_PreDelay, CH_PreDelay);
+    float stPhase = getSlotNorm(p, SlotIdx::CH_StereoPhase, CH_StereoPhase);
     silver.getTimeFX().setModulationParams(mix, depth, speed, fdbk, wave,
                                            stPhase, preDel);
+    plus.getTimeFX().setModulationParams(mix, depth, speed, fdbk, wave,
+                                         stPhase, preDel);
+    expRack.getTimeFX().getPlusTimeFX().setModulationParams(mix, depth, speed, fdbk, wave,
+                                                           stPhase, preDel);
   }
 
   // Master FX
-  bool mfxMasterOn = store_.getRawValue(SoundMFXSwitch) > 0.5f;
+  bool mfxMasterOn = getSlotRaw(p, SlotIdx::SoundMFXSwitch, SoundMFXSwitch) > 0.5f;
   auto &mTime = blockRenderer_.getMasterTimeFX();
+  auto &plusMTime = blockRenderer_.getPlusMasterFX();
+  auto &expMaster = expRack.getMasterFX();
+
   mTime.setMasterEnabled(mfxMasterOn);
-  mTime.setDelayEnabled(store_.getRawValue(SoundMFXDelaySwitch) > 0.5f);
-  mTime.setReverbEnabled(store_.getRawValue(SoundMFXReverbSwitch) > 0.5f);
+  plusMTime.setMasterEnabled(mfxMasterOn);
+  expMaster.setMasterEnabled(mfxMasterOn);
 
-  float dMix = store_.getNormalizedValue(SoundMFXDelayMix);
-  float dL = store_.getRawValue(SoundMFXDelayLTime);
-  float dR = store_.getRawValue(SoundMFXDelayRTime);
-  float dFb = store_.getRawValue(SoundMFXDelayFeedback) / 64.0f;
-  float dDamp = store_.getNormalizedValue(SoundMFXDelayFdbkDamp);
+  bool delOn = getSlotRaw(p, SlotIdx::SoundMFXDelaySwitch, SoundMFXDelaySwitch) > 0.5f;
+  mTime.setDelayEnabled(delOn);
+  plusMTime.setDelayEnabled(delOn);
+  expMaster.setDelayEnabled(delOn);
+
+  bool revOn = getSlotRaw(p, SlotIdx::SoundMFXReverbSwitch, SoundMFXReverbSwitch) > 0.5f;
+  mTime.setReverbEnabled(revOn);
+  plusMTime.setReverbEnabled(revOn);
+  expMaster.setReverbEnabled(revOn);
+
+  float dMix = getSlotNorm(p, SlotIdx::SoundMFXDelayMix, SoundMFXDelayMix);
+  float dL = getSlotRaw(p, SlotIdx::SoundMFXDelayLTime, SoundMFXDelayLTime);
+  float dR = getSlotRaw(p, SlotIdx::SoundMFXDelayRTime, SoundMFXDelayRTime);
+  float dFb = getSlotRaw(p, SlotIdx::SoundMFXDelayFeedback, SoundMFXDelayFeedback) / 64.0f;
+  float dDamp = getSlotNorm(p, SlotIdx::SoundMFXDelayFdbkDamp, SoundMFXDelayFdbkDamp);
   mTime.setDelayParameters(dMix, dL, dR, dFb, dDamp);
+  plusMTime.setDelayParameters(dMix, dL, dR, dFb, dDamp);
+  expMaster.setClassicDelayParameters(dMix, dL, dR, dFb, dDamp);
 
-  float rMix = store_.getNormalizedValue(SoundMFXReverbMix);
-  int rRoom = static_cast<int>(store_.getRawValue(SoundMFXReverbRoom));
-  float rDecay = store_.getNormalizedValue(SoundMFXRevDecayTime);
-  float rDiff = store_.getNormalizedValue(SoundMFXRevDiffusion);
-  float rDamp = store_.getNormalizedValue(SoundMFXRevHFDamp);
+  float rMix = getSlotNorm(p, SlotIdx::SoundMFXReverbMix, SoundMFXReverbMix);
+  int rRoom = static_cast<int>(getSlotRaw(p, SlotIdx::SoundMFXReverbRoom, SoundMFXReverbRoom));
+  float rDecay = getSlotNorm(p, SlotIdx::SoundMFXRevDecayTime, SoundMFXRevDecayTime);
+  float rDiff = getSlotNorm(p, SlotIdx::SoundMFXRevDiffusion, SoundMFXRevDiffusion);
+  float rDamp = getSlotNorm(p, SlotIdx::SoundMFXRevHFDamp, SoundMFXRevHFDamp);
   mTime.setReverbParameters(rMix, rRoom, rDecay, rDiff, rDamp);
+  plusMTime.setReverbParameters(rMix, rRoom, rDecay, rDiff, rDamp);
+  expMaster.setClassicReverbParameters(rMix, rRoom, rDecay, rDiff, rDamp);
+
+  expMaster.setMasterDelayAlgorithm(expFxParams_.masterDelayAlg);
+  expMaster.setMasterReverbAlgorithm(expFxParams_.masterRevAlg);
+  expMaster.setExpandedMasterMacros(
+      expFxParams_.masterFxMacros[0],
+      expFxParams_.masterFxMacros[1],
+      expFxParams_.masterFxMacros[2],
+      expFxParams_.masterFxMacros[3]);
 
   auto &mMod = blockRenderer_.getMasterModFX();
   mMod.setEnabled(mfxMasterOn);
-  float rDetune = store_.getNormalizedValue(SoundMFXRevDetune);
-  float rSpeed = store_.getNormalizedValue(SoundMFXRevSpeed);
+  float rDetune = getSlotNorm(p, SlotIdx::SoundMFXRevDetune, SoundMFXRevDetune);
+  float rSpeed = getSlotNorm(p, SlotIdx::SoundMFXRevSpeed, SoundMFXRevSpeed);
   mMod.setParameters(rDetune * 0.35f, 0.2f + rSpeed * 2.5f, 0.5f);
 
   return params;
@@ -991,6 +1338,7 @@ void DspEngineFacade::process(float *leftChannel, float *rightChannel,
 
   // 4. Resynator Layers & Envelopes
   updateResynatorLayers(p, globalLfoSignal);
+  updateExpandedResynators(p);
   updateEnvelopes(p);
 
   // 5. Silver Rack & Master FX routing

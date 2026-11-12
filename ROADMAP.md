@@ -2,7 +2,7 @@
 
 > **Proyecto:** `ABDAxionikVS` (`D:\desarrollos\ABDSynths\ABDAxionikVS`)
 > **Repositorio GitHub:** `https://github.com/ajabadia/ABDAxionikVS.git`
-> **Documentación de Referencia e Ingeniería Inversa:** [`DOCS/`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS), [`DOCS/UI_INVENTORY_AND_ADAPTATION.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/UI_INVENTORY_AND_ADAPTATION.md) y [`DOCS/DSP_MIGRATION_AND_FIXES.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/DSP_MIGRATION_AND_FIXES.md)
+> **Documentación de Referencia e Ingeniería Inversa:** [`DOCS/`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS), [`DOCS/AUDITORIA_Y_PLAN_MAESTRO.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/AUDITORIA_Y_PLAN_MAESTRO.md), [`DOCS/UI_INVENTORY_AND_ADAPTATION.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/UI_INVENTORY_AND_ADAPTATION.md) y [`DOCS/DSP_MIGRATION_AND_FIXES.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/DSP_MIGRATION_AND_FIXES.md)
 > **Objetivo:** Recreación moderna, verificable bit a bit y extensible del sintetizador **Hartmann Neuron / NeuronVS**, integrada en el ecosistema **ABDSynths** (`JUCE 9` + `C++20` puro sin JUCE en DSP + `WebAssembly AudioWorklet` + `WebView2` empaquetado con Vite) y compatible al 100 % con `NeuronDB` (`.model` / `.sound`) y con `ABDNeuModMakr` (`.nmmodel` `v2.1`).
 
 ---
@@ -112,6 +112,7 @@ D:\desarrollos\ABDSynths\ABDAxionikVS\
 ├── ROADMAP.md                       # Plan de implementación por fases (este documento)
 │
 ├── DOCS/                            # Corpus local completo de ingeniería inversa, manuales y UI
+│   ├── AUDITORIA_Y_PLAN_MAESTRO.md  # Auditoría técnica integral y Plan Maestro CLASSIC/PLUS/EXPANDED (2026-11-12)
 │   ├── UI_INVENTORY_AND_ADAPTATION.md # Inventario de los 445 parámetros, vistas y adaptación UX
 │   ├── DSP_MIGRATION_AND_FIXES.md   # Cierre de incógnitas de params, eliminación de Nuke y 10 bugs corregidos
 │   ├── manuals/                     # Manuales oficiales (NeuronVS, Hardware, Technical Hints, Nuke4All, BrainMapper)
@@ -877,5 +878,68 @@ Q0 + Q1 caben en un día de trabajo concentrado y eliminan los dos bugs y la rot
 - Revisión línea a línea de las 200k líneas: el plan se apoya en scans automáticos y lectura dirigida.
 - Análisis estático adicional (`clang-tidy`, `cppcheck`): no se ha comprobado que estén instalados; si se añaden, van con Q0.2.
 - Verificación en Linux real: la conclusión de los 28 imports se basa en el listado de ficheros frente a los specifiers; el test de guardia de Q1.1 la convierte en comprobación automática.
+
+---
+
+## 8. Plan Maestro de Corrección Integral, Modos `CLASSIC / PLUS / EXPANDED` y Resynators v2 (Auditoría 2026-11-12)
+
+> **Estado:** 🟡 Pendiente de ejecución (aprobado para desarrollo por olas)  
+> **Documento Rector Completo:** [`DOCS/AUDITORIA_Y_PLAN_MAESTRO.md`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/DOCS/AUDITORIA_Y_PLAN_MAESTRO.md)  
+> **Repositorios coordinados:** `ABDAxionikVS` + `ABDShared` + `ABDNeuModMakr`
+
+### 8.1 Decisiones Arquitectónicas Cerradas
+1. **Eliminación limpia del *Split-Brain* (`Translator.cpp` → C++20 limpio):** extraer las fórmulas exactas de [`Translator.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/Translator.cpp) (`FUN_10040550`) y `100343e4_FUN_100343e4.c` a helpers C++20 tipados en el camino vivo (`DspEngineFacade`) y apagar el volcado RT inerte a `engineState_` (reservando `StrictLegacyParity` para tests offline).
+2. **Identidad de los 3 Modos:**
+   - **`CLASSIC`:** Hartmann Neuron / NeuronVS fiel **sin bugs** (Resynators v1 + filtros y efectos originales corregidos + matriz `3000..3130` completa).
+   - **`PLUS`:** **Resynators v1 clásicos (100 % compatible con bancos/presets `0..444`) + filtros ZDF y efectos Pro equivalentes de `ABDShared`** (`FilterEquation`, `FilterTpt`, `VAOnePoleFilter`, `DspMidasEQ` + `DspFairComp`, `DspOversamplingDistortion`, `RingMod`, `DspDecimDelay`, `DspFrequencyShifter`, `DspEnhancer`, `DspStereoDelay`, `DspFlanger`, `Phaser4<6>`, `JunoBBD`, `DspTapeDelay` y `DspFdnReverb` estéreo).
+   - **`EXPANDED`:** **Resynators v2 propios mejorados** (256–512 parciales SIMD fasoriales + 24 bandas Bark DDSP + transitorios WAV + `UnifiedSpectralSurface` 2D + Crossmorph espectral) + **filtros y efectos de `PLUS`** + **8 nuevos efectos verificados de `ABDShared`** (`DspVocoderBank<24>`, `DspResonator`, `DspMoodFilter`, `DspSolinaEnsemble`, `DspRotarySpeaker`, `DspNimbus` reparado, `DspShimmerDelay` y `MultiHeadEcho`).
+3. **Parámetros `APVTS [445..478]`:** añadir al final (sin tocar `[0..444]`) los 18 shapers v2 (`9 × R1` + `9 × R2`) y los 16 controles de los efectos extra de `EXPANDED`, habilitando automatización DAW, MIDI Learn y modulación interna.
+
+### 8.2 Hoja de Ruta por Olas y Asignación Óptima de Modelos Gemini
+
+- [x] **`AXM.1A` (Ola 1 — Micro-Hotfixes Quirúrgicos RT y Estéreo)** · Repos: `ABDShared`, `ABDAxionikVS` · Modelos: **`gemini-3.8-flash-low`** / **`gemini-3.8-flash-medium`**
+  - Reparar canal derecho `inL -> inR` y ganancias `5.0 / 3.0` en [`DspNeuronMasterFX.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspNeuronMasterFX.h#L238-L239).
+  - Aplicar `std::clamp` a los 19 defaults fuera de rango en [`SndDatStore.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/State/SndDatStore.h#L46).
+  - Sustituir `std::vector<int> candidates` en `noteOn` por `std::array<int, 64>` en [`AxionikExpandedSynthesizer.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/Extended/AxionikExpandedSynthesizer.h#L479).
+  - Reparar cola húmeda estéreo real en [`DspFdnReverb.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspFdnReverb.h#L183-L198) y `float readPos` fraccional + paneo estéreo por grano en [`DspNimbus.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspNimbus.h#L147-L189).
+- [x] **`AXM.1B` (Ola 1 — Corrección de Bugs WebUI sobre `[0..444]`)** · Repo: `ABDAxionikVS` · Modelos: **`gemini-3.8-flash-high`** + **`gemini-3.8-flash-low`** *(`i18n`)*
+  - [`EffectsDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/EffectsDrawer.ts): corregir inversión `3: Highpass` / `4: Bandpass`, convertir `RM_XoverDelay [315]` en switch `0..1`, exponer `RM_WaveForm [313]`, `RM_XoverTime [316]` y `EQ_*Slope/Q [289,293,297,301]`, y alinear nombres de salas Reverb.
+  - [`ControllersPanel.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/ControllersPanel.ts) y [`MatrixDrawer.ts`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/WebUI/src/ui/MatrixDrawer.ts): corregir `CC 1/2/3/4/11` y cargar las 131 etiquetas `3000..3130` con `i18n` EN/ES.
+- [x] **`AXM.1C` (Ola 1 — Desbloqueo de Escalas `LFO`, `Pan`, `Slicer` y `Voces`)** · Repos: `ABDAxionikVS`, `ABDShared` · Modelo: **`gemini-3.8-flash-high`** o **`gemini-4-argon-low`**
+  - Separar `getSlotRaw()` vs `getSlotNorm()` en [`DspEngineFacade.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/DspEngineFacade.h#L303-L308), arreglar `LFORate [258]` (`0..20 Hz`), `SoundPan [3]`, `SoundPanKeyTrack [4]`, `SlicerRate [269]` (`0..20 Hz` lineal), subir `kMaxSynthVoices = 32` y respetar `SoundNumVoices [5]` (`1..32`).
+- [x] **`AXM.2A` (Ola 2 — Curvas Exactas `Translator.cpp`, `4L4T`, `VelocityDepth` y `SampleRate`)** · Repos: `ABDAxionikVS`, `ABDShared` · Modelos: **`gemini-4-carbon-high`** + **`gemini-4-carbon-medium`**
+  - Unificar curvas ADSR `20 s` (`f³`, `f²`, `2s-s²`), `R1/R2Volume` (`v²`), puertas `Contour`, eliminar doble `velocity_` en [`DspNeuronEnvelope.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspCore/DspNeuronEnvelope.h), implementar `4L4T [242..254]`, apagar volcado RT `engineState_` e inyectar `sampleRate` + `Reset()` Mac `1.56` en filtros/efectos clásicos.
+- [x] **`AXM.2B` (Ola 2 — Desacople `Parset 0..9`, Cabeceras `OS15`, Matriz C++ `3000..3130` y Parámetros Muertos)** · Repos: `ABDAxionikVS`, `ABDShared` · Modelos: **`gemini-4-argon-high`** + **`gemini-4-argon-medium`**
+  - Desacoplado selector UI `R1Type / R2Type` de los algoritmos `Parset 0..9` en `voicePool_.updateVoiceParset()` con accessors dedicados `getResynatorParset() / setResynatorParset()`.
+  - Soportada resolución dinámica `csAN.resolution` (84..2047 muestras/ciclo) y bit de One-Shot (`flags & 1`) en `CurveReader` ([`NeuronOscillators.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspCore/NeuronVS/NeuronOscillators.h)).
+  - Mapeada la tabla canónica de 130 destinos `3001..3130` (`kFreeDestToParamId[131]`) en [`ParameterEngineBridge.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/ParameterEngineBridge.h) y [`.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/ParameterEngineBridge.cpp), conectando correctamente los grupos continuos Aftertouch, Controllers 1 Up/Down, 2, 3, 4 con re-cálculo automático tanto en destinos clásicos (0..62) como en parámetros extendidos.
+  - Implementado CC 64 Sustain Pedal y CC 67 FootSwitch en `DspEngineFacade`, `PluginProcessor.cpp` y `wasm/WasmBridge.cpp`.
+  - Añadido `Test 27` en [`DspEngineFacadeTests.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/tests/DspEngineFacadeTests.cpp) validando desacople de parset, modulación 3000..3130, sustain pedal y curve reader dinámico (27/27 tests pasando, GoldenParityTest --zones y --matrix en verde, ParameterGestureTests OK, 149/149 vitest pasando).
+- [x] **`AXM.2C` (Ola 2 — Cableado Real de los Parámetros de Calibración / Magic Numbers)** · Repos: `ABDAxionikVS`, `ABDShared` · Modelo: **`gemini-3.8-flash-high`**
+  - Creada cabecera centralizada [`NeuronCalibration.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspCore/NeuronVS/NeuronCalibration.h) con los 43 parámetros de calibración DSP en `abd::dsp::neuron::NeuronCalibrationConfig` y heredada en [`AxionikCalibrationConfig.h`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/Source/DSP/AxionikCalibrationConfig.h).
+  - Propagación en tiempo real sin asignaciones dinámicas a todos los subsistemas: `NeuronVoicePool`, `NeuronVoice`, `CResynator`, `ResynatorLayer`, `CurveReader`, `BandReader`, `SphereBodyTable`, `DspNeuronEnvelope`, `Neuron4L4TEnvelope`, `CSilverFilter`, `DspNeuronGlobalSlicer`, `DspNeuronMasterOutputStage`, `DspNeuronMasterTimeFX` y `NeuronBlockPump`.
+  - Cableado y verificado en tiempo real con `DspEngineFacade::syncCalibrationToSubsystems()` y test automatizado `Test 26` en [`DspEngineFacadeTests.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/tests/DspEngineFacadeTests.cpp) (26/26 tests pasando).
+- [x] **`AXM.3A` (Ola 3 — Modo `PLUS`: Filtros ZDF + Efectos Pro Equivalentes)** · Repos: `ABDShared`, `ABDAxionikVS` · Modelo: **`gemini-4-argon-high`**
+  - Implementado filtro multimodo ZDF de voz en [`DspAxionikPlusVoiceFilter.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspAxionikPlusVoiceFilter.h):
+    - Modo 0 (24 dB LP): Moog ladder ZDF de 4 polos con realimentación no lineal `tanh` resuelta sin retardo de lazo (`FilterEquation`).
+    - Modo 1 (12 dB LP): SVF TPT Zavalishin analógico de 2 polos (`FilterTpt` LowPass).
+    - Modo 2 (6 dB LP): Filtro unipolar TPT analógico (`VAOnePoleFilter` LowPass).
+    - Modo 3 (6 dB HP): Filtro unipolar TPT analógico (`VAOnePoleFilter` HighPass).
+    - Modo 4 (Bandpass): SVF TPT Zavalishin analógico de 2 polos (`FilterTpt` BandPass).
+  - Implementado rack Silver y Master Pro equivalente en [`DspAxionikPlusRack.h`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspEffects/DspAxionikPlusRack.h):
+    - FreqFX: MidasEQ + FairComp (Algo 0), Oversampling Distortion (Algo 1), RingMod (Algo 2), DecimDelay (Algo 3), Frequency Shifter Hilbert (Algo 4).
+    - TimeFX: Enhancer (Algo 0), Stereo Delay (Algo 1), Flanger analógico BBD (Algo 2), Phaser4 OTA 6 etapas (Algo 3), Stereo Chorus multidimensional (Algo 4).
+    - MasterFX: Tape Delay analógico con flutter/wobble y FDN Reverb de difusión continua.
+  - Conmutación en tiempo real sin asignaciones dinámicas gobernada por `setEngineMode("plus")` / `setEngineMode("classic")`.
+  - Modo `CLASSIC` 100 % idéntico a la ingeniería inversa de NeuronVS.dll, manteniendo 0 regresiones en paridad bit a bit.
+  - Validado y verificado con `Test 28` en [`DspEngineFacadeTests.cpp`](file:///d:/desarrollos/ABDSynths/ABDAxionikVS/tests/DspEngineFacadeTests.cpp) (28/28 tests OK) y `GoldenParityTest.exe` (`--zones` y `--matrix` exit 0).
+- [x] **`AXM.4A` (Ola 4 — Reparación de `ScapeSphereGenerator.ts` y Unificación DRY)** · Repos: `ABDShared`, `ABDNeuModMakr` · Modelo: **`gemini-4-carbon-low`** o **`gemini-4-argon-high`**
+  - Sintetizar ondas `.scape` y bandas `.sphere` reales desde el análisis espectral en [`ScapeSphereGenerator.ts`](file:///d:/desarrollos/ABDSynths/ABDShared/Code/DspCore/NeuronAnalysis/ScapeSphereGenerator.ts) y eliminar la copia duplicada en `ABDNeuModMakr`. 100% verificado con 48/48 suites de tests pasando en verde.
+- [x] **`AXM.4B` (Ola 4 — Contrato `APVTS [445..478]` + Rediseño `Resynator v2` SIMD/DDSP/Surface 2D)** · Repos: `ABDAxionikVS`, `ABDShared` · Modelos: **`gemini-4-argon-medium`** + **`gemini-4-carbon-high`**
+  - Registrar `[445..478]` en `APVTS`/`WasmBridge` (total 479 parámetros) e implementar banco fasorial de hasta 512 parciales, residuo Bark DDSP de 24 bandas (crossover 4 macro-bandas) + transitorios WAV, `UnifiedSpectralSurface` C++20 RT-safe, modulación continua `morphY` (Sphere $\pm 12$ st + tilt $\pm 6$ dB), y modulación cruzada espectral (RM / Stereo Split) en `Blender`. Verificado con `Test 29` en `DspEngineFacadeTests.cpp` y 17/17 suites Vitest (149/149 tests).
+- [ ] **`AXM.5A` (Ola 5 — Los 8 Nuevos Efectos de `EXPANDED` + Paneles WebUI)** · Repos: `ABDAxionikVS`, `ABDShared` · Modelos: **`gemini-4-argon-medium`** + **`gemini-3.8-flash-high`**
+  - Integrar `DspVocoderBank<24>`, `DspResonator`, `DspMoodFilter`, `DspSolinaEnsemble`, `DspRotarySpeaker`, `DspNimbus`, `DspShimmerDelay` y `MultiHeadEcho` en `EXPANDED` con su UI condicional e `i18n`.
+- [ ] **`AXM.6A` (Ola 6 — Certificación E2E y Sincronización Documental)** · Los 3 repos · Modelos: **`gemini-4-argon-low`** + **`gemini-3.8-flash-low`**
+  - Suites `CTest`/`Vitest` completas para los 3 modos y actualización final de `HANDOFF.md`, `README.md`, `CALIBRATION_PARAMETERS.md`, `DOCS/DSP_MIGRATION_AND_FIXES.md` y `DOCS/UI_INVENTORY_AND_ADAPTATION.md`.
 
 ---

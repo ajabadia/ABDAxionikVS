@@ -490,6 +490,13 @@ public:
         return true;
     }
 
+    /// Retorna el algoritmo Parset (0..9) del modelo cargado en R1 (slot 0) o R2 (slot 1)
+    [[nodiscard]] int getModelParameterSet(int slot) const noexcept {
+        if (slot == 0 && r1Model_) return r1Model_->getParameterSet();
+        if (slot == 1 && r2Model_) return r2Model_->getParameterSet();
+        return 0;
+    }
+
     /// Vuelca las 128 entradas de zona de un modelo sobre la tabla del motor (FUN_100440d0)
     void applyModelToEngine(int slot, const NeuronModel& model, uint32_t* engineState) {
         if (slot < 0 || slot > 1 || engineState == nullptr) return;

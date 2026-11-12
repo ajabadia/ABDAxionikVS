@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <string_view>
+#include "DspCore/NeuronVS/NeuronCalibration.h"
 
 namespace axionik::dsp {
 
@@ -30,74 +31,7 @@ struct CalibrationParamMeta {
  * Every default value matches the exact reverse-engineered constant from
  * NeuronVS.dll / Mac v1.56 so factory sound parity is 100% preserved.
  */
-struct AxionikCalibrationConfig {
-    // -------------------------------------------------------------------------
-    // 1. GENERAL & ENGINE
-    // -------------------------------------------------------------------------
-    float masterVolume          = 0.85f;    // Pre-limiter master output gain
-    float antiPopRampMs         = 2.0f;     // Mac v1.56 anti-pop crossfade ramp (ms)
-    float a4ReferenceHz         = 440.0f;   // MIDI Note 69 pitch reference (Hz)
-    float maxPolyphonyVoices    = 12.0f;    // Maximum simultaneous active voices (1..16)
-    float oracleClipToZeroMode  = 0.0f;     // 0 = Clean Clamp [-1..+1], 1 = Legacy Zero-Clip (0x1000bc40)
-    float lfoMinRateHz          = 0.05f;    // Global LFO minimum rate (Hz)
-    float lfoMaxRateSpanHz      = 24.95f;   // Global LFO frequency span (Hz)
-
-    // -------------------------------------------------------------------------
-    // 2. RESYNATOR (SCAPE & SPHERE)
-    // -------------------------------------------------------------------------
-    float scapeCycleSamples     = 100.0f;   // Canonical samples per Scape oscillator cycle (NeuronVoice.h:60)
-    float scapeMinPeakFloor     = 1500.0f;  // Dynamic peak normalization floor for .scape int16 tables
-    float scapeHfEmphasis       = 2.0f;     // First-order HF emphasis differentiator gain (FUN_100317b0)
-    float sphereGainMin         = 0.15f;    // Minimum formant band gain in Sphere (FUN_10031950)
-    float sphereGainMax         = 1.25f;    // Maximum formant band gain in Sphere (FUN_10031950)
-    float sphereBodyGainScale   = 0.50f;    // 1024-partial additive body table gain scale (FUN_1002e750)
-    float scapeBodyMixRatio     = 0.10f;    // Additive Sphere body mix ratio vs Scape wave (0.10 = 90% Scape / 10% Body)
-    float parsetExcitationScale = 0.65f;    // 3-layer sum headroom scale entering Parset resonator (FUN_1002e7a0)
-    float layer2BaseLevel       = 0.85f;    // Resynator Layer 2 relative base level
-    float layer3BaseLevel       = 0.70f;    // Resynator Layer 3 relative base level
-    float modelSizeOffsetCents  = 50.0f;    // Max pitch offset induced by ModelSizeOffset (cents)
-    float pitchLfoMaxCents      = 100.0f;   // Max vibrato depth from Global LFO on R1/R2 pitch (cents)
-
-    // -------------------------------------------------------------------------
-    // 3. BLENDER & SLICER
-    // -------------------------------------------------------------------------
-    float crossmorphIntermodGain = 0.25f;   // Crossmorph (Mode 3) harmonic intermodulation (s1*s2) gain
-    float intermorphSineGain     = 0.35f;   // Intermorph (Mode 4) differential sine wavefolder gain
-    float dynTranssphereEnvSens  = 0.40f;   // Dyn Transsphere (Mode 5) envelope sensitivity
-    float dynCrossmorphIntermod  = 0.30f;   // Dyn Crossmorph (Mode 6) envelope-controlled intermod gain
-    float ringBlendGain          = 2.20f;   // Ring Blend (Mode 9) ring modulation (s1*s2) gain
-    float slicerMaxDelaySamples  = 2500.0f; // Global 3D Slicer maximum comb delay (samples, _DAT_1030b3c4)
-
-    // -------------------------------------------------------------------------
-    // 4. SHAPERS & ENVELOPES
-    // -------------------------------------------------------------------------
-    float envMaxTimeSeconds       = 20.0f;   // Maximum ADSR stage duration at norm=1.0 (FUN_10040550)
-    float envDecayExpRate         = 3.5f;    // RC exponential decay rate constant exp(-rate / samples)
-    float envReleaseExpRate       = 4.6f;    // RC exponential release rate constant (-60dB floor)
-    float envSilenceThreshold     = 0.0005f; // Voice release/decay cutoff threshold
-    float freeEnvCoordModScale    = 0.35f;   // Free 4L/4T Envelope modulation depth on Scape/Sphere X/Y
-    float freeEnvPitchSemitones   = 12.0f;   // Free 4L/4T Envelope max pitch modulation range (semitones)
-
-    // -------------------------------------------------------------------------
-    // 5. SILVER FILTER
-    // -------------------------------------------------------------------------
-    float filterMinCutoffHz       = 20.0f;   // Silver Filter minimum cutoff frequency (Hz)
-    float filterCutoffExpRatio    = 900.0f;  // Silver Filter exponential sweep ratio (20 * ratio^norm)
-    float filterMaxResonance      = 0.95f;   // Silver Filter resonance safety ceiling before runaway
-    float filterLp24FeedbackK     = 2.208f;  // 5-pole 24dB Ladder resonance feedback polynomial K (_DAT_1030a054)
-    float filterLp24PoleGain      = 100.0f;  // 5-pole 24dB Ladder cascade slope multiplier (_DAT_1030a068)
-    float filterSvfMaxHz          = 8820.0f; // 12dB Chamberlin SVF quadratic frequency constant (_DAT_1030a078)
-
-    // -------------------------------------------------------------------------
-    // 6. SILVER & MASTER FX
-    // -------------------------------------------------------------------------
-    float masterInputBusScale     = 0.58f;   // Master Output Stage input headroom scale (_DAT_1030cecc)
-    float masterBassTiltGain      = 5.0f;    // Master Output Stage 2-pole stereo bass boost (_DAT_1030cdf8)
-    float masterTrebleTiltGain    = 3.0f;    // Master Output Stage 2nd-order HF air boost (_DAT_1030cde8)
-    float masterSoftKneeThresh    = 0.40f;   // Master Output soft-knee saturator threshold (FUN_1003b930)
-    float masterSoftKneeRatio     = 0.75f;   // Master Output soft-knee compression ratio (FUN_1003b930)
-    float masterReverbFdnBlend    = 0.55f;   // Master Reverb balance between 8x8 FDN tail and Schroeder early reflections
-
+struct AxionikCalibrationConfig : public abd::dsp::neuron::NeuronCalibrationConfig {
     static constexpr size_t kParamCount = 43;
 
     static const std::array<CalibrationParamMeta, kParamCount>& getRegistry() noexcept {
@@ -114,7 +48,7 @@ struct AxionikCalibrationConfig {
               440.0f, 415.0f, 466.0f, 0.5f, false },
             { "maxPolyphonyVoices", "Max Active Polyphony", "GENERAL & ENGINE", "voices",
               "Límite máximo de voces simultáneas activas antes de aplicar robo de voz a la más antigua.",
-              12.0f, 1.0f, 16.0f, 1.0f, true },
+              32.0f, 1.0f, 32.0f, 1.0f, true },
             { "oracleClipToZeroMode", "Oracle Clip-To-Zero Mode", "GENERAL & ENGINE", "mode",
               "Modo de recorte de bus: 0 = saturación limpia [-1..+1], 1 = comportamiento legado 0x1000bc40 (anula muestras fuera de rango).",
               0.0f, 0.0f, 1.0f, 1.0f, true },
@@ -146,10 +80,10 @@ struct AxionikCalibrationConfig {
               0.50f, 0.0f, 2.00f, 0.05f, false },
             { "scapeBodyMixRatio", "Sphere Additive Body Mix Ratio", "RESYNATOR (SCAPE & SPHERE)", "ratio",
               "Proporción de mezcla de la tabla de cuerpo aditivo Sphere frente a la onda Scape por capa.",
-              0.10f, 0.0f, 0.50f, 0.01f, false },
+              0.08f, 0.0f, 0.50f, 0.01f, false },
             { "parsetExcitationScale", "Parset 3-Layer Excitation Scale", "RESYNATOR (SCAPE & SPHERE)", "x",
               "Factor de headroom al sumar las 3 capas (L1+L2+L3) antes de entrar al resonador Parset (FUN_1002e7a0).",
-              0.65f, 0.15f, 1.50f, 0.05f, false },
+              0.55f, 0.15f, 1.50f, 0.05f, false },
             { "layer2BaseLevel", "Resynator Layer 2 Base Level", "RESYNATOR (SCAPE & SPHERE)", "x",
               "Nivel base relativo de la segunda capa armónica (L2) en cada Resynator.",
               0.85f, 0.0f, 1.50f, 0.05f, false },

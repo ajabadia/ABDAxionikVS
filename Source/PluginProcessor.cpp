@@ -28,6 +28,9 @@ juce::String paramGroupDisplayName(std::string_view groupId) {
         { "R1",          "Resynator 1" },
         { "R2",          "Resynator 2" },
         { "SoundMFX",    "Master FX" },
+        { "R1V2",        "Resynator 1 v2" },
+        { "R2V2",        "Resynator 2 v2" },
+        { "ExpandedFX",  "Expanded FX" },
     };
 
     for (const auto& entry : kLabels)
@@ -331,8 +334,12 @@ void AxionikProcessor::setMidiController(int ccNum, float ccVal) {
         dspEngine_.setModulationSource(2, ccVal);
     } else if (ccNum == kMidiCCCO3) {
         dspEngine_.setModulationSource(3, ccVal);
-    } else if (ccNum == kMidiCCFoot || ccNum == 64) {
+    } else if (ccNum == kMidiCCFoot) {
         dspEngine_.setModulationSource(4, ccVal);
+    } else if (ccNum == 64) {
+        dspEngine_.setSustainPedal(ccVal >= 0.5f);
+    } else if (ccNum == 67) {
+        dspEngine_.handleFootSwitch(ccVal >= 0.5f);
     } else if (ccNum == kMidiCCExpression) {
         dspEngine_.setModulationSource(5, ccVal);
     }
@@ -447,7 +454,7 @@ void AxionikProcessor::handleMidiEvent(const juce::MidiMessage& msg) {
             if (!consumed) {
                 setMidiController(ccNum, ccNorm);
             } else if (ccNum == kMidiCCModulation || ccNum == kMidiCCBreath || ccNum == kMidiCCCO3 ||
-                       ccNum == kMidiCCFoot || ccNum == 64 || ccNum == kMidiCCExpression) {
+                       ccNum == kMidiCCFoot || ccNum == 64 || ccNum == 67 || ccNum == kMidiCCExpression) {
                 // Keep real-time performance modulation sources alive even when also used as a MIDI Learn Macro
                 setMidiController(ccNum, ccNorm);
             }

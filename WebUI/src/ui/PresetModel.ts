@@ -124,7 +124,12 @@ export interface AxionikPresetModelRef {
 
 /** Numero total de parametros del snapshot clasico (indices 0..444). */
 export const AXIONIK_PARAMETER_COUNT = 445;
+/** Numero total de parametros incluyendo la extension EXPANDED v2 (indices 0..478). */
+export const AXIONIK_EXPANDED_PARAMETER_COUNT = 479;
+/** Indice maximo de un preset clasico (legacy). */
 const MAX_PARAMETER_INDEX = AXIONIK_PARAMETER_COUNT - 1;
+/** Indice maximo de un preset EXPANDED (incluye FX rack [445..478]). */
+const MAX_EXPANDED_PARAMETER_INDEX = AXIONIK_EXPANDED_PARAMETER_COUNT - 1;
 
 /** Los 9 moldeadores fisicos/espectrales del Resynator v2 (`AxionikResonatorShapers`). */
 export interface AxionikResynatorShapersState {
@@ -160,6 +165,40 @@ export function createDefaultResynatorShapers(): AxionikResynatorShapersState {
   return { ...AXIONIK_RESYNATOR_SHAPERS_DEFAULTS };
 }
 
+/**
+ * Estado del rack de efectos expandido (parámetros [463..478]).
+ * Se persiste en `extendedState.expandedFx` cuando `engineMode === 'extended'`.
+ *
+ * Mapeado de índices APVTS:
+ *  - freqFxAlg       → [463]  FreqFX algorithm (0..7)
+ *  - freqFxMacros    → [464..467]
+ *  - timeFxAlg       → [468]  TimeFX algorithm (0..7)
+ *  - timeFxMacros    → [469..472]
+ *  - masterDelayAlg  → [473]  MasterDelay algorithm (0..2)
+ *  - masterRevAlg    → [474]  MasterReverb algorithm (0..1)
+ *  - masterFxMacros  → [475..478]
+ */
+export interface AxionikExpandedFxState {
+  freqFxAlg: number;
+  freqFxMacros: [number, number, number, number];
+  timeFxAlg: number;
+  timeFxMacros: [number, number, number, number];
+  masterDelayAlg: number;
+  masterRevAlg: number;
+  masterFxMacros: [number, number, number, number];
+}
+
+/** Valores por defecto seguros para el rack EXPANDED (todos a 0, macros a 0.5). */
+export const AXIONIK_EXPANDED_FX_DEFAULTS: Readonly<AxionikExpandedFxState> = Object.freeze({
+  freqFxAlg: 0,
+  freqFxMacros: [0.5, 0.5, 0.5, 0.5],
+  timeFxAlg: 0,
+  timeFxMacros: [0.5, 0.5, 0.5, 0.5],
+  masterDelayAlg: 0,
+  masterRevAlg: 0,
+  masterFxMacros: [0.5, 0.5, 0.5, 0.5],
+});
+
 /** Sincronizacion de tempo del modelo extendido. */
 export interface AxionikTempoSyncState {
   enabled: boolean;
@@ -183,6 +222,8 @@ export interface AxionikExtendedState {
     r1?: Record<string, unknown> | null;
     r2?: Record<string, unknown> | null;
   };
+  /** Estado del rack de efectos EXPANDED ([463..478]). Solo en engineMode='extended'. */
+  expandedFx?: AxionikExpandedFxState;
   extra?: Record<string, unknown>;
 }
 
@@ -197,12 +238,15 @@ export interface ExtendedStateSaveInput {
     r1?: Record<string, unknown> | null;
     r2?: Record<string, unknown> | null;
   };
+  /** Estado del rack de efectos EXPANDED. Si se omite, se usan los defaults seguros. */
+  expandedFx?: AxionikExpandedFxState | null;
 }
 
 /**
  * Compone el `extendedState` que se persiste al guardar un preset extendido.
  * Si el host no ha reportado shapers, completa con los defaults seguros del
  * motor; asi el preset siempre contiene los 9 valores de cada Resynator v2.
+ * Si no se pasa `expandedFx`, se persisten los defaults del rack EXPANDED.
  */
 export function createExtendedStateForSave({
   r1ModelName,
@@ -212,6 +256,7 @@ export function createExtendedStateForSave({
   r1Shapers,
   r2Shapers,
   embeddedModel,
+  expandedFx,
 }: ExtendedStateSaveInput): AxionikExtendedState {
   return {
     schemaVersion: '2.0.0',
@@ -222,6 +267,7 @@ export function createExtendedStateForSave({
     r1Shapers: { ...createDefaultResynatorShapers(), ...(r1Shapers ?? {}) },
     r2Shapers: { ...createDefaultResynatorShapers(), ...(r2Shapers ?? {}) },
     ...(embeddedModel ? { embeddedModel } : {}),
+    expandedFx: expandedFx ?? { ...AXIONIK_EXPANDED_FX_DEFAULTS, freqFxMacros: [...AXIONIK_EXPANDED_FX_DEFAULTS.freqFxMacros], timeFxMacros: [...AXIONIK_EXPANDED_FX_DEFAULTS.timeFxMacros], masterFxMacros: [...AXIONIK_EXPANDED_FX_DEFAULTS.masterFxMacros] },
   };
 }
 
@@ -261,16 +307,20 @@ export function isAxionikPreset(value: unknown): value is AxionikPreset {
  * - Si `payload.parameters` es un array [v0..v444] => mapea por indice (legacy serializado).
  * - Si es un objeto { 0: v, 1: v, ... } => se usa tal cual.
  * - Cualquier otro objeto se somete a un filtrado seguro por clave numerica.
+ *
+ * Para presets EXPANDED, se aceptan indices hasta 478 (MAX_EXPANDED_PARAMETER_INDEX).
+ * Para presets legacy/classic, el limite es 444 (MAX_PARAMETER_INDEX).
  */
-function normalizeParameters(payload: unknown): Record<number, number> {
+function normalizeParameters(payload: unknown, allowExpanded = false): Record<number, number> {
   const params = payload as Record<string, unknown> | undefined;
   const raw = params?.parameters ?? payload;
+  const maxIdx = allowExpanded ? MAX_EXPANDED_PARAMETER_INDEX : MAX_PARAMETER_INDEX;
 
   if (raw === undefined || raw === null) return {};
 
   if (Array.isArray(raw)) {
     const out: Record<number, number> = {};
-    for (let i = 0; i < raw.length && i <= MAX_PARAMETER_INDEX; i++) {
+    for (let i = 0; i < raw.length && i <= maxIdx; i++) {
       const v = raw[i];
       // Solo aceptan números finitos: NaN e Infinity son descartados explícitamente
       // para que un JSON corrupto no llegue al pipeline DSP.
@@ -284,7 +334,7 @@ function normalizeParameters(payload: unknown): Record<number, number> {
     const out: Record<number, number> = {};
     for (const [k, v] of Object.entries(raw)) {
       const idx = Number(k);
-      if (Number.isInteger(idx) && idx >= 0 && idx <= MAX_PARAMETER_INDEX && Number.isFinite(v as number)) {
+      if (Number.isInteger(idx) && idx >= 0 && idx <= maxIdx && Number.isFinite(v as number)) {
         out[idx] = v as number;
       }
       // NaN/Infinity ya son descartados por Number.isFinite; cualquier otro tipo se ignora.
@@ -428,6 +478,48 @@ export function sanitizeResynatorShapers(value: unknown): Partial<AxionikResynat
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+/**
+ * Sanitiza un bloque `expandedFx` procedente de JSON.
+ * - Valida los 3 algoritmos (enteros >= 0).
+ * - Valida las 3 tuplas de macros (4 números finitos cada una).
+ * - Devuelve los defaults seguros si el bloque es inválido o incompleto.
+ */
+export function sanitizeExpandedFx(value: unknown): AxionikExpandedFxState | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+
+  function safeAlg(v: unknown, max: number): number | undefined {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
+    const n = Math.trunc(v);
+    return n >= 0 && n <= max ? n : undefined;
+  }
+
+  function safeMacroTuple(v: unknown): [number, number, number, number] | undefined {
+    if (!Array.isArray(v) || v.length !== 4) return undefined;
+    const result = v.map((x) => (typeof x === 'number' && Number.isFinite(x) ? x : 0.5));
+    return result as [number, number, number, number];
+  }
+
+  const freqFxAlg = safeAlg(raw.freqFxAlg, 7);
+  const timeFxAlg = safeAlg(raw.timeFxAlg, 7);
+  const masterDelayAlg = safeAlg(raw.masterDelayAlg, 2);
+  const masterRevAlg = safeAlg(raw.masterRevAlg, 1);
+
+  if (freqFxAlg === undefined || timeFxAlg === undefined || masterDelayAlg === undefined || masterRevAlg === undefined) {
+    return undefined;
+  }
+
+  return {
+    freqFxAlg,
+    freqFxMacros: safeMacroTuple(raw.freqFxMacros) ?? [0.5, 0.5, 0.5, 0.5],
+    timeFxAlg,
+    timeFxMacros: safeMacroTuple(raw.timeFxMacros) ?? [0.5, 0.5, 0.5, 0.5],
+    masterDelayAlg,
+    masterRevAlg,
+    masterFxMacros: safeMacroTuple(raw.masterFxMacros) ?? [0.5, 0.5, 0.5, 0.5],
+  };
+}
+
 /** Normaliza el bloque de tempoSync, descartando BPMs no finitos. */
 function sanitizeTempoSync(value: unknown): AxionikTempoSyncState | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
@@ -475,6 +567,9 @@ export function sanitizeExtendedState(value: unknown): AxionikExtendedState | un
   const tempoSync = sanitizeTempoSync(raw.tempoSync);
   if (tempoSync) state.tempoSync = tempoSync;
 
+  const expandedFx = sanitizeExpandedFx(raw.expandedFx);
+  if (expandedFx) state.expandedFx = expandedFx;
+
   if (typeof raw.extra === 'object' && raw.extra !== null && !Array.isArray(raw.extra)) {
     state.extra = raw.extra as Record<string, unknown>;
   }
@@ -485,9 +580,11 @@ export function sanitizeExtendedState(value: unknown): AxionikExtendedState | un
 /**
  * Normaliza un objeto ya parseado a AxionikPreset, sin reformatear datos numericos.
  * Solo asegura que el objeto cumple el contrato getTypeScript para esto.
+ * Para presets `extended`, se permiten indices hasta 478 en `parameters`.
  */
 function sanitizeAxionikPreset(v: Record<string, unknown>): AxionikPreset {
-  const params = normalizeParameters(v);
+  const isExtended = v.engineMode === 'extended' || v.engineMode === 'expanded';
+  const params = normalizeParameters(v, isExtended);
   const metaVal = v.meta as Record<string, unknown> | undefined;
   const meta: AxionikPresetMeta = {
     name: typeof metaVal?.name === 'string' ? metaVal.name : 'Untitled',
@@ -524,7 +621,7 @@ function sanitizeAxionikPreset(v: Record<string, unknown>): AxionikPreset {
     r2ModelName: typeof res2.name === 'string' ? res2.name : 'Unknown',
     engineMode: v.engineMode === 'expanded' ? 'extended' : (v.engineMode === 'classic' || v.engineMode === 'plus' || v.engineMode === 'extended' || v.engineMode === 'legacy' ? v.engineMode : 'legacy'),
     meta,
-    extendedState: v.extendedState as AxionikPreset['extendedState'],
+    extendedState: sanitizeExtendedState(v.extendedState),
   });
 }
 

@@ -23,6 +23,15 @@ export interface SilverPanelOptions {
 export const FREQ_ALGO_NAMES = ['EQ/Comp', 'Distortion', 'RingMod', 'Decimator', 'Sp-Warp'];
 export const TIME_ALGO_NAMES = ['St.Spread', 'L/R Delay', 'Flanger', 'Phaser', 'Chorus'];
 
+export const EXPANDED_FREQ_ALGO_NAMES = [
+  'EQ/Comp', 'Distortion', 'RingMod', 'Decimator', 'Sp-Warp',
+  'Vocoder', 'Resonator', 'MoodFilter'
+];
+export const EXPANDED_TIME_ALGO_NAMES = [
+  'St.Spread', 'L/R Delay', 'Flanger', 'Phaser', 'Chorus',
+  'Solina', 'Rotary', 'Nimbus'
+];
+
 export class SilverPanel {
   private container: HTMLElement;
   private options: SilverPanelOptions;
@@ -31,6 +40,7 @@ export class SilverPanel {
   /** Gesto abierto por el arrastre en curso del stick Silver (X e Y). */
   private silverStickGesture: ParamGestureHandlers | null = null;
   private currentSilverLevel: number = 0; // 0: Filter, 1: Freq FX, 2: Time FX
+  private engineMode: 'classic' | 'plus' | 'expanded' = 'expanded';
 
   // Slicer Hardware controls
   private depthKnob: Knob | null = null;
@@ -43,16 +53,30 @@ export class SilverPanel {
     this.render();
   }
 
-  private render(): void {
-    const curFreqIdx = Math.max(0, Math.min(FREQ_ALGO_NAMES.length - 1, Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 2))));
-    const curTimeIdx = Math.max(0, Math.min(TIME_ALGO_NAMES.length - 1, Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 4))));
+  private getFreqAlgoList(): readonly string[] {
+    return this.engineMode === 'expanded' ? EXPANDED_FREQ_ALGO_NAMES : FREQ_ALGO_NAMES;
+  }
 
-    const freqPillsHtml = FREQ_ALGO_NAMES.map((name, idx) => {
+  private getTimeAlgoList(): readonly string[] {
+    return this.engineMode === 'expanded' ? EXPANDED_TIME_ALGO_NAMES : TIME_ALGO_NAMES;
+  }
+
+  private render(): void {
+    const freqList = this.getFreqAlgoList();
+    const timeList = this.getTimeAlgoList();
+
+    const curFreqParam = this.engineMode === 'expanded' ? ParamIdx.Exp_FreqFXAlg : ParamIdx.CurFreqFX;
+    const curTimeParam = this.engineMode === 'expanded' ? ParamIdx.Exp_TimeFXAlg : ParamIdx.CurTimeFX;
+
+    const curFreqIdx = Math.max(0, Math.min(freqList.length - 1, Math.round(WebBridge.getParam(curFreqParam, 2))));
+    const curTimeIdx = Math.max(0, Math.min(timeList.length - 1, Math.round(WebBridge.getParam(curTimeParam, 4))));
+
+    const freqPillsHtml = freqList.map((name, idx) => {
       const isCur = idx === curFreqIdx;
       return `<button type="button" class="btn btn-xs ${isCur ? 'btn-primary active' : 'btn-outline'}" data-freq-idx="${idx}" title="Select Frequency FX: ${name}">${name}</button>`;
     }).join('');
 
-    const timePillsHtml = TIME_ALGO_NAMES.map((name, idx) => {
+    const timePillsHtml = timeList.map((name, idx) => {
       const isCur = idx === curTimeIdx;
       return `<button type="button" class="btn btn-xs ${isCur ? 'btn-primary active' : 'btn-outline'}" data-time-idx="${idx}" title="Select Time FX: ${name}">${name}</button>`;
     }).join('');
@@ -210,8 +234,54 @@ export class SilverPanel {
     this.updateSilver();
   }
 
+  public setEngineMode(mode: 'classic' | 'plus' | 'expanded'): void {
+    this.engineMode = mode;
+    const freqList = this.getFreqAlgoList();
+    const timeList = this.getTimeAlgoList();
+
+    const freqMount = this.rootEl?.querySelector('#silver-freq-pills');
+    if (freqMount) {
+      const curFreqParam = mode === 'expanded' ? ParamIdx.Exp_FreqFXAlg : ParamIdx.CurFreqFX;
+      const curFreqIdx = Math.max(0, Math.min(freqList.length - 1, Math.round(WebBridge.getParam(curFreqParam, 2))));
+      freqMount.innerHTML = freqList.map((name, idx) => {
+        const isCur = idx === curFreqIdx;
+        return `<button type="button" class="btn btn-xs ${isCur ? 'btn-primary active' : 'btn-outline'}" data-freq-idx="${idx}" title="Select Frequency FX: ${name}">${name}</button>`;
+      }).join('');
+      freqMount.querySelectorAll('button[data-freq-idx]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          const target = e.currentTarget as HTMLElement;
+          const idx = parseInt(target.getAttribute('data-freq-idx') || '0', 10);
+          this.selectFreqAlgo(idx);
+        });
+      });
+    }
+
+    const timeMount = this.rootEl?.querySelector('#silver-time-pills');
+    if (timeMount) {
+      const curTimeParam = mode === 'expanded' ? ParamIdx.Exp_TimeFXAlg : ParamIdx.CurTimeFX;
+      const curTimeIdx = Math.max(0, Math.min(timeList.length - 1, Math.round(WebBridge.getParam(curTimeParam, 4))));
+      timeMount.innerHTML = timeList.map((name, idx) => {
+        const isCur = idx === curTimeIdx;
+        return `<button type="button" class="btn btn-xs ${isCur ? 'btn-primary active' : 'btn-outline'}" data-time-idx="${idx}" title="Select Time FX: ${name}">${name}</button>`;
+      }).join('');
+      timeMount.querySelectorAll('button[data-time-idx]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          const target = e.currentTarget as HTMLElement;
+          const idx = parseInt(target.getAttribute('data-time-idx') || '0', 10);
+          this.selectTimeAlgo(idx);
+        });
+      });
+    }
+
+    this.updateStickLabelsForCurrentLevel();
+  }
+
   private getFreqStickLabels(): StickLabels {
-    const curFreqFx = Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0));
+    const isExp = this.engineMode === 'expanded';
+    const curFreqFx = isExp
+      ? Math.round(WebBridge.getParam(ParamIdx.Exp_FreqFXAlg, 0))
+      : Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0));
+
     if (curFreqFx === 2) {
       // RingMod: ModFreq X, Mix Y
       return { north: '▲ MIX +', south: '▼ MIX -', west: '◀ FREQ -', east: 'FREQ + ▶' };
@@ -221,18 +291,40 @@ export class SilverPanel {
     } else if (curFreqFx === 3) {
       // Decimator: SHFactor X, Mix Y
       return { north: '▲ MIX +', south: '▼ MIX -', west: '◀ S&H -', east: 'S&H + ▶' };
+    } else if (curFreqFx === 5) {
+      // Vocoder: Formant X, Mix Y
+      return { north: '▲ MIX +', south: '▼ MIX -', west: '◀ FORM -', east: 'FORM + ▶' };
+    } else if (curFreqFx === 6) {
+      // Resonator: Freq X, Reso Y
+      return { north: '▲ RESO +', south: '▼ RESO -', west: '◀ FREQ -', east: 'FREQ + ▶' };
+    } else if (curFreqFx === 7) {
+      // MoodFilter: Cutoff X, Reso Y
+      return { north: '▲ RESO +', south: '▼ RESO -', west: '◀ CUT -', east: 'CUT + ▶' };
     }
     return { north: '▲ PAR 2 +', south: '▼ PAR 2 -', west: '◀ PAR 1 -', east: 'PAR 1 + ▶' };
   }
 
   private getTimeStickLabels(): StickLabels {
-    const curTimeFx = Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 0));
+    const isExp = this.engineMode === 'expanded';
+    const curTimeFx = isExp
+      ? Math.round(WebBridge.getParam(ParamIdx.Exp_TimeFXAlg, 0))
+      : Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 0));
+
     if (curTimeFx === 1) {
       // LR Delay: Mix X, Feedback Y
       return { north: '▲ FDBK +', south: '▼ FDBK -', west: '◀ TIME -', east: 'TIME + ▶' };
     } else if (curTimeFx === 4) {
       // Chorus: Mix X, Depth Y
       return { north: '▲ DEP +', south: '▼ DEP -', west: '◀ MIX -', east: 'MIX + ▶' };
+    } else if (curTimeFx === 5) {
+      // Solina: Rate X, Depth Y
+      return { north: '▲ DEP +', south: '▼ DEP -', west: '◀ RATE -', east: 'RATE + ▶' };
+    } else if (curTimeFx === 6) {
+      // Rotary: Speed X, Balance Y
+      return { north: '▲ BAL +', south: '▼ BAL -', west: '◀ SPD -', east: 'SPD + ▶' };
+    } else if (curTimeFx === 7) {
+      // Nimbus: Density X, Pitch Y
+      return { north: '▲ PITCH +', south: '▼ PITCH -', west: '◀ DENS -', east: 'DENS + ▶' };
     }
     return { north: '▲ PAR 2 +', south: '▼ PAR 2 -', west: '◀ PAR 1 -', east: 'PAR 1 + ▶' };
   }
@@ -254,10 +346,18 @@ export class SilverPanel {
   }
 
   public selectFreqAlgo(idx: number): void {
-    const safeIdx = Math.max(0, Math.min(FREQ_ALGO_NAMES.length - 1, idx));
+    const list = this.getFreqAlgoList();
+    const safeIdx = Math.max(0, Math.min(list.length - 1, idx));
     WebBridge.setParam(ParamIdx.SilverSwitch, 1);
     WebBridge.setParam(ParamIdx.FreqFXSwitch, 1);
-    WebBridge.setParam(ParamIdx.CurFreqFX, safeIdx);
+    if (this.engineMode === 'expanded') {
+      WebBridge.setParam(ParamIdx.Exp_FreqFXAlg, safeIdx);
+      if (safeIdx < 5) {
+        WebBridge.setParam(ParamIdx.CurFreqFX, safeIdx);
+      }
+    } else {
+      WebBridge.setParam(ParamIdx.CurFreqFX, safeIdx);
+    }
     this.updateSilverToggle(true);
     this.updateFreqAlgoUi(safeIdx);
     if (this.silverStick) {
@@ -270,10 +370,18 @@ export class SilverPanel {
   }
 
   public selectTimeAlgo(idx: number): void {
-    const safeIdx = Math.max(0, Math.min(TIME_ALGO_NAMES.length - 1, idx));
+    const list = this.getTimeAlgoList();
+    const safeIdx = Math.max(0, Math.min(list.length - 1, idx));
     WebBridge.setParam(ParamIdx.SilverSwitch, 1);
     WebBridge.setParam(ParamIdx.TimeFXSwitch, 1);
-    WebBridge.setParam(ParamIdx.CurTimeFX, safeIdx);
+    if (this.engineMode === 'expanded') {
+      WebBridge.setParam(ParamIdx.Exp_TimeFXAlg, safeIdx);
+      if (safeIdx < 5) {
+        WebBridge.setParam(ParamIdx.CurTimeFX, safeIdx);
+      }
+    } else {
+      WebBridge.setParam(ParamIdx.CurTimeFX, safeIdx);
+    }
     this.updateSilverToggle(true);
     this.updateTimeAlgoUi(safeIdx);
     if (this.silverStick) {
@@ -317,16 +425,30 @@ export class SilverPanel {
     }
     if (layerIdx === 1) {
       // Frequency FX mode
-      const curFreqFx = Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0));
+      const isExp = this.engineMode === 'expanded';
+      const curFreqFx = isExp
+        ? Math.round(WebBridge.getParam(ParamIdx.Exp_FreqFXAlg, 0))
+        : Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0));
+
       if (curFreqFx === 2) return [314, 310]; // RingMod: RM_ModFreq, RM_Mix
       if (curFreqFx === 1) return [306, 307]; // Distortion: DS_InGain, DS_PreFilter
       if (curFreqFx === 3) return [325, 324]; // Decimator: DC_SHFactor, DC_Mix
+      if (curFreqFx === 5) return [ParamIdx.Exp_FreqFXMacro1, ParamIdx.Exp_FreqFXMacro4]; // Vocoder: Formant X, Mix Y
+      if (curFreqFx === 6) return [ParamIdx.Exp_FreqFXMacro1, ParamIdx.Exp_FreqFXMacro2]; // Resonator: Freq X, Reso Y
+      if (curFreqFx === 7) return [ParamIdx.Exp_FreqFXMacro1, ParamIdx.Exp_FreqFXMacro2]; // MoodFilter: Cutoff X, Reso Y
       return null;
     }
     // Time FX mode
-    const curTimeFx = Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 0));
+    const isExp = this.engineMode === 'expanded';
+    const curTimeFx = isExp
+      ? Math.round(WebBridge.getParam(ParamIdx.Exp_TimeFXAlg, 0))
+      : Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 0));
+
     if (curTimeFx === 1) return [333, 336]; // LR Delay: DL_Mix, DL_Feedback
     if (curTimeFx === 4) return [352, 353]; // Chorus: CH_Mix, CH_Depth
+    if (curTimeFx === 5) return [ParamIdx.Exp_TimeFXMacro1, ParamIdx.Exp_TimeFXMacro2]; // Solina: Rate X, Depth Y
+    if (curTimeFx === 6) return [ParamIdx.Exp_TimeFXMacro1, ParamIdx.Exp_TimeFXMacro2]; // Rotary: Speed X, Balance Y
+    if (curTimeFx === 7) return [ParamIdx.Exp_TimeFXMacro2, ParamIdx.Exp_TimeFXMacro3]; // Nimbus: Density X, Pitch Y
     return null;
   }
 

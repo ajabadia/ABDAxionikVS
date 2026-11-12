@@ -19,11 +19,11 @@ import { gestureFor } from './paramGesture.js';
 import { MultiStageShaperPad } from './MultiStageShaperPad.js';
 
 export const REVERB_ROOMS = [
-  { id: 0, name: 'Hall' },
+  { id: 0, name: 'Small Room' },
   { id: 1, name: 'Plate' },
-  { id: 2, name: 'Room' },
-  { id: 3, name: 'Chamber' },
-  { id: 4, name: 'Ambience' },
+  { id: 2, name: 'Medium Room' },
+  { id: 3, name: 'Hall 1' },
+  { id: 4, name: 'Hall 2' },
 ];
 
 export type EffectsDrawerBlock = 'filter' | 'silver' | 'master' | 'all';
@@ -52,13 +52,20 @@ export class EffectsDrawer {
     const curFEnvDepth = Math.round(WebBridge.getParam(ParamIdx.FilterEnvDepth, 0));
     const curFEnvTrigVel = Math.round(WebBridge.getParam(ParamIdx.FilterEnvVelocityDepth, 0));
 
+    const engineMode = (WebBridge.getUIState('engineMode') as 'classic' | 'plus' | 'expanded') || 'expanded';
+    const isExpanded = engineMode === 'expanded';
+
     const curFreqEnable = Math.round(WebBridge.getParam(ParamIdx.FreqFXSwitch, 0)) !== 0;
-    const curFreqAlgo = Math.max(0, Math.min(4, Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0))));
+    const curFreqAlgo = isExpanded
+      ? Math.max(0, Math.min(7, Math.round(WebBridge.getParam(ParamIdx.Exp_FreqFXAlg, 0))))
+      : Math.max(0, Math.min(4, Math.round(WebBridge.getParam(ParamIdx.CurFreqFX, 0))));
 
     const curTimeEnable = Math.round(WebBridge.getParam(ParamIdx.TimeFXSwitch, 0)) !== 0;
-    const curTimeAlgo = Math.max(0, Math.min(4, Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 0))));
+    const curTimeAlgo = isExpanded
+      ? Math.max(0, Math.min(7, Math.round(WebBridge.getParam(ParamIdx.Exp_TimeFXAlg, 0))))
+      : Math.max(0, Math.min(4, Math.round(WebBridge.getParam(ParamIdx.CurTimeFX, 0))));
 
-    // ── Estado Master FX ([430..444]) ─────────────────────────
+    // ── Estado Master FX ([430..444] + [473..478]) ───────────
     const curMasterOn = Math.round(WebBridge.getParam(ParamIdx.SoundMFXSwitch, 1)) > 0;
     const curDelayOn = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelaySwitch, 1)) > 0;
     const curDelayMix = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelayMix, 35));
@@ -66,6 +73,9 @@ export class EffectsDrawer {
     const curDelayR = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelayRTime, 500));
     const curDelayFb = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelayFeedback, 25));
     const curDelayDamp = Math.round(WebBridge.getParam(ParamIdx.SoundMFXDelayFdbkDamp, 40));
+
+    const curMasterDelayAlgo = isExpanded ? Math.max(0, Math.min(2, Math.round(WebBridge.getParam(ParamIdx.Exp_MasterDelayAlg, 0)))) : 0;
+    const curMasterRevAlgo = isExpanded ? Math.max(0, Math.min(1, Math.round(WebBridge.getParam(ParamIdx.Exp_MasterRevAlg, 0)))) : 0;
 
     const curRevOn = Math.round(WebBridge.getParam(ParamIdx.SoundMFXReverbSwitch, 1)) > 0;
     const curRevMix = Math.round(WebBridge.getParam(ParamIdx.SoundMFXReverbMix, 40));
@@ -111,8 +121,8 @@ export class EffectsDrawer {
       { id: '0', label: '0: LP 24dB' },
       { id: '1', label: '1: LP 12dB' },
       { id: '2', label: '2: LP 6dB' },
-      { id: '3', label: '3: Bandpass' },
-      { id: '4', label: '4: Highpass' },
+      { id: '3', label: '3: Highpass' },
+      { id: '4', label: '4: Bandpass' },
     ];
     const filterTypeHtml = pillSelectorHtml(filterTypeItems, String(curFtype), {
       id: 'silver-ftype-group',
@@ -126,6 +136,11 @@ export class EffectsDrawer {
       { id: '2', label: '2: Ring Modulator' },
       { id: '3', label: '3: Decimator' },
       { id: '4', label: '4: Spectral Warp' },
+      ...(isExpanded ? [
+        { id: '5', label: '5: Vocoder Bank' },
+        { id: '6', label: '6: Modal Resonator' },
+        { id: '7', label: '7: Mood Filter' },
+      ] : []),
     ];
     const freqAlgoHtml = pillSelectorHtml(freqAlgoItems, String(curFreqAlgo), {
       id: 'silver-freqalgo-group',
@@ -139,12 +154,38 @@ export class EffectsDrawer {
       { id: '2', label: '2: Flanger' },
       { id: '3', label: '3: Phaser' },
       { id: '4', label: '4: Chorus' },
+      ...(isExpanded ? [
+        { id: '5', label: '5: Solina Ensemble' },
+        { id: '6', label: '6: Rotary Speaker' },
+        { id: '7', label: '7: Nimbus Granular' },
+      ] : []),
     ];
     const timeAlgoHtml = pillSelectorHtml(timeAlgoItems, String(curTimeAlgo), {
       id: 'silver-timealgo-group',
       size: 'xs',
       attrName: 'data-timealgo',
     });
+
+    const masterDelayAlgoItems = [
+      { id: '0', label: '0: Analog Tape Echo' },
+      { id: '1', label: '1: Shimmer (+1 Oct)' },
+      { id: '2', label: '2: Multi-Head 3-Tap' },
+    ];
+    const masterDelayAlgoHtml = isExpanded ? pillSelectorHtml(masterDelayAlgoItems, String(curMasterDelayAlgo), {
+      id: 'mfx-delay-algo-group',
+      size: 'xs',
+      attrName: 'data-mdelayalgo',
+    }) : '';
+
+    const masterRevAlgoItems = [
+      { id: '0', label: '0: Householder FDN' },
+      { id: '1', label: '1: Zita Studio Reverb' },
+    ];
+    const masterRevAlgoHtml = isExpanded ? pillSelectorHtml(masterRevAlgoItems, String(curMasterRevAlgo), {
+      id: 'mfx-reverb-algo-group',
+      size: 'xs',
+      attrName: 'data-mrevalgo',
+    }) : '';
 
     const renderKnobCell = (mountId: string, valId: string, initialVal: number, unit = '') => `
       <div class="synth-knob-cell">
@@ -306,7 +347,7 @@ export class EffectsDrawer {
                 ${curDelayOn ? 'Active' : 'Bypass'}
               </button>
             </div>
-
+            ${masterDelayAlgoHtml}
             <div style="display: grid; grid-template-columns: repeat(5, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
               ${renderKnobCell('mfx-delay-mix-mount', 'mfx-delay-mix-val', curDelayMix)}
               ${renderKnobCell('mfx-delay-fb-mount', 'mfx-delay-fb-val', curDelayFb)}
@@ -327,7 +368,7 @@ export class EffectsDrawer {
                 ${curRevOn ? 'Active' : 'Bypass'}
               </button>
             </div>
-
+            ${masterRevAlgoHtml}
             <div style="display: flex; gap: 4px; flex-wrap: wrap;">
               ${reverbRoomsHtml}
             </div>
@@ -341,6 +382,24 @@ export class EffectsDrawer {
               ${renderKnobCell('mfx-rev-speed-mount', 'mfx-rev-speed-val', curRevSpeed)}
             </div>
           </div>
+
+          <!-- Card: Expanded Master FX Macros [475..478] -->
+          ${isExpanded ? `
+          <div class="synth-panel-card" style="padding: var(--space-3); background: var(--color-panel-surface); display: flex; flex-direction: column; gap: var(--space-3);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; align-items: center; gap: var(--space-2);">
+                <span class="panel-badge" style="background: var(--color-accent); color: var(--color-bg-base);">EXPANDED MASTER</span>
+                <span class="panel-caption" style="color: var(--color-accent); font-weight: 700;">SHIMMER / MULTI-HEAD & ZITA MACROS ([475..478])</span>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
+              ${renderKnobCell('mfx-exp-m1-mount', 'mfx-exp-m1-val', Math.round(WebBridge.getParam(ParamIdx.Exp_MasterFXMacro1, 64)))}
+              ${renderKnobCell('mfx-exp-m2-mount', 'mfx-exp-m2-val', Math.round(WebBridge.getParam(ParamIdx.Exp_MasterFXMacro2, 64)))}
+              ${renderKnobCell('mfx-exp-m3-mount', 'mfx-exp-m3-val', Math.round(WebBridge.getParam(ParamIdx.Exp_MasterFXMacro3, 64)))}
+              ${renderKnobCell('mfx-exp-m4-mount', 'mfx-exp-m4-val', Math.round(WebBridge.getParam(ParamIdx.Exp_MasterFXMacro4, 64)))}
+            </div>
+          </div>
+          ` : ''}
         </div>
       </div>
     `;
@@ -476,9 +535,10 @@ export class EffectsDrawer {
                   <span class="hud-label" style="font-size: 10px; font-weight: 700; color: var(--color-accent);">LOW SHELF</span>
                   <button type="button" class="btn btn-xs ${lsOn ? 'btn-primary active' : 'btn-outline'}" data-param-toggle="286">${lsOn ? 'Active' : 'Bypass'}</button>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; justify-items: center; width: 100%;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; justify-items: center; width: 100%;">
                   ${renderKnobCell('eq-ls-g-mount', 'eq-ls-g-val', g(287, 0), 'dB')}
                   ${renderKnobCell('eq-ls-f-mount', 'eq-ls-f-val', g(288, 75))}
+                  ${renderKnobCell('eq-ls-s-mount', 'eq-ls-s-val', g(289, 50))}
                 </div>
               </div>
 
@@ -488,9 +548,10 @@ export class EffectsDrawer {
                   <span class="hud-label" style="font-size: 10px; font-weight: 700; color: var(--color-accent);">BAND 1</span>
                   <button type="button" class="btn btn-xs ${b1On ? 'btn-primary active' : 'btn-outline'}" data-param-toggle="290">${b1On ? 'Active' : 'Bypass'}</button>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; justify-items: center; width: 100%;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; justify-items: center; width: 100%;">
                   ${renderKnobCell('eq-b1-g-mount', 'eq-b1-g-val', g(291, 0), 'dB')}
                   ${renderKnobCell('eq-b1-f-mount', 'eq-b1-f-val', g(292, 75))}
+                  ${renderKnobCell('eq-b1-q-mount', 'eq-b1-q-val', g(293, 50))}
                 </div>
               </div>
 
@@ -500,9 +561,10 @@ export class EffectsDrawer {
                   <span class="hud-label" style="font-size: 10px; font-weight: 700; color: var(--color-accent);">BAND 2</span>
                   <button type="button" class="btn btn-xs ${b2On ? 'btn-primary active' : 'btn-outline'}" data-param-toggle="294">${b2On ? 'Active' : 'Bypass'}</button>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; justify-items: center; width: 100%;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; justify-items: center; width: 100%;">
                   ${renderKnobCell('eq-b2-g-mount', 'eq-b2-g-val', g(295, 0), 'dB')}
                   ${renderKnobCell('eq-b2-f-mount', 'eq-b2-f-val', g(296, 75))}
+                  ${renderKnobCell('eq-b2-q-mount', 'eq-b2-q-val', g(297, 50))}
                 </div>
               </div>
 
@@ -512,9 +574,10 @@ export class EffectsDrawer {
                   <span class="hud-label" style="font-size: 10px; font-weight: 700; color: var(--color-accent);">HIGH SHELF</span>
                   <button type="button" class="btn btn-xs ${hsOn ? 'btn-primary active' : 'btn-outline'}" data-param-toggle="298">${hsOn ? 'Active' : 'Bypass'}</button>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; justify-items: center; width: 100%;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; justify-items: center; width: 100%;">
                   ${renderKnobCell('eq-hs-g-mount', 'eq-hs-g-val', g(299, 0), 'dB')}
                   ${renderKnobCell('eq-hs-f-mount', 'eq-hs-f-val', g(300, 75))}
+                  ${renderKnobCell('eq-hs-s-mount', 'eq-hs-s-val', g(301, 50))}
                 </div>
               </div>
             </div>
@@ -538,12 +601,16 @@ export class EffectsDrawer {
 
         initKnob(host, 'eq-ls-g-mount', 'GAIN [287]', g(287, 0), -48, 48, 287, 'eq-ls-g-val', true, 'dB');
         initKnob(host, 'eq-ls-f-mount', 'FREQ [288]', g(288, 75), 0, 127, 288, 'eq-ls-f-val');
+        initKnob(host, 'eq-ls-s-mount', 'SLOPE [289]', g(289, 50), 1, 100, 289, 'eq-ls-s-val');
         initKnob(host, 'eq-b1-g-mount', 'GAIN [291]', g(291, 0), -48, 48, 291, 'eq-b1-g-val', true, 'dB');
         initKnob(host, 'eq-b1-f-mount', 'FREQ [292]', g(292, 75), 0, 127, 292, 'eq-b1-f-val');
+        initKnob(host, 'eq-b1-q-mount', 'Q [293]', g(293, 50), 1, 100, 293, 'eq-b1-q-val');
         initKnob(host, 'eq-b2-g-mount', 'GAIN [295]', g(295, 0), -48, 48, 295, 'eq-b2-g-val', true, 'dB');
         initKnob(host, 'eq-b2-f-mount', 'FREQ [296]', g(296, 75), 0, 127, 296, 'eq-b2-f-val');
+        initKnob(host, 'eq-b2-q-mount', 'Q [297]', g(297, 50), 1, 100, 297, 'eq-b2-q-val');
         initKnob(host, 'eq-hs-g-mount', 'GAIN [299]', g(299, 0), -48, 48, 299, 'eq-hs-g-val', true, 'dB');
         initKnob(host, 'eq-hs-f-mount', 'FREQ [300]', g(300, 75), 0, 127, 300, 'eq-hs-f-val');
+        initKnob(host, 'eq-hs-s-mount', 'SLOPE [301]', g(301, 50), 1, 100, 301, 'eq-hs-s-val');
 
         initKnob(host, 'cr-th-mount', 'THRESH [303]', g(303, -12), -48, 0, 303, 'cr-th-val', false, 'dB');
         initKnob(host, 'cr-og-mount', 'OUT GAIN [304]', g(304, 20), 0, 120, 304, 'cr-og-val');
@@ -564,21 +631,32 @@ export class EffectsDrawer {
         initKnob(host, 'ds-out-mount', 'OUT GAIN [309]', g(309, 64), 0, 127, 309, 'ds-out-val');
       } else if (algo === 2) {
         // Ring Mod [310..317]
+        const rmXoverActive = Math.round(g(315, 0)) > 0;
         host.innerHTML = `
-          <div style="display: grid; grid-template-columns: repeat(6, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
-            ${renderKnobCell('rm-m-mount', 'rm-m-val', g(310, 64))}
-            ${renderKnobCell('rm-f-mount', 'rm-f-val', g(314, 40))}
-            ${renderKnobCell('rm-s-mount', 'rm-s-val', g(311, 50))}
-            ${renderKnobCell('rm-d-mount', 'rm-d-val', g(312, 32))}
-            ${renderKnobCell('rm-x-mount', 'rm-x-val', g(315, 0))}
-            ${renderKnobCell('rm-fb-mount', 'rm-fb-val', g(317, 0))}
+          <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
+              ${renderKnobCell('rm-m-mount', 'rm-m-val', g(310, 64))}
+              ${renderKnobCell('rm-f-mount', 'rm-f-val', g(314, 40))}
+              ${renderKnobCell('rm-w-mount', 'rm-w-val', g(313, 0))}
+              ${renderKnobCell('rm-s-mount', 'rm-s-val', g(311, 50))}
+              ${renderKnobCell('rm-d-mount', 'rm-d-val', g(312, 32))}
+              ${renderKnobCell('rm-xt-mount', 'rm-xt-val', g(316, 0), 'ms')}
+              ${renderKnobCell('rm-fb-mount', 'rm-fb-val', g(317, 0))}
+            </div>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+              <span class="hud-label" style="font-size: 10px;">XOVER DELAY [315]:</span>
+              <button type="button" class="btn btn-xs ${rmXoverActive ? 'btn-primary active' : 'btn-outline'}" data-param-toggle="315">
+                ${rmXoverActive ? 'Active (1)' : 'Bypass (0)'}
+              </button>
+            </div>
           </div>
         `;
         initKnob(host, 'rm-m-mount', 'MIX [310]', g(310, 64), 0, 127, 310, 'rm-m-val');
         initKnob(host, 'rm-f-mount', 'MOD FREQ [314]', g(314, 40), 0, 127, 314, 'rm-f-val');
+        initKnob(host, 'rm-w-mount', 'WAVE [313]', g(313, 0), 0, 11, 313, 'rm-w-val');
         initKnob(host, 'rm-s-mount', 'LFO SPEED [311]', g(311, 50), 0, 200, 311, 'rm-s-val');
         initKnob(host, 'rm-d-mount', 'LFO DEPTH [312]', g(312, 32), 0, 127, 312, 'rm-d-val');
-        initKnob(host, 'rm-x-mount', 'XOVER DELAY [315]', g(315, 0), 0, 127, 315, 'rm-x-val');
+        initKnob(host, 'rm-xt-mount', 'XOVER TIME [316]', g(316, 0), 0, 1000, 316, 'rm-xt-val', false, 'ms');
         initKnob(host, 'rm-fb-mount', 'XOVER FDBK [317]', g(317, 0), -64, 63, 317, 'rm-fb-val', true);
       } else if (algo === 3) {
         // Decimator [324..326]
@@ -592,7 +670,7 @@ export class EffectsDrawer {
         initKnob(host, 'dc-m-mount', 'MIX [324]', g(324, 64), 0, 127, 324, 'dc-m-val');
         initKnob(host, 'dc-sh-mount', 'S&H FACTOR [325]', g(325, 16), 0, 127, 325, 'dc-sh-val');
         initKnob(host, 'dc-pf-mount', 'PRE-FILTER [326]', g(326, 80), 0, 127, 326, 'dc-pf-val');
-      } else {
+      } else if (algo === 4) {
         // Spectral Warp [318..323]
         host.innerHTML = `
           <div style="display: grid; grid-template-columns: repeat(6, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
@@ -610,6 +688,48 @@ export class EffectsDrawer {
         initKnob(host, 'sw-dm-mount', 'DAMPING [321]', g(321, 32), 0, 127, 321, 'sw-dm-val');
         initKnob(host, 'sw-sp-mount', 'LFO SPEED [322]', g(322, 40), 0, 200, 322, 'sw-sp-val');
         initKnob(host, 'sw-dp-mount', 'LFO DEPTH [323]', g(323, 32), 0, 127, 323, 'sw-dp-val');
+      } else if (algo === 5) {
+        // Vocoder Bank [464..467]
+        host.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
+            ${renderKnobCell('voc-f-mount', 'voc-f-val', g(ParamIdx.Exp_FreqFXMacro1, 64))}
+            ${renderKnobCell('voc-ar-mount', 'voc-ar-val', g(ParamIdx.Exp_FreqFXMacro2, 50))}
+            ${renderKnobCell('voc-b-mount', 'voc-b-val', g(ParamIdx.Exp_FreqFXMacro3, 75))}
+            ${renderKnobCell('voc-m-mount', 'voc-m-val', g(ParamIdx.Exp_FreqFXMacro4, 100))}
+          </div>
+        `;
+        initKnob(host, 'voc-f-mount', 'FORMANT SHIFT [464]', g(ParamIdx.Exp_FreqFXMacro1, 64), 0, 127, ParamIdx.Exp_FreqFXMacro1, 'voc-f-val');
+        initKnob(host, 'voc-ar-mount', 'ATTACK/RELEASE [465]', g(ParamIdx.Exp_FreqFXMacro2, 50), 0, 127, ParamIdx.Exp_FreqFXMacro2, 'voc-ar-val');
+        initKnob(host, 'voc-b-mount', 'BAND COUNT [466]', g(ParamIdx.Exp_FreqFXMacro3, 75), 0, 127, ParamIdx.Exp_FreqFXMacro3, 'voc-b-val');
+        initKnob(host, 'voc-m-mount', 'WET MIX [467]', g(ParamIdx.Exp_FreqFXMacro4, 100), 0, 127, ParamIdx.Exp_FreqFXMacro4, 'voc-m-val');
+      } else if (algo === 6) {
+        // Modal Resonator [464..467]
+        host.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
+            ${renderKnobCell('res-f-mount', 'res-f-val', g(ParamIdx.Exp_FreqFXMacro1, 64))}
+            ${renderKnobCell('res-q-mount', 'res-q-val', g(ParamIdx.Exp_FreqFXMacro2, 70))}
+            ${renderKnobCell('res-d-mount', 'res-d-val', g(ParamIdx.Exp_FreqFXMacro3, 40))}
+            ${renderKnobCell('res-m-mount', 'res-m-val', g(ParamIdx.Exp_FreqFXMacro4, 80))}
+          </div>
+        `;
+        initKnob(host, 'res-f-mount', 'FREQUENCY [464]', g(ParamIdx.Exp_FreqFXMacro1, 64), 0, 127, ParamIdx.Exp_FreqFXMacro1, 'res-f-val');
+        initKnob(host, 'res-q-mount', 'RESONANCE Q [465]', g(ParamIdx.Exp_FreqFXMacro2, 70), 0, 127, ParamIdx.Exp_FreqFXMacro2, 'res-q-val');
+        initKnob(host, 'res-d-mount', 'DAMPING [466]', g(ParamIdx.Exp_FreqFXMacro3, 40), 0, 127, ParamIdx.Exp_FreqFXMacro3, 'res-d-val');
+        initKnob(host, 'res-m-mount', 'MIX [467]', g(ParamIdx.Exp_FreqFXMacro4, 80), 0, 127, ParamIdx.Exp_FreqFXMacro4, 'res-m-val');
+      } else if (algo === 7) {
+        // Mood Filter [464..467]
+        host.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
+            ${renderKnobCell('mf-c-mount', 'mf-c-val', g(ParamIdx.Exp_FreqFXMacro1, 80))}
+            ${renderKnobCell('mf-r-mount', 'mf-r-val', g(ParamIdx.Exp_FreqFXMacro2, 60))}
+            ${renderKnobCell('mf-d-mount', 'mf-d-val', g(ParamIdx.Exp_FreqFXMacro3, 30))}
+            ${renderKnobCell('mf-m-mount', 'mf-m-val', g(ParamIdx.Exp_FreqFXMacro4, 50))}
+          </div>
+        `;
+        initKnob(host, 'mf-c-mount', 'CUTOFF [464]', g(ParamIdx.Exp_FreqFXMacro1, 80), 0, 127, ParamIdx.Exp_FreqFXMacro1, 'mf-c-val');
+        initKnob(host, 'mf-r-mount', 'RESONANCE [465]', g(ParamIdx.Exp_FreqFXMacro2, 60), 0, 127, ParamIdx.Exp_FreqFXMacro2, 'mf-r-val');
+        initKnob(host, 'mf-d-mount', 'OVERDRIVE [466]', g(ParamIdx.Exp_FreqFXMacro3, 30), 0, 127, ParamIdx.Exp_FreqFXMacro3, 'mf-d-val');
+        initKnob(host, 'mf-m-mount', 'LFO/ENV MOD [467]', g(ParamIdx.Exp_FreqFXMacro4, 50), 0, 127, ParamIdx.Exp_FreqFXMacro4, 'mf-m-val');
       }
       bindAllSlidersAndToggles(host);
     };
@@ -641,7 +761,7 @@ export class EffectsDrawer {
         initKnob(host, 'lrd-m-mount', 'MIX [333]', g(333, 50), 0, 127, 333, 'lrd-m-val');
         initKnob(host, 'lrd-t-mount', 'DELAY TIME [334]', g(334, 350), 0, 1000, 334, 'lrd-t-val', false, 'ms');
         initKnob(host, 'lrd-fb-mount', 'FEEDBACK [335]', g(335, 25), -64, 63, 335, 'lrd-fb-val', true);
-      } else {
+      } else if (algo >= 2 && algo <= 4) {
         // Flanger (2: [336..341]), Phaser (3: [342..347]), Chorus (4: [348..354])
         const base = algo === 2 ? 336 : (algo === 3 ? 342 : 348);
         const isChorus = algo === 4;
@@ -669,6 +789,48 @@ export class EffectsDrawer {
         if (isChorus) {
           initKnob(host, 'tfx-pd-mount', 'PRE-DELAY [354]', g(354, 25), 0, 127, 354, 'tfx-pd-val');
         }
+      } else if (algo === 5) {
+        // Solina Ensemble [469..472]
+        host.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
+            ${renderKnobCell('sol-r-mount', 'sol-r-val', g(ParamIdx.Exp_TimeFXMacro1, 50))}
+            ${renderKnobCell('sol-d-mount', 'sol-d-val', g(ParamIdx.Exp_TimeFXMacro2, 64))}
+            ${renderKnobCell('sol-s-mount', 'sol-s-val', g(ParamIdx.Exp_TimeFXMacro3, 75))}
+            ${renderKnobCell('sol-m-mount', 'sol-m-val', g(ParamIdx.Exp_TimeFXMacro4, 64))}
+          </div>
+        `;
+        initKnob(host, 'sol-r-mount', 'LFO RATE [469]', g(ParamIdx.Exp_TimeFXMacro1, 50), 0, 127, ParamIdx.Exp_TimeFXMacro1, 'sol-r-val');
+        initKnob(host, 'sol-d-mount', 'DEPTH [470]', g(ParamIdx.Exp_TimeFXMacro2, 64), 0, 127, ParamIdx.Exp_TimeFXMacro2, 'sol-d-val');
+        initKnob(host, 'sol-s-mount', 'SPREAD [471]', g(ParamIdx.Exp_TimeFXMacro3, 75), 0, 127, ParamIdx.Exp_TimeFXMacro3, 'sol-s-val');
+        initKnob(host, 'sol-m-mount', 'MIX [472]', g(ParamIdx.Exp_TimeFXMacro4, 64), 0, 127, ParamIdx.Exp_TimeFXMacro4, 'sol-m-val');
+      } else if (algo === 6) {
+        // Rotary Speaker Leslie 122 [469..472]
+        host.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
+            ${renderKnobCell('rot-s-mount', 'rot-s-val', g(ParamIdx.Exp_TimeFXMacro1, 0))}
+            ${renderKnobCell('rot-b-mount', 'rot-b-val', g(ParamIdx.Exp_TimeFXMacro2, 64))}
+            ${renderKnobCell('rot-d-mount', 'rot-d-val', g(ParamIdx.Exp_TimeFXMacro3, 50))}
+            ${renderKnobCell('rot-a-mount', 'rot-a-val', g(ParamIdx.Exp_TimeFXMacro4, 64))}
+          </div>
+        `;
+        initKnob(host, 'rot-s-mount', 'SPEED (SLOW/FAST) [469]', g(ParamIdx.Exp_TimeFXMacro1, 0), 0, 127, ParamIdx.Exp_TimeFXMacro1, 'rot-s-val');
+        initKnob(host, 'rot-b-mount', 'HORN/ROTOR BAL [470]', g(ParamIdx.Exp_TimeFXMacro2, 64), 0, 127, ParamIdx.Exp_TimeFXMacro2, 'rot-b-val');
+        initKnob(host, 'rot-d-mount', 'MIC DISTANCE [471]', g(ParamIdx.Exp_TimeFXMacro3, 50), 0, 127, ParamIdx.Exp_TimeFXMacro3, 'rot-d-val');
+        initKnob(host, 'rot-a-mount', 'ACCELERATION [472]', g(ParamIdx.Exp_TimeFXMacro4, 64), 0, 127, ParamIdx.Exp_TimeFXMacro4, 'rot-a-val');
+      } else if (algo === 7) {
+        // Nimbus Granular Cloud [469..472]
+        host.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); justify-items: center; align-items: start; gap: var(--space-2); padding: var(--space-2) 0;">
+            ${renderKnobCell('nim-s-mount', 'nim-s-val', g(ParamIdx.Exp_TimeFXMacro1, 64))}
+            ${renderKnobCell('nim-d-mount', 'nim-d-val', g(ParamIdx.Exp_TimeFXMacro2, 70))}
+            ${renderKnobCell('nim-p-mount', 'nim-p-val', g(ParamIdx.Exp_TimeFXMacro3, 64))}
+            ${renderKnobCell('nim-m-mount', 'nim-m-val', g(ParamIdx.Exp_TimeFXMacro4, 64))}
+          </div>
+        `;
+        initKnob(host, 'nim-s-mount', 'GRAIN SIZE [469]', g(ParamIdx.Exp_TimeFXMacro1, 64), 0, 127, ParamIdx.Exp_TimeFXMacro1, 'nim-s-val');
+        initKnob(host, 'nim-d-mount', 'DENSITY [470]', g(ParamIdx.Exp_TimeFXMacro2, 70), 0, 127, ParamIdx.Exp_TimeFXMacro2, 'nim-d-val');
+        initKnob(host, 'nim-p-mount', 'PITCH SHIFT [471]', g(ParamIdx.Exp_TimeFXMacro3, 64), 0, 127, ParamIdx.Exp_TimeFXMacro3, 'nim-p-val');
+        initKnob(host, 'nim-m-mount', 'MIX/FEEDBACK [472]', g(ParamIdx.Exp_TimeFXMacro4, 64), 0, 127, ParamIdx.Exp_TimeFXMacro4, 'nim-m-val');
       }
       bindAllSlidersAndToggles(host);
     };
@@ -722,7 +884,12 @@ export class EffectsDrawer {
         freqAlgoContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((c) => c.classList.remove('active'));
         btn.classList.add('active');
         const algo = parseInt(algoStr || '0', 10);
-        WebBridge.setParam(ParamIdx.CurFreqFX, algo);
+        if (isExpanded) {
+          WebBridge.setParam(ParamIdx.Exp_FreqFXAlg, algo);
+          if (algo < 5) WebBridge.setParam(ParamIdx.CurFreqFX, algo);
+        } else {
+          WebBridge.setParam(ParamIdx.CurFreqFX, algo);
+        }
         renderFreqSubpanel(algo);
       }, 'data-freqalgo');
     }
@@ -733,7 +900,12 @@ export class EffectsDrawer {
         timeAlgoContainer.querySelectorAll('.abd-pill, .ndb-chip').forEach((c) => c.classList.remove('active'));
         btn.classList.add('active');
         const algo = parseInt(algoStr || '0', 10);
-        WebBridge.setParam(ParamIdx.CurTimeFX, algo);
+        if (isExpanded) {
+          WebBridge.setParam(ParamIdx.Exp_TimeFXAlg, algo);
+          if (algo < 5) WebBridge.setParam(ParamIdx.CurTimeFX, algo);
+        } else {
+          WebBridge.setParam(ParamIdx.CurTimeFX, algo);
+        }
         renderTimeSubpanel(algo);
       }, 'data-timealgo');
     }
@@ -855,6 +1027,34 @@ export class EffectsDrawer {
     initMfxKnob('mfx-rev-damp-mount', 'HF DAMP [442]', curRevDamp, 0, 127, ParamIdx.SoundMFXRevHFDamp, 'mfx-rev-damp-val');
     initMfxKnob('mfx-rev-detune-mount', 'DETUNE [443]', curRevDetune, 0, 127, ParamIdx.SoundMFXRevDetune, 'mfx-rev-detune-val');
     initMfxKnob('mfx-rev-speed-mount', 'MOD SPEED [444]', curRevSpeed, 0, 200, ParamIdx.SoundMFXRevSpeed, 'mfx-rev-speed-val');
+
+    // Expanded Master Selectors & Knobs [473..478]
+    if (isExpanded) {
+      const delayAlgoGroup = root.querySelector('#mfx-delay-algo-group') as HTMLElement | null;
+      if (delayAlgoGroup) {
+        bindPillSelector(delayAlgoGroup, (algoStr, btn) => {
+          delayAlgoGroup.querySelectorAll('.abd-pill, .ndb-chip').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const algo = parseInt(algoStr || '0', 10);
+          WebBridge.setParam(ParamIdx.Exp_MasterDelayAlg, algo);
+        }, 'data-mdelayalgo');
+      }
+
+      const revAlgoGroup = root.querySelector('#mfx-reverb-algo-group') as HTMLElement | null;
+      if (revAlgoGroup) {
+        bindPillSelector(revAlgoGroup, (algoStr, btn) => {
+          revAlgoGroup.querySelectorAll('.abd-pill, .ndb-chip').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const algo = parseInt(algoStr || '0', 10);
+          WebBridge.setParam(ParamIdx.Exp_MasterRevAlg, algo);
+        }, 'data-mrevalgo');
+      }
+
+      initMfxKnob('mfx-exp-m1-mount', 'MACRO 1 [475]', Math.round(WebBridge.getParam(ParamIdx.Exp_MasterFXMacro1, 64)), 0, 127, ParamIdx.Exp_MasterFXMacro1, 'mfx-exp-m1-val');
+      initMfxKnob('mfx-exp-m2-mount', 'MACRO 2 [476]', Math.round(WebBridge.getParam(ParamIdx.Exp_MasterFXMacro2, 64)), 0, 127, ParamIdx.Exp_MasterFXMacro2, 'mfx-exp-m2-val');
+      initMfxKnob('mfx-exp-m3-mount', 'MACRO 3 [477]', Math.round(WebBridge.getParam(ParamIdx.Exp_MasterFXMacro3, 64)), 0, 127, ParamIdx.Exp_MasterFXMacro3, 'mfx-exp-m3-val');
+      initMfxKnob('mfx-exp-m4-mount', 'MACRO 4 [478]', Math.round(WebBridge.getParam(ParamIdx.Exp_MasterFXMacro4, 64)), 0, 127, ParamIdx.Exp_MasterFXMacro4, 'mfx-exp-m4-val');
+    }
 
 
     // ── Filtro / Navegación rápida entre bloques ────────────

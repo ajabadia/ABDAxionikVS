@@ -219,6 +219,8 @@ describe('UI Controls Connectivity & DSP Dispatch Audit', () => {
     const outLPtr = wasmExports.malloc(128 * 4);
     const outRPtr = wasmExports.malloc(128 * 4);
 
+    // Restaurar preset inicial para tener envolventes y niveles nominales
+    wasmExports.axionik_init_preset(dspHandle);
     wasmExports.axionik_note_on(dspHandle, 60, 0.9);
 
     // Estado A: Filtro totalmente abierto (Cutoff = 127)

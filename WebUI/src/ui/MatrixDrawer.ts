@@ -89,13 +89,154 @@ export const ALL_63_MOD_DESTINATIONS = [
   { id: 62, label: '62: Filter Resonance [275]' },
 ];
 
+export const ALL_131_FREE_DESTINATIONS = [
+  { id: 3000, label: '00: Off / None', paramIdx: null },
+  { id: 3001, label: '01: Sound Pan [3]', paramIdx: 3 },
+  { id: 3002, label: '02: LFO Depth [257]', paramIdx: 257 },
+  { id: 3003, label: '03: LFO Rate [258]', paramIdx: 258 },
+  { id: 3004, label: '04: LFO Delay [259]', paramIdx: 259 },
+  { id: 3005, label: '05: R1 Volume [27]', paramIdx: 27 },
+  { id: 3006, label: '06: R1 L1 Scape 1/3 [52]', paramIdx: 52 },
+  { id: 3007, label: '07: R1 L1 Scape 2/4 [53]', paramIdx: 53 },
+  { id: 3008, label: '08: R1 L1 Sphere 1/3 [42]', paramIdx: 42 },
+  { id: 3009, label: '09: R1 L1 Sphere 2/4 [43]', paramIdx: 43 },
+  { id: 3010, label: '10: R1 L2 Scape 1/3 [72]', paramIdx: 72 },
+  { id: 3011, label: '11: R1 L2 Scape 2/4 [73]', paramIdx: 73 },
+  { id: 3012, label: '12: R1 L2 Sphere 1/3 [62]', paramIdx: 62 },
+  { id: 3013, label: '13: R1 L2 Sphere 2/4 [63]', paramIdx: 63 },
+  { id: 3014, label: '14: R1 L3 Scape 1/3 [92]', paramIdx: 92 },
+  { id: 3015, label: '15: R1 L3 Scape 2/4 [93]', paramIdx: 93 },
+  { id: 3016, label: '16: R1 L3 Sphere 1/3 [82]', paramIdx: 82 },
+  { id: 3017, label: '17: R1 L3 Sphere 2/4 [83]', paramIdx: 83 },
+  { id: 3018, label: '18: R2 Volume [107]', paramIdx: 107 },
+  { id: 3019, label: '19: R2 L1 Scape 1/3 [132]', paramIdx: 132 },
+  { id: 3020, label: '20: R2 L1 Scape 2/4 [133]', paramIdx: 133 },
+  { id: 3021, label: '21: R2 L1 Sphere 1/3 [122]', paramIdx: 122 },
+  { id: 3022, label: '22: R2 L1 Sphere 2/4 [123]', paramIdx: 123 },
+  { id: 3023, label: '23: R2 L2 Scape 1/3 [152]', paramIdx: 152 },
+  { id: 3024, label: '24: R2 L2 Scape 2/4 [153]', paramIdx: 153 },
+  { id: 3025, label: '25: R2 L2 Sphere 1/3 [142]', paramIdx: 142 },
+  { id: 3026, label: '26: R2 L2 Sphere 2/4 [143]', paramIdx: 143 },
+  { id: 3027, label: '27: R2 L3 Scape 1/3 [172]', paramIdx: 172 },
+  { id: 3028, label: '28: R2 L3 Scape 2/4 [173]', paramIdx: 173 },
+  { id: 3029, label: '29: R2 L3 Sphere 1/3 [162]', paramIdx: 162 },
+  { id: 3030, label: '30: R2 L3 Sphere 2/4 [163]', paramIdx: 163 },
+  { id: 3031, label: '31: Blender Amount [262]', paramIdx: 262 },
+  { id: 3032, label: '32: Slicer Depth [268]', paramIdx: 268 },
+  { id: 3033, label: '33: Slicer Rate [269]', paramIdx: 269 },
+  { id: 3034, label: '34: Filter Cutoff [274]', paramIdx: 274 },
+  { id: 3035, label: '35: Filter Resonance [275]', paramIdx: 275 },
+  { id: 3036, label: '36: EQ LowShelf Gain [287]', paramIdx: 287 },
+  { id: 3037, label: '37: EQ LowShelf Freq [288]', paramIdx: 288 },
+  { id: 3038, label: '38: EQ LowShelf Slope [289]', paramIdx: 289 },
+  { id: 3039, label: '39: EQ B1 Gain [291]', paramIdx: 291 },
+  { id: 3040, label: '40: EQ B1 Freq [292]', paramIdx: 292 },
+  { id: 3041, label: '41: EQ B1 Q [293]', paramIdx: 293 },
+  { id: 3042, label: '42: EQ B2 Gain [295]', paramIdx: 295 },
+  { id: 3043, label: '43: EQ B2 Freq [296]', paramIdx: 296 },
+  { id: 3044, label: '44: EQ B2 Q [297]', paramIdx: 297 },
+  { id: 3045, label: '45: EQ HighShelf Gain [299]', paramIdx: 299 },
+  { id: 3046, label: '46: EQ HighShelf Freq [300]', paramIdx: 300 },
+  { id: 3047, label: '47: EQ HighShelf Slope [301]', paramIdx: 301 },
+  { id: 3048, label: '48: Comp Threshold [303]', paramIdx: 303 },
+  { id: 3049, label: '49: Comp Out Gain [304]', paramIdx: 304 },
+  { id: 3050, label: '50: Comp Responsiveness [305]', paramIdx: 305 },
+  { id: 3051, label: '51: Dist In Drive [306]', paramIdx: 306 },
+  { id: 3052, label: '52: Dist Prefilter [307]', paramIdx: 307 },
+  { id: 3053, label: '53: Dist Out Vol [309]', paramIdx: 309 },
+  { id: 3054, label: '54: RingMod Mix [310]', paramIdx: 310 },
+  { id: 3055, label: '55: RingMod Speed [311]', paramIdx: 311 },
+  { id: 3056, label: '56: RingMod Depth [312]', paramIdx: 312 },
+  { id: 3057, label: '57: RingMod ModFreq [314]', paramIdx: 314 },
+  { id: 3058, label: '58: RgMd XoverDelay [315]', paramIdx: 315 },
+  { id: 3059, label: '59: RgMd XoverTime [316]', paramIdx: 316 },
+  { id: 3060, label: '60: RgMd XDlFeedback [317]', paramIdx: 317 },
+  { id: 3061, label: '61: Decim Mix [324]', paramIdx: 324 },
+  { id: 3062, label: '62: Decim SH Factor [325]', paramIdx: 325 },
+  { id: 3063, label: '63: Decim PreFltCutoff [326]', paramIdx: 326 },
+  { id: 3064, label: '64: SpWarp Mix [318]', paramIdx: 318 },
+  { id: 3065, label: '65: SpWarp Frequency [319]', paramIdx: 319 },
+  { id: 3066, label: '66: SpWarp Tilt [320]', paramIdx: 320 },
+  { id: 3067, label: '67: SpWarp Damping [321]', paramIdx: 321 },
+  { id: 3068, label: '68: SpWarp Speed [322]', paramIdx: 322 },
+  { id: 3069, label: '69: SpWarp Depth [323]', paramIdx: 323 },
+  { id: 3070, label: '70: StereoSp ChanDly [331]', paramIdx: 331 },
+  { id: 3071, label: '71: StereoSp Feedbk [332]', paramIdx: 332 },
+  { id: 3072, label: '72: LR Delay Mix [333]', paramIdx: 333 },
+  { id: 3073, label: '73: LR Delay Time [334]', paramIdx: 334 },
+  { id: 3074, label: '74: LR Dly Feedback [335]', paramIdx: 335 },
+  { id: 3075, label: '75: Flanger Mix [336]', paramIdx: 336 },
+  { id: 3076, label: '76: Flanger Depth [337]', paramIdx: 337 },
+  { id: 3077, label: '77: Flanger Speed [338]', paramIdx: 338 },
+  { id: 3078, label: '78: Flanger Feedback [340]', paramIdx: 340 },
+  { id: 3079, label: '79: Flanger StereoPh [341]', paramIdx: 341 },
+  { id: 3080, label: '80: Phaser Mix [342]', paramIdx: 342 },
+  { id: 3081, label: '81: Phaser Depth [343]', paramIdx: 343 },
+  { id: 3082, label: '82: Phaser Speed [344]', paramIdx: 344 },
+  { id: 3083, label: '83: Phaser Feedback [346]', paramIdx: 346 },
+  { id: 3084, label: '84: Phaser StereoPh [347]', paramIdx: 347 },
+  { id: 3085, label: '85: Chorus Mix [348]', paramIdx: 348 },
+  { id: 3086, label: '86: Chorus Depth [349]', paramIdx: 349 },
+  { id: 3087, label: '87: Chorus Speed [350]', paramIdx: 350 },
+  { id: 3088, label: '88: Chorus Feedback [352]', paramIdx: 352 },
+  { id: 3089, label: '89: Chorus StereoPh [353]', paramIdx: 353 },
+  { id: 3090, label: '90: Chorus PreDelay [354]', paramIdx: 354 },
+  { id: 3091, label: '91: S1 Resy Env Att [182]', paramIdx: 182 },
+  { id: 3092, label: '92: S1 Resy Env Dec [183]', paramIdx: 183 },
+  { id: 3093, label: '93: S1 Resy Env Sust [184]', paramIdx: 184 },
+  { id: 3094, label: '94: S1 Resy Env Rel [185]', paramIdx: 185 },
+  { id: 3095, label: '95: S1 Amp Env Att [200]', paramIdx: 200 },
+  { id: 3096, label: '96: S1 Amp Env Dec [201]', paramIdx: 201 },
+  { id: 3097, label: '97: S1 Amp Env Sust [202]', paramIdx: 202 },
+  { id: 3098, label: '98: S1 Amp Env Rel [203]', paramIdx: 203 },
+  { id: 3099, label: '99: S1 Free Env Att [205]', paramIdx: 205 },
+  { id: 3100, label: '100: S1 Free Env Dec [206]', paramIdx: 206 },
+  { id: 3101, label: '101: S1 Free Env Sust [207]', paramIdx: 207 },
+  { id: 3102, label: '102: S1 Free Env Rel [208]', paramIdx: 208 },
+  { id: 3103, label: '103: S1 Free Env Depth [210]', paramIdx: 210 },
+  { id: 3104, label: '104: S2 Resy Env Att [212]', paramIdx: 212 },
+  { id: 3105, label: '105: S2 Resy Env Dec [213]', paramIdx: 213 },
+  { id: 3106, label: '106: S2 Resy Env Sust [214]', paramIdx: 214 },
+  { id: 3107, label: '107: S2 Resy Env Rel [215]', paramIdx: 215 },
+  { id: 3108, label: '108: S2 Amp Env Att [230]', paramIdx: 230 },
+  { id: 3109, label: '109: S2 Amp Env Dec [231]', paramIdx: 231 },
+  { id: 3110, label: '110: S2 Amp Env Sust [232]', paramIdx: 232 },
+  { id: 3111, label: '111: S2 Amp Env Rel [233]', paramIdx: 233 },
+  { id: 3112, label: '112: S2 Free Env Att [235]', paramIdx: 235 },
+  { id: 3113, label: '113: S2 Free Env Dec [236]', paramIdx: 236 },
+  { id: 3114, label: '114: S2 Free Env Sust [237]', paramIdx: 237 },
+  { id: 3115, label: '115: S2 Free Env Rel [238]', paramIdx: 238 },
+  { id: 3116, label: '116: S2 Free Env Depth [240]', paramIdx: 240 },
+  { id: 3117, label: '117: Free Env Level 1 [242]', paramIdx: 242 },
+  { id: 3118, label: '118: Free Env Time 1 [243]', paramIdx: 243 },
+  { id: 3119, label: '119: Free Env Level 2 [244]', paramIdx: 244 },
+  { id: 3120, label: '120: Free Env Time 2 [245]', paramIdx: 245 },
+  { id: 3121, label: '121: Free Env Level 3 [246]', paramIdx: 246 },
+  { id: 3122, label: '122: Free Env Time 3 [247]', paramIdx: 247 },
+  { id: 3123, label: '123: Free Env Level 4 [248]', paramIdx: 248 },
+  { id: 3124, label: '124: Free Env Time 4 [249]', paramIdx: 249 },
+  { id: 3125, label: '125: LevelTime Env Depth [251]', paramIdx: 251 },
+  { id: 3126, label: '126: Filter Env Att [355]', paramIdx: 355 },
+  { id: 3127, label: '127: Filter Env Dec [356]', paramIdx: 356 },
+  { id: 3128, label: '128: Filter Env Sust [357]', paramIdx: 357 },
+  { id: 3129, label: '129: Filter Env Rel [358]', paramIdx: 358 },
+  { id: 3130, label: '130: Filter Env Depth [360]', paramIdx: 360 },
+];
+
 export function getModDestinationLabel(destId: number): string {
   if (destId === 3000 || destId === undefined || destId === null) return 'Off';
+  if (destId >= 3001 && destId <= 3130) {
+    const foundFree = ALL_131_FREE_DESTINATIONS.find((d) => d.id === destId);
+    if (foundFree) {
+      return foundFree.label.replace(/^\d+:\s*/, '').replace(/\s*\[\d+\]$/, '');
+    }
+  }
   const normId = destId >= 3001 ? destId - 3001 : destId;
   const found = ALL_63_MOD_DESTINATIONS.find((d) => d.id === normId);
   if (!found) return 'Off';
   return found.label.replace(/^\d+:\s*/, '').replace(/\s*\[\d+\]$/, '');
 }
+
 
 /**
  * Extracts the authoritative snddat parameter index [0..444] from a 0..62 modulation destination ID.
@@ -150,13 +291,12 @@ export class MatrixDrawer {
       }).join('');
 
     const buildFreeDestOptions = (selectedVal: number) => {
-      const isOff = selectedVal === 3000 || selectedVal === 0;
-      let opts = `<option value="3000" ${isOff ? 'selected' : ''}>-- Off / None --</option>`;
-      ALL_63_MOD_DESTINATIONS.forEach((d) => {
-        const val = 3001 + d.id;
-        const isSelected = selectedVal === val || selectedVal === d.id;
-        const cleanLabel = d.label.replace(/^\d+:\s*/, '').replace(/\s*\[\d+\]$/, '');
-        opts += `<option value="${val}" title="${d.label}" ${isSelected ? 'selected' : ''}>${cleanLabel}</option>`;
+      const isOff = selectedVal === 3000 || selectedVal === 0 || selectedVal === undefined || selectedVal === null;
+      let opts = `<option value="3000" ${isOff ? 'selected' : ''}>00: -- Off / None --</option>`;
+      ALL_131_FREE_DESTINATIONS.forEach((d) => {
+        if (d.id === 3000) return;
+        const isSelected = selectedVal === d.id;
+        opts += `<option value="${d.id}" title="${d.label}" ${isSelected ? 'selected' : ''}>${d.label}</option>`;
       });
       return opts;
     };
