@@ -364,3 +364,40 @@ Además del mapa del hardware físico (donde `CC 20/21` y `CC 35/36` mueven el S
    - En `TrajectoryStick2D` (`ABDShared`) incluiremos el selector de mapeo geométrico **`Inner Circle` / `Outer Circle` / `Square`**, de modo que al arrastrar el cursor dentro del anillo circular se puedan alcanzar el 100 % de las esquinas `(0,0)..(127,127)` del espacio de parámetros.
 2. **Física Balística Opcional (`Attraction / Spring`, `Friction`, `Hold`) y Botones `Reset (64,64)` / `Mutate` / `Randomize` (`MYELIN`)**:
    - En `MYELIN`, cada Stick tiene un botón **`Reset`** (centra en `64, 64`), modo **`Spring/Attraction`** (vuelve elásticamente al centro al soltar el ratón, ideal para articulaciones expresivas momentáneas) vs **`Hold`** (se queda fijo donde lo sueltas), y botones **`Mutate`** (pequeña variación aleatoria orgánica de los ejes Sphere/Scape) y **`Randomize`**. Incorporaremos estas funciones directamente en `TrajectoryStick2D` y en las cabeceras de `R1`, `R2` y `Silver`.
+
+---
+
+## 5. Extensión de Controles para los Modos PLUS y EXPANDED (Olas 3 a 5)
+
+Para dar soporte visual completo a los motores extendidos sin romper el layout clásico ni recargar la interfaz:
+
+### 5.1 Selector Global de Modo en Cabecera (`Navbar`)
+- Píldoras conmutables: `CLASSIC` | `PLUS` | `EXPANDED`.
+- En `CLASSIC`: Modo 100% Neuron histórico (parámetros `0..444`). Se ocultan controles v2.
+- En `PLUS`: Filtros ZDF y algoritmos pro en Silver & Master FX.
+- En `EXPANDED`: Despliega controles completos de Resynator v2 y el rack modular extendido.
+
+### 5.2 Controles de Resynator v2 (`[445..462]`)
+- Integrados de forma condicional en `ResynatorDrawer.ts` y en las tarjetas principales de R1 y R2 cuando el modo activo es `EXPANDED`:
+  - Selector de Tipo de Resíntesis (`ResyType` `[445]`/`[454]`).
+  - Parciales Máximos (`MaxPartials` `[446]`/`[455]`, 1..512).
+  - Escala Bark (`BarkScale` `[447]`/`[456]`).
+  - Estiramiento Armónico (`HarmonicStretch` `[448]`/`[457]`).
+  - Inclinación Espectral (`SpectralTilt` `[449]`/`[458]`).
+  - Acoplamiento Morfológico (`MorphCoupling` `[450]`/`[459]`).
+  - Nivel de Residuo Bark DDSP (`ResidualLevel` `[451]`/`[460]`).
+  - Ganancia de Transitorios Híbridos (`TransientGain` `[452]`/`[461]`).
+  - Apertura Espacial Stereo/Quad (`Spread` `[453]`/`[462]`).
+
+### 5.3 Rack de Efectos EXPANDED (`[463..478]`)
+- **`SilverPanel.ts`**:
+  - En `EXPANDED`, los selectores de FreqFX y TimeFX aumentan dinámicamente de 5 a 8 opciones:
+    - FreqFX: `0..4` clásicos + `5 Vocoder`, `6 Resonator`, `7 MoodFilter`.
+    - TimeFX: `0..4` clásicos + `5 Solina`, `6 Rotary`, `7 Nimbus`.
+- **`EffectsDrawer.ts`**:
+  - Subpaneles dedicados con perillas de macros `[464..467]` y `[469..472]` para los algoritmos 5..7.
+  - Bloque Master FX ampliado con selectores de algoritmo:
+    - Master Delay (`[473]`): `0 Tape`, `1 Shimmer Delay`, `2 MultiHead Echo`.
+    - Master Reverb (`[474]`): `0 FDN Reverb`, `1 Zita Reverb`.
+    - 4 Controles Macro Master (`[475..478]`).
+

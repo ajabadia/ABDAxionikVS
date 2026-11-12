@@ -598,5 +598,33 @@ Se auditó el trabajo generado en la conversación paralela sobre `NeuronVS_port
   - [`ABDShared/Code/DspCore/NeuronVS/NeuronVoicePool.h`](../../ABDShared/Code/DspCore/NeuronVS/NeuronVoicePool.h) y [`Source/DSP/DspEngineFacade.cpp`](../Source/DSP/DspEngineFacade.cpp): conexión en tiempo real de `R1AmpEnvMode`, `R2AmpEnvMode`, `FilterEnvMode`, `R1ResEnvMode` y `R2ResEnvMode` desde `SlotIdx`.
   - [`WebUI/src/ui/ShapersPanel.ts`](../WebUI/src/ui/ShapersPanel.ts) y [`WebUI/src/ui/TopLcdBar.ts`](../WebUI/src/ui/TopLcdBar.ts): sincronización visual inmediata de los botones `NORM` / `REP`, soporte completo del modo `FREE` (`[209]` y `[239]`), indicador `· NORM` / `· REP ↻` en el badge de cada Shaper y representación gráfica del ciclo de repetición (`↻`) en las 7 mini-pantallas LCD ADSR `66×22 px`.
 
+---
+
+## 12. Extensiones DSP Modernas: Modos PLUS y EXPANDED (Olas 3 a 5)
+
+En adición a la recreación bit a bit del Hartmann Neuron clásico (`CLASSIC`, parámetros `0..444`), ABDAxionikVS incorpora dos niveles de motor extendido:
+
+### 12.1 Modo PLUS (Ola 3)
+- **Filtros de Voz ZDF (Zero-Delay Feedback)**: Topologías de modelado analógico sin latencia de muestreo implementadas en `ABDShared::DspEffects::DspAxionikPlusVoiceFilter`.
+- **Efectos Pro Equivalentes**: Rack `DspAxionikPlusRack` con emulaciones de alta gama para los 5 FreqFX y 5 TimeFX clásicos.
+
+### 12.2 Modo EXPANDED (Olas 4 y 5)
+- **Resynator v2**: Parámetros APVTS `[445..462]` para R1 y R2 (tipo de resíntesis, parciales máximos hasta 512, escala Bark, armónicos, tilt espectral, acoplamiento morfológico, residuo estocástico DDSP, ganancia de transitorios y apertura estéreo).
+- **Rack de Efectos Expandido (16 Parámetros APVTS `[463..478]`)**:
+  - `Exp_FreqFXAlg [463]` + 4 Macros `[464..467]`:
+    - `0..4`: Algoritmos clásicos / plus.
+    - `5`: `DspVocoderBank<24>` (banco de 24 filtros paso banda con seguidores de envolvente).
+    - `6`: `DspResonator` (banco de resonadores de banda estrecha sintonizados).
+    - `7`: `DspMoodFilter` (filtro ladder tipo Moog con saturación térmica no lineal).
+  - `Exp_TimeFXAlg [468]` + 4 Macros `[469..472]`:
+    - `0..4`: Algoritmos clásicos / plus.
+    - `5`: `DspSolinaEnsemble` (triple línea de retardo con BBD BPF cruzados).
+    - `6`: `DspRotarySpeaker` (simulación física de bocina y tambor Doppler con aceleración inercial).
+    - `7`: `DspNimbus` (nube granular estocástica con dispersión temporal y de tono).
+  - `Exp_MasterDelayAlg [473]`, `Exp_MasterRevAlg [474]` + 4 Macros `[475..478]`:
+    - Master Delay: `0` Tape Delay, `1` `DspShimmerDelay` (retardo con realimentación de octava arriba), `2` `MultiHeadEcho` (eco multi-cabezal con patrones rítmicos).
+    - Master Reverb: `0` `DspFdnReverb` (reverb híbrida), `1` `DspZitaReverb` (FDN de 8 líneas con difusores acoplados y ecualización de decaimiento multibanda).
+
+
 
 
