@@ -17,12 +17,14 @@
 #include "NeuronBankAdapter.h"
 #include "VoicePool.h"
 #include "BlockRenderer.h"
-#include "StickPlayer.h"
+#include <SynthCore/StickPlayer.h>
 #include "Extended/AxionikExpandedSynthesizer.h"
 #include <Scope/Source/Core/ScopeTap.h>
 #include <functional>
 
 namespace abd::axionik {
+
+using StickPlayer = abdsynth::core::StickPlayer;
 
 class DspEngineFacade {
 public:

@@ -23,16 +23,11 @@
 #include <iomanip>
 #include "Generated/ParameterRegistry.gen.h"
 #include "Generated/Conversion.gen.h"
+#include <SynthCore/StickPlayer.h>
 
 namespace abd::axionik {
 
-/// Evento de animación vectorial de joystick (sound.stickrec)
-struct StickRecEvent {
-    uint16_t time{0};     ///< Marca de tiempo monotónica en ticks/ms (0x0000..0xFFFF)
-    uint8_t  flag{0};     ///< Flag de transición/borde (4 bits, 0 o 1)
-    uint8_t  control{0};  ///< Identificador de stick/eje (4 bits, 0..7)
-    uint16_t value{0};    ///< Valor 12-bit de posición (0x000..0xFFF, 0x200 = centro 512)
-};
+using StickRecEvent = abdsynth::core::StickRecEvent;
 
 /// Preset de sonido completo de Hartmann Neuron (sound.script + sound.stickrec)
 struct SoundPreset {

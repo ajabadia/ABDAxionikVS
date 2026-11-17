@@ -126,6 +126,12 @@ void DspEngineFacade::prepare(double sampleRate, size_t maxBlockSize) {
   blockRenderer_.setUsePlusRack(isPlus);
   blockRenderer_.setUseExpandedRack(isExpanded);
   stickPlayer_.prepare(sampleRate_);
+  stickPlayer_.setControlMapping({
+      ParamIdx::R1L1Scape1Value, ParamIdx::R1L1Scape2Value,
+      ParamIdx::R1L1Sphere1Value, ParamIdx::R1L1Sphere2Value,
+      ParamIdx::R2L1Scape1Value, ParamIdx::R2L1Scape2Value,
+      ParamIdx::R2L1Sphere1Value, ParamIdx::R2L1Sphere2Value
+  });
   expandedSynths_[0].prepare(sampleRate_, maxBlockSize_);
   expandedSynths_[1].prepare(sampleRate_, maxBlockSize_);
   syncCalibrationToSubsystems();
